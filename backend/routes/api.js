@@ -114,7 +114,7 @@ module.exports = (io) => {
         userId:    req.user.id,
         location:  { lat: latNum, lng: lngNum },
         placeName: placeName,
-        message:   `🌤 ${weatherData.weather}  ${weatherData.temp !== null ? weatherData.temp + '°C' : ''}  — ${message || ''}`,
+        message:   `🌤 ${weatherData.weather}  ${weatherData.temp !== null ? weatherData.temp + '°C' : ''}\n${message || ''}`,
         photoUrl:  req.cloudinaryUrl || '',
       });
 

@@ -44,7 +44,7 @@ function buildClusterHtml(footprints) {
   const items = footprints.slice(0, 6).map((fp) => {
     const name = fp.userId?.name || '?';
     const time = new Date(fp.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    const msg = (fp.message || '').replace(/🌤.*?— /, '').slice(0, 40);
+    const msg = (fp.message || '').replace(/🌤[^\n]*\n/, '').slice(0, 40);
     return `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:12px">
       <strong>${name}</strong> <span style="color:#9ca3af">${time}</span>
       <br/><span style="color:#6b7280">📍 ${fp.placeName || '?'}</span>
