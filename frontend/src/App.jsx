@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { io } from 'socket.io-client';
 import api from './api';
-import { getUser, getToken, clearAuth } from './auth';
+import { getUser, getToken, clearAuth, saveAuth } from './auth';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -118,7 +118,15 @@ export default function App() {
   useEffect(() => {
     const saved = getUser();
     if (saved && getToken()) {
-      setUser(saved);
+      // Refresh user from server to get latest role
+      api.get('/api/auth/me').then((res) => {
+        const u = res.data.user;
+        setUser(u);
+        saveAuth({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl, role: u.role }, getToken());
+      }).catch(() => {
+        clearAuth();
+        setUser(null);
+      });
     } else {
       clearAuth();
     }
