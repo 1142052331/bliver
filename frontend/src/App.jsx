@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { io } from 'socket.io-client';
 import api from './api';
+import { getUser, getToken, clearAuth } from './auth';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { MapPin } from 'lucide-react';
+import { MapPin, Heart } from 'lucide-react';
 
 import NavBar from './components/NavBar';
+import AuthModal from './components/AuthModal';
 import CheckInModal from './components/CheckInModal';
 import TimelineDrawer from './components/TimelineDrawer';
 
@@ -33,7 +35,10 @@ function RecenterOnLoad({ footprints }) {
   return null;
 }
 
-function FootprintPopupContent({ fp }) {
+function FootprintPopupContent({ fp, userId, onLike }) {
+  const liked = fp.likes?.some((l) => (l._id || l) === userId);
+  const likeCount = fp.likes?.length || 0;
+
   return (
     <div className="min-w-[200px] text-sm">
       <div className="flex items-center gap-2 mb-2">
@@ -41,7 +46,7 @@ function FootprintPopupContent({ fp }) {
           <img src={fp.userId.avatarUrl} className="w-8 h-8 rounded-full object-cover" />
         ) : (
           <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-            {fp.userId?.name?.[0] || '?'}
+            {fp.userId?.name?.[0]?.toUpperCase() || '?'}
           </div>
         )}
         <span className="font-semibold">{fp.userId?.name || 'Unknown'}</span>
@@ -51,48 +56,18 @@ function FootprintPopupContent({ fp }) {
       {fp.photoUrl && (
         <img src={fp.photoUrl} className="w-full max-h-[180px] object-cover rounded-lg mt-2" />
       )}
-    </div>
-  );
-}
-
-function UserSetup({ onDone }) {
-  const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setLoading(true);
-    const { data } = await api.post('/api/users/register', { name: name.trim() });
-    localStorage.setItem('bliver_user', JSON.stringify(data.user));
-    onDone(data.user);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600">
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl p-8 w-[340px] max-w-[90vw]">
-        <div className="flex items-center justify-center mb-6">
-          <MapPin className="w-10 h-10 text-blue-600" />
-        </div>
-        <h1 className="text-xl font-bold text-gray-800 text-center mb-2">Welcome to Bliver</h1>
-        <p className="text-sm text-gray-400 text-center mb-5">Enter your name to get started</p>
-        <input
-          autoFocus
-          className="w-full p-3 border border-gray-200 rounded-xl text-sm mb-4
-            focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          placeholder="Your name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+      {/* Like */}
+      <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-100">
         <button
-          type="submit"
-          disabled={loading || !name.trim()}
-          className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold
-            hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          onClick={(e) => { e.stopPropagation(); onLike(fp._id); }}
+          className="flex items-center gap-1 text-xs hover:scale-110 transition-transform"
         >
-          {loading ? '...' : 'Enter'}
+          <Heart className={`w-4 h-4 ${liked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
         </button>
-      </form>
+        {likeCount > 0 && (
+          <span className="text-xs text-gray-500">{likeCount}</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -106,13 +81,15 @@ export default function App() {
 
   // Restore user from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('bliver_user');
-    if (saved) {
-      setUser(JSON.parse(saved));
+    const saved = getUser();
+    if (saved && getToken()) {
+      setUser(saved);
+    } else {
+      clearAuth();
     }
   }, []);
 
-  // Fetch footprints & connect Socket when user is ready
+  // Fetch footprints & connect Socket
   useEffect(() => {
     if (!user) return;
 
@@ -123,25 +100,44 @@ export default function App() {
     const socket = io(SOCKET_URL);
     socket.emit('user:online', user._id);
 
-    socket.on('online:count', (data) => {
-      setOnlineCount(data.count);
-    });
+    socket.on('online:count', (data) => setOnlineCount(data.count));
 
     socket.on('footprint:new', (data) => {
       setFootprints((prev) => [data.footprint, ...prev]);
     });
 
+    socket.on('footprint:updated', (data) => {
+      setFootprints((prev) =>
+        prev.map((fp) => (fp._id === data.footprint._id ? data.footprint : fp))
+      );
+    });
+
     return () => { socket.disconnect(); };
   }, [user]);
 
-  if (!user) return <UserSetup onDone={setUser} />;
+  const handleLike = async (footprintId) => {
+    try {
+      const { data } = await api.post(`/api/footprints/${footprintId}/like`);
+      setFootprints((prev) =>
+        prev.map((fp) => (fp._id === data.footprint._id ? data.footprint : fp))
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleLogout = () => {
+    clearAuth();
+    setUser(null);
+    setFootprints([]);
+  };
+
+  if (!user) return <AuthModal onDone={setUser} />;
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      {/* Top Nav */}
-      <NavBar onlineCount={onlineCount} />
+      <NavBar onlineCount={onlineCount} user={user} onLogout={handleLogout} />
 
-      {/* Map */}
       <MapContainer center={CENTER} zoom={6} scrollWheelZoom className="w-full h-full">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -151,13 +147,12 @@ export default function App() {
         {footprints.map((fp) => (
           <Marker key={fp._id} position={[fp.location.lat, fp.location.lng]}>
             <Popup>
-              <FootprintPopupContent fp={fp} />
+              <FootprintPopupContent fp={fp} userId={user._id} onLike={handleLike} />
             </Popup>
           </Marker>
         ))}
       </MapContainer>
 
-      {/* Bottom floating check-in button */}
       <button
         onClick={() => setShowCheckIn(true)}
         className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-8 py-4
@@ -169,7 +164,6 @@ export default function App() {
         Check In Here
       </button>
 
-      {/* Sidebar toggle */}
       <button
         onClick={() => setShowTimeline(true)}
         className="absolute top-20 right-3 z-[1000] px-4 py-2 bg-white/80 backdrop-blur rounded-xl
@@ -179,14 +173,11 @@ export default function App() {
         Today&apos;s Journey →
       </button>
 
-      {/* Modal */}
       <CheckInModal
         isOpen={showCheckIn}
         onClose={() => setShowCheckIn(false)}
-        userId={user._id}
       />
 
-      {/* Timeline Drawer */}
       <TimelineDrawer
         isOpen={showTimeline}
         onClose={() => setShowTimeline(false)}

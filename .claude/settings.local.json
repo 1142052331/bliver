@@ -23,7 +23,18 @@
       "Bash(nslookup *)",
       "Bash(cmd.exe *)",
       "Bash(node *)",
-      "Bash(/c/Program Files/nodejs/node.exe *)"
+      "Bash(/c/Program Files/nodejs/node.exe *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(curl *)",
+      "WebFetch(domain:bliver-c3ihb8oa2-1142052331s-projects.vercel.app)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install *)",
+      "Bash(\"/c/Program Files/nodejs/npm.cmd\" install bcryptjs jsonwebtoken --save)"
     ]
   }
 }

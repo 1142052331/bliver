@@ -9,6 +9,7 @@ const footprintSchema = new mongoose.Schema({
   placeName: { type: String, default: '' },
   message:   { type: String, default: '' },
   photoUrl:  { type: String, default: '' },
+  likes:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Footprint', footprintSchema);

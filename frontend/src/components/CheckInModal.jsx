@@ -3,7 +3,7 @@ import api from '../api';
 import imageCompression from 'browser-image-compression';
 import { X, MapPin, Camera, Loader2 } from 'lucide-react';
 
-export default function CheckInModal({ isOpen, onClose, userId }) {
+export default function CheckInModal({ isOpen, onClose }) {
   const [message, setMessage] = useState('');
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState('');
@@ -45,7 +45,6 @@ export default function CheckInModal({ isOpen, onClose, userId }) {
     if (!location || location.lat == null) return;
     setLoading(true);
     const form = new FormData();
-    form.append('userId', userId);
     form.append('lat', location.lat);
     form.append('lng', location.lng);
     form.append('message', message);
