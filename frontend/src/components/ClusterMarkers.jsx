@@ -13,6 +13,7 @@ function buildPopupHtml(fp, userId, isAdmin) {
     ? `<img src="${fp.userId.avatarUrl}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;margin-right:8px;vertical-align:middle" />`
     : `<span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#3b82f6;color:#fff;text-align:center;line-height:32px;font-size:14px;font-weight:bold;margin-right:8px;vertical-align:middle">${(fp.userId?.name?.[0] || '?').toUpperCase()}</span>`;
 
+  const timeStr = new Date(fp.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   const photoHtml = fp.photoUrl
     ? `<img src="${fp.photoUrl}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-top:8px" />`
     : '';
@@ -20,16 +21,19 @@ function buildPopupHtml(fp, userId, isAdmin) {
   const likedClass = liked ? 'color:#ef4444' : 'color:#9ca3af';
 
   return `
-    <div style="min-width:220px;font-size:14px;font-family:system-ui,sans-serif">
-      <div style="display:flex;align-items:center;margin-bottom:6px">
+    <div style="min-width:240px;font-size:14px;font-family:system-ui,sans-serif">
+      <div style="display:flex;align-items:center;margin-bottom:4px">
         ${avatarHtml}
-        <strong>${fp.userId?.name || 'Unknown'}</strong>
+        <div>
+          <strong>${fp.userId?.name || 'Unknown'}</strong>
+          <span style="font-size:11px;color:#9ca3af;margin-left:6px">${timeStr}</span>
+        </div>
       </div>
-      <p style="color:#6b7280;margin:2px 0">📍 ${fp.placeName || 'Unknown'}</p>
-      <p style="color:#374151;margin:4px 0;white-space:pre-wrap">${fp.message}</p>
+      <p style="color:#6b7280;margin:2px 0;font-size:13px">📍 ${fp.placeName || 'Unknown'}</p>
+      <p style="color:#1f2937;margin:6px 0;white-space:pre-wrap;font-size:15px;line-height:1.5">${fp.message}</p>
       ${photoHtml}
       <div style="display:flex;align-items:center;gap:4px;margin-top:8px;padding-top:6px;border-top:1px solid #f3f4f6">
-        <span style="${likedClass};font-size:16px">${liked ? '❤️' : '🤍'}</span>
+        <span style="${likedClass};font-size:16px;cursor:pointer">${liked ? '❤️' : '🤍'}</span>
         ${likeCount > 0 ? `<span style="font-size:12px;color:#6b7280">${likeCount} — ${likeNames}</span>` : ''}
       </div>
     </div>

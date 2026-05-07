@@ -83,7 +83,7 @@ function WeatherTile({ visible, type }) {
     };
 
     const layer = L.tileLayer(urls[type], {
-      opacity: 0.5,
+      opacity: 0.85,
       maxZoom: 10,
     });
     layer.addTo(map);
