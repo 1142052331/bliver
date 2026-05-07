@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Bash(where npm *)",
+      "Bash(cmd.exe /c \"where npm\")",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Bash(cmd.exe /c \"dir /s /b C:\\\\node* 2>nul & dir /s /b C:\\\\*node.exe 2>nul & dir /s /b \\\\\"C:\\\\Program Files\\\\*npm.cmd\\\\\" 2>nul & dir /s /b \\\\\"%APPDATA%\\\\npm\\\\\" 2>nul & dir /s /b \\\\\"%USERPROFILE%\\\\*node*\\\\\" 2>nul\")",
+      "Bash(powershell.exe *)",
+      "Read(//c/Users/1/AppData/Roaming/**)",
+      "Read(//c/Users/1/**)",
+      "Read(//c/Users/1/AppData/Local/**)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs\")",
+      "Bash(npm install *)",
+      "Bash(npx vite *)",
+      "Bash(mkdir -p \"C:/Users/1/Desktop/Bliver/backend\")",
+      "Bash(npm init *)",
+      "Bash(timeout 5 node index.js)",
+      "Bash(npm run *)",
+      "Bash(nslookup _mongodb._tcp.cluster0.xpxmfec.mongodb.net)",
+      "Bash(dig _mongodb._tcp.cluster0.xpxmfec.mongodb.net)",
+      "Bash(nslookup *)",
+      "Bash(cmd.exe *)",
+      "Bash(node *)",
+      "Bash(/c/Program Files/nodejs/node.exe *)"
+    ]
+  }
+}

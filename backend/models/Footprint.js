@@ -1,0 +1,14 @@
+const mongoose = require('mongoose');
+
+const footprintSchema = new mongoose.Schema({
+  userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  location:  {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+  },
+  placeName: { type: String, default: '' },
+  message:   { type: String, default: '' },
+  photoUrl:  { type: String, default: '' },
+}, { timestamps: true });
+
+module.exports = mongoose.model('Footprint', footprintSchema);
