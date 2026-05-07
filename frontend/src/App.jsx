@@ -14,6 +14,7 @@ import AuthModal from './components/AuthModal';
 import CheckInModal from './components/CheckInModal';
 import TimelineDrawer from './components/TimelineDrawer';
 import ClusterMarkers from './components/ClusterMarkers';
+import MapLayers from './components/MapLayers';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -166,6 +167,7 @@ export default function App() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <RecenterOnLoad footprints={footprints} targetId={shareTarget} />
+        <MapLayers />
         <ClusterMarkers
           footprints={footprints}
           userId={user._id}
