@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Footprint = require('../models/Footprint');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
-const { auth, JWT_SECRET } = require('../middleware/auth');
+const { auth, admin, JWT_SECRET } = require('../middleware/auth');
 const { reverseGeocode } = require('../services/nominatim');
 const { getWeather } = require('../services/weather');
 
@@ -30,7 +30,7 @@ module.exports = (io) => {
       });
 
       const token = jwt.sign({ id: user._id, name: user.name }, JWT_SECRET, { expiresIn: '30d' });
-      res.status(201).json({ user: { _id: user._id, name: user.name, avatarUrl: user.avatarUrl }, token });
+      res.status(201).json({ user: { _id: user._id, name: user.name, avatarUrl: user.avatarUrl, role: user.role }, token });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -47,7 +47,7 @@ module.exports = (io) => {
       if (!match) return res.status(400).json({ error: 'Wrong password' });
 
       const token = jwt.sign({ id: user._id, name: user.name }, JWT_SECRET, { expiresIn: '30d' });
-      res.json({ user: { _id: user._id, name: user.name, avatarUrl: user.avatarUrl }, token });
+      res.json({ user: { _id: user._id, name: user.name, avatarUrl: user.avatarUrl, role: user.role }, token });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -61,6 +61,10 @@ module.exports = (io) => {
 
   // ── Footprints ────────────────────────────────────────
 
+  const populateFootprint = (q) =>
+    q.populate('userId', 'name avatarUrl isOnline role')
+     .populate('likes', 'name avatarUrl');
+
   // GET /api/footprints/today
   router.get('/footprints/today', async (req, res) => {
     try {
@@ -69,11 +73,22 @@ module.exports = (io) => {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
 
-      const footprints = await Footprint.find({
-        createdAt: { $gte: start, $lte: end },
-      }).populate('userId', 'name avatarUrl isOnline').sort({ createdAt: -1 });
+      const footprints = await populateFootprint(
+        Footprint.find({ createdAt: { $gte: start, $lte: end } }).sort({ createdAt: -1 })
+      );
 
       res.json({ footprints });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/footprints/:id
+  router.get('/footprints/:id', async (req, res) => {
+    try {
+      const fp = await populateFootprint(Footprint.findById(req.params.id));
+      if (!fp) return res.status(404).json({ error: 'Not found' });
+      res.json({ footprint: fp });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -103,8 +118,7 @@ module.exports = (io) => {
         photoUrl:  req.cloudinaryUrl || '',
       });
 
-      const populated = await Footprint.findById(footprint._id)
-        .populate('userId', 'name avatarUrl isOnline');
+      const populated = await populateFootprint(Footprint.findById(footprint._id));
 
       io.emit('footprint:new', { footprint: populated });
 
@@ -128,13 +142,40 @@ module.exports = (io) => {
       }
       await fp.save();
 
-      const populated = await Footprint.findById(fp._id)
-        .populate('userId', 'name avatarUrl isOnline')
-        .populate('likes', 'name avatarUrl');
+      const populated = await populateFootprint(Footprint.findById(fp._id));
 
       io.emit('footprint:updated', { footprint: populated });
 
       res.json({ footprint: populated });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/footprints/:id (admin only)
+  router.delete('/footprints/:id', auth, admin, async (req, res) => {
+    try {
+      const fp = await Footprint.findByIdAndDelete(req.params.id);
+      if (!fp) return res.status(404).json({ error: 'Not found' });
+
+      io.emit('footprint:deleted', { footprintId: req.params.id });
+
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin setup ───────────────────────────────────────
+
+  // POST /api/admin/setup (logged-in user + secret key)
+  router.post('/admin/setup', auth, async (req, res) => {
+    try {
+      if (req.body.secret !== 'bliver_admin_2026') {
+        return res.status(403).json({ error: 'Wrong secret' });
+      }
+      await User.findByIdAndUpdate(req.user.id, { role: 'admin' });
+      res.json({ ok: true, message: 'Admin role granted' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
