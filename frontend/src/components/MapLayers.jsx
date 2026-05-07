@@ -1,10 +1,39 @@
 import { useState, useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import '@joergdietrich/leaflet.terminator';
 import { Sun, Cloud, CloudRain, Thermometer } from 'lucide-react';
 
 const OWM_KEY = import.meta.env.VITE_OWM_API_KEY || '';
+
+// ── Terminator calculation ───────────────────────────────
+
+function getTerminatorLine() {
+  const now = new Date();
+  const jd = (now.getTime() / 86400000) + 2440587.5;
+  const n = jd - 2451545.0;
+
+  const Lsun = (280.466 + 0.9856474 * n) % 360;
+  const g = (357.528 + 0.9856003 * n) % 360;
+  const lambda = Lsun + 1.915 * Math.sin(g * Math.PI / 180) + 0.02 * Math.sin(2 * g * Math.PI / 180);
+  const epsilon = 23.439 - 0.0000004 * n;
+
+  const ra = Math.atan2(
+    Math.cos(epsilon * Math.PI / 180) * Math.sin(lambda * Math.PI / 180),
+    Math.cos(lambda * Math.PI / 180)
+  );
+  const dec = Math.asin(Math.sin(epsilon * Math.PI / 180) * Math.sin(lambda * Math.PI / 180));
+
+  // Generate terminator polygon
+  const points = [];
+  for (let i = 0; i <= 360; i += 2) {
+    const lng = i - 180; // -180 to 180
+    const lat = Math.atan(-Math.cos((lng - ra * 180 / Math.PI) * Math.PI / 180) / Math.tan(dec)) * 180 / Math.PI;
+    if (!isNaN(lat) && lat >= -90 && lat <= 90) {
+      points.push([lat, lng]);
+    }
+  }
+  return points;
+}
 
 function TerminatorLayer({ visible }) {
   const map = useMap();
@@ -12,21 +41,34 @@ function TerminatorLayer({ visible }) {
   useEffect(() => {
     if (!visible) return;
 
-    const terminator = L.terminator();
-    terminator.addTo(map);
+    let polygon;
 
-    const interval = setInterval(() => {
-      terminator.setTime();
-    }, 60000); // update every minute
+    const update = () => {
+      const pts = getTerminatorLine();
+
+      if (polygon) map.removeLayer(polygon);
+
+      polygon = L.polyline(pts, {
+        color: '#f59e0b',
+        weight: 2,
+        opacity: 0.8,
+        dashArray: '6, 4',
+      }).addTo(map);
+    };
+
+    update();
+    const interval = setInterval(update, 60000);
 
     return () => {
-      map.removeLayer(terminator);
+      if (polygon) map.removeLayer(polygon);
       clearInterval(interval);
     };
   }, [map, visible]);
 
   return null;
 }
+
+// ── Weather tiles ────────────────────────────────────────
 
 function WeatherTile({ visible, type }) {
   const map = useMap();
@@ -41,18 +83,18 @@ function WeatherTile({ visible, type }) {
     };
 
     const layer = L.tileLayer(urls[type], {
-      opacity: 0.6,
+      opacity: 0.5,
       maxZoom: 10,
     });
     layer.addTo(map);
 
-    return () => {
-      map.removeLayer(layer);
-    };
+    return () => { map.removeLayer(layer); };
   }, [map, visible, type]);
 
   return null;
 }
+
+// ── Toggle panel ─────────────────────────────────────────
 
 const layers = [
   { key: 'terminator', label: 'Day/Night', icon: Sun },
@@ -71,7 +113,6 @@ export default function MapLayers() {
 
   const toggle = (key) => {
     setActive((prev) => {
-      // Turn off other weather layers when turning a new one on
       const weatherKeys = ['clouds', 'precipitation', 'temp'];
       const next = { ...prev, [key]: !prev[key] };
       if (weatherKeys.includes(key) && next[key]) {
@@ -88,7 +129,6 @@ export default function MapLayers() {
       <WeatherTile visible={active.precipitation} type="precipitation" />
       <WeatherTile visible={active.temp} type="temp" />
 
-      {/* Toggle panel */}
       <div className="absolute top-20 left-3 z-[1000] flex flex-col gap-1">
         {layers.map(({ key, label, icon: Icon }) => (
           <button

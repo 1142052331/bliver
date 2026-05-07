@@ -34,7 +34,8 @@
       "Bash(curl *)",
       "WebFetch(domain:bliver-c3ihb8oa2-1142052331s-projects.vercel.app)",
       "Bash(/c/Program Files/nodejs/npm.cmd install *)",
-      "Bash(\"/c/Program Files/nodejs/npm.cmd\" install bcryptjs jsonwebtoken --save)"
+      "Bash(\"/c/Program Files/nodejs/npm.cmd\" install bcryptjs jsonwebtoken --save)",
+      "Bash(npm uninstall *)"
     ]
   }
 }
