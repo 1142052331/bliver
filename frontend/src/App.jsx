@@ -15,6 +15,7 @@ import CheckInModal from './components/CheckInModal';
 import TimelineDrawer from './components/TimelineDrawer';
 import ClusterMarkers from './components/ClusterMarkers';
 import ClusterDetailPanel from './components/ClusterDetailPanel';
+import NotificationPanel from './components/NotificationPanel';
 import MapLayers from './components/MapLayers';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -53,6 +54,9 @@ export default function App() {
   const [showTimeline, setShowTimeline] = useState(false);
   const [shareTarget, setShareTarget] = useState(null);
   const [clusterData, setClusterData] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     const saved = getUser();
@@ -79,13 +83,17 @@ export default function App() {
     }
   }, []);
 
-  // Fetch footprints & connect Socket
+  // Fetch footprints, notifications & connect Socket
   useEffect(() => {
     if (!user) return;
 
     api.get('/api/footprints/today').then((res) => {
       setFootprints(res.data.footprints);
     });
+
+    api.get('/api/notifications').then((res) => {
+      setNotifications(res.data.notifications);
+    }).catch(() => {});
 
     const socket = io(SOCKET_URL);
     socket.emit('user:online', user._id);
@@ -98,7 +106,9 @@ export default function App() {
 
     socket.on('footprint:updated', (data) => {
       setFootprints((prev) =>
-        prev.map((fp) => (fp._id === data.footprint._id ? { ...fp, likes: data.footprint.likes, comments: data.footprint.comments } : fp))
+        prev.map((fp) => (fp._id === data.footprint._id
+          ? { ...fp, reactions: data.footprint.reactions, comments: data.footprint.comments }
+          : fp))
       );
     });
 
@@ -106,14 +116,25 @@ export default function App() {
       setFootprints((prev) => prev.filter((fp) => fp._id !== data.footprintId));
     });
 
+    socket.on('new_notification', (data) => {
+      setNotifications((prev) => [data.notification, ...prev]);
+      // Show toast
+      const n = data.notification;
+      const msg = n.type === 'reaction'
+        ? `${n.senderName} 对你的打卡表示了 ${n.content}`
+        : `${n.senderName} 评论了你`;
+      setToast(msg);
+      setTimeout(() => setToast(null), 4000);
+    });
+
     return () => { socket.disconnect(); };
   }, [user]);
 
-  const handleLike = useCallback(async (footprintId) => {
+  const handleReact = useCallback(async (footprintId, emoji) => {
     try {
-      const { data } = await api.post(`/api/footprints/${footprintId}/like`);
+      const { data } = await api.post(`/api/footprints/${footprintId}/react`, { emoji });
       setFootprints((prev) =>
-        prev.map((fp) => (fp._id === footprintId ? { ...fp, likes: data.footprint.likes } : fp))
+        prev.map((fp) => (fp._id === footprintId ? { ...fp, reactions: data.footprint.reactions } : fp))
       );
     } catch (err) {
       console.error(err);
@@ -141,6 +162,13 @@ export default function App() {
     );
   }, []);
 
+  const markAsRead = useCallback(async (notifId) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n._id === notifId ? { ...n, isRead: true } : n))
+    );
+    await api.put(`/api/notifications/${notifId}/read`).catch(() => {});
+  }, []);
+
   // Listen for cluster click events from ClusterMarkers
   useEffect(() => {
     const handler = (e) => setClusterData(e.detail);
@@ -152,6 +180,7 @@ export default function App() {
     clearAuth();
     setUser(null);
     setFootprints([]);
+    setNotifications([]);
   };
 
   // Derive latest cluster footprints from live footprints state
@@ -161,13 +190,29 @@ export default function App() {
     return footprints.filter(f => ids.has(f._id));
   }, [clusterData, footprints]);
 
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
   if (!user) return <AuthModal onDone={setUser} />;
 
   const isAdmin = user.role === 'admin';
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <NavBar onlineCount={onlineCount} user={user} onLogout={handleLogout} />
+      <NavBar
+        onlineCount={onlineCount}
+        user={user}
+        onLogout={handleLogout}
+        unreadCount={unreadCount}
+        onBellClick={() => setShowNotifs((v) => !v)}
+      />
+
+      {showNotifs && (
+        <NotificationPanel
+          notifications={notifications}
+          onClose={() => setShowNotifs(false)}
+          onMarkRead={markAsRead}
+        />
+      )}
 
       <MapContainer center={CENTER} zoom={6} scrollWheelZoom className="w-full h-full">
         <TileLayer
@@ -214,7 +259,7 @@ export default function App() {
         footprints={footprints}
         userId={user._id}
         isAdmin={isAdmin}
-        onLike={handleLike}
+        onReact={handleReact}
         onDelete={handleDelete}
         onShare={handleShare}
       />
@@ -224,13 +269,29 @@ export default function App() {
           footprints={clusterFootprints}
           userId={user._id}
           isAdmin={isAdmin}
-          onLike={handleLike}
+          onReact={handleReact}
           onDelete={handleDelete}
           onShare={handleShare}
           onComment={handleComment}
           onClose={() => setClusterData(null)}
         />
       )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-16 right-4 z-[1900] px-4 py-2.5 bg-gray-900 text-white text-sm
+          rounded-xl shadow-lg animate-slide-down">
+          {toast}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-down { animation: slideDown 0.3s ease-out; }
+      `}</style>
     </div>
   );
 }

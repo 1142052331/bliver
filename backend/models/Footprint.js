@@ -10,7 +10,11 @@ const footprintSchema = new mongoose.Schema({
   message:   { type: String, default: '' },
   mood:      { type: String, default: '' },
   photoUrl:  { type: String, default: '' },
-  likes:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  reactions: [{
+    userId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    username: { type: String, required: true },
+    emoji:    { type: String, required: true },
+  }],
   comments:  [{
     username:  { type: String, required: true },
     content:   { type: String, required: true },

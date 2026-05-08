@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { X, Clock, Heart, Trash2, Share2, Check } from 'lucide-react';
+import { X, Clock, Trash2, Share2, Check } from 'lucide-react';
+import ReactionPicker from './ReactionPicker';
 
-function UserTimeline({ user, items, userId, isAdmin, onLike, onDelete, onShare }) {
+function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare }) {
   const timeStr = (date) =>
     new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
@@ -20,9 +21,6 @@ function UserTimeline({ user, items, userId, isAdmin, onLike, onDelete, onShare 
 
       <div className="relative border-l-2 border-blue-200 ml-[13px] pl-5 space-y-4">
         {items.map((fp) => {
-          const liked = fp.likes?.some((l) => (l._id || l) === userId);
-          const likeCount = fp.likes?.length || 0;
-          const likeNames = fp.likes?.map((l) => l.name || '?').join(', ') || '';
           const [copied, setCopied] = useState(false);
 
           return (
@@ -48,17 +46,7 @@ function UserTimeline({ user, items, userId, isAdmin, onLike, onDelete, onShare 
 
                 {/* Actions */}
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
-                  <button
-                    onClick={() => onLike(fp._id)}
-                    className="flex items-center gap-1 hover:scale-110 transition-transform"
-                  >
-                    <Heart className={`w-4 h-4 ${liked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-                    {likeCount > 0 && (
-                      <span className="text-xs text-gray-500" title={likeNames}>
-                        {likeCount} {likeNames && `— ${likeNames}`}
-                      </span>
-                    )}
-                  </button>
+                  <ReactionPicker fp={fp} userId={userId} onReact={onReact} />
 
                   <div className="flex items-center gap-1">
                     <button
@@ -92,7 +80,7 @@ function UserTimeline({ user, items, userId, isAdmin, onLike, onDelete, onShare 
   );
 }
 
-export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onLike, onDelete, onShare }) {
+export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare }) {
   const grouped = useMemo(() => {
     const map = {};
     footprints.forEach((fp) => {
@@ -132,7 +120,7 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
                 items={items}
                 userId={userId}
                 isAdmin={isAdmin}
-                onLike={onLike}
+                onReact={onReact}
                 onDelete={onDelete}
                 onShare={onShare}
               />

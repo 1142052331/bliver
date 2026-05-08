@@ -12,6 +12,7 @@ const setupSocket = (io) => {
     socket.on('user:online', async (userId) => {
       try {
         socket.userId = userId;
+        socket.join(userId); // Join room for directed notifications
         await User.findByIdAndUpdate(userId, { isOnline: true });
         const count = await onlineCount();
         io.emit('online:count', { count });

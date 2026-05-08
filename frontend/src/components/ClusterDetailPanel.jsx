@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { X, Heart, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send } from 'lucide-react';
+import { X, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send } from 'lucide-react';
 import { getUser } from '../auth';
+import ReactionPicker from './ReactionPicker';
 
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -16,13 +17,10 @@ function maskIp(ip) {
   return ip;
 }
 
-function FootprintDetailModal({ fp, userId, isAdmin, onLike, onDelete, onShare, onComment, onClose }) {
+function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare, onComment, onClose }) {
   if (!fp) return null;
 
   const currentUser = getUser();
-  const liked = fp.likes?.some((l) => (l._id || l) === userId);
-  const likeCount = fp.likes?.length || 0;
-  const likeNames = fp.likes?.map((l) => l.name || '?').join(', ') || '';
   const [copied, setCopied] = useState(false);
 
   const [commentName, setCommentName] = useState(currentUser?.name || '');
@@ -101,17 +99,7 @@ function FootprintDetailModal({ fp, userId, isAdmin, onLike, onDelete, onShare, 
 
           {/* Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-            <button
-              onClick={() => onLike(fp._id)}
-              className="flex items-center gap-1.5 hover:scale-110 transition-transform"
-            >
-              <Heart className={`w-5 h-5 ${liked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-              {likeCount > 0 && (
-                <span className="text-xs text-gray-500" title={likeNames}>
-                  {likeCount} {likeNames && `— ${likeNames}`}
-                </span>
-              )}
-            </button>
+            <ReactionPicker fp={fp} userId={userId} onReact={onReact} />
 
             <div className="flex items-center gap-2">
               <button
@@ -201,7 +189,7 @@ function FootprintDetailModal({ fp, userId, isAdmin, onLike, onDelete, onShare, 
   );
 }
 
-export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike, onDelete, onShare, onComment, onClose }) {
+export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReact, onDelete, onShare, onComment, onClose }) {
   const [detailFpId, setDetailFpId] = useState(null);
   const detailFp = detailFpId ? footprints.find(f => f._id === detailFpId) : null;
 
@@ -273,8 +261,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike
               {/* Post Cards */}
               <div className="space-y-2">
                 {items.map((fp) => {
-                  const liked = fp.likes?.some((l) => (l._id || l) === userId);
-                  const likeCount = fp.likes?.length || 0;
+                  const reactionCount = (fp.reactions || []).length;
                   const commentCount = fp.comments?.length || 0;
 
                   return (
@@ -306,10 +293,12 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike
                           {fp.message}
                         </p>
                         <div className="flex items-center gap-3 mt-1.5">
-                          <span className="flex items-center gap-1 text-xs text-gray-400">
-                            <Heart className={`w-3 h-3 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
-                            {likeCount || ''}
-                          </span>
+                          {reactionCount > 0 && (
+                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                              {[...new Set((fp.reactions || []).map(r => r.emoji))].slice(0, 3).join('')}
+                              {reactionCount > 1 && <span>{reactionCount}</span>}
+                            </span>
+                          )}
                           {commentCount > 0 && (
                             <span className="flex items-center gap-1 text-xs text-gray-400">
                               <MessageCircle className="w-3 h-3" />
@@ -333,7 +322,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike
           fp={detailFp}
           userId={userId}
           isAdmin={isAdmin}
-          onLike={onLike}
+          onReact={onReact}
           onDelete={onDelete}
           onShare={onShare}
           onComment={onComment}

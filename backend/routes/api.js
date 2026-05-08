@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Footprint = require('../models/Footprint');
+const Notification = require('../models/Notification');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
 const { auth, admin, JWT_SECRET } = require('../middleware/auth');
 const { reverseGeocode } = require('../services/nominatim');
@@ -59,11 +60,17 @@ module.exports = (io) => {
     res.json({ user });
   });
 
-  // ── Footprints ────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────
 
   const populateFootprint = (q) =>
-    q.populate('userId', 'name avatarUrl isOnline role')
-     .populate('likes', 'name avatarUrl');
+    q.populate('userId', 'name avatarUrl isOnline role');
+
+  async function createNotification({ recipientId, senderName, type, footprintId, content }) {
+    const notif = await Notification.create({ recipientId, senderName, type, footprintId, content });
+    io.to(recipientId.toString()).emit('new_notification', { notification: notif });
+  }
+
+  // ── Footprints ────────────────────────────────────────
 
   // GET /api/footprints/today
   router.get('/footprints/today', async (req, res) => {
@@ -129,23 +136,51 @@ module.exports = (io) => {
     }
   });
 
-  // POST /api/footprints/:id/like (protected)
-  router.post('/footprints/:id/like', auth, async (req, res) => {
+  // POST /api/footprints/:id/react (protected)
+  router.post('/footprints/:id/react', auth, async (req, res) => {
     try {
+      const { emoji } = req.body;
+      if (!emoji) return res.status(400).json({ error: 'emoji is required' });
+
       const fp = await Footprint.findById(req.params.id);
       if (!fp) return res.status(404).json({ error: 'Not found' });
 
-      const idx = fp.likes.indexOf(req.user.id);
-      if (idx === -1) {
-        fp.likes.push(req.user.id);
+      const userId = req.user.id;
+      const username = req.user.name;
+      const existing = fp.reactions.find((r) => r.userId.toString() === userId);
+
+      if (existing) {
+        if (existing.emoji === emoji) {
+          // Same emoji clicked again — remove reaction
+          fp.reactions.pull({ userId });
+        } else {
+          // Different emoji — update
+          existing.emoji = emoji;
+        }
       } else {
-        fp.likes.splice(idx, 1);
+        // New reaction
+        fp.reactions.push({ userId, username, emoji });
       }
+
       await fp.save();
 
       const populated = await populateFootprint(Footprint.findById(fp._id));
 
       io.emit('footprint:updated', { footprint: populated });
+
+      // Create notification if reacting to someone else's footprint
+      if (fp.userId.toString() !== userId) {
+        const action = existing && existing.emoji === emoji ? null : fp.reactions.find(r => r.userId.toString() === userId);
+        if (action) {
+          await createNotification({
+            recipientId: fp.userId,
+            senderName: username,
+            type: 'reaction',
+            footprintId: fp._id,
+            content: emoji,
+          });
+        }
+      }
 
       res.json({ footprint: populated });
     } catch (err) {
@@ -176,6 +211,17 @@ module.exports = (io) => {
 
       io.emit('footprint:updated', { footprint: populated });
 
+      // Create notification if commenting on someone else's footprint
+      if (fp.userId.toString() !== req.user.id) {
+        await createNotification({
+          recipientId: fp.userId,
+          senderName: username,
+          type: 'comment',
+          footprintId: fp._id,
+          content: content.length > 50 ? content.slice(0, 50) + '...' : content,
+        });
+      }
+
       res.status(201).json({ footprint: populated });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -190,6 +236,33 @@ module.exports = (io) => {
 
       io.emit('footprint:deleted', { footprintId: req.params.id });
 
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Notifications ─────────────────────────────────────
+
+  // GET /api/notifications (protected)
+  router.get('/notifications', auth, async (req, res) => {
+    try {
+      const notifs = await Notification.find({ recipientId: req.user.id })
+        .sort({ createdAt: -1 })
+        .limit(50);
+      res.json({ notifications: notifs });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /api/notifications/:id/read (protected)
+  router.put('/notifications/:id/read', auth, async (req, res) => {
+    try {
+      await Notification.findOneAndUpdate(
+        { _id: req.params.id, recipientId: req.user.id },
+        { isRead: true }
+      );
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });

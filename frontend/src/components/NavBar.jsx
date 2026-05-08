@@ -1,6 +1,6 @@
-import { MapPin, Users, LogOut } from 'lucide-react';
+import { MapPin, Users, LogOut, Bell } from 'lucide-react';
 
-export default function NavBar({ onlineCount, user, onLogout }) {
+export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick }) {
   return (
     <nav className="absolute top-0 left-0 right-0 z-[1000] flex items-center justify-between px-5 py-3
       bg-white/75 backdrop-blur-md border-b border-gray-200/60 shadow-sm">
@@ -14,6 +14,20 @@ export default function NavBar({ onlineCount, user, onLogout }) {
           <Users className="w-4 h-4 text-green-500" />
           <span className="font-semibold text-gray-800">{onlineCount}</span>
         </div>
+
+        {/* Bell */}
+        <button
+          onClick={onBellClick}
+          className="relative p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <Bell className="w-5 h-5 text-gray-500" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center
+              bg-red-500 text-white text-[10px] font-bold rounded-full px-1 shadow">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
 
         {user?.avatarUrl ? (
           <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover ring-2 ring-blue-200" />
