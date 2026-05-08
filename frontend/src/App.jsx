@@ -351,19 +351,19 @@ export default function App() {
         />
       </MapContainer>
 
-      {/* Check In button — bottom-right, below where zoom was */}
+      {/* Check In button — below NavBar, left-aligned */}
       <button
         onClick={() => {
           if (!requireLogin({ type: 'checkin' })) return;
           setShowCheckIn(true);
         }}
-        className="absolute bottom-6 right-3 z-[1000]
-          aurora-btn px-5 py-3 rounded-2xl text-sm tracking-wide text-white
-          active:scale-[0.97] flex items-center gap-2"
-        style={{ boxShadow: '0 8px 32px var(--aurora-glow-teal), 0 0 60px var(--aurora-glow-purple)' }}
+        className="absolute top-[88px] left-3 z-[1000]
+          aurora-btn px-4 py-2.5 rounded-xl text-xs sm:text-sm tracking-wide text-white
+          active:scale-[0.97] flex items-center gap-1.5 sm:gap-2"
+        style={{ boxShadow: '0 4px 20px var(--aurora-glow-teal), 0 0 40px var(--aurora-glow-purple)' }}
       >
-        <MapPin className="w-4 h-4" />
-        在此打卡
+        <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        <span className="whitespace-nowrap">在此打卡</span>
       </button>
 
       {/* Side buttons group */}
