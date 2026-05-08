@@ -43,46 +43,19 @@ function getSocketURL() {
 
 function RecenterOnLoad({ footprints, targetId }) {
   const map = useMap();
-  const hasRun = useRef(false);
-
   useEffect(() => {
-    if (hasRun.current) return;
-
     if (targetId) {
       const fp = footprints.find((f) => f._id === targetId);
       if (fp) {
-        hasRun.current = true;
         setTimeout(() => {
           map.setView([fp.location.lat, fp.location.lng], 14);
         }, 500);
       }
-      return;
+    } else if (footprints.length > 0) {
+      const last = footprints[0];
+      map.setView([last.location.lat, last.location.lng], map.getZoom());
     }
-
-    if (footprints.length === 0) return; // wait for data
-
-    hasRun.current = true;
-
-    // Landing animation: fly through recent footprints, ending on the latest
-    const sorted = [...footprints].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    const recent = sorted.slice(-Math.min(sorted.length, 12));
-    const timers = [];
-
-    recent.forEach((fp, i) => {
-      const t = setTimeout(() => {
-        const isLast = i === recent.length - 1;
-        map.flyTo(
-          [fp.location.lat, fp.location.lng],
-          isLast ? 14 : 12,
-          { duration: isLast ? 1.5 : 1.0 }
-        );
-      }, i * 1200);
-      timers.push(t);
-    });
-
-    return () => timers.forEach(clearTimeout);
-  }, [footprints, targetId]);
-
+  }, []);
   return null;
 }
 
