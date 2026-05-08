@@ -28,11 +28,13 @@ module.exports = () => {
         return res.status(400).json({ error: 'Invalid subscription' });
       }
 
-      await PushSubscription.findOneAndUpdate(
+      const sub = await PushSubscription.findOneAndUpdate(
         { endpoint },
         { userId: req.user.id, endpoint, keys },
         { upsert: true, new: true }
       );
+      const total = await PushSubscription.countDocuments({ userId: req.user.id });
+      console.log(`[Push] Sub saved for user ${req.user.id.slice(-6)} (${req.user.name}), total subs: ${total}`);
 
       res.json({ ok: true });
     } catch (err) {
@@ -79,12 +81,14 @@ async function sendPushToUser(userId, payload) {
     const gone = [];
     results.forEach((r, i) => {
       if (r.status === 'rejected') {
-        console.error(`[Push] Send failed: ${r.reason?.message || r.reason}`);
-        if (r.reason?.statusCode === 410) {
+        const code = r.reason?.statusCode || 'unknown';
+        const body = r.reason?.body || '';
+        console.error(`[Push] Send failed #${i} (${code}): ${r.reason?.message || r.reason} body=${body}`);
+        if (code === 410 || code === 404) {
           gone.push(subs[i].endpoint);
         }
       } else {
-        console.log(`[Push] Sent successfully to subscription ${i}`);
+        console.log(`[Push] Sent #${i} OK: statusCode=${r.value?.statusCode}, body=${JSON.stringify(r.value?.body).slice(0,80)}`);
       }
     });
     if (gone.length > 0) {
