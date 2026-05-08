@@ -97,12 +97,20 @@ export default function App() {
     }
   }, []);
 
-  // Fetch footprints (guest-accessible, period-aware)
+  // Fetch footprints on mount
   useEffect(() => {
     api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
       if (res?.data?.footprints) setFootprints(res.data.footprints);
     }).catch(() => {});
-  }, [footprintPeriod]);
+  }, []); // eslint-disable-line
+
+  // Period change handler — fires API directly, not via effect
+  const handleChangePeriod = useCallback((newPeriod) => {
+    setFootprintPeriod(newPeriod);
+    api.get(`/api/footprints/today?period=${newPeriod}`).then((res) => {
+      if (res?.data?.footprints) setFootprints(res.data.footprints);
+    }).catch(() => {});
+  }, []);
 
   // Socket connection + notifications (logged-in only)
   useEffect(() => {
@@ -247,9 +255,7 @@ export default function App() {
     clearAuth();
     setUser(null);
     setNotifications([]);
-    api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
-      if (res?.data?.footprints) setFootprints(res.data.footprints);
-    }).catch(() => {});
+    handleChangePeriod(footprintPeriod);
   };
 
   // Derive latest cluster footprints from live footprints state
@@ -345,7 +351,7 @@ export default function App() {
         onShare={handleShare}
         onSelectFootprint={(fpId) => setActiveFootprintId(fpId)}
         period={footprintPeriod}
-        onChangePeriod={setFootprintPeriod}
+        onChangePeriod={handleChangePeriod}
       />
 
       {/* Fly-arrived detail modal (from timeline click) */}
