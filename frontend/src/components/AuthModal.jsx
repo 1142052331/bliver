@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import imageCompression from 'browser-image-compression';
 import api from '../api';
-import { saveAuth } from '../auth';
+import { saveAuth, saveCredentials, getCredentials, setAutoLogin } from '../auth';
 import { MapPin, Camera, Loader2, X } from 'lucide-react';
 
 export default function AuthModal({ onDone, initialTab, message, onClose }) {
@@ -12,11 +12,19 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
   const [preview, setPreview] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [autoLoginCheck, setAutoLoginCheck] = useState(false);
   const fileRef = useRef(null);
 
-  // Sync tab when initialTab changes (e.g. register button clicked)
+  // Sync tab and load saved credentials
   useEffect(() => {
     if (initialTab) setTab(initialTab);
+    const cred = getCredentials();
+    if (cred) {
+      setName(cred.name);
+      setPassword(cred.password);
+      setRememberMe(true);
+    }
   }, [initialTab]);
 
   const handleAvatar = async (e) => {
@@ -41,10 +49,14 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
         if (avatar) form.append('avatar', avatar);
         const { data } = await api.post('/api/auth/register', form);
         saveAuth(data.user, data.token);
+        if (rememberMe) saveCredentials(name.trim(), password);
+        setAutoLogin(autoLoginCheck);
         onDone(data.user);
       } else {
         const { data } = await api.post('/api/auth/login', { name: name.trim(), password });
         saveAuth(data.user, data.token);
+        if (rememberMe) saveCredentials(name.trim(), password);
+        setAutoLogin(autoLoginCheck);
         onDone(data.user);
       }
     } catch (err) {
@@ -60,7 +72,6 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
     <div className={`fixed inset-0 z-[3000] flex items-center justify-center
       ${isOverlay ? 'bg-black/50 backdrop-blur-sm' : 'bg-gradient-to-br from-blue-500 to-indigo-600'}`}>
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-[360px] max-w-[90vw] relative">
-        {/* Close button — only in overlay mode */}
         {isOverlay && (
           <button
             onClick={onClose}
@@ -76,7 +87,6 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
         <h1 className="text-xl font-bold text-gray-800 text-center mb-1">Bliver</h1>
         <p className="text-sm text-gray-400 text-center mb-5">Location sharing with friends</p>
 
-        {/* Message banner */}
         {message && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 text-center">
             {message}
@@ -131,6 +141,30 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
                 {avatar ? 'Change' : 'Avatar'}
               </button>
               {preview && <img src={preview} className="w-10 h-10 rounded-full object-cover border" />}
+            </div>
+          )}
+
+          {/* Remember me & Auto-login checkboxes (login tab only) */}
+          {tab === 'login' && (
+            <div className="space-y-2 mb-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-600">记住账号密码</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoLoginCheck}
+                  onChange={(e) => setAutoLoginCheck(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-600">自动登录</span>
+              </label>
             </div>
           )}
 

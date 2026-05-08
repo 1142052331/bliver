@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { io } from 'socket.io-client';
 import api from './api';
-import { getUser, getToken, clearAuth, saveAuth } from './auth';
+import { getUser, getToken, clearAuth, saveAuth, isAutoLogin } from './auth';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -82,7 +82,8 @@ export default function App() {
 
   useEffect(() => {
     const saved = getUser();
-    if (saved && getToken()) {
+    // Only auto-login if the user enabled it
+    if (saved && getToken() && isAutoLogin()) {
       api.get('/api/auth/me').then((res) => {
         const u = res.data.user;
         setUser(u);
@@ -92,7 +93,7 @@ export default function App() {
         clearAuth();
         setUser(null);
       });
-    } else {
+    } else if (!isAutoLogin()) {
       clearAuth();
     }
   }, []);
