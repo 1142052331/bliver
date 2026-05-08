@@ -21,6 +21,7 @@ import MapLayers from './components/MapLayers';
 import AdminPanel from './components/AdminPanel';
 import FlyToFootprint from './components/FlyToFootprint';
 import ProfileDrawer from './components/ProfileDrawer';
+import FootprintDetailModal from './components/FootprintDetailModal';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -68,6 +69,7 @@ export default function App() {
   const [authMessage, setAuthMessage] = useState('');
   const pendingActionRef = useRef(null);
   const [viewingProfileId, setViewingProfileId] = useState(null);
+  const [flyArrivedFp, setFlyArrivedFp] = useState(null);
 
   useEffect(() => {
     const saved = getUser();
@@ -302,11 +304,7 @@ export default function App() {
         <FlyToFootprint
           footprints={footprints}
           activeFootprintId={activeFootprintId}
-          onArrive={(fp) => {
-            window.dispatchEvent(new CustomEvent('cluster:click', {
-              detail: { footprints: [fp] },
-            }));
-          }}
+          onArrive={(fp) => setFlyArrivedFp(fp)}
         />
         <MapLayers />
         <ClusterMarkers
@@ -356,6 +354,21 @@ export default function App() {
         onSelectFootprint={(fpId) => setActiveFootprintId(fpId)}
       />
 
+      {/* Fly-arrived detail modal (from timeline click) */}
+      {flyArrivedFp && (
+        <FootprintDetailModal
+          fp={flyArrivedFp}
+          userId={user?._id}
+          isAdmin={isAdmin}
+          onReact={handleReact}
+          onDelete={handleDelete}
+          onShare={handleShare}
+          onComment={handleComment}
+          onClose={() => { setFlyArrivedFp(null); setActiveFootprintId(null); }}
+        />
+      )}
+
+      {/* Cluster drawer (from marker click) */}
       {clusterFootprints && (
         <ClusterDetailPanel
           footprints={clusterFootprints}
@@ -366,7 +379,6 @@ export default function App() {
           onShare={handleShare}
           onComment={handleComment}
           onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
-          autoOpenId={activeFootprintId}
         />
       )}
 
