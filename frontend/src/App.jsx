@@ -160,6 +160,16 @@ export default function App() {
       setTimeout(() => setToast(null), 4000);
     });
 
+    socket.on('user_online', (data) => {
+      setToast(`${data.name} 上线了`);
+      setTimeout(() => setToast(null), 3000);
+    });
+
+    socket.on('user_offline', (data) => {
+      setToast(`${data.name} 下线了`);
+      setTimeout(() => setToast(null), 3000);
+    });
+
     socket.on('force_logout', (data) => {
       clearAuth();
       alert(data?.reason || '您已被管理员踢出');
