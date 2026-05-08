@@ -32,8 +32,10 @@ app.use('/api', pushRoutes());
 // Serve frontend static files
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 app.use(express.static(frontendDist));
-// SPA fallback: all non-API routes serve index.html
-app.get('*', (req, res) => {
+// SPA fallback: serve index.html for client-side routes (not API, not static files)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+  if (path.extname(req.path)) return next(); // real file like .js .css .png
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
