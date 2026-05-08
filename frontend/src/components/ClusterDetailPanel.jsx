@@ -83,11 +83,16 @@ function FootprintDetailModal({ fp, userId, isAdmin, onLike, onDelete, onShare, 
             </div>
           </div>
 
-          {/* Location */}
-          <p className="text-sm text-gray-500 mb-2">
-            <MapPin className="w-3.5 h-3.5 inline mr-1" />
-            {fp.placeName || 'Unknown location'}
-          </p>
+          {/* Location + Mood */}
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-sm text-gray-500">
+              <MapPin className="w-3.5 h-3.5 inline mr-1" />
+              {fp.placeName || 'Unknown location'}
+            </p>
+            {fp.mood && (
+              <span className="text-2xl leading-none animate-bounce-in" title="Mood">{fp.mood}</span>
+            )}
+          </div>
 
           {/* Message */}
           <p className="text-gray-700 whitespace-pre-wrap text-[15px] leading-relaxed mb-4">
@@ -292,11 +297,14 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
                           <span className="text-xs text-gray-400">
                             <Clock className="w-3 h-3 inline mr-0.5" />
                             {timeStr(fp.createdAt)}
                           </span>
+                          {fp.mood && (
+                            <span className="text-base leading-none">{fp.mood}</span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-700 line-clamp-2 whitespace-pre-wrap leading-relaxed">
                           {fp.message}

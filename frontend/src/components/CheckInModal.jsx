@@ -5,6 +5,7 @@ import { X, MapPin, Camera, Loader2 } from 'lucide-react';
 
 export default function CheckInModal({ isOpen, onClose }) {
   const [message, setMessage] = useState('');
+  const [mood, setMood] = useState('');
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,7 @@ export default function CheckInModal({ isOpen, onClose }) {
     if (isOpen) {
       setLocating(true);
       setMessage('');
+      setMood('');
       setPhoto(null);
       setPreview('');
       setLocation(null);
@@ -48,11 +50,13 @@ export default function CheckInModal({ isOpen, onClose }) {
     form.append('lat', location.lat);
     form.append('lng', location.lng);
     form.append('message', message);
+    if (mood) form.append('mood', mood);
     if (photo) form.append('photo', photo);
 
     try {
       await api.post('/api/checkin', form);
       setMessage('');
+      setMood('');
       setPhoto(null);
       setPreview('');
       setLocation(null);
@@ -66,6 +70,7 @@ export default function CheckInModal({ isOpen, onClose }) {
 
   const handleClose = () => {
     setMessage('');
+    setMood('');
     setPhoto(null);
     setPreview('');
     setLocation(null);
@@ -112,6 +117,27 @@ export default function CheckInModal({ isOpen, onClose }) {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
+
+          {/* Mood selector */}
+          <div className="mb-4">
+            <p className="text-xs text-gray-400 mb-2">How are you feeling?</p>
+            <div className="flex gap-2">
+              {['😊','😭','😋','🏋️','😴','🍺'].map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setMood(mood === emoji ? '' : emoji)}
+                  className={`w-11 h-11 text-xl rounded-xl flex items-center justify-center transition-all
+                    ${mood === emoji
+                      ? 'bg-blue-100 border-2 border-blue-500 scale-110 shadow-md'
+                      : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100 hover:scale-105'
+                    }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Photo picker & preview */}
           <input type="file" accept="image/*" ref={fileRef} onChange={handleFile} className="hidden" />

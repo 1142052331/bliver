@@ -5,6 +5,28 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
+const MOOD_COLORS = {
+  '😊': '#f59e0b',
+  '😭': '#9ca3af',
+  '😋': '#10b981',
+  '🏋️': '#ef4444',
+  '😴': '#8b5cf6',
+  '🍺': '#d97706',
+};
+
+function createMoodIcon(mood) {
+  const color = MOOD_COLORS[mood] || '#3b82f6';
+  return L.divIcon({
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span class="marker-mood-float" style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${mood}</span>
+      <div style="width:20px;height:20px;background:${color};border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>
+    </div>`,
+    className: '',
+    iconSize: [30, 50],
+    iconAnchor: [15, 25],
+  });
+}
+
 function buildPopupHtml(fp, userId) {
   const liked = fp.likes?.some((l) => (l._id || l) === userId);
   const likeCount = fp.likes?.length || 0;
@@ -16,6 +38,10 @@ function buildPopupHtml(fp, userId) {
   const timeStr = new Date(fp.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   const photoHtml = fp.photoUrl
     ? `<img src="${fp.photoUrl}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-top:8px" />`
+    : '';
+
+  const moodHtml = fp.mood
+    ? `<span class="popup-mood" style="font-size:36px;display:block;text-align:center;line-height:1;margin:4px 0">${fp.mood}</span>`
     : '';
 
   const likedClass = liked ? 'color:#ef4444' : 'color:#9ca3af';
@@ -30,6 +56,7 @@ function buildPopupHtml(fp, userId) {
         </div>
       </div>
       <p style="color:#6b7280;margin:2px 0;font-size:13px">📍 ${fp.placeName || 'Unknown'}</p>
+      ${moodHtml}
       <p style="color:#1f2937;margin:6px 0;white-space:pre-wrap;font-size:15px;line-height:1.5">${fp.message}</p>
       ${photoHtml}
       <div style="display:flex;align-items:center;gap:4px;margin-top:8px;padding-top:6px;border-top:1px solid #f3f4f6">
@@ -43,6 +70,33 @@ function buildPopupHtml(fp, userId) {
 export default function ClusterMarkers({ footprints, userId, isAdmin }) {
   const map = useMap();
   const clusterGroup = useRef(null);
+  const styleInserted = useRef(false);
+
+  // Inject floating animation CSS once
+  useEffect(() => {
+    if (styleInserted.current) return;
+    styleInserted.current = true;
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes moodFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+      }
+      .marker-mood-float {
+        animation: moodFloat 2.5s ease-in-out infinite;
+        display: block !important;
+      }
+      @keyframes popupMoodPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+      }
+      .popup-mood {
+        animation: popupMoodPulse 3s ease-in-out infinite;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
 
   // Initialize cluster group
   useEffect(() => {
@@ -109,8 +163,10 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
     footprints.forEach((fp) => {
       if (!fp.location?.lat || !fp.location?.lng) return;
 
+      const icon = fp.mood ? createMoodIcon(fp.mood) : new L.Icon.Default();
       const marker = L.marker([fp.location.lat, fp.location.lng], {
         title: fp.userId?.name,
+        icon,
       });
 
       marker._footprintId = fp._id;

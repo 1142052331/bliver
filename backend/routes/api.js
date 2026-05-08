@@ -97,7 +97,7 @@ module.exports = (io) => {
   // POST /api/checkin (protected)
   router.post('/checkin', auth, upload.single('photo'), uploadToCloudinary, async (req, res) => {
     try {
-      const { lat, lng, message } = req.body;
+      const { lat, lng, message, mood } = req.body;
       if (lat == null || lng == null) {
         return res.status(400).json({ error: 'lat, lng are required' });
       }
@@ -116,6 +116,7 @@ module.exports = (io) => {
         placeName: placeName,
         message:   `🌤 ${weatherData.weather}  ${weatherData.temp !== null ? weatherData.temp + '°C' : ''}\n${message || ''}`,
         photoUrl:  req.cloudinaryUrl || '',
+        mood:      mood || '',
       });
 
       const populated = await populateFootprint(Footprint.findById(footprint._id));

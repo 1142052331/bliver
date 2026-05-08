@@ -33,9 +33,14 @@ function UserTimeline({ user, items, userId, isAdmin, onLike, onDelete, onShare 
                 {timeStr(fp.createdAt)}
               </div>
               <div className="bg-gray-50 rounded-xl p-3">
-                <p className="text-sm font-medium text-gray-700 mb-0.5">
-                  📍 {fp.placeName || 'Unknown'}
-                </p>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-sm font-medium text-gray-700">
+                    📍 {fp.placeName || 'Unknown'}
+                  </p>
+                  {fp.mood && (
+                    <span className="text-lg leading-none">{fp.mood}</span>
+                  )}
+                </div>
                 <p className="text-sm text-gray-600">{fp.message}</p>
                 {fp.photoUrl && (
                   <img src={fp.photoUrl} className="mt-2 w-full max-h-[160px] object-cover rounded-lg" />
