@@ -192,6 +192,14 @@ function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare,
 export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReact, onDelete, onShare, onComment, onClose }) {
   const [detailFpId, setDetailFpId] = useState(null);
   const detailFp = detailFpId ? footprints.find(f => f._id === detailFpId) : null;
+  const singleFp = footprints.length === 1 ? footprints[0] : null;
+
+  // Auto-open detail modal when a single footprint arrives (e.g. from timeline click)
+  useEffect(() => {
+    if (singleFp) {
+      setDetailFpId(singleFp._id);
+    }
+  }, [singleFp?._id]);
 
   const grouped = useMemo(() => {
     const map = {};
@@ -209,17 +217,20 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
 
   if (footprints.length === 0) return null;
 
+  const isSingle = footprints.length === 1;
+
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      {/* Backdrop + Bottom Drawer — skip when single footprint modal is showing */}
+      {!(isSingle && detailFp) && (
+        <>
+          <div className="fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Bottom Drawer */}
-      <div
-        className="fixed bottom-0 left-0 right-0 z-[1600] bg-white rounded-t-2xl shadow-2xl
-          max-h-[70vh] flex flex-col animate-slide-up"
-        style={{ animation: 'slideUp 0.3s ease-out' }}
-      >
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[1600] bg-white rounded-t-2xl shadow-2xl
+              max-h-[70vh] flex flex-col animate-slide-up"
+            style={{ animation: 'slideUp 0.3s ease-out' }}
+          >
         {/* Handle bar */}
         <div className="flex justify-center pt-2 pb-1">
           <div className="w-10 h-1 rounded-full bg-gray-300" />
@@ -325,6 +336,8 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
           ))}
         </div>
       </div>
+        </>
+      )}
 
       {/* Detail Modal */}
       {detailFp && (
@@ -336,7 +349,10 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
           onDelete={onDelete}
           onShare={onShare}
           onComment={onComment}
-          onClose={() => setDetailFpId(null)}
+          onClose={() => {
+            if (isSingle) onClose(); // close everything for single footprint
+            else setDetailFpId(null); // just close modal, keep drawer open
+          }}
         />
       )}
 
