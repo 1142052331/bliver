@@ -81,6 +81,7 @@ export default function App() {
         const u = res.data.user;
         setUser(u);
         saveAuth({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl, role: u.role }, getToken());
+        subscribeToPush().catch(() => {});
       }).catch(() => {
         clearAuth();
         setUser(null);
@@ -167,13 +168,6 @@ export default function App() {
 
     return () => { socket.disconnect(); };
   }, [user]);
-
-  // Subscribe to push notifications on login
-  useEffect(() => {
-    if (user) {
-      subscribeToPush().catch(() => {});
-    }
-  }, [!!user]); // eslint-disable-line
 
   // Execute pending action after login
   useEffect(() => {
@@ -399,7 +393,7 @@ export default function App() {
         <AuthModal
           initialTab={authTab}
           message={authMessage}
-          onDone={(u) => { setUser(u); setShowAuth(false); }}
+          onDone={(u) => { setUser(u); setShowAuth(false); subscribeToPush().catch(() => {}); }}
           onClose={() => setShowAuth(false)}
         />
       )}
