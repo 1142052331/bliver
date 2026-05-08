@@ -7,7 +7,7 @@ import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { MapPin, Image } from 'lucide-react';
+import { MapPin, Image, Clock } from 'lucide-react';
 
 import NavBar from './components/NavBar';
 import AuthModal from './components/AuthModal';
@@ -352,38 +352,50 @@ export default function App() {
         />
       </MapContainer>
 
+      {/* Check In button */}
       <button
         onClick={() => {
           if (!requireLogin({ type: 'checkin' })) return;
           setShowCheckIn(true);
         }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-8 py-4
-          bg-blue-600 text-white rounded-full font-bold text-base shadow-lg shadow-blue-600/30
-          hover:bg-blue-700 hover:shadow-blue-600/40 active:scale-95
-          transition-all duration-200 flex items-center gap-2"
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]
+          px-6 py-3.5 rounded-2xl font-semibold text-sm tracking-wide
+          bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500
+          text-white shadow-xl shadow-purple-500/25
+          hover:shadow-2xl hover:shadow-purple-500/30
+          active:scale-[0.97] transition-all duration-300
+          flex items-center gap-2 backdrop-blur"
       >
-        <MapPin className="w-5 h-5" />
+        <MapPin className="w-4 h-4" />
         Check In Here
       </button>
 
-      <button
-        onClick={() => setShowTimeline(true)}
-        className="absolute top-20 right-3 z-[1000] px-4 py-2 bg-white/80 backdrop-blur rounded-xl
-          text-sm font-medium text-gray-700 shadow-md border border-gray-200/60
-          hover:bg-white transition-colors"
-      >
-        Today&apos;s Journey →
-      </button>
+      {/* Side buttons group */}
+      <div className="absolute top-[88px] right-3 z-[1000] flex flex-col gap-2">
+        <button
+          onClick={() => setShowTimeline(true)}
+          className="px-4 py-2.5 bg-white/70 backdrop-blur-xl rounded-2xl
+            text-sm font-semibold text-gray-700
+            shadow-lg shadow-black/[0.04] border border-white/80
+            hover:bg-white/90 hover:shadow-xl hover:-translate-y-0.5
+            transition-all duration-300 flex items-center gap-2"
+        >
+          <Clock className="w-4 h-4 text-indigo-500" />
+          今日记录
+        </button>
 
-      <button
-        onClick={() => setShowPhotoWall(true)}
-        className="absolute top-36 right-3 z-[1000] px-4 py-2 bg-white/80 backdrop-blur rounded-xl
-          text-sm font-medium text-pink-600 shadow-md border border-pink-200/60
-          hover:bg-pink-50 transition-colors"
-      >
-        <Image className="w-4 h-4 inline mr-1" />
-        照片墙
-      </button>
+        <button
+          onClick={() => setShowPhotoWall(true)}
+          className="px-4 py-2.5 bg-white/70 backdrop-blur-xl rounded-2xl
+            text-sm font-semibold text-rose-500
+            shadow-lg shadow-black/[0.04] border border-white/80
+            hover:bg-white/90 hover:shadow-xl hover:-translate-y-0.5
+            transition-all duration-300 flex items-center gap-2"
+        >
+          <Image className="w-4 h-4" />
+          照片墙
+        </button>
+      </div>
 
       <CheckInModal
         isOpen={showCheckIn}
@@ -470,18 +482,21 @@ export default function App() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed top-16 right-4 z-[1900] px-4 py-2.5 bg-gray-900 text-white text-sm
-          rounded-xl shadow-lg animate-slide-down">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1900]
+          px-5 py-3 bg-gray-900/90 backdrop-blur-md text-white text-sm font-medium
+          rounded-2xl shadow-2xl shadow-black/20
+          animate-slide-down flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 flex-shrink-0" />
           {toast}
         </div>
       )}
 
       <style>{`
         @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translate(-50%, -12px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
         }
-        .animate-slide-down { animation: slideDown 0.3s ease-out; }
+        .animate-slide-down { animation: slideDown 0.4s cubic-bezier(0.2,0.8,0.2,1); }
       `}</style>
     </div>
   );

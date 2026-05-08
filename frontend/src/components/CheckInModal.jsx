@@ -81,12 +81,16 @@ export default function CheckInModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
-      <div className="relative w-full sm:max-w-md mx-0 sm:mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 animate-slide-up">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={handleClose} />
+      <div className="relative w-full sm:max-w-md mx-0 sm:mx-auto
+        bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl shadow-black/10 p-6 animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-blue-600" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600
+              flex items-center justify-center shadow-md shadow-indigo-500/20">
+              <MapPin className="w-4 h-4 text-white" />
+            </div>
             Check In Here
           </h2>
           <button onClick={handleClose} className="p-1 hover:bg-gray-100 rounded-full">
@@ -160,9 +164,11 @@ export default function CheckInModal({ isOpen, onClose }) {
           <button
             type="submit"
             disabled={loading || locating || !location?.lat}
-            className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold
-              hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
-              transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500
+              text-white rounded-2xl font-semibold
+              hover:shadow-lg hover:shadow-purple-500/25
+              disabled:opacity-40 disabled:cursor-not-allowed
+              transition-all duration-300 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Post Footprint

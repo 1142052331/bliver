@@ -123,25 +123,27 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
       )}
 
       <div
-        className={`fixed top-0 right-0 h-full w-[360px] max-w-[85vw] z-[1600] bg-white shadow-2xl
-          transition-transform duration-300 ease-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 right-0 h-full w-[360px] max-w-[85vw] z-[1600]
+          bg-white/95 backdrop-blur-xl shadow-2xl shadow-black/10
+          transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
+          flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <div className="px-5 py-4 border-b border-gray-100">
+        <div className="px-5 py-4 border-b border-gray-100/80">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-lg text-gray-800">足迹记录</h2>
-            <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
-              <X className="w-5 h-5 text-gray-400" />
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
+              <X className="w-4 h-4 text-gray-400" />
             </button>
           </div>
           {/* Period pills */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
+          <div className="flex bg-gray-100/80 rounded-xl p-1">
             {PERIODS.map((p) => (
               <button
                 key={p.key}
                 onClick={() => onChangePeriod && onChangePeriod(p.key)}
-                className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200
                   ${period === p.key
-                    ? 'bg-white text-gray-800 shadow-sm'
+                    ? 'bg-white text-gray-800 shadow-sm shadow-black/5'
                     : 'text-gray-500 hover:text-gray-700'
                   }`}
               >

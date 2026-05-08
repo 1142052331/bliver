@@ -173,8 +173,11 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
           <button
             type="submit"
             disabled={loading || !name.trim() || !password}
-            className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold
-              hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500
+              text-white rounded-2xl font-semibold
+              hover:shadow-lg hover:shadow-purple-500/25
+              disabled:opacity-40 disabled:cursor-not-allowed
+              transition-all duration-300 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {tab === 'login' ? 'Login' : 'Create Account'}
