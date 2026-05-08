@@ -312,7 +312,8 @@ export default function App() {
   // ── Map Dashboard view ──────────────────────────────────
 
   const mapDashboard = (
-    <div className="relative w-full h-screen overflow-hidden">
+    <div className="relative w-full h-screen overflow-hidden"
+      style={{ background: 'var(--aurora-deep)' }}>
       <NavBar
         onlineCount={onlineCount}
         user={user}
@@ -359,41 +360,32 @@ export default function App() {
           setShowCheckIn(true);
         }}
         className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]
-          px-6 py-3.5 rounded-2xl font-semibold text-sm tracking-wide
-          bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500
-          text-white shadow-xl shadow-purple-500/25
-          hover:shadow-2xl hover:shadow-purple-500/30
-          active:scale-[0.97] transition-all duration-300
-          flex items-center gap-2 backdrop-blur"
+          aurora-btn px-6 py-3.5 rounded-2xl text-sm tracking-wide text-white
+          active:scale-[0.97] flex items-center gap-2"
+        style={{ boxShadow: '0 8px 32px var(--aurora-glow-teal), 0 0 60px var(--aurora-glow-purple)' }}
       >
         <MapPin className="w-4 h-4" />
-        Check In Here
+        在此打卡
       </button>
 
       {/* Side buttons group */}
       <div className="absolute top-[88px] right-3 z-[1000] flex flex-col gap-2">
         <button
           onClick={() => setShowTimeline(true)}
-          className="px-4 py-2.5 bg-white/70 backdrop-blur-xl rounded-2xl
-            text-sm font-semibold text-gray-700
-            shadow-lg shadow-black/[0.04] border border-white/80
-            hover:bg-white/90 hover:shadow-xl hover:-translate-y-0.5
-            transition-all duration-300 flex items-center gap-2"
+          className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium
+            flex items-center gap-2"
         >
-          <Clock className="w-4 h-4 text-indigo-500" />
-          今日记录
+          <Clock className="w-4 h-4 text-teal-400" />
+          <span className="text-white/80">今日记录</span>
         </button>
 
         <button
           onClick={() => setShowPhotoWall(true)}
-          className="px-4 py-2.5 bg-white/70 backdrop-blur-xl rounded-2xl
-            text-sm font-semibold text-rose-500
-            shadow-lg shadow-black/[0.04] border border-white/80
-            hover:bg-white/90 hover:shadow-xl hover:-translate-y-0.5
-            transition-all duration-300 flex items-center gap-2"
+          className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium
+            flex items-center gap-2"
         >
-          <Image className="w-4 h-4" />
-          照片墙
+          <Image className="w-4 h-4 text-purple-400" />
+          <span className="text-white/80">照片墙</span>
         </button>
       </div>
 

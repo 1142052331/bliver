@@ -80,8 +80,9 @@ export default function PhotoWall({ footprints, onClose, onSelect }) {
   }, []);
 
   return (
-    <div className={`fixed inset-0 z-[2000] flex flex-col bg-[#0a0a0f]
-      transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}>
+    <div
+      className={`fixed inset-0 z-[2000] flex flex-col transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
+      style={{ background: 'var(--aurora-deep)' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 flex-shrink-0
         bg-gradient-to-b from-black/60 to-transparent absolute top-0 left-0 right-0 z-10">
@@ -104,9 +105,9 @@ export default function PhotoWall({ footprints, onClose, onSelect }) {
       {photos.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center animate-pulse">
-            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-gray-800 to-gray-700
-              flex items-center justify-center mx-auto mb-4 shadow-2xl">
-              <Sparkles className="w-10 h-10 text-gray-500" />
+            <div className="w-24 h-24 rounded-3xl aurora-btn flex items-center justify-center mx-auto mb-4"
+              style={{ boxShadow: '0 0 40px var(--aurora-glow-teal)' }}>
+              <Sparkles className="w-10 h-10 text-white/60" />
             </div>
             <p className="text-white/30 text-sm font-medium">等待第一张照片...</p>
             <p className="text-white/15 text-xs mt-1">打卡时上传照片就会出现在这里</p>

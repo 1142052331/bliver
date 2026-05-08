@@ -81,25 +81,26 @@ export default function CheckInModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={handleClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
       <div className="relative w-full sm:max-w-md mx-0 sm:mx-auto
-        bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl shadow-black/10 p-6 animate-slide-up">
+        aurora-glass rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600
-              flex items-center justify-center shadow-md shadow-indigo-500/20">
+          <h2 className="text-lg font-bold text-white/90 flex items-center gap-2"
+            style={{ fontFamily: 'var(--font-body)' }}>
+            <div className="w-8 h-8 rounded-xl aurora-btn flex items-center justify-center"
+              style={{ boxShadow: '0 0 20px var(--aurora-glow-teal)' }}>
               <MapPin className="w-4 h-4 text-white" />
             </div>
             Check In Here
           </h2>
-          <button onClick={handleClose} className="p-1 hover:bg-gray-100 rounded-full">
-            <X className="w-5 h-5 text-gray-400" />
+          <button onClick={handleClose} className="p-1.5 hover:bg-white/[0.04] rounded-xl transition-colors">
+            <X className="w-4 h-4 text-white/40" />
           </button>
         </div>
 
         {/* Location status */}
-        <div className="mb-4 p-3 bg-blue-50 rounded-xl text-sm text-blue-700 flex items-center gap-2">
+        <div className="mb-4 p-3 bg-teal-400/5 border border-teal-400/10 rounded-xl text-sm text-teal-300 flex items-center gap-2">
           {locating ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : location?.lat ? (
@@ -115,26 +116,25 @@ export default function CheckInModal({ isOpen, onClose }) {
         <form onSubmit={handleSubmit}>
           {/* Message */}
           <textarea
-            className="w-full p-3 border border-gray-200 rounded-xl resize-none text-sm mb-4 h-24
-              focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            placeholder="What's on your mind?"
+            className="w-full p-3 aurora-input rounded-xl resize-none text-sm mb-4 h-24"
+            placeholder="此刻在想什么？"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
 
           {/* Mood selector */}
           <div className="mb-4">
-            <p className="text-xs text-gray-400 mb-2">How are you feeling?</p>
+            <p className="text-xs text-white/30 mb-2" style={{ fontFamily: 'var(--font-body)' }}>此刻心情？</p>
             <div className="flex gap-2">
               {['😊','😭','😋','🏋️','😴','🍺'].map((emoji) => (
                 <button
                   key={emoji}
                   type="button"
                   onClick={() => setMood(mood === emoji ? '' : emoji)}
-                  className={`w-11 h-11 text-xl rounded-xl flex items-center justify-center transition-all
+                  className={`w-11 h-11 text-xl rounded-xl flex items-center justify-center transition-all duration-300
                     ${mood === emoji
-                      ? 'bg-blue-100 border-2 border-blue-500 scale-110 shadow-md'
-                      : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100 hover:scale-105'
+                      ? 'bg-teal-400/10 border border-teal-400/40 scale-110 shadow-[0_0_15px_rgba(45,212,191,0.15)]'
+                      : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] hover:scale-105'
                     }`}
                 >
                   {emoji}
