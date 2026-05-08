@@ -1,10 +1,19 @@
 import { useMemo, useState } from 'react';
 import { X, Heart, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send } from 'lucide-react';
 import { getUser } from '../auth';
-import api from '../api';
 
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function maskIp(ip) {
+  if (!ip) return 'Unknown';
+  if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') return 'localhost';
+  const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+  if (v4) return `${v4[1]}.${v4[2]}.x.x`;
+  const parts = ip.split(':').filter(Boolean);
+  if (parts.length >= 2) return parts.slice(0, 2).join(':') + ':x:x';
+  return ip;
 }
 
 function FootprintDetailModal({ fp, userId, isAdmin, onLike, onDelete, onShare, onComment, onClose }) {
@@ -135,18 +144,21 @@ function FootprintDetailModal({ fp, userId, isAdmin, onLike, onDelete, onShare, 
               <div className="space-y-2 mb-3">
                 {comments.map((c, i) => (
                   <div key={i} className="p-2.5 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-sm text-gray-800">{c.username}</span>
-                      <span className="text-xs text-gray-400">
-                        {new Date(c.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600">{c.content}</p>
+                    <p className="text-sm text-gray-800">
+                      <span className="font-medium">{c.username}</span>
+                      <span className="text-gray-400 mx-1">:</span>
+                      <span className="text-gray-600">{c.content}</span>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      来自 IP: {maskIp(c.ipAddress)}
+                      <span className="mx-1">·</span>
+                      {new Date(c.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-400 mb-3">No comments yet. Be the first!</p>
+              <p className="text-xs text-gray-400 mb-3">还没有回复，来说点什么吧</p>
             )}
 
             {/* Comment Form */}

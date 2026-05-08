@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { io } from 'socket.io-client';
 import api from './api';
@@ -161,6 +161,13 @@ export default function App() {
     setFootprints([]);
   };
 
+  // Derive latest cluster footprints from live footprints state
+  const clusterFootprints = useMemo(() => {
+    if (!clusterData) return null;
+    const ids = new Set(clusterData.footprints.map(f => f._id));
+    return footprints.filter(f => ids.has(f._id));
+  }, [clusterData, footprints]);
+
   if (!user) return <AuthModal onDone={setUser} />;
 
   const isAdmin = user.role === 'admin';
@@ -219,9 +226,9 @@ export default function App() {
         onShare={handleShare}
       />
 
-      {clusterData && (
+      {clusterFootprints && (
         <ClusterDetailPanel
-          footprints={clusterData.footprints}
+          footprints={clusterFootprints}
           userId={user._id}
           isAdmin={isAdmin}
           onLike={handleLike}
