@@ -6,9 +6,8 @@
     "dev": "concurrently -n frontend,backend -c blue,green \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
-    "start": "concurrently -n frontend,backend -c blue,green \"npm run start:frontend\" \"npm run start:backend\"",
-    "start:frontend": "cd frontend && npm run preview",
-    "start:backend": "cd backend && npm start"
+    "start": "node backend/index.js",
+    "render-build": "cd backend && npm install && cd ../frontend && npm install && npm run build"
   },
   "keywords": [],
   "author": "",

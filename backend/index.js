@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 require('dotenv').config();
@@ -27,6 +28,14 @@ app.use((req, res, next) => {
 app.use('/api', apiRoutes(io));
 app.use('/api', adminRoutes(io));
 app.use('/api', pushRoutes());
+
+// Serve frontend static files
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+app.use(express.static(frontendDist));
+// SPA fallback: all non-API routes serve index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
+});
 
 setupSocket(io);
 
