@@ -58,6 +58,13 @@ module.exports = () => {
 async function sendPushToUser(userId, payload) {
   try {
     const subs = await PushSubscription.find({ userId });
+    console.log(`[Push] Sending to user ${userId}: ${subs.length} subscription(s)`);
+
+    if (subs.length === 0) {
+      console.log('[Push] No subscriptions found for user, skipping');
+      return;
+    }
+
     const data = JSON.stringify(payload);
     const results = await Promise.allSettled(
       subs.map((sub) =>
@@ -71,16 +78,21 @@ async function sendPushToUser(userId, payload) {
     // Remove expired subscriptions
     const gone = [];
     results.forEach((r, i) => {
-      if (r.status === 'rejected' && r.reason?.statusCode === 410) {
-        gone.push(subs[i].endpoint);
+      if (r.status === 'rejected') {
+        console.error(`[Push] Send failed: ${r.reason?.message || r.reason}`);
+        if (r.reason?.statusCode === 410) {
+          gone.push(subs[i].endpoint);
+        }
+      } else {
+        console.log(`[Push] Sent successfully to subscription ${i}`);
       }
     });
     if (gone.length > 0) {
       await PushSubscription.deleteMany({ endpoint: { $in: gone } });
+      console.log(`[Push] Removed ${gone.length} expired subscription(s)`);
     }
   } catch (err) {
-    // Silently fail — push is supplementary
-    console.error('Push send error:', err.message);
+    console.error('[Push] Error:', err.message);
   }
 }
 
