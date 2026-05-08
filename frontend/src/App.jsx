@@ -22,6 +22,7 @@ import FlyToFootprint from './components/FlyToFootprint';
 import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import { subscribeToPush } from './push';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -166,6 +167,13 @@ export default function App() {
 
     return () => { socket.disconnect(); };
   }, [user]);
+
+  // Subscribe to push notifications on login
+  useEffect(() => {
+    if (user) {
+      subscribeToPush().catch(() => {});
+    }
+  }, [!!user]); // eslint-disable-line
 
   // Execute pending action after login
   useEffect(() => {

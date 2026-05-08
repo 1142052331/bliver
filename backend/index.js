@@ -7,6 +7,7 @@ require('dotenv').config();
 const connectDB = require('./config/db');
 const apiRoutes = require('./routes/api');
 const adminRoutes = require('./routes/admin');
+const pushRoutes = require('./routes/push');
 const setupSocket = require('./socket');
 
 const app = express();
@@ -25,6 +26,7 @@ app.use((req, res, next) => {
 
 app.use('/api', apiRoutes(io));
 app.use('/api', adminRoutes(io));
+app.use('/api', pushRoutes());
 
 setupSocket(io);
 

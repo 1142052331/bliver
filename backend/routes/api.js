@@ -8,6 +8,7 @@ const { upload, uploadToCloudinary } = require('../middleware/upload');
 const { auth, admin, JWT_SECRET } = require('../middleware/auth');
 const { reverseGeocode } = require('../services/nominatim');
 const { getWeather } = require('../services/weather');
+const { sendPushToUser } = require('./push');
 
 module.exports = (io) => {
   const router = express.Router();
@@ -81,6 +82,17 @@ module.exports = (io) => {
   async function createNotification({ recipientId, senderName, type, footprintId, content }) {
     const notif = await Notification.create({ recipientId, senderName, type, footprintId, content });
     io.to(recipientId.toString()).emit('new_notification', { notification: notif });
+
+    // Also send web push notification
+    const pushTitle = type === 'reaction'
+      ? `${senderName} 对你的打卡表示了 ${content}`
+      : `${senderName} 评论了你`;
+    sendPushToUser(recipientId, {
+      title: pushTitle,
+      body: content,
+      icon: '/marker-icon.png',
+      data: { url: `/?fp=${footprintId}` },
+    });
   }
 
   // ── Footprints ────────────────────────────────────────
