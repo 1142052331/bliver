@@ -27,6 +27,41 @@ function createMoodIcon(mood) {
   });
 }
 
+function createNewCommentIcon(mood, previewText) {
+  const truncated = previewText.length > 6 ? previewText.slice(0, 6) + '…' : previewText;
+  return L.divIcon({
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+      <span class="marker-mood-float" style="font-size:16px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${mood || '💬'}</span>
+      <div class="new-comment-bubble" style="
+        background:#2dd4bf;color:#0a0a0f;font-size:9px;font-weight:600;
+        padding:2px 7px;border-radius:10px;max-width:56px;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+        box-shadow:0 0 12px rgba(45,212,191,0.5), 0 0 24px rgba(45,212,191,0.25);
+        line-height:1.4;letter-spacing:0.02em;
+      ">${truncated}</div>
+      <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);border:3px solid white;
+        box-shadow:0 2px 8px rgba(45,212,191,0.5);"></div>
+    </div>`,
+    className: '',
+    iconSize: [60, 58],
+    iconAnchor: [30, 56],
+  });
+}
+
+function hasRecentComments(fp) {
+  const cutoff = Date.now() - 12 * 60 * 60 * 1000;
+  return (fp.comments || []).some((c) => new Date(c.createdAt).getTime() > cutoff && c.content?.trim());
+}
+
+function getLatestCommentPreview(fp) {
+  const cutoff = Date.now() - 12 * 60 * 60 * 1000;
+  const recent = (fp.comments || [])
+    .filter((c) => new Date(c.createdAt).getTime() > cutoff && c.content?.trim())
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return recent.length > 0 ? recent[0].content.trim() : '';
+}
+
 export default function ClusterMarkers({ footprints, userId, isAdmin }) {
   const map = useMap();
   const clusterGroup = useRef(null);
@@ -45,6 +80,13 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       .marker-mood-float {
         animation: moodFloat 2.5s ease-in-out infinite;
         display: block !important;
+      }
+      @keyframes commentGlow {
+        0%, 100% { box-shadow: 0 0 12px rgba(45,212,191,0.5), 0 0 24px rgba(45,212,191,0.25); }
+        50% { box-shadow: 0 0 20px rgba(45,212,191,0.7), 0 0 36px rgba(45,212,191,0.4); }
+      }
+      .new-comment-bubble {
+        animation: commentGlow 2s ease-in-out infinite;
       }
     `;
     document.head.appendChild(style);
@@ -120,7 +162,16 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
     footprints.forEach((fp) => {
       if (!fp.location?.lat || !fp.location?.lng) return;
 
-      const icon = fp.mood ? createMoodIcon(fp.mood) : new L.Icon.Default();
+      let icon;
+      if (hasRecentComments(fp)) {
+        const preview = getLatestCommentPreview(fp);
+        icon = createNewCommentIcon(fp.mood, preview);
+      } else if (fp.mood) {
+        icon = createMoodIcon(fp.mood);
+      } else {
+        icon = new L.Icon.Default();
+      }
+
       const marker = L.marker([fp.location.lat, fp.location.lng], {
         title: fp.userId?.name,
         icon,
@@ -128,7 +179,6 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
 
       marker._footprintId = fp._id;
 
-      // Single marker click — open drawer with just this footprint
       marker.on('click', () => openClusterPanel([fp]));
 
       cg.addLayer(marker);
