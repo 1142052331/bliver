@@ -357,13 +357,13 @@ export default function App() {
           if (!requireLogin({ type: 'checkin' })) return;
           setShowCheckIn(true);
         }}
-        className="absolute top-[88px] left-3 z-[1000]
-          aurora-btn px-4 py-2.5 rounded-xl text-xs sm:text-sm tracking-wide text-white
-          active:scale-[0.97] flex items-center gap-1.5 sm:gap-2"
+        className="absolute top-[72px] left-3 z-[1000]
+          aurora-btn px-4 py-2.5 rounded-xl text-sm tracking-wide text-white
+          active:scale-[0.97] flex items-center gap-1.5"
         style={{ boxShadow: '0 4px 20px var(--aurora-glow-teal), 0 0 40px var(--aurora-glow-purple)' }}
       >
-        <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-        <span className="whitespace-nowrap">在此打卡</span>
+        <MapPin className="w-3.5 h-3.5" />
+        留言
       </button>
 
       {/* Side buttons group */}
