@@ -8,8 +8,8 @@ const { auth, admin } = require('../middleware/auth');
 module.exports = (io) => {
   const router = express.Router();
 
-  // All routes require auth + admin
-  router.use(auth, admin);
+  // All /admin routes require auth + admin
+  router.use('/admin', auth, admin);
 
   // GET /api/admin/online — list currently connected users
   router.get('/admin/online', async (req, res) => {
