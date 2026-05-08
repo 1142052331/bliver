@@ -283,16 +283,12 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike
                       onClick={() => setDetailFpId(fp._id)}
                       className="flex gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
                     >
-                      {/* Thumbnail */}
-                      {fp.photoUrl ? (
+                      {/* Thumbnail — only show when photo exists */}
+                      {fp.photoUrl && (
                         <img
                           src={fp.photoUrl}
                           className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                         />
-                      ) : (
-                        <div className="w-16 h-16 rounded-lg bg-gray-200 flex-shrink-0 flex items-center justify-center">
-                          <Image className="w-6 h-6 text-gray-300" />
-                        </div>
                       )}
 
                       {/* Info */}

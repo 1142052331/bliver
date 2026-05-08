@@ -141,13 +141,6 @@ export default function App() {
     );
   }, []);
 
-  // Listen for popup like events from ClusterMarkers HTML popups
-  useEffect(() => {
-    const onLike = (e) => handleLike(e.detail);
-    window.addEventListener('footprint:like', onLike);
-    return () => window.removeEventListener('footprint:like', onLike);
-  }, [handleLike]);
-
   // Listen for cluster click events from ClusterMarkers
   useEffect(() => {
     const handler = (e) => setClusterData(e.detail);

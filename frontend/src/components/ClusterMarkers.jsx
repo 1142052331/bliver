@@ -27,46 +27,6 @@ function createMoodIcon(mood) {
   });
 }
 
-function buildPopupHtml(fp, userId) {
-  const liked = fp.likes?.some((l) => (l._id || l) === userId);
-  const likeCount = fp.likes?.length || 0;
-  const likeNames = fp.likes?.map((l) => l.name || '?').join(', ') || '';
-  const avatarHtml = fp.userId?.avatarUrl
-    ? `<img src="${fp.userId.avatarUrl}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;margin-right:8px;vertical-align:middle" />`
-    : `<span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#3b82f6;color:#fff;text-align:center;line-height:32px;font-size:14px;font-weight:bold;margin-right:8px;vertical-align:middle">${(fp.userId?.name?.[0] || '?').toUpperCase()}</span>`;
-
-  const timeStr = new Date(fp.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-  const photoHtml = fp.photoUrl
-    ? `<img src="${fp.photoUrl}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-top:8px" />`
-    : '';
-
-  const moodHtml = fp.mood
-    ? `<span class="popup-mood" style="font-size:36px;display:block;text-align:center;line-height:1;margin:4px 0">${fp.mood}</span>`
-    : '';
-
-  const likedClass = liked ? 'color:#ef4444' : 'color:#9ca3af';
-
-  return `
-    <div style="min-width:240px;font-size:14px;font-family:system-ui,sans-serif">
-      <div style="display:flex;align-items:center;margin-bottom:4px">
-        ${avatarHtml}
-        <div>
-          <strong>${fp.userId?.name || 'Unknown'}</strong>
-          <span style="font-size:11px;color:#9ca3af;margin-left:6px">${timeStr}</span>
-        </div>
-      </div>
-      <p style="color:#6b7280;margin:2px 0;font-size:13px">📍 ${fp.placeName || 'Unknown'}</p>
-      ${moodHtml}
-      <p style="color:#1f2937;margin:6px 0;white-space:pre-wrap;font-size:15px;line-height:1.5">${fp.message}</p>
-      ${photoHtml}
-      <div style="display:flex;align-items:center;gap:4px;margin-top:8px;padding-top:6px;border-top:1px solid #f3f4f6">
-        <span class="popup-like" style="${likedClass};font-size:16px;cursor:pointer">${liked ? '❤️' : '🤍'}</span>
-        ${likeCount > 0 ? `<span style="font-size:12px;color:#6b7280">${likeCount} — ${likeNames}</span>` : ''}
-      </div>
-    </div>
-  `;
-}
-
 export default function ClusterMarkers({ footprints, userId, isAdmin }) {
   const map = useMap();
   const clusterGroup = useRef(null);
@@ -85,13 +45,6 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       .marker-mood-float {
         animation: moodFloat 2.5s ease-in-out infinite;
         display: block !important;
-      }
-      @keyframes popupMoodPulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.15); }
-      }
-      .popup-mood {
-        animation: popupMoodPulse 3s ease-in-out infinite;
       }
     `;
     document.head.appendChild(style);
@@ -141,6 +94,13 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
     };
   }, [map]);
 
+  // Helper: open the cluster drawer for given footprints
+  const openClusterPanel = (list) => {
+    window.dispatchEvent(new CustomEvent('cluster:click', {
+      detail: { footprints: list },
+    }));
+  };
+
   // Update markers when footprints change
   useEffect(() => {
     const cg = clusterGroup.current;
@@ -148,16 +108,13 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
 
     cg.clearLayers();
 
-    // Handle cluster click — dispatch custom event for the drawer
+    // Handle cluster click — open drawer with all footprints at that location
     cg.off('clusterclick');
     cg.on('clusterclick', (e) => {
       const clusterMarkers = e.layer.getAllChildMarkers();
       const ids = clusterMarkers.map((m) => m._footprintId);
       const clustered = footprints.filter((fp) => ids.includes(fp._id));
-
-      window.dispatchEvent(new CustomEvent('cluster:click', {
-        detail: { footprints: clustered },
-      }));
+      openClusterPanel(clustered);
     });
 
     footprints.forEach((fp) => {
@@ -171,21 +128,8 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
 
       marker._footprintId = fp._id;
 
-      marker.bindPopup(buildPopupHtml(fp, userId), {
-        maxWidth: 280,
-        className: 'footprint-popup',
-      });
-
-      // Attach popup like button handler
-      marker.on('popupopen', () => {
-        setTimeout(() => {
-          const popupEl = document.querySelector('.footprint-popup');
-          if (!popupEl) return;
-          popupEl.querySelector('.popup-like')?.addEventListener('click', () => {
-            window.dispatchEvent(new CustomEvent('footprint:like', { detail: fp._id }));
-          });
-        }, 50);
-      });
+      // Single marker click — open drawer with just this footprint
+      marker.on('click', () => openClusterPanel([fp]));
 
       cg.addLayer(marker);
     });
