@@ -10,6 +10,12 @@ const footprintSchema = new mongoose.Schema({
   message:   { type: String, default: '' },
   photoUrl:  { type: String, default: '' },
   likes:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  comments:  [{
+    username:  { type: String, required: true },
+    content:   { type: String, required: true },
+    ipAddress: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now },
+  }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Footprint', footprintSchema);

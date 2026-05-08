@@ -152,6 +152,35 @@ module.exports = (io) => {
     }
   });
 
+  // POST /api/footprints/:id/comment (protected)
+  router.post('/footprints/:id/comment', auth, async (req, res) => {
+    try {
+      const { username, content } = req.body;
+      if (!username || !content) {
+        return res.status(400).json({ error: 'username and content are required' });
+      }
+
+      const fp = await Footprint.findById(req.params.id);
+      if (!fp) return res.status(404).json({ error: 'Not found' });
+
+      const ip = req.headers['x-forwarded-for']?.split(',')[0].trim()
+        || req.ip
+        || req.socket.remoteAddress
+        || '';
+
+      fp.comments.push({ username, content, ipAddress: ip });
+      await fp.save();
+
+      const populated = await populateFootprint(Footprint.findById(fp._id));
+
+      io.emit('footprint:updated', { footprint: populated });
+
+      res.status(201).json({ footprint: populated });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // DELETE /api/footprints/:id (admin only)
   router.delete('/footprints/:id', auth, admin, async (req, res) => {
     try {

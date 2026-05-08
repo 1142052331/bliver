@@ -98,7 +98,7 @@ export default function App() {
 
     socket.on('footprint:updated', (data) => {
       setFootprints((prev) =>
-        prev.map((fp) => (fp._id === data.footprint._id ? { ...fp, likes: data.footprint.likes } : fp))
+        prev.map((fp) => (fp._id === data.footprint._id ? { ...fp, likes: data.footprint.likes, comments: data.footprint.comments } : fp))
       );
     });
 
@@ -132,6 +132,13 @@ export default function App() {
   const handleShare = useCallback((footprintId) => {
     const url = `${window.location.origin}${window.location.pathname}?fp=${footprintId}`;
     navigator.clipboard.writeText(url);
+  }, []);
+
+  const handleComment = useCallback(async (footprintId, username, content) => {
+    const { data } = await api.post(`/api/footprints/${footprintId}/comment`, { username, content });
+    setFootprints((prev) =>
+      prev.map((fp) => (fp._id === footprintId ? { ...fp, comments: data.footprint.comments } : fp))
+    );
   }, []);
 
   // Listen for popup like events from ClusterMarkers HTML popups
@@ -220,6 +227,7 @@ export default function App() {
           onLike={handleLike}
           onDelete={handleDelete}
           onShare={handleShare}
+          onComment={handleComment}
           onClose={() => setClusterData(null)}
         />
       )}

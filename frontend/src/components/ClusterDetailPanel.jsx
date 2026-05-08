@@ -1,24 +1,44 @@
 import { useMemo, useState } from 'react';
-import { X, Heart, Trash2, Share2, Check, MapPin, Clock, Image } from 'lucide-react';
+import { X, Heart, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send } from 'lucide-react';
+import { getUser } from '../auth';
+import api from '../api';
 
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
-function FootprintDetailModal({ fp, userId, isAdmin, onLike, onDelete, onShare, onClose }) {
+function FootprintDetailModal({ fp, userId, isAdmin, onLike, onDelete, onShare, onComment, onClose }) {
   if (!fp) return null;
 
+  const currentUser = getUser();
   const liked = fp.likes?.some((l) => (l._id || l) === userId);
   const likeCount = fp.likes?.length || 0;
   const likeNames = fp.likes?.map((l) => l.name || '?').join(', ') || '';
   const [copied, setCopied] = useState(false);
 
+  const [commentName, setCommentName] = useState(currentUser?.name || '');
+  const [commentText, setCommentText] = useState('');
+  const [sending, setSending] = useState(false);
+
   const user = fp.userId || {};
+  const comments = fp.comments || [];
+
+  const handleSubmitComment = async () => {
+    if (!commentName.trim() || !commentText.trim()) return;
+    setSending(true);
+    try {
+      await onComment(fp._id, commentName.trim(), commentText.trim());
+      setCommentText('');
+    } catch (err) {
+      console.error(err);
+    }
+    setSending(false);
+  };
 
   return (
     <div className="fixed inset-0 z-[1800] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl z-10">
+      <div className="relative bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl z-10">
         {/* Photo */}
         {fp.photoUrl ? (
           <img src={fp.photoUrl} className="w-full max-h-[50vh] object-cover rounded-t-2xl" />
@@ -102,14 +122,71 @@ function FootprintDetailModal({ fp, userId, isAdmin, onLike, onDelete, onShare, 
               )}
             </div>
           </div>
+
+          {/* ── Comments Section ──────────────────────────── */}
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <h3 className="flex items-center gap-1.5 font-semibold text-sm text-gray-800 mb-3">
+              <MessageCircle className="w-4 h-4" />
+              Comments ({comments.length})
+            </h3>
+
+            {/* Comment List */}
+            {comments.length > 0 ? (
+              <div className="space-y-2 mb-3">
+                {comments.map((c, i) => (
+                  <div key={i} className="p-2.5 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm text-gray-800">{c.username}</span>
+                      <span className="text-xs text-gray-400">
+                        {new Date(c.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">{c.content}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 mb-3">No comments yet. Be the first!</p>
+            )}
+
+            {/* Comment Form */}
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={commentName}
+                onChange={(e) => setCommentName(e.target.value)}
+                placeholder="Your name"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+              />
+              <div className="flex gap-2">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Write a comment..."
+                  rows={2}
+                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 resize-none"
+                />
+                <button
+                  onClick={handleSubmitComment}
+                  disabled={sending || !commentName.trim() || !commentText.trim()}
+                  className="flex-shrink-0 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium
+                    hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors
+                    flex items-center gap-1"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike, onDelete, onShare, onClose }) {
-  const [detailFp, setDetailFp] = useState(null);
+export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike, onDelete, onShare, onComment, onClose }) {
+  const [detailFpId, setDetailFpId] = useState(null);
+  const detailFp = detailFpId ? footprints.find(f => f._id === detailFpId) : null;
 
   const grouped = useMemo(() => {
     const map = {};
@@ -181,11 +258,12 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike
                 {items.map((fp) => {
                   const liked = fp.likes?.some((l) => (l._id || l) === userId);
                   const likeCount = fp.likes?.length || 0;
+                  const commentCount = fp.comments?.length || 0;
 
                   return (
                     <div
                       key={fp._id}
-                      onClick={() => setDetailFp(fp)}
+                      onClick={() => setDetailFpId(fp._id)}
                       className="flex gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
                     >
                       {/* Thumbnail */}
@@ -216,6 +294,12 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike
                             <Heart className={`w-3 h-3 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
                             {likeCount || ''}
                           </span>
+                          {commentCount > 0 && (
+                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                              <MessageCircle className="w-3 h-3" />
+                              {commentCount}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -236,7 +320,8 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onLike
           onLike={onLike}
           onDelete={onDelete}
           onShare={onShare}
-          onClose={() => setDetailFp(null)}
+          onComment={onComment}
+          onClose={() => setDetailFpId(null)}
         />
       )}
 
