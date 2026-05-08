@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { X, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send } from 'lucide-react';
 import { getUser } from '../auth';
 import ReactionPicker from './ReactionPicker';
@@ -65,15 +66,19 @@ function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare,
         <div className="p-5">
           {/* User & Time */}
           <div className="flex items-center gap-3 mb-3">
-            {user.avatarUrl ? (
-              <img src={user.avatarUrl} className="w-10 h-10 rounded-full object-cover" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm">
-                {(user.name || '?')[0].toUpperCase()}
-              </div>
-            )}
+            <Link to={`/profile/${user._id}`}>
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} className="w-10 h-10 rounded-full object-cover hover:ring-2 hover:ring-blue-300 transition-all" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm hover:ring-2 hover:ring-blue-300 transition-all">
+                  {(user.name || '?')[0].toUpperCase()}
+                </div>
+              )}
+            </Link>
             <div>
-              <p className="font-semibold text-gray-800">{user.name || 'Unknown'}</p>
+              <Link to={`/profile/${user._id}`} className="font-semibold text-gray-800 hover:text-blue-600">
+                {user.name || 'Unknown'}
+              </Link>
               <div className="flex items-center gap-1 text-xs text-gray-400">
                 <Clock className="w-3 h-3" />
                 {new Date(fp.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -247,14 +252,18 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
             <div key={user?._id || 'unknown'}>
               {/* User Header */}
               <div className="flex items-center gap-2 mb-3">
-                {user?.avatarUrl ? (
-                  <img src={user.avatarUrl} className="w-8 h-8 rounded-full object-cover ring-2 ring-blue-100" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                    {(user?.name || '?')[0].toUpperCase()}
-                  </div>
-                )}
-                <span className="font-semibold text-sm text-gray-800">{user?.name || 'Unknown'}</span>
+                <Link to={`/profile/${user?._id}`}>
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} className="w-8 h-8 rounded-full object-cover ring-2 ring-blue-100 hover:ring-blue-300 transition-all" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-blue-300 transition-all">
+                      {(user?.name || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                </Link>
+                <Link to={`/profile/${user?._id}`} className="font-semibold text-sm text-gray-800 hover:text-blue-600">
+                  {user?.name || 'Unknown'}
+                </Link>
                 <span className="text-xs text-gray-400">{items.length} post{items.length > 1 ? 's' : ''}</span>
               </div>
 

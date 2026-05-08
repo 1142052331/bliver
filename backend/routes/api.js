@@ -269,6 +269,94 @@ module.exports = (io) => {
     }
   });
 
+  // ── Profile ──────────────────────────────────────────
+
+  // GET /api/users/:id/profile
+  router.get('/users/:id/profile', async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id)
+        .select('-password')
+        .populate('profileReactions.senderId', 'name avatarUrl');
+
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const footprints = await populateFootprint(
+        Footprint.find({ userId: req.params.id }).sort({ createdAt: -1 }).limit(30)
+      );
+
+      // Recent interactions: latest liked/commented footprints by this user
+      const recentReactions = await Footprint.find({ 'reactions.userId': req.params.id })
+        .sort({ 'reactions.0.createdAt': -1 }).limit(5)
+        .populate('userId', 'name avatarUrl');
+      const recentComments = await Footprint.find({ 'comments.username': user.name })
+        .sort({ 'comments.0.createdAt': -1 }).limit(5)
+        .populate('userId', 'name avatarUrl');
+
+      res.json({ user, footprints, recentReactions, recentComments });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/users/:id/profile/comment
+  router.post('/users/:id/profile/comment', auth, async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content) return res.status(400).json({ error: 'content is required' });
+
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      user.profileComments.push({
+        senderName: req.user.name,
+        content,
+      });
+      await user.save();
+
+      const updated = await User.findById(req.params.id).select('-password')
+        .populate('profileReactions.senderId', 'name avatarUrl');
+
+      res.status(201).json({ user: updated });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/users/:id/profile/react
+  router.post('/users/:id/profile/react', auth, async (req, res) => {
+    try {
+      const { emoji } = req.body;
+      if (!emoji) return res.status(400).json({ error: 'emoji is required' });
+
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const senderId = req.user.id;
+      const existing = user.profileReactions.find(
+        (r) => r.senderId.toString() === senderId
+      );
+
+      if (existing) {
+        if (existing.emoji === emoji) {
+          user.profileReactions.pull({ senderId });
+        } else {
+          existing.emoji = emoji;
+        }
+      } else {
+        user.profileReactions.push({ senderId, emoji });
+      }
+
+      await user.save();
+
+      const updated = await User.findById(req.params.id).select('-password')
+        .populate('profileReactions.senderId', 'name avatarUrl');
+
+      res.json({ user: updated });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Admin setup ───────────────────────────────────────
 
   // POST /api/admin/setup (logged-in user + secret key)

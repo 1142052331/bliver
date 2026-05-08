@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { MapPin, Users, LogOut, Bell } from 'lucide-react';
 
 export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick }) {
@@ -29,13 +30,15 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
           )}
         </button>
 
-        {user?.avatarUrl ? (
-          <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover ring-2 ring-blue-200" />
-        ) : (
-          <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-            {user?.name?.[0]?.toUpperCase() || '?'}
-          </div>
-        )}
+        <Link to={`/profile/${user._id}`}>
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover ring-2 ring-blue-200 hover:ring-blue-400 transition-all" />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-blue-400 transition-all">
+              {user?.name?.[0]?.toUpperCase() || '?'}
+            </div>
+          )}
+        </Link>
 
         <button
           onClick={onLogout}

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { io } from 'socket.io-client';
 import api from './api';
@@ -16,6 +17,7 @@ import TimelineDrawer from './components/TimelineDrawer';
 import ClusterMarkers from './components/ClusterMarkers';
 import ClusterDetailPanel from './components/ClusterDetailPanel';
 import NotificationPanel from './components/NotificationPanel';
+import ProfilePage from './components/ProfilePage';
 import MapLayers from './components/MapLayers';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -118,7 +120,6 @@ export default function App() {
 
     socket.on('new_notification', (data) => {
       setNotifications((prev) => [data.notification, ...prev]);
-      // Show toast
       const n = data.notification;
       const msg = n.type === 'reaction'
         ? `${n.senderName} 对你的打卡表示了 ${n.content}`
@@ -196,102 +197,113 @@ export default function App() {
 
   const isAdmin = user.role === 'admin';
 
-  return (
-    <div className="relative w-full h-screen overflow-hidden">
-      <NavBar
-        onlineCount={onlineCount}
-        user={user}
-        onLogout={handleLogout}
-        unreadCount={unreadCount}
-        onBellClick={() => setShowNotifs((v) => !v)}
-      />
+  // ── Map Dashboard view ──────────────────────────────────
 
-      {showNotifs && (
-        <NotificationPanel
-          notifications={notifications}
-          onClose={() => setShowNotifs(false)}
-          onMarkRead={markAsRead}
+  function MapDashboard() {
+    return (
+      <div className="relative w-full h-screen overflow-hidden">
+        <NavBar
+          onlineCount={onlineCount}
+          user={user}
+          onLogout={handleLogout}
+          unreadCount={unreadCount}
+          onBellClick={() => setShowNotifs((v) => !v)}
         />
-      )}
 
-      <MapContainer center={CENTER} zoom={6} scrollWheelZoom className="w-full h-full">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        {showNotifs && (
+          <NotificationPanel
+            notifications={notifications}
+            onClose={() => setShowNotifs(false)}
+            onMarkRead={markAsRead}
+          />
+        )}
+
+        <MapContainer center={CENTER} zoom={6} scrollWheelZoom className="w-full h-full">
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <RecenterOnLoad footprints={footprints} targetId={shareTarget} />
+          <MapLayers />
+          <ClusterMarkers
+            footprints={footprints}
+            userId={user._id}
+            isAdmin={isAdmin}
+          />
+        </MapContainer>
+
+        <button
+          onClick={() => setShowCheckIn(true)}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-8 py-4
+            bg-blue-600 text-white rounded-full font-bold text-base shadow-lg shadow-blue-600/30
+            hover:bg-blue-700 hover:shadow-blue-600/40 active:scale-95
+            transition-all duration-200 flex items-center gap-2"
+        >
+          <MapPin className="w-5 h-5" />
+          Check In Here
+        </button>
+
+        <button
+          onClick={() => setShowTimeline(true)}
+          className="absolute top-20 right-3 z-[1000] px-4 py-2 bg-white/80 backdrop-blur rounded-xl
+            text-sm font-medium text-gray-700 shadow-md border border-gray-200/60
+            hover:bg-white transition-colors"
+        >
+          Today&apos;s Journey →
+        </button>
+
+        <CheckInModal
+          isOpen={showCheckIn}
+          onClose={() => setShowCheckIn(false)}
         />
-        <RecenterOnLoad footprints={footprints} targetId={shareTarget} />
-        <MapLayers />
-        <ClusterMarkers
+
+        <TimelineDrawer
+          isOpen={showTimeline}
+          onClose={() => setShowTimeline(false)}
           footprints={footprints}
-          userId={user._id}
-          isAdmin={isAdmin}
-        />
-      </MapContainer>
-
-      <button
-        onClick={() => setShowCheckIn(true)}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-8 py-4
-          bg-blue-600 text-white rounded-full font-bold text-base shadow-lg shadow-blue-600/30
-          hover:bg-blue-700 hover:shadow-blue-600/40 active:scale-95
-          transition-all duration-200 flex items-center gap-2"
-      >
-        <MapPin className="w-5 h-5" />
-        Check In Here
-      </button>
-
-      <button
-        onClick={() => setShowTimeline(true)}
-        className="absolute top-20 right-3 z-[1000] px-4 py-2 bg-white/80 backdrop-blur rounded-xl
-          text-sm font-medium text-gray-700 shadow-md border border-gray-200/60
-          hover:bg-white transition-colors"
-      >
-        Today&apos;s Journey →
-      </button>
-
-      <CheckInModal
-        isOpen={showCheckIn}
-        onClose={() => setShowCheckIn(false)}
-      />
-
-      <TimelineDrawer
-        isOpen={showTimeline}
-        onClose={() => setShowTimeline(false)}
-        footprints={footprints}
-        userId={user._id}
-        isAdmin={isAdmin}
-        onReact={handleReact}
-        onDelete={handleDelete}
-        onShare={handleShare}
-      />
-
-      {clusterFootprints && (
-        <ClusterDetailPanel
-          footprints={clusterFootprints}
           userId={user._id}
           isAdmin={isAdmin}
           onReact={handleReact}
           onDelete={handleDelete}
           onShare={handleShare}
-          onComment={handleComment}
-          onClose={() => setClusterData(null)}
         />
-      )}
 
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-16 right-4 z-[1900] px-4 py-2.5 bg-gray-900 text-white text-sm
-          rounded-xl shadow-lg animate-slide-down">
-          {toast}
-        </div>
-      )}
+        {clusterFootprints && (
+          <ClusterDetailPanel
+            footprints={clusterFootprints}
+            userId={user._id}
+            isAdmin={isAdmin}
+            onReact={handleReact}
+            onDelete={handleDelete}
+            onShare={handleShare}
+            onComment={handleComment}
+            onClose={() => setClusterData(null)}
+          />
+        )}
 
-      <style>{`
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-down { animation: slideDown 0.3s ease-out; }
-      `}</style>
-    </div>
+        {/* Toast */}
+        {toast && (
+          <div className="fixed top-16 right-4 z-[1900] px-4 py-2.5 bg-gray-900 text-white text-sm
+            rounded-xl shadow-lg animate-slide-down">
+            {toast}
+          </div>
+        )}
+
+        <style>{`
+          @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .animate-slide-down { animation: slideDown 0.3s ease-out; }
+        `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/profile/:userId" element={<ProfilePage />} />
+      <Route path="*" element={<MapDashboard />} />
+    </Routes>
   );
 }
