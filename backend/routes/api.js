@@ -316,6 +316,8 @@ module.exports = (io) => {
       const updated = await User.findById(req.params.id).select('-password')
         .populate('profileReactions.senderId', 'name avatarUrl');
 
+      io.emit('profile:updated', { userId: req.params.id, user: updated });
+
       res.status(201).json({ user: updated });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -350,6 +352,8 @@ module.exports = (io) => {
 
       const updated = await User.findById(req.params.id).select('-password')
         .populate('profileReactions.senderId', 'name avatarUrl');
+
+      io.emit('profile:updated', { userId: req.params.id, user: updated });
 
       res.json({ user: updated });
     } catch (err) {

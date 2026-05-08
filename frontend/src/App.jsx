@@ -104,6 +104,7 @@ export default function App() {
 
     socket.on('footprint:new', (data) => {
       setFootprints((prev) => [data.footprint, ...prev]);
+      window.dispatchEvent(new CustomEvent('ws:footprint:new', { detail: data }));
     });
 
     socket.on('footprint:updated', (data) => {
@@ -112,10 +113,16 @@ export default function App() {
           ? { ...fp, reactions: data.footprint.reactions, comments: data.footprint.comments }
           : fp))
       );
+      window.dispatchEvent(new CustomEvent('ws:footprint:updated', { detail: data }));
     });
 
     socket.on('footprint:deleted', (data) => {
       setFootprints((prev) => prev.filter((fp) => fp._id !== data.footprintId));
+      window.dispatchEvent(new CustomEvent('ws:footprint:deleted', { detail: data }));
+    });
+
+    socket.on('profile:updated', (data) => {
+      window.dispatchEvent(new CustomEvent('ws:profile:updated', { detail: data }));
     });
 
     socket.on('new_notification', (data) => {

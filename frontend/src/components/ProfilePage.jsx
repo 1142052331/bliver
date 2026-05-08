@@ -48,6 +48,47 @@ export default function ProfilePage() {
 
   useEffect(() => { fetchProfile(); }, [userId]);
 
+  // Subscribe to real-time window events dispatched from socket handlers
+  useEffect(() => {
+    const onNewFp = (e) => {
+      const fp = e.detail.footprint;
+      if (fp.userId?._id === userId || fp.userId === userId) {
+        setFootprints((prev) => [fp, ...prev]);
+      }
+    };
+
+    const onUpdateFp = (e) => {
+      const fp = e.detail.footprint;
+      setFootprints((prev) =>
+        prev.map((f) => (f._id === fp._id
+          ? { ...f, reactions: fp.reactions, comments: fp.comments }
+          : f))
+      );
+    };
+
+    const onDeleteFp = (e) => {
+      setFootprints((prev) => prev.filter((f) => f._id !== e.detail.footprintId));
+    };
+
+    const onProfileUpdated = (e) => {
+      if (e.detail.userId === userId) {
+        setProfile(e.detail.user);
+      }
+    };
+
+    window.addEventListener('ws:footprint:new', onNewFp);
+    window.addEventListener('ws:footprint:updated', onUpdateFp);
+    window.addEventListener('ws:footprint:deleted', onDeleteFp);
+    window.addEventListener('ws:profile:updated', onProfileUpdated);
+
+    return () => {
+      window.removeEventListener('ws:footprint:new', onNewFp);
+      window.removeEventListener('ws:footprint:updated', onUpdateFp);
+      window.removeEventListener('ws:footprint:deleted', onDeleteFp);
+      window.removeEventListener('ws:profile:updated', onProfileUpdated);
+    };
+  }, [userId]);
+
   const handleComment = async () => {
     if (!commentText.trim()) return;
     setSendingComment(true);
