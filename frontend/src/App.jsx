@@ -32,7 +32,13 @@ L.Icon.Default.mergeOptions({
 });
 
 const CENTER = [33.5597, 133.5311];
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+function getSocketURL() {
+  if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
+  if (import.meta.env.VITE_API_URL) {
+    try { return new URL(import.meta.env.VITE_API_URL).origin; } catch {}
+  }
+  return window.location.origin;
+}
 
 function RecenterOnLoad({ footprints, targetId }) {
   const map = useMap();
@@ -122,7 +128,7 @@ export default function App() {
       setNotifications(res.data.notifications);
     }).catch(() => {});
 
-    const socket = io(SOCKET_URL);
+    const socket = io(getSocketURL());
     socket.emit('user:online', user._id);
 
     socket.on('online:count', (data) => setOnlineCount(data.count));
