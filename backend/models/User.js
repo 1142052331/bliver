@@ -4,6 +4,7 @@ const userSchema = new mongoose.Schema({
   name:     { type: String, required: true, unique: true },
   password: { type: String, required: true },
   avatarUrl:{ type: String, default: '' },
+  profileBannerUrl: { type: String, default: '' },
   isOnline: { type: Boolean, default: false },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
   profileComments: [{

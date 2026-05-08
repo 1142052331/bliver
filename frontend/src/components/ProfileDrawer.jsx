@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { X, MapPin, Clock, MessageCircle, Heart, Footprints } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { X, MapPin, Clock, MessageCircle, Heart, Footprints, Camera, Loader2 } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import api from '../api';
 import { getUser } from '../auth';
 
@@ -19,6 +20,32 @@ export default function ProfileDrawer({ userId, onClose }) {
   const [recentReactions, setRecentReactions] = useState([]);
   const [recentComments, setRecentComments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerMsg, setBannerMsg] = useState('');
+  const bannerFileRef = useRef(null);
+
+  const currentUser = getUser();
+  const isOwnProfile = currentUser?._id === userId;
+
+  const handleBannerUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingBanner(true);
+    setBannerMsg('');
+    try {
+      const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
+      const form = new FormData();
+      form.append('banner', compressed);
+      const { data } = await api.post('/api/users/profile/banner', form);
+      setProfile(data.user);
+      setBannerMsg('背景更换成功！');
+      setTimeout(() => setBannerMsg(''), 3000);
+    } catch (err) {
+      setBannerMsg(err.response?.data?.error || '上传失败');
+      setTimeout(() => setBannerMsg(''), 3000);
+    }
+    setUploadingBanner(false);
+  };
 
   const fetchProfile = async () => {
     try {
@@ -108,14 +135,57 @@ export default function ProfileDrawer({ userId, onClose }) {
         ) : (
           <>
             {/* Hero Banner */}
-            <div className="relative h-32 bg-gradient-to-r from-blue-400 to-indigo-500 flex-shrink-0">
-              <button
-                onClick={onClose}
-                className="absolute top-3 right-3 p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md
-                  rounded-full text-white transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+            <div
+              className="relative h-40 flex-shrink-0 bg-gradient-to-r from-blue-400 to-indigo-500"
+              style={profile.profileBannerUrl ? {
+                background: `url(${profile.profileBannerUrl}) center/cover no-repeat`,
+              } : undefined}
+            >
+              {/* Banner shadow overlay for text readability */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30" />
+
+              {/* Top-right buttons */}
+              <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+                {isOwnProfile && (
+                  <>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={bannerFileRef}
+                      onChange={handleBannerUpload}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => bannerFileRef.current?.click()}
+                      disabled={uploadingBanner}
+                      className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md
+                        rounded-full text-white transition-colors disabled:opacity-50"
+                      title="更换背景"
+                    >
+                      {uploadingBanner ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Camera className="w-4 h-4" />
+                      )}
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={onClose}
+                  className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md
+                    rounded-full text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Banner success message */}
+              {bannerMsg && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5
+                  bg-black/50 backdrop-blur-sm text-white text-xs rounded-full">
+                  {bannerMsg}
+                </div>
+              )}
             </div>
 
             {/* Avatar — overlapping banner and content */}

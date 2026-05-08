@@ -375,6 +375,27 @@ module.exports = (io) => {
     }
   });
 
+  // POST /api/users/profile/banner (protected)
+  router.post('/users/profile/banner', auth, upload.single('banner'), uploadToCloudinary, async (req, res) => {
+    try {
+      if (!req.cloudinaryUrl) {
+        return res.status(400).json({ error: 'No banner image uploaded' });
+      }
+
+      const user = await User.findByIdAndUpdate(
+        req.user.id,
+        { profileBannerUrl: req.cloudinaryUrl },
+        { new: true }
+      ).select('-password');
+
+      io.emit('profile:updated', { userId: req.user.id, user });
+
+      res.json({ user });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Admin setup ───────────────────────────────────────
 
   // POST /api/admin/setup (logged-in user + secret key)
