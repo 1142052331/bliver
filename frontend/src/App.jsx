@@ -7,7 +7,7 @@ import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { MapPin } from 'lucide-react';
+import { MapPin, Image } from 'lucide-react';
 
 import NavBar from './components/NavBar';
 import AuthModal from './components/AuthModal';
@@ -22,6 +22,7 @@ import FlyToFootprint from './components/FlyToFootprint';
 import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import PhotoWall from './components/PhotoWall';
 import { subscribeToPush } from './push';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -50,10 +51,29 @@ function RecenterOnLoad({ footprints, targetId }) {
           map.setView([fp.location.lat, fp.location.lng], 14);
         }, 500);
       }
-    } else if (footprints.length > 0) {
-      const last = footprints[0];
-      map.setView([last.location.lat, last.location.lng], map.getZoom());
+      return;
     }
+
+    if (footprints.length === 0) return;
+
+    // Landing animation: fly through recent footprints, ending on the latest
+    const sorted = [...footprints].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const recent = sorted.slice(-Math.min(sorted.length, 12));
+    const timers = [];
+
+    recent.forEach((fp, i) => {
+      const t = setTimeout(() => {
+        const isLast = i === recent.length - 1;
+        map.flyTo(
+          [fp.location.lat, fp.location.lng],
+          isLast ? 14 : 12,
+          { duration: isLast ? 1.5 : 1.0 }
+        );
+      }, i * 1200);
+      timers.push(t);
+    });
+
+    return () => timers.forEach(clearTimeout);
   }, []);
   return null;
 }
@@ -79,6 +99,7 @@ export default function App() {
   const [flyArrivedFp, setFlyArrivedFp] = useState(null);
   const [footprintPeriod, setFootprintPeriod] = useState('today');
   const [footprintsLoading, setFootprintsLoading] = useState(true);
+  const [showPhotoWall, setShowPhotoWall] = useState(false);
 
   useEffect(() => {
     const saved = getUser();
@@ -373,6 +394,16 @@ export default function App() {
         Today&apos;s Journey →
       </button>
 
+      <button
+        onClick={() => setShowPhotoWall(true)}
+        className="absolute top-36 right-3 z-[1000] px-4 py-2 bg-white/80 backdrop-blur rounded-xl
+          text-sm font-medium text-pink-600 shadow-md border border-pink-200/60
+          hover:bg-pink-50 transition-colors"
+      >
+        <Image className="w-4 h-4 inline mr-1" />
+        照片墙
+      </button>
+
       <CheckInModal
         isOpen={showCheckIn}
         onClose={() => setShowCheckIn(false)}
@@ -424,6 +455,18 @@ export default function App() {
       {/* Admin Panel */}
       {showAdmin && (
         <AdminPanel onClose={() => setShowAdmin(false)} />
+      )}
+
+      {/* Photo Wall */}
+      {showPhotoWall && (
+        <PhotoWall
+          footprints={footprints}
+          onClose={() => setShowPhotoWall(false)}
+          onSelect={(fpId) => {
+            setShowPhotoWall(false);
+            setActiveFootprintId(fpId);
+          }}
+        />
       )}
 
       {/* Auth Modal Overlay */}
