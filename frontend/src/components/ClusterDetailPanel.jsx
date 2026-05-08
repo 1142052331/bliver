@@ -189,17 +189,16 @@ function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare,
   );
 }
 
-export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReact, onDelete, onShare, onComment, onClose }) {
+export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReact, onDelete, onShare, onComment, onClose, autoOpenId }) {
   const [detailFpId, setDetailFpId] = useState(null);
   const detailFp = detailFpId ? footprints.find(f => f._id === detailFpId) : null;
-  const singleFp = footprints.length === 1 ? footprints[0] : null;
 
-  // Auto-open detail modal when a single footprint arrives (e.g. from timeline click)
+  // Auto-open detail modal triggered by timeline click (via activeFootprintId)
   useEffect(() => {
-    if (singleFp) {
-      setDetailFpId(singleFp._id);
+    if (autoOpenId) {
+      setDetailFpId(autoOpenId);
     }
-  }, [singleFp?._id]);
+  }, [autoOpenId]);
 
   const grouped = useMemo(() => {
     const map = {};

@@ -366,6 +366,7 @@ export default function App() {
           onShare={handleShare}
           onComment={handleComment}
           onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
+          autoOpenId={activeFootprintId}
         />
       )}
 
