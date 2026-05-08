@@ -136,14 +136,19 @@ export default function App() {
     socket.on('disconnect', (reason) => console.log('[Socket] Disconnected:', reason));
     socket.emit('user:online', user._id);
 
-    socket.on('online:count', (data) => setOnlineCount(data.count));
+    socket.on('online:count', (data) => {
+      console.log('[Socket] online:count:', data.count);
+      setOnlineCount(data.count);
+    });
 
     socket.on('footprint:new', (data) => {
+      console.log('[Socket] footprint:new:', data.footprint?._id?.slice(-6), data.footprint?.placeName);
       setFootprints((prev) => [data.footprint, ...prev]);
       window.dispatchEvent(new CustomEvent('ws:footprint:new', { detail: data }));
     });
 
     socket.on('footprint:updated', (data) => {
+      console.log('[Socket] footprint:updated:', data.footprint?._id?.slice(-6));
       setFootprints((prev) =>
         prev.map((fp) => (fp._id === data.footprint._id
           ? { ...fp, reactions: data.footprint.reactions, comments: data.footprint.comments }
@@ -153,6 +158,7 @@ export default function App() {
     });
 
     socket.on('footprint:deleted', (data) => {
+      console.log('[Socket] footprint:deleted:', data.footprintId?.slice(-6));
       setFootprints((prev) => prev.filter((fp) => fp._id !== data.footprintId));
       window.dispatchEvent(new CustomEvent('ws:footprint:deleted', { detail: data }));
     });
