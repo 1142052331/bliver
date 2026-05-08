@@ -333,7 +333,7 @@ export default function App() {
         />
       )}
 
-      <MapContainer key="map" center={CENTER} zoom={6} scrollWheelZoom className="w-full h-full">
+      <MapContainer key="map" center={CENTER} zoom={6} scrollWheelZoom zoomControl={false} className="w-full h-full">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -351,14 +351,14 @@ export default function App() {
         />
       </MapContainer>
 
-      {/* Check In button */}
+      {/* Check In button — bottom-right, below where zoom was */}
       <button
         onClick={() => {
           if (!requireLogin({ type: 'checkin' })) return;
           setShowCheckIn(true);
         }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]
-          aurora-btn px-6 py-3.5 rounded-2xl text-sm tracking-wide text-white
+        className="absolute bottom-6 right-3 z-[1000]
+          aurora-btn px-5 py-3 rounded-2xl text-sm tracking-wide text-white
           active:scale-[0.97] flex items-center gap-2"
         style={{ boxShadow: '0 8px 32px var(--aurora-glow-teal), 0 0 60px var(--aurora-glow-purple)' }}
       >
