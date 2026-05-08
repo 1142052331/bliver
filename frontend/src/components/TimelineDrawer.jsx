@@ -94,7 +94,13 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
   );
 }
 
-export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint }) {
+const PERIODS = [
+  { key: 'today', label: '本日' },
+  { key: 'week', label: '本周' },
+  { key: 'year', label: '本年' },
+];
+
+export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint, period, onChangePeriod }) {
   const grouped = useMemo(() => {
     const map = {};
     footprints.forEach((fp) => {
@@ -114,18 +120,36 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
 
       <div
         className={`fixed top-0 right-0 h-full w-[360px] max-w-[85vw] z-[1600] bg-white shadow-2xl
-          transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+          transition-transform duration-300 ease-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-bold text-lg text-gray-800">Today&apos;s Journey</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
+        <div className="px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-lg text-gray-800">足迹记录</h2>
+            <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+          {/* Period pills */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            {PERIODS.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => onChangePeriod && onChangePeriod(p.key)}
+                className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors
+                  ${period === p.key
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="overflow-y-auto h-[calc(100%-60px)] p-5">
+        <div className="flex-1 overflow-y-auto p-5">
           {grouped.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center mt-12">No footprints today yet.</p>
+            <p className="text-gray-400 text-sm text-center mt-12">暂无足迹记录</p>
           ) : (
             grouped.map(({ user, items }) => (
               <UserTimeline

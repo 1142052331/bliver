@@ -70,6 +70,7 @@ export default function App() {
   const pendingActionRef = useRef(null);
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [flyArrivedFp, setFlyArrivedFp] = useState(null);
+  const [footprintPeriod, setFootprintPeriod] = useState('today');
 
   useEffect(() => {
     const saved = getUser();
@@ -96,20 +97,14 @@ export default function App() {
     }
   }, []);
 
-  // Fetch footprints on mount (guest-accessible)
-  useEffect(() => {
-    api.get('/api/footprints/today').then((res) => {
+  // Fetch footprints (guest-accessible, period-aware)
+  const fetchFootprints = useCallback(() => {
+    api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
       setFootprints(res.data.footprints);
     }).catch(() => {});
-  }, []);
+  }, [footprintPeriod]);
 
-  // Re-fetch footprints when user changes (login/logout)
-  useEffect(() => {
-    if (!user) return;
-    api.get('/api/footprints/today').then((res) => {
-      setFootprints(res.data.footprints);
-    }).catch(() => {});
-  }, [user]);
+  useEffect(() => { fetchFootprints(); }, [fetchFootprints]);
 
   // Socket connection + notifications (logged-in only)
   useEffect(() => {
@@ -254,10 +249,7 @@ export default function App() {
     clearAuth();
     setUser(null);
     setNotifications([]);
-    // Re-fetch footprints for guest view
-    api.get('/api/footprints/today').then((res) => {
-      setFootprints(res.data.footprints);
-    }).catch(() => {});
+    fetchFootprints();
   };
 
   // Derive latest cluster footprints from live footprints state
@@ -352,6 +344,8 @@ export default function App() {
         onDelete={handleDelete}
         onShare={handleShare}
         onSelectFootprint={(fpId) => setActiveFootprintId(fpId)}
+        period={footprintPeriod}
+        onChangePeriod={setFootprintPeriod}
       />
 
       {/* Fly-arrived detail modal (from timeline click) */}

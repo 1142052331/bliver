@@ -85,11 +85,27 @@ module.exports = (io) => {
 
   // ── Footprints ────────────────────────────────────────
 
-  // GET /api/footprints/today
+  // GET /api/footprints/today?period=today|week|year
   router.get('/footprints/today', async (req, res) => {
     try {
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
+      const period = req.query.period || 'today';
+      const now = new Date();
+      let start;
+
+      if (period === 'year') {
+        start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      } else if (period === 'week') {
+        const day = now.getDay();
+        const mondayOffset = day === 0 ? -6 : 1 - day; // Monday start
+        start = new Date(now);
+        start.setDate(now.getDate() + mondayOffset);
+        start.setHours(0, 0, 0, 0);
+      } else {
+        // today
+        start = new Date();
+        start.setHours(0, 0, 0, 0);
+      }
+
       const end = new Date();
       end.setHours(23, 59, 59, 999);
 
@@ -97,7 +113,7 @@ module.exports = (io) => {
         Footprint.find({ createdAt: { $gte: start, $lte: end } }).sort({ createdAt: -1 })
       );
 
-      res.json({ footprints });
+      res.json({ footprints, period, start });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
