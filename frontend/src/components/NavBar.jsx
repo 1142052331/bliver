@@ -1,17 +1,25 @@
 import { MapPin, LogOut, Bell, Shield, LogIn, UserPlus } from 'lucide-react';
 
-export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister }) {
+export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister, onCheckIn }) {
   return (
     <nav className="absolute top-3 left-3 right-3 z-[1000] flex items-center justify-between
       px-4 py-2.5 aurora-glass rounded-2xl"
       style={{ fontFamily: 'var(--font-body)' }}>
-      {/* Logo */}
-      <div className="flex items-center gap-2.5">
+      {/* Logo + Check In */}
+      <div className="flex items-center gap-2">
         <div className="relative w-9 h-9 rounded-xl aurora-btn flex items-center justify-center
           shadow-lg" style={{ boxShadow: '0 4px 20px var(--aurora-glow-teal), 0 0 40px var(--aurora-glow-purple)' }}>
           <MapPin className="w-4 h-4 text-white" />
         </div>
         <span className="font-bold text-lg tracking-tight text-white/90">Bliver</span>
+        <button
+          onClick={onCheckIn}
+          className="aurora-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-white
+            flex items-center gap-1 shadow-md ml-1"
+        >
+          <MapPin className="w-3 h-3" />
+          打卡
+        </button>
       </div>
 
       <div className="flex items-center gap-2">

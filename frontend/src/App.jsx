@@ -323,6 +323,10 @@ export default function App() {
         onOpenAdmin={() => setShowAdmin(true)}
         onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
         onOpenRegister={() => { setAuthTab('register'); setAuthMessage(''); setShowAuth(true); }}
+        onCheckIn={() => {
+          if (!requireLogin({ type: 'checkin' })) return;
+          setShowCheckIn(true);
+        }}
       />
 
       {showNotifs && (
@@ -350,20 +354,6 @@ export default function App() {
           isAdmin={isAdmin}
         />
       </MapContainer>
-
-      {/* Check In button — below NavBar, left-aligned */}
-      <button
-        onClick={() => {
-          if (!requireLogin({ type: 'checkin' })) return;
-          setShowCheckIn(true);
-        }}
-        className="absolute top-4 left-[calc(50%+24px)] z-[1100]
-          aurora-btn px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide text-white
-          active:scale-[0.97] flex items-center gap-1 shadow-lg"
-      >
-        <MapPin className="w-3.5 h-3.5" />
-        打卡
-      </button>
 
       {/* Side buttons group */}
       <div className="absolute top-[88px] right-3 z-[1000] flex flex-col gap-2">
