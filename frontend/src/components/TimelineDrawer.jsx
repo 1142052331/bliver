@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { X, Clock, Trash2, Share2, Check } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
 
-function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare }) {
+function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint }) {
   const timeStr = (date) =>
     new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
@@ -35,7 +35,10 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
                 <Clock className="w-3 h-3" />
                 {timeStr(fp.createdAt)}
               </div>
-              <div className="bg-gray-50 rounded-xl p-3">
+              <div
+                className="bg-gray-50 rounded-xl p-3 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all"
+                onClick={() => onSelectFootprint && onSelectFootprint(fp._id)}
+              >
                 <div className="flex items-center gap-2 mb-0.5">
                   <p className="text-sm font-medium text-gray-700">
                     📍 {fp.placeName || 'Unknown'}
@@ -50,7 +53,8 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
                 )}
 
                 {/* Actions */}
-                <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200"
+                  onClick={(e) => e.stopPropagation()}>
                   <ReactionPicker fp={fp} userId={userId} onReact={onReact} />
 
                   <div className="flex items-center gap-1">
@@ -85,7 +89,7 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
   );
 }
 
-export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare }) {
+export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint }) {
   const grouped = useMemo(() => {
     const map = {};
     footprints.forEach((fp) => {
@@ -128,6 +132,7 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
                 onReact={onReact}
                 onDelete={onDelete}
                 onShare={onShare}
+                onSelectFootprint={onSelectFootprint}
               />
             ))
           )}

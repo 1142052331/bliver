@@ -20,6 +20,7 @@ import NotificationPanel from './components/NotificationPanel';
 import ProfilePage from './components/ProfilePage';
 import MapLayers from './components/MapLayers';
 import AdminPanel from './components/AdminPanel';
+import FlyToFootprint from './components/FlyToFootprint';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -61,6 +62,7 @@ export default function App() {
   const [showNotifs, setShowNotifs] = useState(false);
   const [toast, setToast] = useState(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [activeFootprintId, setActiveFootprintId] = useState(null);
 
   useEffect(() => {
     const saved = getUser();
@@ -240,6 +242,15 @@ export default function App() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <RecenterOnLoad footprints={footprints} targetId={shareTarget} />
+        <FlyToFootprint
+          footprints={footprints}
+          activeFootprintId={activeFootprintId}
+          onArrive={(fp) => {
+            window.dispatchEvent(new CustomEvent('cluster:click', {
+              detail: { footprints: [fp] },
+            }));
+          }}
+        />
         <MapLayers />
         <ClusterMarkers
           footprints={footprints}
@@ -282,6 +293,7 @@ export default function App() {
         onReact={handleReact}
         onDelete={handleDelete}
         onShare={handleShare}
+        onSelectFootprint={(fpId) => setActiveFootprintId(fpId)}
       />
 
       {clusterFootprints && (
@@ -293,7 +305,7 @@ export default function App() {
           onDelete={handleDelete}
           onShare={handleShare}
           onComment={handleComment}
-          onClose={() => setClusterData(null)}
+          onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
         />
       )}
 
