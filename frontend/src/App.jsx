@@ -128,7 +128,12 @@ export default function App() {
       setNotifications(res.data.notifications);
     }).catch(() => {});
 
-    const socket = io(getSocketURL());
+    const socketUrl = getSocketURL();
+    console.log('[Socket] Connecting to:', socketUrl);
+    const socket = io(socketUrl);
+    socket.on('connect', () => console.log('[Socket] Connected:', socket.id));
+    socket.on('connect_error', (e) => console.error('[Socket] Connect error:', e.message));
+    socket.on('disconnect', (reason) => console.log('[Socket] Disconnected:', reason));
     socket.emit('user:online', user._id);
 
     socket.on('online:count', (data) => setOnlineCount(data.count));
