@@ -90,6 +90,10 @@ export default function ProfilePage() {
   }, [userId]);
 
   const handleComment = async () => {
+    if (!currentUser) {
+      alert('请先登录后再留言');
+      return;
+    }
     if (!commentText.trim()) return;
     setSendingComment(true);
     try {
@@ -103,6 +107,10 @@ export default function ProfilePage() {
   };
 
   const handleReact = async (emoji) => {
+    if (!currentUser) {
+      alert('请先登录后再表态');
+      return;
+    }
     setReacting(true);
     try {
       const { data } = await api.post(`/api/users/${userId}/profile/react`, { emoji });

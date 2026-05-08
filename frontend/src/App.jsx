@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { io } from 'socket.io-client';
@@ -63,6 +63,10 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [activeFootprintId, setActiveFootprintId] = useState(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authTab, setAuthTab] = useState('login');
+  const [authMessage, setAuthMessage] = useState('');
+  const pendingActionRef = useRef(null);
 
   useEffect(() => {
     const saved = getUser();
@@ -89,13 +93,28 @@ export default function App() {
     }
   }, []);
 
-  // Fetch footprints, notifications & connect Socket
+  // Fetch footprints on mount (guest-accessible)
   useEffect(() => {
-    if (!user) return;
-
     api.get('/api/footprints/today').then((res) => {
       setFootprints(res.data.footprints);
-    });
+    }).catch(() => {});
+  }, []);
+
+  // Re-fetch footprints when user changes (login/logout)
+  useEffect(() => {
+    if (!user) return;
+    api.get('/api/footprints/today').then((res) => {
+      setFootprints(res.data.footprints);
+    }).catch(() => {});
+  }, [user]);
+
+  // Socket connection + notifications (logged-in only)
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      setOnlineCount(0);
+      return;
+    }
 
     api.get('/api/notifications').then((res) => {
       setNotifications(res.data.notifications);
@@ -148,7 +167,32 @@ export default function App() {
     return () => { socket.disconnect(); };
   }, [user]);
 
+  // Execute pending action after login
+  useEffect(() => {
+    if (user && pendingActionRef.current) {
+      const action = pendingActionRef.current;
+      pendingActionRef.current = null;
+      if (action.type === 'checkin') {
+        setShowCheckIn(true);
+      } else if (action.type === 'comment' || action.type === 'react') {
+        setActiveFootprintId(action.footprintId);
+      }
+    }
+  }, [user]);
+
+  const requireLogin = (action) => {
+    if (!user) {
+      pendingActionRef.current = action;
+      setAuthMessage('登录后即可参与互动喔！');
+      setAuthTab('login');
+      setShowAuth(true);
+      return false;
+    }
+    return true;
+  };
+
   const handleReact = useCallback(async (footprintId, emoji) => {
+    if (!requireLogin({ type: 'react', footprintId })) return;
     try {
       const { data } = await api.post(`/api/footprints/${footprintId}/react`, { emoji });
       setFootprints((prev) =>
@@ -157,16 +201,17 @@ export default function App() {
     } catch (err) {
       console.error(err);
     }
-  }, []);
+  }, [user]);
 
   const handleDelete = useCallback(async (footprintId) => {
+    if (!requireLogin({ type: 'delete', footprintId })) return;
     if (!confirm('确认删除这条足迹？')) return;
     try {
       await api.delete(`/api/footprints/${footprintId}`);
     } catch (err) {
       console.error(err);
     }
-  }, []);
+  }, [user]);
 
   const handleShare = useCallback((footprintId) => {
     const url = `${window.location.origin}${window.location.pathname}?fp=${footprintId}`;
@@ -174,11 +219,12 @@ export default function App() {
   }, []);
 
   const handleComment = useCallback(async (footprintId, content) => {
+    if (!requireLogin({ type: 'comment', footprintId })) return;
     const { data } = await api.post(`/api/footprints/${footprintId}/comment`, { content });
     setFootprints((prev) =>
       prev.map((fp) => (fp._id === footprintId ? { ...fp, comments: data.footprint.comments } : fp))
     );
-  }, []);
+  }, [user]);
 
   const markAsRead = useCallback(async (notifId) => {
     setNotifications((prev) =>
@@ -197,8 +243,11 @@ export default function App() {
   const handleLogout = () => {
     clearAuth();
     setUser(null);
-    setFootprints([]);
     setNotifications([]);
+    // Re-fetch footprints for guest view
+    api.get('/api/footprints/today').then((res) => {
+      setFootprints(res.data.footprints);
+    }).catch(() => {});
   };
 
   // Derive latest cluster footprints from live footprints state
@@ -210,9 +259,7 @@ export default function App() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  if (!user) return <AuthModal onDone={setUser} />;
-
-  const isAdmin = user.role === 'admin';
+  const isAdmin = user?.role === 'admin';
 
   // ── Map Dashboard view ──────────────────────────────────
 
@@ -226,6 +273,8 @@ export default function App() {
         onBellClick={() => setShowNotifs((v) => !v)}
         isAdmin={isAdmin}
         onOpenAdmin={() => setShowAdmin(true)}
+        onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
+        onOpenRegister={() => { setAuthTab('register'); setAuthMessage(''); setShowAuth(true); }}
       />
 
       {showNotifs && (
@@ -254,13 +303,16 @@ export default function App() {
         <MapLayers />
         <ClusterMarkers
           footprints={footprints}
-          userId={user._id}
+          userId={user?._id}
           isAdmin={isAdmin}
         />
       </MapContainer>
 
       <button
-        onClick={() => setShowCheckIn(true)}
+        onClick={() => {
+          if (!requireLogin({ type: 'checkin' })) return;
+          setShowCheckIn(true);
+        }}
         className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-8 py-4
           bg-blue-600 text-white rounded-full font-bold text-base shadow-lg shadow-blue-600/30
           hover:bg-blue-700 hover:shadow-blue-600/40 active:scale-95
@@ -288,7 +340,7 @@ export default function App() {
         isOpen={showTimeline}
         onClose={() => setShowTimeline(false)}
         footprints={footprints}
-        userId={user._id}
+        userId={user?._id}
         isAdmin={isAdmin}
         onReact={handleReact}
         onDelete={handleDelete}
@@ -299,7 +351,7 @@ export default function App() {
       {clusterFootprints && (
         <ClusterDetailPanel
           footprints={clusterFootprints}
-          userId={user._id}
+          userId={user?._id}
           isAdmin={isAdmin}
           onReact={handleReact}
           onDelete={handleDelete}
@@ -312,6 +364,16 @@ export default function App() {
       {/* Admin Panel */}
       {showAdmin && (
         <AdminPanel onClose={() => setShowAdmin(false)} />
+      )}
+
+      {/* Auth Modal Overlay */}
+      {showAuth && (
+        <AuthModal
+          initialTab={authTab}
+          message={authMessage}
+          onDone={(u) => { setUser(u); setShowAuth(false); }}
+          onClose={() => setShowAuth(false)}
+        />
       )}
 
       {/* Toast */}

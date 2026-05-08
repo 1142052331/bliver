@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import imageCompression from 'browser-image-compression';
 import api from '../api';
 import { saveAuth } from '../auth';
-import { MapPin, Camera, Loader2 } from 'lucide-react';
+import { MapPin, Camera, Loader2, X } from 'lucide-react';
 
-export default function AuthModal({ onDone }) {
-  const [tab, setTab] = useState('login');
+export default function AuthModal({ onDone, initialTab, message, onClose }) {
+  const [tab, setTab] = useState(initialTab || 'login');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [avatar, setAvatar] = useState(null);
@@ -13,6 +13,11 @@ export default function AuthModal({ onDone }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef(null);
+
+  // Sync tab when initialTab changes (e.g. register button clicked)
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   const handleAvatar = async (e) => {
     const file = e.target.files[0];
@@ -49,14 +54,34 @@ export default function AuthModal({ onDone }) {
     }
   };
 
+  const isOverlay = !!onClose;
+
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-[360px] max-w-[90vw]">
+    <div className={`fixed inset-0 z-[3000] flex items-center justify-center
+      ${isOverlay ? 'bg-black/50 backdrop-blur-sm' : 'bg-gradient-to-br from-blue-500 to-indigo-600'}`}>
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-[360px] max-w-[90vw] relative">
+        {/* Close button — only in overlay mode */}
+        {isOverlay && (
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 p-1 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-4 h-4 text-gray-400" />
+          </button>
+        )}
+
         <div className="flex items-center justify-center mb-5">
           <MapPin className="w-9 h-9 text-blue-600" />
         </div>
         <h1 className="text-xl font-bold text-gray-800 text-center mb-1">Bliver</h1>
         <p className="text-sm text-gray-400 text-center mb-5">Location sharing with friends</p>
+
+        {/* Message banner */}
+        {message && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 text-center">
+            {message}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex bg-gray-100 rounded-xl p-1 mb-5">
