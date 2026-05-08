@@ -71,7 +71,6 @@ export default function App() {
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [flyArrivedFp, setFlyArrivedFp] = useState(null);
   const [footprintPeriod, setFootprintPeriod] = useState('today');
-  const periodLoadingRef = useRef(false);
 
   useEffect(() => {
     const saved = getUser();
@@ -98,24 +97,12 @@ export default function App() {
     }
   }, []);
 
-  // Fetch footprints on mount
+  // Fetch footprints when period changes
   useEffect(() => {
     api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
       if (res?.data?.footprints) setFootprints(res.data.footprints);
     }).catch(() => {});
-  }, []); // eslint-disable-line
-
-  // Period change handler — uses ref for loading guard, stable callback
-  const handleChangePeriod = useCallback((newPeriod) => {
-    if (periodLoadingRef.current) return;
-    periodLoadingRef.current = true;
-    setFootprintPeriod(newPeriod);
-    api.get(`/api/footprints/today?period=${newPeriod}`).then((res) => {
-      if (res?.data?.footprints) setFootprints(res.data.footprints);
-    }).catch(() => {}).finally(() => {
-      periodLoadingRef.current = false;
-    });
-  }, []);
+  }, [footprintPeriod]);
 
   // Socket connection + notifications (logged-in only)
   useEffect(() => {
@@ -260,7 +247,9 @@ export default function App() {
     clearAuth();
     setUser(null);
     setNotifications([]);
-    handleChangePeriod(footprintPeriod);
+    api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
+      if (res?.data?.footprints) setFootprints(res.data.footprints);
+    }).catch(() => {});
   };
 
   // Derive latest cluster footprints from live footprints state
@@ -356,7 +345,7 @@ export default function App() {
         onShare={handleShare}
         onSelectFootprint={(fpId) => setActiveFootprintId(fpId)}
         period={footprintPeriod}
-        onChangePeriod={handleChangePeriod}
+        onChangePeriod={setFootprintPeriod}
       />
 
       {/* Fly-arrived detail modal (from timeline click) */}
