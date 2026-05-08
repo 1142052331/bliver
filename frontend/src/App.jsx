@@ -19,6 +19,7 @@ import ClusterDetailPanel from './components/ClusterDetailPanel';
 import NotificationPanel from './components/NotificationPanel';
 import ProfilePage from './components/ProfilePage';
 import MapLayers from './components/MapLayers';
+import AdminPanel from './components/AdminPanel';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -59,6 +60,7 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [toast, setToast] = useState(null);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
     const saved = getUser();
@@ -135,6 +137,12 @@ export default function App() {
       setTimeout(() => setToast(null), 4000);
     });
 
+    socket.on('force_logout', (data) => {
+      clearAuth();
+      alert(data?.reason || '您已被管理员踢出');
+      setUser(null);
+    });
+
     return () => { socket.disconnect(); };
   }, [user]);
 
@@ -163,8 +171,8 @@ export default function App() {
     navigator.clipboard.writeText(url);
   }, []);
 
-  const handleComment = useCallback(async (footprintId, username, content) => {
-    const { data } = await api.post(`/api/footprints/${footprintId}/comment`, { username, content });
+  const handleComment = useCallback(async (footprintId, content) => {
+    const { data } = await api.post(`/api/footprints/${footprintId}/comment`, { content });
     setFootprints((prev) =>
       prev.map((fp) => (fp._id === footprintId ? { ...fp, comments: data.footprint.comments } : fp))
     );
@@ -215,6 +223,8 @@ export default function App() {
           onLogout={handleLogout}
           unreadCount={unreadCount}
           onBellClick={() => setShowNotifs((v) => !v)}
+          isAdmin={isAdmin}
+          onOpenAdmin={() => setShowAdmin(true)}
         />
 
         {showNotifs && (
@@ -225,7 +235,7 @@ export default function App() {
           />
         )}
 
-        <MapContainer center={CENTER} zoom={6} scrollWheelZoom className="w-full h-full">
+        <MapContainer key="map" center={CENTER} zoom={6} scrollWheelZoom className="w-full h-full">
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -286,6 +296,11 @@ export default function App() {
             onComment={handleComment}
             onClose={() => setClusterData(null)}
           />
+        )}
+
+        {/* Admin Panel */}
+        {showAdmin && (
+          <AdminPanel onClose={() => setShowAdmin(false)} />
         )}
 
         {/* Toast */}

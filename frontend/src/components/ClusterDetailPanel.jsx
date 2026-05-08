@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send } from 'lucide-react';
-import { getUser } from '../auth';
 import ReactionPicker from './ReactionPicker';
 
 function timeStr(date) {
@@ -21,10 +20,8 @@ function maskIp(ip) {
 function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare, onComment, onClose }) {
   if (!fp) return null;
 
-  const currentUser = getUser();
   const [copied, setCopied] = useState(false);
 
-  const [commentName, setCommentName] = useState(currentUser?.name || '');
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -32,10 +29,10 @@ function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare,
   const comments = fp.comments || [];
 
   const handleSubmitComment = async () => {
-    if (!commentName.trim() || !commentText.trim()) return;
+    if (!commentText.trim()) return;
     setSending(true);
     try {
-      await onComment(fp._id, commentName.trim(), commentText.trim());
+      await onComment(fp._id, commentText.trim());
       setCommentText('');
     } catch (err) {
       console.error(err);
@@ -161,13 +158,6 @@ function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare,
 
             {/* Comment Form */}
             <div className="space-y-2">
-              <input
-                type="text"
-                value={commentName}
-                onChange={(e) => setCommentName(e.target.value)}
-                placeholder="Your name"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-              />
               <div className="flex gap-2">
                 <textarea
                   value={commentText}
@@ -178,7 +168,7 @@ function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare,
                 />
                 <button
                   onClick={handleSubmitComment}
-                  disabled={sending || !commentName.trim() || !commentText.trim()}
+                  disabled={sending || !commentText.trim()}
                   className="flex-shrink-0 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium
                     hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors
                     flex items-center gap-1"

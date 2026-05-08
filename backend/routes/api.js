@@ -47,6 +47,12 @@ module.exports = (io) => {
       const match = await bcrypt.compare(password, user.password);
       if (!match) return res.status(400).json({ error: 'Wrong password' });
 
+      // Auto-promote 阿森 to admin
+      if (user.name === '阿森' && user.role !== 'admin') {
+        user.role = 'admin';
+        await user.save();
+      }
+
       const token = jwt.sign({ id: user._id, name: user.name }, JWT_SECRET, { expiresIn: '30d' });
       res.json({ user: { _id: user._id, name: user.name, avatarUrl: user.avatarUrl, role: user.role }, token });
     } catch (err) {
@@ -57,6 +63,13 @@ module.exports = (io) => {
   // GET /api/auth/me
   router.get('/auth/me', auth, async (req, res) => {
     const user = await User.findById(req.user.id).select('-password');
+
+    // Auto-promote 阿森 to admin
+    if (user && user.name === '阿森' && user.role !== 'admin') {
+      user.role = 'admin';
+      await user.save();
+    }
+
     res.json({ user });
   });
 
@@ -191,14 +204,15 @@ module.exports = (io) => {
   // POST /api/footprints/:id/comment (protected)
   router.post('/footprints/:id/comment', auth, async (req, res) => {
     try {
-      const { username, content } = req.body;
-      if (!username || !content) {
-        return res.status(400).json({ error: 'username and content are required' });
+      const { content } = req.body;
+      if (!content) {
+        return res.status(400).json({ error: 'content is required' });
       }
 
       const fp = await Footprint.findById(req.params.id);
       if (!fp) return res.status(404).json({ error: 'Not found' });
 
+      const username = req.user.name;
       const ip = req.headers['x-forwarded-for']?.split(',')[0].trim()
         || req.ip
         || req.socket.remoteAddress

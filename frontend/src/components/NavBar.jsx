@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Users, LogOut, Bell } from 'lucide-react';
+import { MapPin, Users, LogOut, Bell, Shield } from 'lucide-react';
 
-export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick }) {
+export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, isAdmin, onOpenAdmin }) {
   return (
     <nav className="absolute top-0 left-0 right-0 z-[1000] flex items-center justify-between px-5 py-3
       bg-white/75 backdrop-blur-md border-b border-gray-200/60 shadow-sm">
@@ -29,6 +29,18 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
             </span>
           )}
         </button>
+
+        {/* Admin */}
+        {isAdmin && (
+          <button
+            onClick={onOpenAdmin}
+            className="flex items-center gap-1 px-3 py-1.5 bg-red-500 text-white text-sm font-medium
+              rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+          >
+            <Shield className="w-4 h-4" />
+            后台管理
+          </button>
+        )}
 
         <Link to={`/profile/${user._id}`}>
           {user?.avatarUrl ? (
