@@ -119,7 +119,7 @@ export default function ProfileDrawer({ userId, onClose }) {
             </div>
 
             {/* Avatar — overlapping banner and content */}
-            <div className="relative px-5 flex-shrink-0">
+            <div className="relative px-5 h-14 flex-shrink-0">
               <div className="absolute -top-12">
                 {profile.avatarUrl ? (
                   <img
