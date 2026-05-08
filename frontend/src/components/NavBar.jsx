@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { MapPin, Users, LogOut, Bell, Shield, LogIn, UserPlus } from 'lucide-react';
 
 export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister }) {
@@ -46,7 +45,10 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
 
         {user ? (
           <>
-            <Link to={`/profile/${user._id}`}>
+            <span
+              className="cursor-pointer"
+              onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
+            >
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover ring-2 ring-blue-200 hover:ring-blue-400 transition-all" />
               ) : (
@@ -54,7 +56,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
                   {user?.name?.[0]?.toUpperCase() || '?'}
                 </div>
               )}
-            </Link>
+            </span>
 
             <button
               onClick={onLogout}

@@ -17,10 +17,10 @@ import TimelineDrawer from './components/TimelineDrawer';
 import ClusterMarkers from './components/ClusterMarkers';
 import ClusterDetailPanel from './components/ClusterDetailPanel';
 import NotificationPanel from './components/NotificationPanel';
-import ProfilePage from './components/ProfilePage';
 import MapLayers from './components/MapLayers';
 import AdminPanel from './components/AdminPanel';
 import FlyToFootprint from './components/FlyToFootprint';
+import ProfileDrawer from './components/ProfileDrawer';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -67,6 +67,7 @@ export default function App() {
   const [authTab, setAuthTab] = useState('login');
   const [authMessage, setAuthMessage] = useState('');
   const pendingActionRef = useRef(null);
+  const [viewingProfileId, setViewingProfileId] = useState(null);
 
   useEffect(() => {
     const saved = getUser();
@@ -240,6 +241,13 @@ export default function App() {
     return () => window.removeEventListener('cluster:click', handler);
   }, []);
 
+  // Listen for profile view events
+  useEffect(() => {
+    const handler = (e) => setViewingProfileId(e.detail.userId);
+    window.addEventListener('profile:view', handler);
+    return () => window.removeEventListener('profile:view', handler);
+  }, []);
+
   const handleLogout = () => {
     clearAuth();
     setUser(null);
@@ -376,6 +384,14 @@ export default function App() {
         />
       )}
 
+      {/* Profile Drawer */}
+      {viewingProfileId && (
+        <ProfileDrawer
+          userId={viewingProfileId}
+          onClose={() => setViewingProfileId(null)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
         <div className="fixed top-16 right-4 z-[1900] px-4 py-2.5 bg-gray-900 text-white text-sm
@@ -396,7 +412,6 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/profile/:userId" element={<ProfilePage />} />
       <Route path="*" element={mapDashboard} />
     </Routes>
   );
