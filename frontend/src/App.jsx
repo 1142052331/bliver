@@ -16,7 +16,6 @@ import TimelineDrawer from './components/TimelineDrawer';
 import ClusterMarkers from './components/ClusterMarkers';
 import ClusterDetailPanel from './components/ClusterDetailPanel';
 import NotificationPanel from './components/NotificationPanel';
-import MapLayers from './components/MapLayers';
 import AdminPanel from './components/AdminPanel';
 import FlyToFootprint from './components/FlyToFootprint';
 import ProfileDrawer from './components/ProfileDrawer';
@@ -345,7 +344,6 @@ export default function App() {
           activeFootprintId={activeFootprintId}
           onArrive={(fp) => setFlyArrivedFp(fp)}
         />
-        <MapLayers />
         <ClusterMarkers
           footprints={footprints}
           userId={user?._id}
