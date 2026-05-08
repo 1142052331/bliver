@@ -72,7 +72,7 @@ export default function App() {
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [flyArrivedFp, setFlyArrivedFp] = useState(null);
   const [footprintPeriod, setFootprintPeriod] = useState('today');
-  const [periodLoading, setPeriodLoading] = useState(false);
+  const periodLoadingRef = useRef(false);
 
   useEffect(() => {
     const saved = getUser();
@@ -106,19 +106,17 @@ export default function App() {
     }).catch(() => {});
   }, []); // eslint-disable-line
 
-  // Period change handler
+  // Period change handler — uses ref for loading guard, stable callback
   const handleChangePeriod = useCallback((newPeriod) => {
-    if (periodLoading) return; // prevent double-clicks
+    if (periodLoadingRef.current) return;
+    periodLoadingRef.current = true;
     setFootprintPeriod(newPeriod);
-    setPeriodLoading(true);
     api.get(`/api/footprints/today?period=${newPeriod}`).then((res) => {
-      if (res?.data?.footprints) {
-        setFootprints(res.data.footprints);
-      }
+      if (res?.data?.footprints) setFootprints(res.data.footprints);
     }).catch(() => {}).finally(() => {
-      setPeriodLoading(false);
+      periodLoadingRef.current = false;
     });
-  }, [periodLoading]);
+  }, []);
 
   // Socket connection + notifications (logged-in only)
   useEffect(() => {
@@ -360,7 +358,6 @@ export default function App() {
         onSelectFootprint={(fpId) => setActiveFootprintId(fpId)}
         period={footprintPeriod}
         onChangePeriod={handleChangePeriod}
-        periodLoading={periodLoading}
       />
 
       {/* Fly-arrived detail modal (from timeline click) */}

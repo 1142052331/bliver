@@ -100,7 +100,7 @@ const PERIODS = [
   { key: 'year', label: '本年' },
 ];
 
-export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint, period, onChangePeriod, periodLoading }) {
+export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint, period, onChangePeriod }) {
   const grouped = useMemo(() => {
     const map = {};
     footprints.forEach((fp) => {
@@ -135,15 +135,13 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
               <button
                 key={p.key}
                 onClick={() => onChangePeriod && onChangePeriod(p.key)}
-                disabled={periodLoading}
                 className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors
-                  disabled:opacity-50 disabled:cursor-not-allowed
                   ${period === p.key
                     ? 'bg-white text-gray-800 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
                   }`}
               >
-                {periodLoading && period === p.key ? '...' : p.label}
+                {p.label}
               </button>
             ))}
           </div>
