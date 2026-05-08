@@ -14,6 +14,7 @@ import AuthModal from './components/AuthModal';
 import CheckInModal from './components/CheckInModal';
 import TimelineDrawer from './components/TimelineDrawer';
 import ClusterMarkers from './components/ClusterMarkers';
+import ClusterDetailPanel from './components/ClusterDetailPanel';
 import MapLayers from './components/MapLayers';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -51,6 +52,7 @@ export default function App() {
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [shareTarget, setShareTarget] = useState(null);
+  const [clusterData, setClusterData] = useState(null);
 
   useEffect(() => {
     const saved = getUser();
@@ -96,7 +98,7 @@ export default function App() {
 
     socket.on('footprint:updated', (data) => {
       setFootprints((prev) =>
-        prev.map((fp) => (fp._id === data.footprint._id ? data.footprint : fp))
+        prev.map((fp) => (fp._id === data.footprint._id ? { ...fp, likes: data.footprint.likes } : fp))
       );
     });
 
@@ -111,7 +113,7 @@ export default function App() {
     try {
       const { data } = await api.post(`/api/footprints/${footprintId}/like`);
       setFootprints((prev) =>
-        prev.map((fp) => (fp._id === data.footprint._id ? data.footprint : fp))
+        prev.map((fp) => (fp._id === footprintId ? { ...fp, likes: data.footprint.likes } : fp))
       );
     } catch (err) {
       console.error(err);
@@ -132,20 +134,19 @@ export default function App() {
     navigator.clipboard.writeText(url);
   }, []);
 
-  // Listen for popup button events from ClusterMarkers HTML popups
+  // Listen for popup like events from ClusterMarkers HTML popups
   useEffect(() => {
     const onLike = (e) => handleLike(e.detail);
-    const onDelete = (e) => handleDelete(e.detail);
-    const onShare = (e) => handleShare(e.detail);
     window.addEventListener('footprint:like', onLike);
-    window.addEventListener('footprint:delete', onDelete);
-    window.addEventListener('footprint:share', onShare);
-    return () => {
-      window.removeEventListener('footprint:like', onLike);
-      window.removeEventListener('footprint:delete', onDelete);
-      window.removeEventListener('footprint:share', onShare);
-    };
-  }, [handleLike, handleDelete, handleShare]);
+    return () => window.removeEventListener('footprint:like', onLike);
+  }, [handleLike]);
+
+  // Listen for cluster click events from ClusterMarkers
+  useEffect(() => {
+    const handler = (e) => setClusterData(e.detail);
+    window.addEventListener('cluster:click', handler);
+    return () => window.removeEventListener('cluster:click', handler);
+  }, []);
 
   const handleLogout = () => {
     clearAuth();
@@ -210,6 +211,18 @@ export default function App() {
         onDelete={handleDelete}
         onShare={handleShare}
       />
+
+      {clusterData && (
+        <ClusterDetailPanel
+          footprints={clusterData.footprints}
+          userId={user._id}
+          isAdmin={isAdmin}
+          onLike={handleLike}
+          onDelete={handleDelete}
+          onShare={handleShare}
+          onClose={() => setClusterData(null)}
+        />
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
-function buildPopupHtml(fp, userId, isAdmin) {
+function buildPopupHtml(fp, userId) {
   const liked = fp.likes?.some((l) => (l._id || l) === userId);
   const likeCount = fp.likes?.length || 0;
   const likeNames = fp.likes?.map((l) => l.name || '?').join(', ') || '';
@@ -33,32 +33,11 @@ function buildPopupHtml(fp, userId, isAdmin) {
       <p style="color:#1f2937;margin:6px 0;white-space:pre-wrap;font-size:15px;line-height:1.5">${fp.message}</p>
       ${photoHtml}
       <div style="display:flex;align-items:center;gap:4px;margin-top:8px;padding-top:6px;border-top:1px solid #f3f4f6">
-        <span style="${likedClass};font-size:16px;cursor:pointer">${liked ? '❤️' : '🤍'}</span>
+        <span class="popup-like" style="${likedClass};font-size:16px;cursor:pointer">${liked ? '❤️' : '🤍'}</span>
         ${likeCount > 0 ? `<span style="font-size:12px;color:#6b7280">${likeCount} — ${likeNames}</span>` : ''}
       </div>
     </div>
   `;
-}
-
-function buildClusterHtml(footprints) {
-  const items = footprints.slice(0, 6).map((fp) => {
-    const name = fp.userId?.name || '?';
-    const time = new Date(fp.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    const msg = (fp.message || '').replace(/🌤[^\n]*\n/, '').slice(0, 40);
-    return `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:12px">
-      <strong>${name}</strong> <span style="color:#9ca3af">${time}</span>
-      <br/><span style="color:#6b7280">📍 ${fp.placeName || '?'}</span>
-      ${msg ? `<br/><span style="color:#374151">${msg}${fp.message.length > 40 ? '...' : ''}</span>` : ''}
-    </div>`;
-  }).join('');
-
-  const more = footprints.length > 6 ? `<p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:4px">+${footprints.length - 6} more</p>` : '';
-
-  return `<div style="font-size:13px;font-family:system-ui,sans-serif">
-    <strong style="font-size:14px">${footprints.length} footprints here</strong>
-    <div style="max-height:280px;overflow-y:auto;margin-top:4px">${items}${more}</div>
-    <p style="font-size:11px;color:#9ca3af;margin-top:6px">Zoom in to see each one</p>
-  </div>`;
 }
 
 export default function ClusterMarkers({ footprints, userId, isAdmin }) {
@@ -75,7 +54,7 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       maxClusterRadius: 60,
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
-      zoomToBoundsOnClick: false, // We handle click ourselves
+      zoomToBoundsOnClick: false,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
@@ -115,17 +94,16 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
 
     cg.clearLayers();
 
-    // Handle cluster click
+    // Handle cluster click — dispatch custom event for the drawer
     cg.off('clusterclick');
     cg.on('clusterclick', (e) => {
       const clusterMarkers = e.layer.getAllChildMarkers();
       const ids = clusterMarkers.map((m) => m._footprintId);
       const clustered = footprints.filter((fp) => ids.includes(fp._id));
 
-      const popup = L.popup()
-        .setLatLng(e.latlng)
-        .setContent(buildClusterHtml(clustered))
-        .openOn(map);
+      window.dispatchEvent(new CustomEvent('cluster:click', {
+        detail: { footprints: clustered },
+      }));
     });
 
     footprints.forEach((fp) => {
@@ -137,37 +115,25 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
 
       marker._footprintId = fp._id;
 
-      marker.bindPopup(buildPopupHtml(fp, userId, isAdmin), {
+      marker.bindPopup(buildPopupHtml(fp, userId), {
         maxWidth: 280,
         className: 'footprint-popup',
       });
 
-      // Add event listeners for the popup buttons after it opens
+      // Attach popup like button handler
       marker.on('popupopen', () => {
         setTimeout(() => {
           const popupEl = document.querySelector('.footprint-popup');
           if (!popupEl) return;
-          // Like button
           popupEl.querySelector('.popup-like')?.addEventListener('click', () => {
-            const event = new CustomEvent('footprint:like', { detail: fp._id });
-            window.dispatchEvent(event);
-          });
-          // Delete button
-          popupEl.querySelector('.popup-delete')?.addEventListener('click', () => {
-            const event = new CustomEvent('footprint:delete', { detail: fp._id });
-            window.dispatchEvent(event);
-          });
-          // Share button
-          popupEl.querySelector('.popup-share')?.addEventListener('click', () => {
-            const event = new CustomEvent('footprint:share', { detail: fp._id });
-            window.dispatchEvent(event);
+            window.dispatchEvent(new CustomEvent('footprint:like', { detail: fp._id }));
           });
         }, 50);
       });
 
       cg.addLayer(marker);
     });
-  }, [footprints, userId, isAdmin, map]);
+  }, [footprints, userId, map]);
 
   return null;
 }
