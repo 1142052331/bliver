@@ -125,8 +125,38 @@ export default function ProfileDrawer({ userId, onClose }) {
           translate-x-0 flex flex-col animate-slide-in"
       >
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col h-full animate-pulse">
+            {/* Banner skeleton */}
+            <div className="h-40 bg-gray-200" />
+            {/* Avatar skeleton */}
+            <div className="relative px-5 h-14">
+              <div className="absolute -top-12 w-24 h-24 rounded-full bg-gray-300 border-4 border-white" />
+            </div>
+            {/* Name skeleton */}
+            <div className="px-5 pt-3 pb-4">
+              <div className="h-5 w-24 bg-gray-200 rounded" />
+            </div>
+            {/* Stats skeleton */}
+            <div className="flex justify-around px-5 pb-5">
+              {[1,2,3].map(i => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <div className="h-4 w-10 bg-gray-200 rounded" />
+                  <div className="h-3 w-8 bg-gray-100 rounded" />
+                </div>
+              ))}
+            </div>
+            {/* Footprint card skeletons */}
+            <div className="flex-1 px-5 space-y-3 overflow-hidden">
+              <div className="h-3 w-16 bg-gray-200 rounded mt-3" />
+              {[1,2,3].map(i => (
+                <div key={i} className="bg-gray-100 rounded-xl p-3 space-y-2">
+                  <div className="h-3 w-20 bg-gray-200 rounded" />
+                  <div className="h-3 w-32 bg-gray-200 rounded" />
+                  <div className="h-16 bg-gray-200 rounded-lg" />
+                  <div className="h-4 w-full bg-gray-200 rounded" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : !profile ? (
           <div className="flex items-center justify-center h-full">

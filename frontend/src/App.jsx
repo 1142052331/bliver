@@ -71,6 +71,7 @@ export default function App() {
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [flyArrivedFp, setFlyArrivedFp] = useState(null);
   const [footprintPeriod, setFootprintPeriod] = useState('today');
+  const [footprintsLoading, setFootprintsLoading] = useState(true);
 
   useEffect(() => {
     const saved = getUser();
@@ -99,9 +100,12 @@ export default function App() {
 
   // Fetch footprints when period changes
   useEffect(() => {
+    setFootprintsLoading(true);
     api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
       if (res?.data?.footprints) setFootprints(res.data.footprints);
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => {
+      setFootprintsLoading(false);
+    });
   }, [footprintPeriod]);
 
   // Socket connection + notifications (logged-in only)
@@ -346,6 +350,7 @@ export default function App() {
         onSelectFootprint={(fpId) => setActiveFootprintId(fpId)}
         period={footprintPeriod}
         onChangePeriod={setFootprintPeriod}
+        loading={footprintsLoading}
       />
 
       {/* Fly-arrived detail modal (from timeline click) */}

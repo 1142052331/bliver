@@ -6,6 +6,14 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
   const timeStr = (date) =>
     new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleCopy = (fpId) => {
+    onShare(fpId);
+    setCopiedId(fpId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3 pl-1">
@@ -31,7 +39,7 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
 
       <div className="relative border-l-2 border-blue-200 ml-[13px] pl-5 space-y-4">
         {items.map((fp) => {
-          const [copied, setCopied] = useState(false);
+          const copied = copiedId === fp._id;
 
           return (
             <div key={fp._id} className="relative">
@@ -64,11 +72,7 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
 
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => {
-                        onShare(fp._id);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }}
+                      onClick={() => handleCopy(fp._id)}
                       className="p-1 hover:bg-gray-100 rounded"
                       title="Copy link"
                     >
@@ -100,7 +104,7 @@ const PERIODS = [
   { key: 'year', label: '本年' },
 ];
 
-export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint, period, onChangePeriod }) {
+export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint, period, onChangePeriod, loading }) {
   const grouped = useMemo(() => {
     const map = {};
     footprints.forEach((fp) => {
@@ -148,7 +152,27 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
-          {grouped.length === 0 ? (
+          {loading ? (
+            <div className="animate-pulse space-y-5">
+              {[1,2,3].map(i => (
+                <div key={i}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-7 h-7 rounded-full bg-gray-200" />
+                    <div className="h-4 w-20 bg-gray-200 rounded" />
+                  </div>
+                  <div className="ml-4 pl-5 space-y-3 border-l-2 border-gray-100">
+                    {[1,2].map(j => (
+                      <div key={j} className="bg-gray-50 rounded-xl p-3 space-y-2">
+                        <div className="h-3 w-12 bg-gray-200 rounded" />
+                        <div className="h-4 w-32 bg-gray-200 rounded" />
+                        <div className="h-4 w-full bg-gray-100 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : grouped.length === 0 ? (
             <p className="text-gray-400 text-sm text-center mt-12">暂无足迹记录</p>
           ) : (
             grouped.map(({ user, items }) => (
