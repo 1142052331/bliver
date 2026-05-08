@@ -169,6 +169,16 @@ export default function App() {
     return () => { socket.disconnect(); };
   }, [user]);
 
+  // Keep flyArrivedFp in sync with latest footprints data
+  useEffect(() => {
+    if (flyArrivedFp) {
+      const latest = footprints.find((f) => f._id === flyArrivedFp._id);
+      if (latest && (latest.comments !== flyArrivedFp.comments || latest.reactions !== flyArrivedFp.reactions)) {
+        setFlyArrivedFp(latest);
+      }
+    }
+  }, [footprints, flyArrivedFp]);
+
   // Execute pending action after login
   useEffect(() => {
     if (user && pendingActionRef.current) {
