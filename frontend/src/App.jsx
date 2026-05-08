@@ -98,13 +98,11 @@ export default function App() {
   }, []);
 
   // Fetch footprints (guest-accessible, period-aware)
-  const fetchFootprints = useCallback(() => {
+  useEffect(() => {
     api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
-      setFootprints(res.data.footprints);
+      if (res?.data?.footprints) setFootprints(res.data.footprints);
     }).catch(() => {});
   }, [footprintPeriod]);
-
-  useEffect(() => { fetchFootprints(); }, [fetchFootprints]);
 
   // Socket connection + notifications (logged-in only)
   useEffect(() => {
@@ -249,7 +247,9 @@ export default function App() {
     clearAuth();
     setUser(null);
     setNotifications([]);
-    fetchFootprints();
+    api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
+      if (res?.data?.footprints) setFootprints(res.data.footprints);
+    }).catch(() => {});
   };
 
   // Derive latest cluster footprints from live footprints state
