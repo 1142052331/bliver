@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Routes, Route } from 'react-router-dom';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { io } from 'socket.io-client';
 import api from './api';
@@ -431,9 +430,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <Routes>
-        <Route path="*" element={mapDashboard} />
-      </Routes>
+      {mapDashboard}
     </ErrorBoundary>
   );
 }
