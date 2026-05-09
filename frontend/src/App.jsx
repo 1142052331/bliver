@@ -101,7 +101,7 @@ export default function App() {
   const pendingActionRef = useRef(null);
 
   // ── Read-notification tracking (React state + localStorage persistence) ──
-  const READ_KEY = 'bliver_read_ids';
+  const READ_KEY = 'bliver_read_v2';
   const [readIds, setReadIds] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem(READ_KEY)) || []); }
     catch { return new Set(); }
