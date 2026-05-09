@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
-import { io } from 'socket.io-client';
 import api from './api';
 import { getUser, getToken, clearAuth, saveAuth, isAutoLogin } from './auth';
 import L from 'leaflet';
@@ -26,6 +25,7 @@ import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import PhotoWall from './components/PhotoWall';
 import MobileActionDrawer from './components/MobileActionDrawer';
+import useSocket from './hooks/useSocket';
 import { subscribeToPush } from './push';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -36,14 +36,6 @@ L.Icon.Default.mergeOptions({
 });
 
 const CENTER = [33.5597, 133.5311];
-
-function getSocketURL() {
-  if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
-  if (import.meta.env.VITE_API_URL) {
-    try { return new URL(import.meta.env.VITE_API_URL).origin; } catch {}
-  }
-  return window.location.origin;
-}
 
 export default function App() {
   // ── Core state ────────────────────────────────────────
@@ -77,8 +69,9 @@ export default function App() {
 
   // ── Refs ──────────────────────────────────────────────
   const pendingActionRef = useRef(null);
-  const socketRef = useRef(null);
-  const toastTimerRef = useRef(null);
+  const { socketRef, toastTimerRef } = useSocket({
+    user, setUser, setFootprints, setNotifications, setOnlineCount, setToast,
+  });
 
   // ── Read-notification tracking (React state + localStorage persistence) ──
   const READ_KEY = 'bliver_read_v2';
@@ -147,92 +140,6 @@ export default function App() {
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [user, footprintPeriod]);
-
-  // ── Socket connection (logged-in only) ────────────────
-  useEffect(() => {
-    if (!user) {
-      setNotifications([]);
-      setOnlineCount(0);
-      return;
-    }
-
-    api.get('/api/notifications').then((res) => {
-      setNotifications(res.data.notifications);
-    }).catch(() => {});
-
-    const socketUrl = getSocketURL();
-    console.log('[Socket] Connecting to:', socketUrl);
-    const socket = io(socketUrl);
-    socketRef.current = socket;
-    socket.on('connect', () => console.log('[Socket] Connected:', socket.id));
-    socket.on('connect_error', (e) => console.error('[Socket] Connect error:', e.message));
-    socket.on('disconnect', (reason) => console.log('[Socket] Disconnected:', reason));
-    socket.emit('user:online', user._id);
-
-    socket.on('online:count', (data) => {
-      setOnlineCount(data.count);
-    });
-
-    socket.on('footprint:new', (data) => {
-      setFootprints((prev) => [data.footprint, ...prev]);
-      window.dispatchEvent(new CustomEvent('ws:footprint:new', { detail: data }));
-    });
-
-    socket.on('footprint:updated', (data) => {
-      setFootprints((prev) =>
-        prev.map((fp) => (fp._id === data.footprint._id
-          ? { ...fp, reactions: data.footprint.reactions, comments: data.footprint.comments }
-          : fp))
-      );
-      window.dispatchEvent(new CustomEvent('ws:footprint:updated', { detail: data }));
-    });
-
-    socket.on('footprint:deleted', (data) => {
-      setFootprints((prev) => prev.filter((fp) => fp._id !== data.footprintId));
-      window.dispatchEvent(new CustomEvent('ws:footprint:deleted', { detail: data }));
-    });
-
-    socket.on('profile:updated', (data) => {
-      window.dispatchEvent(new CustomEvent('ws:profile:updated', { detail: data }));
-    });
-
-    socket.on('new_notification', (data) => {
-      setNotifications((prev) => [data.notification, ...prev]);
-      const n = data.notification;
-      const msg = n.type === 'reaction'
-        ? `${n.senderName} 对你的打卡表示了 ${n.content}`
-        : n.type === 'profile_view'
-          ? `${n.senderName} 浏览了你的主页`
-          : `${n.senderName} 评论了你`;
-      setToast(msg);
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToast(null), 4000);
-    });
-
-    socket.on('user_online', (data) => {
-      setToast(`${data.name} 上线了`);
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToast(null), 3000);
-    });
-
-    socket.on('user_offline', (data) => {
-      setToast(`${data.name} 下线了`);
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToast(null), 3000);
-    });
-
-    socket.on('force_logout', (data) => {
-      clearAuth();
-      alert(data?.reason || '您已被管理员踢出');
-      setUser(null);
-    });
-
-    return () => {
-      clearTimeout(toastTimerRef.current);
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, [user]);
 
   // ── Keep flyArrivedFp synced with latest footprints ────
   useEffect(() => {
