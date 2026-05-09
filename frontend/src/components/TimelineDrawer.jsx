@@ -120,8 +120,8 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm transition-opacity pointer-events-none ${
-          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0'
+        className={`fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm transition-opacity ${
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
       />
@@ -130,7 +130,7 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
         className={`fixed top-0 right-0 h-full w-[360px] max-w-[85vw] z-[1600]
           bg-white/95 backdrop-blur-xl shadow-2xl shadow-black/10
           transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
-          flex flex-col pointer-events-none ${isOpen ? 'translate-x-0 pointer-events-auto' : 'translate-x-full'}`}
+          flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}
       >
         <div className="px-5 py-4 border-b border-gray-100/80">
           <div className="flex items-center justify-between mb-3">
