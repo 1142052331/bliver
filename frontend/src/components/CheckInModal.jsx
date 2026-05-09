@@ -80,9 +80,9 @@ export default function CheckInModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
-      <div className="relative w-full sm:max-w-md mx-0 sm:mx-auto
+    <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center pointer-events-none">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto" onClick={handleClose} />
+      <div className="relative w-full sm:max-w-md mx-0 sm:mx-auto pointer-events-auto
         aurora-glass rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">

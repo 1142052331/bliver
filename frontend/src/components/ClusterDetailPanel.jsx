@@ -40,11 +40,14 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
       {/* Backdrop + Bottom Drawer — skip when single footprint modal is showing */}
       {!(isSingle && detailFp) && (
         <>
-          <div className="fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm" onClick={onClose} />
+          <div
+            className="fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm transition-opacity pointer-events-none"
+            onClick={onClose}
+          />
 
           <div
             className="fixed bottom-0 left-0 right-0 z-[1600] bg-white rounded-t-2xl shadow-2xl
-              max-h-[70vh] flex flex-col animate-slide-up"
+              max-h-[70vh] flex flex-col animate-slide-up pointer-events-none"
             style={{ animation: 'slideUp 0.3s ease-out' }}
           >
         {/* Handle bar */}

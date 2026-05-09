@@ -25,7 +25,7 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
             <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover hover:ring-2 hover:ring-blue-300 transition-all" />
           ) : (
             <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-blue-300 transition-all">
-              {user?.name?.[0] || '?'}
+              {(user?.name || '?')[0]}
             </div>
           )}
         </span>
@@ -118,15 +118,19 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
 
   return (
     <>
-      {isOpen && (
-        <div className="fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      )}
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm transition-opacity pointer-events-none ${
+          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0'
+        }`}
+        onClick={onClose}
+      />
 
       <div
         className={`fixed top-0 right-0 h-full w-[360px] max-w-[85vw] z-[1600]
           bg-white/95 backdrop-blur-xl shadow-2xl shadow-black/10
           transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
-          flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+          flex flex-col pointer-events-none ${isOpen ? 'translate-x-0 pointer-events-auto' : 'translate-x-full'}`}
       >
         <div className="px-5 py-4 border-b border-gray-100/80">
           <div className="flex items-center justify-between mb-3">

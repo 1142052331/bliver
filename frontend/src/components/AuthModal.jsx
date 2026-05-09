@@ -69,9 +69,9 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
   const isOverlay = !!onClose;
 
   return (
-    <div className={`fixed inset-0 z-[3000] flex items-center justify-center
-      ${isOverlay ? 'bg-black/50 backdrop-blur-sm' : 'bg-gradient-to-br from-blue-500 to-indigo-600'}`}>
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-[360px] max-w-[90vw] relative">
+    <div className={`fixed inset-0 z-[3000] flex items-center justify-center pointer-events-none
+      ${isOverlay ? 'bg-black/50 backdrop-blur-sm pointer-events-auto' : 'bg-gradient-to-br from-blue-500 to-indigo-600 pointer-events-auto'}`}>
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-[360px] max-w-[90vw] relative pointer-events-auto">
         {isOverlay && (
           <button
             onClick={onClose}

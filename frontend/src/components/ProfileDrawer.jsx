@@ -111,10 +111,10 @@ export default function ProfileDrawer({ userId, onClose }) {
   })();
 
   return (
-    <div className="fixed inset-0 z-[2500]">
+    <div className="fixed inset-0 z-[2500] pointer-events-none">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
         onClick={onClose}
       />
 
@@ -122,7 +122,7 @@ export default function ProfileDrawer({ userId, onClose }) {
       <div
         className="absolute top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl
           transform transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]
-          translate-x-0 flex flex-col animate-slide-in"
+          translate-x-0 flex flex-col animate-slide-in pointer-events-auto"
       >
         {loading ? (
           <div className="flex flex-col h-full animate-pulse">

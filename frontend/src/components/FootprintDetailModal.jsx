@@ -39,9 +39,9 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
   };
 
   return (
-    <div className="fixed inset-0 z-[1800] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto aurora-scroll z-10
+    <div className="fixed inset-0 z-[1800] flex items-center justify-center p-4 pointer-events-none">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto aurora-scroll z-10 pointer-events-auto
         aurora-glass rounded-2xl shadow-2xl"
         style={{ background: 'var(--aurora-surface)' }}>
 

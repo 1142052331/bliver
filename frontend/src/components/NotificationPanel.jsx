@@ -13,8 +13,8 @@ function timeAgo(date) {
 export default function NotificationPanel({ notifications, onClose, onMarkRead }) {
   return (
     <>
-      <div className="fixed inset-0 z-[1700]" onClick={onClose} />
-      <div className="absolute top-14 right-4 z-[1800] w-[360px] max-w-[90vw] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+      <div className="fixed inset-0 z-[1700] pointer-events-none bg-black/30 backdrop-blur-sm" style={{opacity: 1, pointerEvents: 'auto'}} onClick={onClose} />
+      <div className="absolute top-14 right-4 z-[1800] w-[360px] max-w-[90vw] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden pointer-events-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h3 className="font-bold text-gray-800">Notifications</h3>
