@@ -378,7 +378,7 @@ export default function App() {
           footprints={footprints}
           onArrive={(fp) => {
             setTimelineTargetFpId(null);
-            setClusterData({ footprints: [fp] });
+            setFlyArrivedFp(fp);
           }}
         />
         <ClusterMarkers
@@ -487,7 +487,7 @@ export default function App() {
           onClose={() => setShowPhotoWall(false)}
           onSelect={(fpId) => {
             setShowPhotoWall(false);
-            setActiveFootprintId(fpId);
+            setTimelineTargetFpId(fpId);
           }}
         />
       )}
