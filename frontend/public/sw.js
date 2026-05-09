@@ -16,7 +16,7 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification(title, {
         body,
-        icon: icon || '/marker-icon.png',
+        icon: icon || '/favicon.svg',
         badge: '/marker-icon.png',
         data,
         vibrate: [200, 100, 200],
