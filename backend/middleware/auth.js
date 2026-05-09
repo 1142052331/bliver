@@ -28,4 +28,16 @@ const admin = async (req, res, next) => {
   }
 };
 
-module.exports = { auth, admin, JWT_SECRET };
+// Soft auth — doesn't reject; sets req.isAdmin if valid admin token
+const optionalAuth = (req, res, next) => {
+  const header = req.headers.authorization;
+  if (header && header.startsWith('Bearer ')) {
+    try {
+      const user = jwt.verify(header.split(' ')[1], JWT_SECRET);
+      req.isAdmin = user.role === 'admin';
+    } catch {}
+  }
+  next();
+};
+
+module.exports = { auth, admin, optionalAuth, JWT_SECRET };

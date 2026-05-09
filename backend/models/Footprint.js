@@ -6,6 +6,10 @@ const footprintSchema = new mongoose.Schema({
     lat: { type: Number, required: true },
     lng: { type: Number, required: true },
   },
+  realLocation: {
+    lat: { type: Number },
+    lng: { type: Number },
+  },
   placeName: { type: String, default: '' },
   message:   { type: String, default: '' },
   mood:      { type: String, default: '' },

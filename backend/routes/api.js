@@ -5,9 +5,10 @@ const User = require('../models/User');
 const Footprint = require('../models/Footprint');
 const Notification = require('../models/Notification');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
-const { auth, admin, JWT_SECRET } = require('../middleware/auth');
+const { auth, admin, optionalAuth, JWT_SECRET } = require('../middleware/auth');
 const { reverseGeocode } = require('../services/nominatim');
 const { getWeather } = require('../services/weather');
+const { blurCoordinate, sanitizeLocation } = require('../services/location');
 const { sendPushToUser } = require('./push');
 
 module.exports = (io) => {
@@ -98,7 +99,7 @@ module.exports = (io) => {
   // ── Footprints ────────────────────────────────────────
 
   // GET /api/footprints/today?period=today|week|year
-  router.get('/footprints/today', async (req, res) => {
+  router.get('/footprints/today', optionalAuth, async (req, res) => {
     try {
       const period = req.query.period || 'today';
       const now = new Date();
@@ -121,9 +122,14 @@ module.exports = (io) => {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
 
-      const footprints = await populateFootprint(
+      const docs = await populateFootprint(
         Footprint.find({ createdAt: { $gte: start, $lte: end } }).sort({ createdAt: -1 })
       );
+
+      const footprints = docs.map((fp) => {
+        const obj = fp.toObject();
+        return sanitizeLocation(obj, req.isAdmin);
+      });
 
       res.json({ footprints, period, start });
     } catch (err) {
@@ -132,11 +138,11 @@ module.exports = (io) => {
   });
 
   // GET /api/footprints/:id
-  router.get('/footprints/:id', async (req, res) => {
+  router.get('/footprints/:id', optionalAuth, async (req, res) => {
     try {
       const fp = await populateFootprint(Footprint.findById(req.params.id));
       if (!fp) return res.status(404).json({ error: 'Not found' });
-      res.json({ footprint: fp });
+      res.json({ footprint: sanitizeLocation(fp.toObject(), req.isAdmin) });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -153,14 +159,17 @@ module.exports = (io) => {
       const latNum = Number(lat);
       const lngNum = Number(lng);
 
+      const blurred = blurCoordinate(latNum, lngNum);
+
       const [placeName, weatherData] = await Promise.all([
-        reverseGeocode(latNum, lngNum),
+        reverseGeocode(blurred.lat, blurred.lng),
         getWeather(latNum, lngNum),
       ]);
 
       const footprint = await Footprint.create({
         userId:    req.user.id,
-        location:  { lat: latNum, lng: lngNum },
+        location:  blurred,
+        realLocation: { lat: latNum, lng: lngNum },
         placeName: placeName,
         message:   `🌤 ${weatherData.weather}  ${weatherData.temp !== null ? weatherData.temp + '°C' : ''}\n${message || ''}`,
         photoUrl:  req.cloudinaryUrl || '',
@@ -168,10 +177,12 @@ module.exports = (io) => {
       });
 
       const populated = await populateFootprint(Footprint.findById(footprint._id));
+      const fpObj = populated.toObject();
+      delete fpObj.realLocation;
 
-      io.emit('footprint:new', { footprint: populated });
+      io.emit('footprint:new', { footprint: fpObj });
 
-      res.status(201).json({ footprint: populated });
+      res.status(201).json({ footprint: sanitizeLocation(fpObj, req.user.role === 'admin') });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -206,8 +217,10 @@ module.exports = (io) => {
       await fp.save();
 
       const populated = await populateFootprint(Footprint.findById(fp._id));
+      const fpObj = populated.toObject();
+      delete fpObj.realLocation;
 
-      io.emit('footprint:updated', { footprint: populated });
+      io.emit('footprint:updated', { footprint: fpObj });
 
       // Create notification if reacting to someone else's footprint
       if (fp.userId.toString() !== userId) {
@@ -250,8 +263,10 @@ module.exports = (io) => {
       await fp.save();
 
       const populated = await populateFootprint(Footprint.findById(fp._id));
+      const fpObj = populated.toObject();
+      delete fpObj.realLocation;
 
-      io.emit('footprint:updated', { footprint: populated });
+      io.emit('footprint:updated', { footprint: fpObj });
 
       // Create notification if commenting on someone else's footprint
       if (fp.userId.toString() !== req.user.id) {
@@ -314,7 +329,7 @@ module.exports = (io) => {
   // ── Profile ──────────────────────────────────────────
 
   // GET /api/users/:id/profile
-  router.get('/users/:id/profile', async (req, res) => {
+  router.get('/users/:id/profile', optionalAuth, async (req, res) => {
     try {
       const user = await User.findById(req.params.id)
         .select('-password')
@@ -322,9 +337,10 @@ module.exports = (io) => {
 
       if (!user) return res.status(404).json({ error: 'User not found' });
 
-      const footprints = await populateFootprint(
+      const docs = await populateFootprint(
         Footprint.find({ userId: req.params.id }).sort({ createdAt: -1 }).limit(30)
       );
+      const footprints = docs.map((fp) => sanitizeLocation(fp.toObject(), req.isAdmin));
 
       // Recent interactions: latest liked/commented footprints by this user
       const recentReactions = await Footprint.find({ 'reactions.userId': req.params.id })
