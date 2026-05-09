@@ -99,7 +99,12 @@ export default function App() {
   const [authTab, setAuthTab] = useState('login');
   const [authMessage, setAuthMessage] = useState('');
   const pendingActionRef = useRef(null);
-  const userMarkedReadRef = useRef(new Set());
+
+  // ── Read-notification tracking (localStorage survives state corruption) ──
+  const READ_KEY = 'bliver_read_ids';
+  const getReadIds = () => { try { return new Set(JSON.parse(localStorage.getItem(READ_KEY)) || []); } catch { return new Set(); } };
+  const saveReadIds = (ids) => { localStorage.setItem(READ_KEY, JSON.stringify([...ids])); };
+
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [flyArrivedFp, setFlyArrivedFp] = useState(null);
   const [footprintPeriod, setFootprintPeriod] = useState('week');
@@ -327,7 +332,9 @@ export default function App() {
   }, [user]);
 
   const markAsRead = useCallback(async (notifId) => {
-    userMarkedReadRef.current.add(notifId);
+    const ids = getReadIds();
+    ids.add(notifId);
+    saveReadIds(ids);
     setNotifications((prev) =>
       prev.map((n) => (n._id === notifId ? { ...n, isRead: true } : n))
     );
@@ -365,12 +372,8 @@ export default function App() {
   }, [clusterData, footprints]);
 
   const unreadCount = useMemo(() => {
-    // Guard: if notifications array is unexpectedly empty, don't flash to 0
-    if (notifications.length === 0) return 0;
-    // Use the higher of server read-flag and user-explicitly-clicked — badge only disappears on click
-    const byServer = notifications.filter((n) => !n.isRead).length;
-    const byUser = notifications.filter((n) => !userMarkedReadRef.current.has(n._id)).length;
-    return Math.max(byServer, byUser);
+    const readIds = getReadIds();
+    return notifications.filter((n) => !readIds.has(n._id)).length;
   }, [notifications]);
 
   const isAdmin = user?.role === 'admin';
