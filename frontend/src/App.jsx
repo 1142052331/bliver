@@ -59,6 +59,29 @@ function RecenterOnLoad({ footprints, targetId }) {
   return null;
 }
 
+function PanToTarget({ targetId, footprints, onArrive }) {
+  const map = useMap();
+  const fpRef = useRef(footprints);
+  fpRef.current = footprints;
+
+  useEffect(() => {
+    if (!targetId) return;
+    const fp = fpRef.current.find((f) => f._id === targetId);
+    if (!fp?.location?.lat || !fp?.location?.lng) return;
+
+    map.panTo([fp.location.lat, fp.location.lng], { animate: true, duration: 0.8 });
+
+    const timer = setTimeout(() => {
+      const latest = fpRef.current.find((f) => f._id === targetId);
+      if (latest) onArrive(latest);
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [targetId]);
+
+  return null;
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [footprints, setFootprints] = useState([]);
@@ -81,6 +104,7 @@ export default function App() {
   const [footprintPeriod, setFootprintPeriod] = useState('week');
   const [footprintsLoading, setFootprintsLoading] = useState(true);
   const [showPhotoWall, setShowPhotoWall] = useState(false);
+  const [timelineTargetFpId, setTimelineTargetFpId] = useState(null);
 
   useEffect(() => {
     const saved = getUser();
@@ -349,6 +373,14 @@ export default function App() {
           activeFootprintId={activeFootprintId}
           onArrive={(fp) => setFlyArrivedFp(fp)}
         />
+        <PanToTarget
+          targetId={timelineTargetFpId}
+          footprints={footprints}
+          onArrive={(fp) => {
+            setTimelineTargetFpId(null);
+            setClusterData({ footprints: [fp] });
+          }}
+        />
         <ClusterMarkers
           footprints={footprints}
           userId={user?._id}
@@ -391,7 +423,7 @@ export default function App() {
         onReact={handleReact}
         onDelete={handleDelete}
         onShare={handleShare}
-        onSelectFootprint={(fpId) => setActiveFootprintId(fpId)}
+        onSelectFootprint={(fpId) => { setShowTimeline(false); setTimelineTargetFpId(fpId); }}
         period={footprintPeriod}
         onChangePeriod={setFootprintPeriod}
         loading={footprintsLoading}
