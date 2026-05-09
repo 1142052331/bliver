@@ -278,6 +278,18 @@ export default function App() {
     <ErrorBoundary>
       <div className="relative w-full h-dvh overflow-hidden"
         style={{ background: 'var(--aurora-deep)' }}>
+        {/* Mobile watermark — Bliver branding, opens AboutModal on tap */}
+        <button
+          type="button"
+          onClick={() => setShowAbout(true)}
+          className="md:hidden fixed top-5 z-50 pointer-events-auto"
+          style={{ left: 'max(14px, env(safe-area-inset-left))' }}>
+          <span className="font-black tracking-tighter text-xl text-white/70 drop-shadow-md"
+            style={{ fontFamily: 'var(--font-body)', textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
+            Bliver
+          </span>
+        </button>
+
         <NavBar
           onlineCount={onlineCount}
           user={user}

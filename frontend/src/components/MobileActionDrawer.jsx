@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapPin, Clock, Image, Bell, User, Shield, ChevronRight, ChevronLeft } from 'lucide-react';
+import { MapPin, Clock, Image, Bell, User, Shield, Menu, X } from 'lucide-react';
 
 export default function MobileActionDrawer({
   user, isAdmin, unreadCount,
@@ -25,112 +25,142 @@ export default function MobileActionDrawer({
     };
   }, [open]);
 
-  const btnClass = "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.97]";
+  const itemClass = "w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all active:scale-[0.97]";
 
   return (
-    <div className={`md:hidden fixed top-[15%] z-[1200] ${open ? '' : 'pointer-events-none'}`}
-      style={{ right: `max(0px, env(safe-area-inset-right))` }} ref={drawerRef}>
-      {/* Pull tab */}
+    <div className="md:hidden fixed z-[1200]"
+      style={{ right: `max(0px, env(safe-area-inset-right))`, top: '50%', transform: 'translateY(-50%)' }}
+      ref={drawerRef}>
+
+      {/* ── Circular FAB (hamburger) ──────────────────────── */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="absolute right-0 top-1/2 -translate-y-1/2
-            w-7 h-16 aurora-glass rounded-l-xl
-            flex items-center justify-center
-            shadow-lg shadow-black/20
-            border border-white/10 border-r-0
-            active:scale-95 transition-transform pointer-events-auto"
+          className="w-12 h-12 rounded-full flex items-center justify-center
+            shadow-xl border border-white/20 pointer-events-auto
+            active:scale-90 transition-transform duration-200"
+          style={{
+            background: 'rgba(255,255,255,0.6)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+          }}
         >
-          <ChevronLeft className="w-4 h-4 text-white/60" />
+          <Menu className="w-5 h-5 text-gray-700" />
         </button>
       )}
 
-      {/* Drawer panel */}
-      <div className={`transition-transform duration-300 ease-in-out overflow-hidden
-        ${open ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
-        <div className="aurora-glass rounded-l-2xl shadow-2xl shadow-black/30
-          border border-white/10 border-r-0
-          max-h-[70vh] overflow-y-auto aurora-scroll
-          flex flex-col gap-1 p-3 pr-1 min-w-[180px]"
-          style={{ background: 'var(--aurora-surface)' }}>
+      {/* ── Drawer Panel ──────────────────────────────────── */}
+      <div className={`fixed inset-0 z-[1250] transition-opacity duration-300
+        ${open ? 'pointer-events-auto' : 'pointer-events-none opacity-0'}`}>
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setOpen(false)} />
 
-          {/* Close tab */}
-          <button
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-4 py-2 text-white/40 text-xs
-              hover:text-white/60 transition-colors"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-            收起
-          </button>
-
-          {/* Divider */}
-          <div className="h-px bg-white/[0.06] mx-3" />
-
-          {/* Check In */}
-          <button onClick={() => { onCheckIn(); setOpen(false); }} className={`${btnClass} aurora-btn text-white`}>
-            <MapPin className="w-4 h-4" />
-            打卡
-          </button>
-
-          {/* Journey */}
-          <button onClick={() => { onTimeline(); setOpen(false); }} className={`${btnClass} text-white/70 hover:bg-white/[0.04]`}>
-            <Clock className="w-4 h-4 text-teal-400" />
-            足迹记录
-          </button>
-
-          {/* Photo Wall */}
-          <button onClick={() => { onPhotoWall(); setOpen(false); }} className={`${btnClass} text-white/70 hover:bg-white/[0.04]`}>
-            <Image className="w-4 h-4 text-purple-400" />
-            照片墙
-          </button>
-
-          {/* Notification */}
-          {user && (
-            <button onClick={() => { onBell(); setOpen(false); }} className={`${btnClass} text-white/70 hover:bg-white/[0.04] relative`}>
-              <Bell className="w-4 h-4 text-amber-400" />
-              通知
-              {unreadCount > 0 && (
-                <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center
-                  bg-gradient-to-r from-rose-400 to-pink-500 text-white text-[10px] font-bold
-                  rounded-full">{unreadCount > 99 ? '99+' : unreadCount}</span>
-              )}
+        {/* Panel */}
+        <div
+          className={`absolute top-0 right-0 h-full w-64 max-w-[80vw] flex flex-col
+            transition-transform duration-400 ease-[cubic-bezier(0.2,0.8,0.2,1)]
+            border-l border-white/20
+            ${open ? 'translate-x-0' : 'translate-x-full'}`}
+          style={{
+            background: 'rgba(28,28,30,0.75)',
+            backdropFilter: 'blur(40px)',
+            WebkitBackdropFilter: 'blur(40px)',
+            boxShadow: '-8px 0 40px rgba(0,0,0,0.3)',
+          }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-3"
+            style={{ paddingTop: 'max(20px, env(safe-area-inset-top))' }}>
+            <span className="text-white/50 text-xs font-medium tracking-wider uppercase">菜单</span>
+            <button
+              onClick={() => setOpen(false)}
+              className="w-8 h-8 rounded-full flex items-center justify-center
+                hover:bg-white/[0.06] active:bg-white/[0.10] transition-colors"
+            >
+              <X className="w-4 h-4 text-white/50" />
             </button>
-          )}
+          </div>
 
-          {/* Profile */}
-          {user ? (
-            <button onClick={() => { onProfile(user._id); setOpen(false); }} className={`${btnClass} text-white/70 hover:bg-white/[0.04]`}>
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} className="w-5 h-5 rounded-full object-cover ring-1 ring-teal-400/30" />
-              ) : (
-                <div className="w-5 h-5 rounded-full aurora-btn flex items-center justify-center text-white text-[10px] font-bold">
-                  {(user.name || '?')[0]}
-                </div>
-              )}
-              我的主页
+          <div className="h-px bg-white/[0.06] mx-4 mb-2" />
+
+          {/* Menu items */}
+          <div className="flex-1 overflow-y-auto px-3 pb-6 space-y-1">
+
+            {/* 打卡 — 强调按钮 */}
+            <button onClick={() => { onCheckIn(); setOpen(false); }}
+              className={`${itemClass} text-blue-300 active:bg-white/[0.04]`}
+              style={{ background: 'rgba(59,130,246,0.10)' }}>
+              <MapPin className="w-5 h-5 text-blue-400" />
+              打卡
             </button>
-          ) : (
-            <>
-              <button onClick={() => { onOpenLogin(); setOpen(false); }} className={`${btnClass} aurora-btn text-white`}>
-                <User className="w-4 h-4" />
-                登录
+
+            {/* 足迹记录 */}
+            <button onClick={() => { onTimeline(); setOpen(false); }}
+              className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06]`}>
+              <Clock className="w-5 h-5 text-teal-400" />
+              足迹记录
+            </button>
+
+            {/* 照片墙 */}
+            <button onClick={() => { onPhotoWall(); setOpen(false); }}
+              className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06]`}>
+              <Image className="w-5 h-5 text-purple-400" />
+              照片墙
+            </button>
+
+            {/* 通知 */}
+            {user && (
+              <button onClick={() => { onBell(); setOpen(false); }}
+                className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06] relative`}>
+                <Bell className="w-5 h-5 text-amber-400" />
+                通知
+                {unreadCount > 0 && (
+                  <span className="ml-auto min-w-[20px] h-[20px] flex items-center justify-center
+                    bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
-              <button onClick={() => { onOpenRegister(); setOpen(false); }} className={`${btnClass} text-white/70 hover:bg-white/[0.04] aurora-btn-glass`}>
-                注册
-              </button>
-            </>
-          )}
+            )}
 
-          {/* Admin */}
-          {isAdmin && (
-            <button onClick={() => { onOpenAdmin(); setOpen(false); }}
-              className={`${btnClass} text-white/80 hover:bg-white/[0.04]`}
-              style={{ background: 'var(--aurora-warm)' }}>
-              <Shield className="w-4 h-4 text-white" />
-              后台管理
-            </button>
-          )}
+            {/* 我的主页 */}
+            {user ? (
+              <button onClick={() => { onProfile(user._id); setOpen(false); }}
+                className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06]`}>
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} className="w-5 h-5 rounded-full object-cover ring-1 ring-white/20" alt="" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-white text-[10px] font-bold">
+                    {(user.name || '?')[0]}
+                  </div>
+                )}
+                我的主页
+              </button>
+            ) : (
+              <>
+                <button onClick={() => { onOpenLogin(); setOpen(false); }}
+                  className={`${itemClass} text-white/80 active:bg-white/[0.04]`}
+                  style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <User className="w-5 h-5 text-white/60" />
+                  登录
+                </button>
+                <button onClick={() => { onOpenRegister(); setOpen(false); }}
+                  className={`${itemClass} text-white/50 hover:bg-white/[0.03] active:bg-white/[0.06]`}>
+                  注册
+                </button>
+              </>
+            )}
+
+            {/* 后台管理 */}
+            {isAdmin && (
+              <button onClick={() => { onOpenAdmin(); setOpen(false); }}
+                className={`${itemClass} text-amber-200 active:bg-white/[0.04]`}
+                style={{ background: 'rgba(245,158,11,0.10)' }}>
+                <Shield className="w-5 h-5 text-amber-400" />
+                后台管理
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
