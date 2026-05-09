@@ -79,7 +79,6 @@ function createNewCommentIcon(mood) {
 export default function ClusterMarkers({ footprints, userId, isAdmin }) {
   const map = useMap();
   const clusterGroup = useRef(null);
-  const styleInserted = useRef(false);
   const [readVersion, setReadVersion] = useState(0);
 
   const handleMarkRead = useCallback((fpId) => {
@@ -87,11 +86,13 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
     setReadVersion((v) => v + 1);
   }, []);
 
-  // Inject CSS once
+  // Inject CSS once (DOM-id guard survives React StrictMode double-mount)
   useEffect(() => {
-    if (styleInserted.current) return;
-    styleInserted.current = true;
+    const STYLE_ID = 'cluster-markers-style';
+    if (document.getElementById(STYLE_ID)) return;
+
     const style = document.createElement('style');
+    style.id = STYLE_ID;
     style.textContent = `
       @keyframes moodFloat {
         0%, 100% { transform: translateY(0); }
@@ -117,7 +118,6 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       }
     `;
     document.head.appendChild(style);
-    return () => { document.head.removeChild(style); };
   }, []);
 
   // Initialize cluster group
