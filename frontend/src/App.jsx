@@ -331,10 +331,13 @@ export default function App() {
     );
   }, [user]);
 
+  const [, rerender] = useState(0);
+
   const markAsRead = useCallback(async (notifId) => {
     const ids = getReadIds();
     ids.add(notifId);
     saveReadIds(ids);
+    rerender((t) => t + 1);
     setNotifications((prev) =>
       prev.map((n) => (n._id === notifId ? { ...n, isRead: true } : n))
     );
@@ -371,10 +374,9 @@ export default function App() {
     return footprints.filter(f => ids.has(f._id));
   }, [clusterData, footprints]);
 
-  const unreadCount = useMemo(() => {
-    const readIds = getReadIds();
-    return notifications.filter((n) => !readIds.has(n._id)).length;
-  }, [notifications]);
+  // Compute directly (no useMemo — reads localStorage which useMemo can't track as dependency)
+  const readIds = getReadIds();
+  const unreadCount = notifications.filter((n) => !readIds.has(n._id)).length;
 
   const isAdmin = user?.role === 'admin';
 
