@@ -49,8 +49,7 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
                 {timeStr(fp.createdAt)}
               </div>
               <div
-                className="bg-gray-50 rounded-xl p-3 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all"
-                onClick={() => onSelectFootprint && onSelectFootprint(fp._id)}
+                className="bg-gray-50 rounded-xl p-3"
               >
                 <div className="flex items-center gap-2 mb-0.5">
                   <p className="text-sm font-medium text-gray-700">

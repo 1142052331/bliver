@@ -78,7 +78,7 @@ export default function App() {
   const pendingActionRef = useRef(null);
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [flyArrivedFp, setFlyArrivedFp] = useState(null);
-  const [footprintPeriod, setFootprintPeriod] = useState('today');
+  const [footprintPeriod, setFootprintPeriod] = useState('week');
   const [footprintsLoading, setFootprintsLoading] = useState(true);
   const [showPhotoWall, setShowPhotoWall] = useState(false);
 
@@ -364,7 +364,7 @@ export default function App() {
             flex items-center gap-2"
         >
           <Clock className="w-4 h-4 text-teal-400" />
-          <span className="text-white/80">今日记录</span>
+          <span className="text-white/80">足迹记录</span>
         </button>
 
         <button

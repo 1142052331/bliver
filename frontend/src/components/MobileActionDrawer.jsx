@@ -75,7 +75,7 @@ export default function MobileActionDrawer({
           {/* Journey */}
           <button onClick={() => { onTimeline(); setOpen(false); }} className={`${btnClass} text-white/70 hover:bg-white/[0.04]`}>
             <Clock className="w-4 h-4 text-teal-400" />
-            今日记录
+            足迹记录
           </button>
 
           {/* Photo Wall */}
