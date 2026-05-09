@@ -40,20 +40,28 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
 
   return (
     <div className="fixed inset-0 z-[1800] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl z-10">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto aurora-scroll z-10
+        aurora-glass rounded-2xl shadow-2xl"
+        style={{ background: 'var(--aurora-surface)' }}>
+
         {/* Photo */}
         {fp.photoUrl ? (
-          <img src={fp.photoUrl} className="w-full max-h-[50vh] object-cover rounded-t-2xl" />
+          <div className="relative">
+            <img src={fp.photoUrl} className="w-full max-h-[50vh] object-cover rounded-t-2xl" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f28] via-transparent to-transparent rounded-t-2xl" />
+          </div>
         ) : (
-          <div className="w-full h-40 bg-gray-100 rounded-t-2xl flex items-center justify-center">
-            <Image className="w-10 h-10 text-gray-300" />
+          <div className="w-full h-40 flex items-center justify-center"
+            style={{ background: 'var(--aurora-surface-glow)' }}>
+            <Image className="w-10 h-10 text-white/10" />
           </div>
         )}
 
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 bg-black/30 hover:bg-black/50 rounded-full text-white transition-colors"
+          className="absolute top-3 right-3 p-1.5 bg-black/40 hover:bg-black/60
+            backdrop-blur rounded-full text-white/80 hover:text-white transition-colors z-10"
         >
           <X className="w-5 h-5" />
         </button>
@@ -61,26 +69,24 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
         <div className="p-5">
           {/* User & Time */}
           <div className="flex items-center gap-3 mb-3">
-            <span
-              className="cursor-pointer"
-              onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
-            >
+            <span className="cursor-pointer"
+              onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}>
               {user.avatarUrl ? (
-                <img src={user.avatarUrl} className="w-10 h-10 rounded-full object-cover hover:ring-2 hover:ring-blue-300 transition-all" />
+                <img src={user.avatarUrl}
+                  className="w-10 h-10 rounded-full object-cover ring-2 ring-teal-400/30 hover:ring-teal-400/60 transition-all" />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm hover:ring-2 hover:ring-blue-300 transition-all">
+                <div className="w-10 h-10 rounded-full aurora-btn flex items-center justify-center
+                  text-white font-bold text-sm ring-2 ring-teal-400/30 hover:ring-teal-400/60 transition-all">
                   {(user.name || '?')[0].toUpperCase()}
                 </div>
               )}
             </span>
             <div>
-              <span
-                className="cursor-pointer font-semibold text-gray-800 hover:text-blue-600"
-                onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
-              >
+              <span className="cursor-pointer font-semibold text-white/90 hover:text-teal-300 transition-colors"
+                onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}>
                 {user.name || 'Unknown'}
               </span>
-              <div className="flex items-center gap-1 text-xs text-gray-400">
+              <div className="flex items-center gap-1 text-xs text-white/30">
                 <Clock className="w-3 h-3" />
                 {new Date(fp.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
@@ -89,22 +95,21 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
 
           {/* Location + Mood */}
           <div className="flex items-center gap-2 mb-2">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-white/50">
               <MapPin className="w-3.5 h-3.5 inline mr-1" />
               {fp.placeName || 'Unknown location'}
             </p>
-            {fp.mood && (
-              <span className="text-2xl leading-none animate-bounce-in" title="Mood">{fp.mood}</span>
-            )}
+            {fp.mood && <span className="text-2xl leading-none">{fp.mood}</span>}
           </div>
 
           {/* Message */}
-          <p className="text-gray-700 whitespace-pre-wrap text-[15px] leading-relaxed mb-4">
+          <p className="text-white/80 whitespace-pre-wrap text-[15px] leading-relaxed mb-4"
+            style={{ fontFamily: 'var(--font-body)' }}>
             {fp.message}
           </p>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
             <ReactionPicker fp={fp} userId={userId} onReact={onReact} />
 
             <div className="flex items-center gap-2">
@@ -114,15 +119,17 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-500 text-sm hover:bg-gray-200 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg
+                  bg-white/[0.04] text-white/50 text-sm hover:bg-white/[0.08] hover:text-white/70 transition-colors"
               >
-                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Share2 className="w-4 h-4" />}
+                {copied ? <Check className="w-4 h-4 text-teal-400" /> : <Share2 className="w-4 h-4" />}
                 {copied ? 'Copied' : 'Share'}
               </button>
               {isAdmin && (
                 <button
                   onClick={() => { onClose(); onDelete(fp._id); }}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-sm hover:bg-red-100 transition-colors"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg
+                    bg-red-400/10 text-red-400 text-sm hover:bg-red-400/20 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete
@@ -131,53 +138,55 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
             </div>
           </div>
 
-          {/* Comments Section */}
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <h3 className="flex items-center gap-1.5 font-semibold text-sm text-gray-800 mb-3">
-              <MessageCircle className="w-4 h-4" />
-              Comments ({comments.length})
+          {/* ── Comments Section ──────────────────────────── */}
+          <div className="mt-4 pt-4 border-t border-white/[0.06]">
+            <h3 className="flex items-center gap-1.5 font-semibold text-sm text-white/60 mb-3"
+              style={{ fontFamily: 'var(--font-body)' }}>
+              <MessageCircle className="w-4 h-4 text-teal-400" />
+              留言 ({comments.length})
             </h3>
 
             {comments.length > 0 ? (
               <div className="space-y-2 mb-3">
                 {comments.map((c, i) => (
-                  <div key={i} className="p-2.5 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-800">
-                      <span className="font-medium">{c.username}</span>
-                      <span className="text-gray-400 mx-1">:</span>
-                      <span className="text-gray-600">{c.content}</span>
+                  <div key={i}
+                    className="p-3 rounded-xl transition-all"
+                    style={{ background: 'rgba(45,212,191,0.04)', border: '1px solid rgba(45,212,191,0.06)' }}>
+                    <p className="text-sm">
+                      <span className="font-semibold text-teal-300">{c.username}</span>
+                      <span className="text-white/20 mx-1.5">·</span>
+                      <span className="text-white/70">{c.content}</span>
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      来自 IP: {maskIp(c.ipAddress)}
-                      <span className="mx-1">·</span>
+                    <p className="text-xs text-white/20 mt-1.5">
+                      {maskIp(c.ipAddress)}
+                      <span className="mx-1.5">·</span>
                       {new Date(c.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-400 mb-3">还没有回复，来说点什么吧</p>
+              <p className="text-xs text-white/20 mb-3">还没有回复，来说点什么吧</p>
             )}
 
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Write a comment..."
-                  rows={2}
-                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 resize-none"
-                />
-                <button
-                  onClick={handleSubmitComment}
-                  disabled={sending || !commentText.trim()}
-                  className="flex-shrink-0 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium
-                    hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors
-                    flex items-center gap-1"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
+            {/* Comment Form */}
+            <div className="flex gap-2">
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="写留言..."
+                rows={2}
+                className="flex-1 px-3 py-2 text-sm aurora-input rounded-xl resize-none"
+              />
+              <button
+                onClick={handleSubmitComment}
+                disabled={sending || !commentText.trim()}
+                className="flex-shrink-0 px-4 py-2 aurora-btn text-white rounded-xl text-sm font-medium
+                  disabled:opacity-30 disabled:cursor-not-allowed transition-all
+                  flex items-center gap-1.5"
+              >
+                <Send className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
