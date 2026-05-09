@@ -22,6 +22,7 @@ import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import PhotoWall from './components/PhotoWall';
+import MobileActionDrawer from './components/MobileActionDrawer';
 import { subscribeToPush } from './push';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -355,8 +356,8 @@ export default function App() {
         />
       </MapContainer>
 
-      {/* Side buttons group */}
-      <div className="absolute top-[88px] right-3 z-[1000] flex flex-col gap-2">
+      {/* Side buttons group — desktop only */}
+      <div className="hidden md:flex absolute top-[88px] right-3 z-[1000] flex-col gap-2">
         <button
           onClick={() => setShowTimeline(true)}
           className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium
@@ -394,6 +395,24 @@ export default function App() {
         period={footprintPeriod}
         onChangePeriod={setFootprintPeriod}
         loading={footprintsLoading}
+      />
+
+      {/* Mobile action drawer */}
+      <MobileActionDrawer
+        user={user}
+        isAdmin={isAdmin}
+        unreadCount={unreadCount}
+        onCheckIn={() => {
+          if (!requireLogin({ type: 'checkin' })) return;
+          setShowCheckIn(true);
+        }}
+        onTimeline={() => setShowTimeline(true)}
+        onPhotoWall={() => setShowPhotoWall(true)}
+        onProfile={(uid) => setViewingProfileId(uid)}
+        onBell={() => setShowNotifs((v) => !v)}
+        onOpenAdmin={() => setShowAdmin(true)}
+        onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
+        onOpenRegister={() => { setAuthTab('register'); setAuthMessage(''); setShowAuth(true); }}
       />
 
       {/* Fly-arrived detail modal (from timeline click) */}
