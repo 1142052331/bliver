@@ -105,6 +105,13 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
         0%, 100% { box-shadow: 0 0 12px rgba(45,212,191,0.5), 0 0 24px rgba(45,212,191,0.25); }
         50% { box-shadow: 0 0 20px rgba(45,212,191,0.7), 0 0 36px rgba(45,212,191,0.4); }
       }
+      @keyframes clusterBadgeGlow {
+        0%, 100% { box-shadow: 0 0 8px rgba(45,212,191,0.4), 0 0 16px rgba(45,212,191,0.15); }
+        50% { box-shadow: 0 0 16px rgba(45,212,191,0.6), 0 0 28px rgba(45,212,191,0.3); }
+      }
+      .cluster-badge-glow {
+        animation: clusterBadgeGlow 2.5s ease-in-out infinite;
+      }
       .new-comment-bubble {
         animation: commentGlow 2s ease-in-out infinite;
       }
@@ -126,23 +133,33 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       zoomToBoundsOnClick: false,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
-        const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
-        const sizes = { small: 32, medium: 40, large: 48 };
-        const colors = { small: '#3b82f6', medium: '#2563eb', large: '#1d4ed8' };
-        const s = sizes[size];
+        const tier = count < 10 ? 0 : count < 50 ? 1 : 2;
+        const pinSizes = [26, 32, 38];
+        const badgeSizes = [20, 24, 28];
+        const fontSizes = [10, 11, 13];
+        const pin = pinSizes[tier];
+        const badge = badgeSizes[tier];
+        const fs = fontSizes[tier];
+
         return L.divIcon({
-          html: `<div style="
-            width:${s}px;height:${s}px;
-            background:${colors[size]};
-            border-radius:50%;
-            display:flex;align-items:center;justify-content:center;
-            color:white;font-weight:bold;font-size:${s * 0.38}px;
-            box-shadow:0 2px 8px rgba(0,0,0,0.3);
-            border:3px solid white;
-          ">${count}</div>`,
+          html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))">
+            <span class="cluster-badge-glow" style="
+              position:absolute;top:-${badge / 2 + 2}px;right:-${badge * 0.6}px;z-index:2;
+              background:#0f172a;color:#2dd4bf;
+              min-width:${badge}px;height:${badge}px;padding:0 5px;border-radius:${badge / 2}px;
+              display:flex;align-items:center;justify-content:center;
+              font-size:${fs}px;font-weight:800;line-height:1;
+              border:2px solid #2dd4bf;font-family:system-ui;
+            ">${count}</span>
+            <div style="width:${pin}px;height:${pin}px;background:#2dd4bf;
+              border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+              border:3px solid white;
+              box-shadow:0 0 14px rgba(45,212,191,0.45),0 2px 8px rgba(0,0,0,0.15);
+            "></div>
+          </div>`,
           className: '',
-          iconSize: [s, s],
-          iconAnchor: [s / 2, s / 2],
+          iconSize: [pin + badge, pin + badge],
+          iconAnchor: [(pin + badge) / 2, pin + badge * 0.6],
         });
       },
     });
