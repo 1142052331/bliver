@@ -73,12 +73,21 @@ export default function App() {
     user, setUser, setFootprints, setNotifications, setOnlineCount, setToast,
   });
 
-  // ── Read-notification tracking (React state + localStorage persistence) ──
-  const READ_KEY = 'bliver_read_v2';
-  const [readIds, setReadIds] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(READ_KEY)) || []); }
-    catch { return new Set(); }
+  // ── Unread notification counter ────────────────────────
+  const READ_COUNT_KEY = 'bliver_unread_v1';
+  const [unreadCount, setUnreadCount] = useState(() => {
+    try { return parseInt(localStorage.getItem(READ_COUNT_KEY), 10) || 0; }
+    catch { return 0; }
   });
+
+  // Sync counter from server notifications on mount / change
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const count = notifications.filter((n) => !n.isRead).length;
+      setUnreadCount(count);
+      try { localStorage.setItem(READ_COUNT_KEY, String(count)); } catch {}
+    }
+  }, [notifications]);
 
   // ── Auto-login on mount ───────────────────────────────
   useEffect(() => {
@@ -217,10 +226,9 @@ export default function App() {
   }, [user]);
 
   const markAsRead = useCallback(async (notifId) => {
-    setReadIds((prev) => {
-      const next = new Set(prev);
-      next.add(notifId);
-      try { localStorage.setItem(READ_KEY, JSON.stringify([...next])); } catch {}
+    setUnreadCount((prev) => {
+      const next = Math.max(0, prev - 1);
+      try { localStorage.setItem(READ_COUNT_KEY, String(next)); } catch {}
       return next;
     });
     setNotifications((prev) =>
@@ -260,7 +268,6 @@ export default function App() {
     return footprints.filter(f => ids.has(f._id));
   }, [clusterData, footprints]);
 
-  const unreadCount = notifications.filter((n) => !readIds.has(n._id)).length;
   const isAdmin = user?.role === 'admin';
 
   // ── Render ─────────────────────────────────────────────
