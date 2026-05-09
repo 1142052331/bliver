@@ -1,0 +1,13 @@
+{
+  "name": "Bliver - 地图朋友圈",
+  "short_name": "Bliver",
+  "description": "在地图上分享足迹，实时看到朋友的打卡",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0a0a0f",
+  "background_color": "#0a0a0f",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
