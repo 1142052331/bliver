@@ -13,7 +13,7 @@ const techStack = [
 const features = [
   { icon: MapPin, title: '地图打卡', desc: 'GPS 定位 + 心情表情 + 照片上传，每条足迹留下真实坐标与回忆' },
   { icon: Radio, title: '实时互动', desc: 'Socket.IO 驱动的点赞、评论、通知，朋友动态即时送达' },
-  { icon: Shield, title: '隐私控制', desc: '模糊定位保护隐私，精确模式可选，管理员可查看真实坐标' },
+  { icon: Shield, title: '隐私控制', desc: '模糊定位保护隐私，精确模式可选，坐标只有自己可见' },
   { icon: Smartphone, title: 'PWA 支持', desc: '可安装到手机主屏幕，iOS / Android 原生体验，后台推送通知' },
 ];
 
