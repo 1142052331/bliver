@@ -100,10 +100,12 @@ export default function App() {
   const [authMessage, setAuthMessage] = useState('');
   const pendingActionRef = useRef(null);
 
-  // ── Read-notification tracking (localStorage survives state corruption) ──
+  // ── Read-notification tracking (React state + localStorage persistence) ──
   const READ_KEY = 'bliver_read_ids';
-  const getReadIds = () => { try { return new Set(JSON.parse(localStorage.getItem(READ_KEY)) || []); } catch { return new Set(); } };
-  const saveReadIds = (ids) => { localStorage.setItem(READ_KEY, JSON.stringify([...ids])); };
+  const [readIds, setReadIds] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(READ_KEY)) || []); }
+    catch { return new Set(); }
+  });
 
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [flyArrivedFp, setFlyArrivedFp] = useState(null);
@@ -331,13 +333,13 @@ export default function App() {
     );
   }, [user]);
 
-  const [, rerender] = useState(0);
-
   const markAsRead = useCallback(async (notifId) => {
-    const ids = getReadIds();
-    ids.add(notifId);
-    saveReadIds(ids);
-    rerender((t) => t + 1);
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      next.add(notifId);
+      try { localStorage.setItem(READ_KEY, JSON.stringify([...next])); } catch {}
+      return next;
+    });
     setNotifications((prev) =>
       prev.map((n) => (n._id === notifId ? { ...n, isRead: true } : n))
     );
@@ -374,8 +376,6 @@ export default function App() {
     return footprints.filter(f => ids.has(f._id));
   }, [clusterData, footprints]);
 
-  // Compute directly (no useMemo — reads localStorage which useMemo can't track as dependency)
-  const readIds = getReadIds();
   const unreadCount = notifications.filter((n) => !readIds.has(n._id)).length;
 
   const isAdmin = user?.role === 'admin';
