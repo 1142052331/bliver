@@ -27,33 +27,36 @@ export default function MobileActionDrawer({
 
   return (
     <div className="md:hidden fixed z-[1000]"
-      style={{ right: `max(0px, env(safe-area-inset-right))`, top: '50%', transform: 'translateY(-50%)' }}>
+      style={{ right: `max(12px, env(safe-area-inset-right))`, top: '1.25rem' }}>
 
       {/* ── FAB hamburger button ─────────────────────────── */}
       {!open && (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-12 h-12 rounded-full flex items-center justify-center
+          className="w-10 h-10 rounded-full flex items-center justify-center
             bg-[#121212]/50 backdrop-blur-xl
             border border-white/10
             shadow-xl
             active:scale-90 transition-transform duration-200"
         >
-          <Menu className="w-5 h-5 text-white" />
+          <Menu className="w-4 h-4 text-white" />
         </button>
       )}
 
-      {/* ── Side panel — no backdrop, map stays visible ───── */}
+      {/* ── Dropdown panel — floats below FAB, map stays visible */}
       <div
         ref={panelRef}
-        className={`fixed top-0 right-0 h-dvh w-64 max-w-[80vw]
-          bg-[#121212]/60 backdrop-blur-2xl
-          border-l border-white/10
-          shadow-[-8px_0_40px_rgba(0,0,0,0.4)]
+        className={`absolute top-12 right-0 w-56 max-h-[60vh]
+          rounded-2xl
+          bg-[#121212]/70 backdrop-blur-2xl
+          border border-white/10
+          shadow-[0_8px_40px_rgba(0,0,0,0.5)]
           flex flex-col
-          transition-transform duration-400 ease-[cubic-bezier(0.22,0.61,0.36,1)]
-          ${open ? 'translate-x-0 pointer-events-auto' : 'translate-x-full pointer-events-none overflow-hidden'}`}
+          transition-all duration-300 ease-[cubic-bezier(0.22,0.61,0.36,1)]
+          ${open
+            ? 'opacity-100 scale-100 pointer-events-auto'
+            : 'opacity-0 scale-95 pointer-events-none overflow-hidden'}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0"
