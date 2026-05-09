@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, MapPin, Clock, MessageCircle, Heart, Footprints, Camera, Loader2, LogOut } from 'lucide-react';
+import { X, MapPin, Clock, MessageCircle, Heart, Footprints, Camera, Loader2, LogOut, Pencil, Check } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import api from '../api';
 import { getUser } from '../auth';
@@ -23,6 +23,10 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [bannerMsg, setBannerMsg] = useState('');
   const bannerFileRef = useRef(null);
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const avatarFileRef = useRef(null);
 
   const currentUser = getUser();
   const isOwnProfile = currentUser?._id === userId;
@@ -45,6 +49,42 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
       setTimeout(() => setBannerMsg(''), 3000);
     }
     setUploadingBanner(false);
+  };
+
+  const handleUpdateProfile = async (updates) => {
+    setSavingProfile(true);
+    try {
+      const form = new FormData();
+      if (updates.name) form.append('name', updates.name);
+      if (updates.avatar) {
+        const compressed = await imageCompression(updates.avatar, { maxSizeMB: 0.5, maxWidthOrHeight: 300 });
+        form.append('avatar', compressed);
+      }
+      const { data } = await api.put('/api/users/profile', form);
+      setProfile(data.user);
+      setBannerMsg('更新成功！');
+      setTimeout(() => setBannerMsg(''), 3000);
+    } catch (err) {
+      setBannerMsg(err.response?.data?.error || '更新失败');
+      setTimeout(() => setBannerMsg(''), 3000);
+    }
+    setSavingProfile(false);
+  };
+
+  const handleSaveName = () => {
+    const name = newName.trim();
+    if (!name || name === profile.name) {
+      setEditingName(false);
+      return;
+    }
+    handleUpdateProfile({ name });
+    setEditingName(false);
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await handleUpdateProfile({ avatar: file });
   };
 
   const fetchProfile = async () => {
@@ -236,12 +276,68 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
                         {(profile.name || '?')[0].toUpperCase()}
                       </div>
                     )}
+                    {isOwnProfile && (
+                      <>
+                        <input type="file" accept="image/*" ref={avatarFileRef} onChange={handleAvatarChange} className="hidden" />
+                        <button
+                          onClick={() => avatarFileRef.current?.click()}
+                          disabled={savingProfile}
+                          className="absolute bottom-0 right-0 p-1.5 bg-white/90 hover:bg-white rounded-full
+                            shadow-md transition-colors disabled:opacity-50"
+                          title="更换头像"
+                        >
+                          <Camera className="w-3 h-3 text-gray-600" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 {/* Name */}
                 <div className="px-5 pt-2 pb-3">
-                  <h2 className="text-lg font-bold text-white drop-shadow-md">{profile.name}</h2>
+                  {editingName ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        autoFocus
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveName();
+                          if (e.key === 'Escape') setEditingName(false);
+                        }}
+                        className="bg-white/20 backdrop-blur-sm text-white text-lg font-bold rounded-lg px-3 py-1
+                          outline-none border border-white/30 focus:border-white/50 w-36
+                          placeholder:text-white/30"
+                        placeholder={profile.name}
+                      />
+                      <button
+                        onClick={handleSaveName}
+                        disabled={savingProfile}
+                        className="p-1 text-emerald-300 hover:text-emerald-200 transition-colors disabled:opacity-50"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setEditingName(false)}
+                        className="p-1 text-white/40 hover:text-white/70 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <h2 className="text-lg font-bold text-white drop-shadow-md">{profile.name}</h2>
+                      {isOwnProfile && (
+                        <button
+                          onClick={() => { setNewName(profile.name); setEditingName(true); }}
+                          className="p-0.5 text-white/40 hover:text-white/80 transition-colors"
+                          title="修改名字"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Stats */}

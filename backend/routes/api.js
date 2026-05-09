@@ -424,6 +424,38 @@ module.exports = (io) => {
     }
   });
 
+  // PUT /api/users/profile (protected) — update name or avatar
+  router.put('/users/profile', auth, upload.single('avatar'), uploadToCloudinary, async (req, res) => {
+    try {
+      const { name } = req.body;
+      const updates = {};
+
+      if (name && name.trim()) {
+        const trimmed = name.trim();
+        const exists = await User.findOne({ name: trimmed, _id: { $ne: req.user.id } });
+        if (exists) return res.status(400).json({ error: 'Name already taken' });
+        updates.name = trimmed;
+      }
+
+      if (req.cloudinaryUrl) {
+        updates.avatarUrl = req.cloudinaryUrl;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: 'Nothing to update' });
+      }
+
+      const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('-password');
+
+      // If name changed, emit profile:updated so ProfileDrawer reflects it
+      io.emit('profile:updated', { userId: req.user.id, user });
+
+      res.json({ user });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Admin setup ───────────────────────────────────────
 
   // POST /api/admin/setup (logged-in user + secret key)
