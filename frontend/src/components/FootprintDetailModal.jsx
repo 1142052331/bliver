@@ -16,12 +16,13 @@ function maskIp(ip) {
   return ip;
 }
 
-export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare, onComment, onClose }) {
+export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare, onComment, onDeleteComment, onClose }) {
   if (!fp) return null;
 
   const [copied, setCopied] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const user = fp.userId || {};
   const comments = fp.comments || [];
@@ -148,11 +149,14 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
 
             {comments.length > 0 ? (
               <div className="space-y-2 mb-3">
-                {comments.map((c, i) => (
-                  <div key={c.createdAt + '-' + i}
-                    className="p-3 rounded-xl transition-all"
+                {comments.map((c, i) => {
+                  // 仅管理员或评论作者可删除
+                  const canDelete = isAdmin || (c.userId && c.userId === userId);
+                  return (
+                  <div key={c._id || c.createdAt + '-' + i}
+                    className="relative p-3 rounded-xl transition-all group"
                     style={{ background: 'rgba(45,212,191,0.04)', border: '1px solid rgba(45,212,191,0.06)' }}>
-                    <p className="text-sm">
+                    <p className="text-sm pr-6">
                       <span className="font-semibold text-teal-300">{c.username}</span>
                       <span className="text-white/20 mx-1.5">·</span>
                       <span className="text-white/70">{c.content}</span>
@@ -162,8 +166,29 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
                       <span className="mx-1.5">·</span>
                       {new Date(c.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        disabled={deletingId === c._id}
+                        onClick={async () => {
+                          if (!c._id || !onDeleteComment) return;
+                          setDeletingId(c._id);
+                          await onDeleteComment(fp._id, c._id);
+                          setDeletingId(null);
+                        }}
+                        className="absolute top-2 right-2 p-1 rounded-md
+                          text-white/15 hover:text-red-400/80
+                          opacity-0 group-hover:opacity-100
+                          transition-all duration-200
+                          disabled:opacity-30"
+                        title="删除评论"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-xs text-white/20 mb-3">还没有回复，来说点什么吧</p>

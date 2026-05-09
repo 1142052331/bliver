@@ -6,7 +6,7 @@ function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReact, onDelete, onShare, onComment, onClose, autoOpenId }) {
+export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReact, onDelete, onShare, onComment, onDeleteComment, onClose, autoOpenId }) {
   const [detailFpId, setDetailFpId] = useState(null);
   const detailFp = detailFpId ? footprints.find(f => f._id === detailFpId) : null;
 
@@ -168,6 +168,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
           onDelete={onDelete}
           onShare={onShare}
           onComment={onComment}
+          onDeleteComment={onDeleteComment}
           onClose={() => {
             if (isSingle) onClose(); // close everything for single footprint
             else setDetailFpId(null); // just close modal, keep drawer open

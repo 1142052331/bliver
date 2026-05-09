@@ -20,6 +20,7 @@ const footprintSchema = new mongoose.Schema({
     emoji:    { type: String, required: true },
   }],
   comments:  [{
+    userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     username:  { type: String, required: true },
     content:   { type: String, required: true },
     ipAddress: { type: String, default: '' },

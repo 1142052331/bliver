@@ -210,7 +210,7 @@ module.exports = (io) => {
         || req.socket.remoteAddress
         || '';
 
-      fp.comments.push({ username, content, ipAddress: ip });
+      fp.comments.push({ userId: req.user.id, username, content, ipAddress: ip });
       await fp.save();
 
       const populated = await populateFootprint(Footprint.findById(fp._id));
@@ -230,6 +230,38 @@ module.exports = (io) => {
       }
 
       res.status(201).json({ footprint: populated });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/footprints/:footprintId/comments/:commentId
+  router.delete('/footprints/:footprintId/comments/:commentId', auth, async (req, res) => {
+    try {
+      const fp = await Footprint.findById(req.params.footprintId);
+      if (!fp) return res.status(404).json({ error: 'Footprint not found' });
+
+      const comment = fp.comments.id(req.params.commentId);
+      if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+      // 只有 阿森 或评论原作者才能删除
+      const isAuthor = comment.userId?.toString() === req.user.id;
+      const isAsen = req.user.name === '阿森';
+      if (!isAuthor && !isAsen) {
+        return res.status(403).json({ error: '无权删除此评论' });
+      }
+
+      fp.comments.pull({ _id: req.params.commentId });
+      await fp.save();
+
+      // 返回更新后的足迹
+      const populated = await populateFootprint(Footprint.findById(fp._id));
+      const fpObj = populated.toObject();
+      delete fpObj.realLocation;
+
+      io.emit('footprint:updated', { footprint: fpObj });
+
+      res.json({ footprint: fpObj });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

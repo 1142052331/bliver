@@ -210,6 +210,19 @@ export default function App() {
     }
   }, [user]);
 
+  const handleDeleteComment = useCallback(async (footprintId, commentId) => {
+    try {
+      const { data } = await api.delete(`/api/footprints/${footprintId}/comments/${commentId}`);
+      setFootprints((prev) =>
+        prev.map((fp) => (fp._id === footprintId
+          ? { ...fp, comments: data.footprint.comments }
+          : fp))
+      );
+    } catch (err) {
+      console.error('Delete comment failed:', err);
+    }
+  }, []);
+
   const handleShare = useCallback((footprintId) => {
     const url = `${window.location.origin}${window.location.pathname}?fp=${footprintId}`;
     navigator.clipboard.writeText(url);
@@ -403,6 +416,7 @@ export default function App() {
             onDelete={handleDelete}
             onShare={handleShare}
             onComment={handleComment}
+            onDeleteComment={handleDeleteComment}
             onClose={() => { setFlyArrivedFp(null); setActiveFootprintId(null); }}
           />
         )}
@@ -416,6 +430,7 @@ export default function App() {
             onDelete={handleDelete}
             onShare={handleShare}
             onComment={handleComment}
+            onDeleteComment={handleDeleteComment}
             onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
           />
         )}
