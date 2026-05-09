@@ -295,12 +295,14 @@ export default function App() {
         <button
           type="button"
           onClick={() => setShowAbout(true)}
-          className="md:hidden fixed top-5 z-50 pointer-events-auto"
-          style={{ left: 'max(14px, env(safe-area-inset-left))' }}>
-          <span className="font-black tracking-tighter text-xl text-white/70 drop-shadow-md"
-            style={{ fontFamily: 'var(--font-body)', textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
-            Bliver
-          </span>
+          className="md:hidden fixed top-6 z-[1000] pointer-events-auto
+            px-4 py-2 rounded-full
+            bg-[#121212]/50 backdrop-blur-xl
+            border border-white/10
+            text-white font-bold shadow-lg cursor-pointer"
+          style={{ fontFamily: 'var(--font-body)', left: 'max(14px, env(safe-area-inset-left))' }}
+        >
+          Bliver
         </button>
 
         <NavBar

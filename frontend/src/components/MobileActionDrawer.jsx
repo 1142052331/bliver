@@ -37,20 +37,17 @@ export default function MobileActionDrawer({
         <button
           onClick={() => setOpen(true)}
           className="w-12 h-12 rounded-full flex items-center justify-center
-            shadow-xl border border-white/20 pointer-events-auto
+            bg-[#121212]/50 backdrop-blur-xl
+            border border-white/10
+            shadow-xl pointer-events-auto
             active:scale-90 transition-transform duration-200"
-          style={{
-            background: 'rgba(255,255,255,0.6)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-          }}
         >
-          <Menu className="w-5 h-5 text-gray-700" />
+          <Menu className="w-5 h-5 text-white" />
         </button>
       )}
 
       {/* ── Drawer Panel ──────────────────────────────────── */}
-      <div className={`fixed inset-0 z-[1250] transition-opacity duration-300
+      <div className={`fixed inset-0 z-[1250] transition-opacity duration-300 overflow-hidden
         ${open ? 'pointer-events-auto' : 'pointer-events-none opacity-0'}`}>
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setOpen(false)} />
@@ -59,7 +56,7 @@ export default function MobileActionDrawer({
         <div
           className={`absolute top-0 right-0 h-full w-64 max-w-[80vw] flex flex-col
             transition-transform duration-400 ease-[cubic-bezier(0.2,0.8,0.2,1)]
-            border-l border-white/20
+            border-l border-white/10
             ${open ? 'translate-x-0' : 'translate-x-full'}`}
           style={{
             background: 'rgba(28,28,30,0.75)',
