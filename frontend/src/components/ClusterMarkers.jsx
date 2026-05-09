@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet.markercluster';
@@ -21,7 +21,11 @@ function markRead(fpId) {
   localStorage.setItem(READ_KEY, JSON.stringify(map));
 }
 
-function isUnread(fp) {
+/**
+ * 判断足迹是否有新留言（12 小时内、比上次查看时间更新）。
+ * readMap 参数从外部传入，避免循环内反复读 localStorage。
+ */
+function isUnread(fp, readMap) {
   const cutoff = Date.now() - 12 * 60 * 60 * 1000;
   const recent = (fp.comments || []).filter(
     (c) => new Date(c.createdAt).getTime() > cutoff && c.content?.trim()
@@ -29,10 +33,19 @@ function isUnread(fp) {
   if (recent.length === 0) return false;
 
   const latestTime = Math.max(...recent.map((c) => new Date(c.createdAt).getTime()));
-  const readMap = getReadMap();
   const readTime = readMap[fp._id] || 0;
-
   return latestTime > readTime;
+}
+
+// ── Icon cache — L.divIcon 构造开销大，按 key 缓存 ────────
+
+const iconCache = new Map();
+
+function cachedIcon(key, factory) {
+  if (iconCache.has(key)) return iconCache.get(key);
+  const icon = factory();
+  iconCache.set(key, icon);
+  return icon;
 }
 
 function createMoodIcon(mood) {
@@ -47,16 +60,20 @@ function createMoodIcon(mood) {
   });
 }
 
-function createDefaultIcon() {
-  return L.divIcon({
-    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-      <span class="marker-mood-float" style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">📍</span>
-      <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(45,212,191,0.5)"></div>
-    </div>`,
-    className: '',
-    iconSize: [30, 50],
-    iconAnchor: [15, 25],
-  });
+let defaultIcon = null;
+function getDefaultIcon() {
+  if (!defaultIcon) {
+    defaultIcon = L.divIcon({
+      html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+        <span class="marker-mood-float" style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">📍</span>
+        <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(45,212,191,0.5)"></div>
+      </div>`,
+      className: '',
+      iconSize: [30, 50],
+      iconAnchor: [15, 25],
+    });
+  }
+  return defaultIcon;
 }
 
 function createNewCommentIcon(mood) {
@@ -92,9 +109,30 @@ function createStreakIcon(mood, streak) {
   });
 }
 
+/** 为每个足迹选择最合适的图标（带缓存） */
+function pickIcon(fp, streak, unread) {
+  if (streak > 0) {
+    const key = `streak:${fp.mood || 'none'}:${streak >= 7 ? 'fire' : streak >= 3 ? 'sparkle' : 'none'}`;
+    return cachedIcon(key, () => createStreakIcon(fp.mood, streak));
+  }
+  if (unread) {
+    const key = `unread:${fp.mood || 'none'}`;
+    return cachedIcon(key, () => createNewCommentIcon(fp.mood));
+  }
+  if (fp.mood) {
+    const key = `mood:${fp.mood}`;
+    return cachedIcon(key, () => createMoodIcon(fp.mood));
+  }
+  return getDefaultIcon();
+}
+
+// ── Component ────────────────────────────────────────────
+
 export default function ClusterMarkers({ footprints, userId, isAdmin }) {
   const map = useMap();
   const clusterGroup = useRef(null);
+  const footprintsRef = useRef(footprints);
+  footprintsRef.current = footprints; // keep clusterclick handler synced
   const [readVersion, setReadVersion] = useState(0);
 
   const handleMarkRead = useCallback((fpId) => {
@@ -136,7 +174,7 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
     document.head.appendChild(style);
   }, []);
 
-  // Initialize cluster group
+  // Initialize cluster group (once, not on every footprints change)
   useEffect(() => {
     if (clusterGroup.current) {
       map.removeLayer(clusterGroup.current);
@@ -180,6 +218,16 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       },
     });
 
+    // clusterclick set once — uses ref to always read latest footprints
+    cg.on('clusterclick', (e) => {
+      const clusterMarkers = e.layer.getAllChildMarkers();
+      const ids = clusterMarkers.map((m) => m._footprintId);
+      const latest = footprintsRef.current.filter((fp) => ids.includes(fp._id));
+      window.dispatchEvent(new CustomEvent('cluster:click', {
+        detail: { footprints: latest },
+      }));
+    });
+
     clusterGroup.current = cg;
     map.addLayer(cg);
 
@@ -189,13 +237,6 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
     };
   }, [map]);
 
-  // Helper: open the cluster drawer for given footprints
-  const openClusterPanel = (list) => {
-    window.dispatchEvent(new CustomEvent('cluster:click', {
-      detail: { footprints: list },
-    }));
-  };
-
   // Update markers when footprints or read state change
   useEffect(() => {
     const cg = clusterGroup.current;
@@ -203,30 +244,16 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
 
     cg.clearLayers();
 
-    cg.off('clusterclick');
-    cg.on('clusterclick', (e) => {
-      const clusterMarkers = e.layer.getAllChildMarkers();
-      const ids = clusterMarkers.map((m) => m._footprintId);
-      const clustered = footprints.filter((fp) => ids.includes(fp._id));
-      openClusterPanel(clustered);
-    });
+    // Read localStorage once before the loop, not N times inside it
+    const readMap = getReadMap();
 
     footprints.forEach((fp) => {
       if (!fp.location?.lat || !fp.location?.lng) return;
 
-      const unread = isUnread(fp);
+      const unread = isUnread(fp, readMap);
       const streak = fp.userId?.checkinStreak?.current || 0;
 
-      let icon;
-      if (streak > 0) {
-        icon = createStreakIcon(fp.mood, streak);
-      } else if (unread) {
-        icon = createNewCommentIcon(fp.mood);
-      } else if (fp.mood) {
-        icon = createMoodIcon(fp.mood);
-      } else {
-        icon = createDefaultIcon();
-      }
+      const icon = pickIcon(fp, streak, unread);
 
       const marker = L.marker([fp.location.lat, fp.location.lng], {
         title: fp.userId?.name,
@@ -237,7 +264,10 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
 
       marker.on('click', () => {
         if (unread) handleMarkRead(fp._id);
-        openClusterPanel([fp]);
+        const list = [fp];
+        window.dispatchEvent(new CustomEvent('cluster:click', {
+          detail: { footprints: list },
+        }));
       });
 
       cg.addLayer(marker);
