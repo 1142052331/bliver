@@ -14,6 +14,20 @@ export default function CheckInModal({ isOpen, onClose }) {
   const [locDenied, setLocDenied] = useState(false);
   const [precise, setPrecise] = useState(false);
   const fileRef = useRef(null);
+  const previewUrlRef = useRef(null);
+
+  /** 安全释放上一个 Blob URL，防止内存泄漏 */
+  const revokePreview = () => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+  };
+
+  // 组件卸载时释放 Blob URL
+  useEffect(() => {
+    return () => revokePreview();
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -41,11 +55,14 @@ export default function CheckInModal({ isOpen, onClose }) {
   }, [isOpen]);
 
   const handleFile = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
     const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
     setPhoto(compressed);
-    setPreview(URL.createObjectURL(compressed));
+    revokePreview();
+    const url = URL.createObjectURL(compressed);
+    previewUrlRef.current = url;
+    setPreview(url);
   };
 
   const handleSubmit = async (e) => {
@@ -65,6 +82,7 @@ export default function CheckInModal({ isOpen, onClose }) {
       setMessage('');
       setMood('');
       setPhoto(null);
+      revokePreview();
       setPreview('');
       setLocation(null);
       onClose();
@@ -79,6 +97,7 @@ export default function CheckInModal({ isOpen, onClose }) {
     setMessage('');
     setMood('');
     setPhoto(null);
+    revokePreview();
     setPreview('');
     setLocation(null);
     setPrecise(false);

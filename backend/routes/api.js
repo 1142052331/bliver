@@ -64,15 +64,19 @@ module.exports = (io) => {
 
   // GET /api/auth/me
   router.get('/auth/me', auth, async (req, res) => {
-    const user = await User.findById(req.user.id).select('-password');
+    try {
+      const user = await User.findById(req.user.id).select('-password');
 
-    // Auto-promote 阿森 to admin
-    if (user && user.name === '阿森' && user.role !== 'admin') {
-      user.role = 'admin';
-      await user.save();
+      // Auto-promote 阿森 to admin
+      if (user && user.name === '阿森' && user.role !== 'admin') {
+        user.role = 'admin';
+        await user.save();
+      }
+
+      res.json({ user });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-
-    res.json({ user });
   });
 
   // ── Helpers ───────────────────────────────────────────
