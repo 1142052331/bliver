@@ -1,18 +1,12 @@
-import { useEffect, useState, useRef } from 'react';
-import { X, MapPin, Clock, MessageCircle, Heart, Footprints, Camera, Loader2, LogOut, Pencil, Check } from 'lucide-react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { X, MapPin, Camera, Loader2, Pencil, Check } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import api from '../api';
 import { getUser } from '../auth';
-
-function timeAgo(date) {
-  const diff = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '刚刚';
-  if (mins < 60) return `${mins}分钟前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}小时前`;
-  return `${Math.floor(hours / 24)}天前`;
-}
+import ProfileSkeleton from './ProfileSkeleton';
+import ProfileStats from './ProfileStats';
+import ProfileVisitors from './ProfileVisitors';
+import FootprintCardList from './FootprintCardList';
 
 export default function ProfileDrawer({ userId, onClose, onLogout }) {
   const [profile, setProfile] = useState(null);
@@ -22,17 +16,25 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [bannerMsg, setBannerMsg] = useState('');
-  const bannerFileRef = useRef(null);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  const bannerFileRef = useRef(null);
   const avatarFileRef = useRef(null);
+  const bannerTimerRef = useRef(null);
 
   const currentUser = getUser();
   const isOwnProfile = currentUser?._id === userId;
 
+  /** 安全显示 banner 消息，n 秒后自动清除 */
+  const showBannerMsg = useCallback((msg, ms = 3000) => {
+    setBannerMsg(msg);
+    clearTimeout(bannerTimerRef.current);
+    bannerTimerRef.current = setTimeout(() => setBannerMsg(''), ms);
+  }, []);
+
   const handleBannerUpload = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
     setUploadingBanner(true);
     setBannerMsg('');
@@ -42,11 +44,9 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
       form.append('banner', compressed);
       const { data } = await api.post('/api/users/profile/banner', form);
       setProfile(data.user);
-      setBannerMsg('背景更换成功！');
-      setTimeout(() => setBannerMsg(''), 3000);
+      showBannerMsg('背景更换成功！');
     } catch (err) {
-      setBannerMsg(err.response?.data?.error || '上传失败');
-      setTimeout(() => setBannerMsg(''), 3000);
+      showBannerMsg(err.response?.data?.error || '上传失败');
     }
     setUploadingBanner(false);
   };
@@ -62,18 +62,16 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
       }
       const { data } = await api.put('/api/users/profile', form);
       setProfile(data.user);
-      setBannerMsg('更新成功！');
-      setTimeout(() => setBannerMsg(''), 3000);
+      showBannerMsg('更新成功！');
     } catch (err) {
-      setBannerMsg(err.response?.data?.error || '更新失败');
-      setTimeout(() => setBannerMsg(''), 3000);
+      showBannerMsg(err.response?.data?.error || '更新失败');
     }
     setSavingProfile(false);
   };
 
   const handleSaveName = () => {
     const name = newName.trim();
-    if (!name || name === profile.name) {
+    if (!name || name === profile?.name) {
       setEditingName(false);
       return;
     }
@@ -82,33 +80,41 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
   };
 
   const handleAvatarChange = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
     await handleUpdateProfile({ avatar: file });
   };
 
-  const fetchProfile = async () => {
-    try {
-      const { data } = await api.get(`/api/users/${userId}/profile`);
+  // ── Data fetching ──────────────────────────────────────
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/api/users/${userId}/profile`).then(({ data }) => {
+      if (cancelled) return;
       setProfile(data.user);
       setFootprints(data.footprints);
       setRecentReactions(data.recentReactions);
       setRecentComments(data.recentComments);
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchProfile(); }, [userId]);
+    }).catch((err) => {
+      if (!cancelled) console.error(err);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [userId]);
 
   // Lock body scroll when open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+      clearTimeout(bannerTimerRef.current);
+    };
   }, []);
 
-  // Subscribe to real-time updates
+  // ── Real-time updates via WebSocket custom events ──────
+
   useEffect(() => {
     const onNewFp = (e) => {
       const fp = e.detail.footprint;
@@ -143,22 +149,27 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
     };
   }, [userId]);
 
-  const totalReactions = footprints.reduce((sum, fp) => sum + (fp.reactions?.length || 0), 0);
-  const activeDays = (() => {
+  // ── Derived values (memoized) ──────────────────────────
+
+  const totalReactions = useMemo(
+    () => footprints.reduce((sum, fp) => sum + (fp.reactions?.length || 0), 0),
+    [footprints]
+  );
+  const activeDays = useMemo(() => {
     const days = new Set();
     footprints.forEach((fp) => days.add(new Date(fp.createdAt).toDateString()));
     return days.size;
-  })();
+  }, [footprints]);
+
+  // ── Render ─────────────────────────────────────────────
 
   return (
     <div className="fixed inset-0 z-[2500] pointer-events-none">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
         onClick={onClose}
       />
 
-      {/* Drawer */}
       <div
         style={{ right: `max(0px, env(safe-area-inset-right))` }}
         className="absolute top-0 h-full w-full md:w-96 bg-white shadow-2xl
@@ -166,114 +177,58 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
           translate-x-0 flex flex-col animate-slide-in pointer-events-auto"
       >
         {loading ? (
-          <div className="flex flex-col h-full animate-pulse">
-            {/* Banner skeleton */}
-            <div className="h-28 bg-gray-200" />
-            {/* Avatar skeleton */}
-            <div className="relative px-5 h-10">
-              <div className="absolute -top-10 w-20 h-20 rounded-full bg-gray-300 border-4 border-white" />
-            </div>
-            {/* Name skeleton */}
-            <div className="px-5 pt-2 pb-3">
-              <div className="h-5 w-24 bg-gray-200 rounded" />
-            </div>
-            {/* Stats skeleton */}
-            <div className="flex justify-around px-5 pb-3">
-              {[1,2,3].map(i => (
-                <div key={i} className="flex flex-col items-center gap-1">
-                  <div className="h-4 w-10 bg-gray-200 rounded" />
-                  <div className="h-3 w-8 bg-gray-100 rounded" />
-                </div>
-              ))}
-            </div>
-            {/* Footprint card skeletons */}
-            <div className="flex-1 px-5 space-y-3 overflow-hidden">
-              <div className="h-3 w-16 bg-gray-200 rounded mt-3" />
-              {[1,2,3].map(i => (
-                <div key={i} className="bg-gray-100 rounded-xl p-3 space-y-2">
-                  <div className="h-3 w-20 bg-gray-200 rounded" />
-                  <div className="h-3 w-32 bg-gray-200 rounded" />
-                  <div className="h-16 bg-gray-200 rounded-lg" />
-                  <div className="h-4 w-full bg-gray-200 rounded" />
-                </div>
-              ))}
-            </div>
-          </div>
+          <ProfileSkeleton />
         ) : !profile ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-400">用户不存在</p>
           </div>
         ) : (
           <>
-            {/* ── Immersive Banner Section ──────────────────── */}
+            {/* ── Banner Header ──────────────────────────── */}
             <div className="relative flex-shrink-0">
-              {/* Background image or gradient */}
               <div
                 className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-500 bg-cover bg-center"
                 style={profile.profileBannerUrl ? {
                   backgroundImage: `url(${profile.profileBannerUrl})`,
                 } : undefined}
               />
-              {/* Dark gradient overlay for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/80" />
 
-              {/* Foreground content */}
               <div className="relative z-10">
-                {/* Banner area */}
+                {/* Banner top bar */}
                 <div className="relative h-28">
                   <div className="absolute top-3 right-3 flex items-center gap-2">
                     {isOwnProfile && (
                       <>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          ref={bannerFileRef}
-                          onChange={handleBannerUpload}
-                          className="hidden"
-                        />
+                        <input type="file" accept="image/*" ref={bannerFileRef} onChange={handleBannerUpload} className="hidden" />
                         <button
                           onClick={() => bannerFileRef.current?.click()}
                           disabled={uploadingBanner}
-                          className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md
-                            rounded-full text-white transition-colors disabled:opacity-50"
+                          className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-colors disabled:opacity-50"
                           title="更换背景"
                         >
-                          {uploadingBanner ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Camera className="w-4 h-4" />
-                          )}
+                          {uploadingBanner ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                         </button>
                       </>
                     )}
-                    <button
-                      onClick={onClose}
-                      className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md
-                        rounded-full text-white transition-colors"
-                    >
+                    <button onClick={onClose} className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-colors">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-
                   {bannerMsg && (
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5
-                      bg-black/50 backdrop-blur-sm text-white text-xs rounded-full">
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/50 backdrop-blur-sm text-white text-xs rounded-full">
                       {bannerMsg}
                     </div>
                   )}
                 </div>
 
-                {/* Avatar — overlapping */}
+                {/* Avatar */}
                 <div className="relative px-5 h-10">
                   <div className="absolute -top-10">
                     {profile.avatarUrl ? (
-                      <img
-                        src={profile.avatarUrl}
-                        className="w-20 h-20 rounded-full object-cover border-4 border-white/30 shadow-lg"
-                      />
+                      <img src={profile.avatarUrl} className="w-20 h-20 rounded-full object-cover border-4 border-white/30 shadow-lg" alt="" />
                     ) : (
-                      <div className="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center
-                        text-white text-3xl font-bold border-4 border-white/30 shadow-lg">
+                      <div className="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-3xl font-bold border-4 border-white/30 shadow-lg">
                         {(profile.name || '?')[0].toUpperCase()}
                       </div>
                     )}
@@ -283,8 +238,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
                         <button
                           onClick={() => avatarFileRef.current?.click()}
                           disabled={savingProfile}
-                          className="absolute bottom-0 right-0 p-1.5 bg-white/90 hover:bg-white rounded-full
-                            shadow-md transition-colors disabled:opacity-50"
+                          className="absolute bottom-0 right-0 p-1.5 bg-white/90 hover:bg-white rounded-full shadow-md transition-colors disabled:opacity-50"
                           title="更换头像"
                         >
                           <Camera className="w-3 h-3 text-gray-600" />
@@ -306,22 +260,13 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
                           if (e.key === 'Enter') handleSaveName();
                           if (e.key === 'Escape') setEditingName(false);
                         }}
-                        className="bg-white/20 backdrop-blur-sm text-white text-lg font-bold rounded-lg px-3 py-1
-                          outline-none border border-white/30 focus:border-white/50 w-36
-                          placeholder:text-white/30"
+                        className="bg-white/20 backdrop-blur-sm text-white text-lg font-bold rounded-lg px-3 py-1 outline-none border border-white/30 focus:border-white/50 w-36 placeholder:text-white/30"
                         placeholder={profile.name}
                       />
-                      <button
-                        onClick={handleSaveName}
-                        disabled={savingProfile}
-                        className="p-1 text-emerald-300 hover:text-emerald-200 transition-colors disabled:opacity-50"
-                      >
+                      <button onClick={handleSaveName} disabled={savingProfile} className="p-1 text-emerald-300 hover:text-emerald-200 transition-colors disabled:opacity-50">
                         <Check className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setEditingName(false)}
-                        className="p-1 text-white/40 hover:text-white/70 transition-colors"
-                      >
+                      <button onClick={() => setEditingName(false)} className="p-1 text-white/40 hover:text-white/70 transition-colors">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
@@ -329,11 +274,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
                     <div className="flex items-center gap-1.5">
                       <h2 className="text-lg font-bold text-white drop-shadow-md">{profile.name}</h2>
                       {isOwnProfile && (
-                        <button
-                          onClick={() => { setNewName(profile.name); setEditingName(true); }}
-                          className="p-0.5 text-white/40 hover:text-white/80 transition-colors"
-                          title="修改名字"
-                        >
+                        <button onClick={() => { setNewName(profile.name); setEditingName(true); }} className="p-0.5 text-white/40 hover:text-white/80 transition-colors" title="修改名字">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -342,66 +283,17 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
                 </div>
 
                 {/* Stats */}
-                <div className="flex justify-around px-5 pb-3">
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1 text-sm font-bold text-white drop-shadow-md">
-                      <Footprints className="w-3.5 h-3.5 text-blue-300" />
-                      {footprints.length}
-                    </div>
-                    <p className="text-xs text-white/70 mt-0.5 drop-shadow-sm">足迹</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1 text-sm font-bold text-white drop-shadow-md">
-                      <Heart className="w-3.5 h-3.5 text-red-300" />
-                      {totalReactions}
-                    </div>
-                    <p className="text-xs text-white/70 mt-0.5 drop-shadow-sm">获赞</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1 text-sm font-bold text-white drop-shadow-md">
-                      <Clock className="w-3.5 h-3.5 text-green-300" />
-                      {activeDays}
-                    </div>
-                    <p className="text-xs text-white/70 mt-0.5 drop-shadow-sm">活跃天数</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-1 text-sm font-bold text-white drop-shadow-md">
-                      <span className="text-base">🔥</span>
-                      {profile.checkinStreak?.current || 0}
-                    </div>
-                    <p className="text-xs text-white/70 mt-0.5 drop-shadow-sm">连续打卡</p>
-                  </div>
-                </div>
+                <ProfileStats
+                  footprintCount={footprints.length}
+                  totalReactions={totalReactions}
+                  activeDays={activeDays}
+                  streak={profile.checkinStreak?.current || 0}
+                />
 
-                {/* Recent visitors */}
-                {profile.profileVisitors && profile.profileVisitors.length > 0 && (
-                  <div className="px-5 pb-3">
-                    <p className="text-xs text-white/80 mb-2 drop-shadow-md">最近访客</p>
-                    <div className="flex items-center gap-2">
-                      {(() => {
-                        // Deduplicate by visitorId, keep latest visit, then take last 3
-                        const seen = new Map();
-                        profile.profileVisitors.forEach((v) => {
-                          if (v.visitorId?._id) seen.set(v.visitorId._id, v);
-                        });
-                        return Array.from(seen.values()).slice(-3).reverse().map((v) => (
-                          <div key={v._id} className="flex items-center gap-1.5">
-                            {v.visitorId?.avatarUrl ? (
-                              <img src={v.visitorId.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-white/30" />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-xs font-bold">
-                                {(v.visitorId?.name || '?')[0]}
-                              </div>
-                            )}
-                            <span className="text-xs text-white/60">{v.visitorId?.name || '?'}</span>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </div>
-                )}
+                {/* Visitors */}
+                <ProfileVisitors visitors={profile.profileVisitors} />
 
-                {/* Recent interactions */}
+                {/* Interactions */}
                 {(recentReactions.length > 0 || recentComments.length > 0) && (
                   <div className="px-5 pb-3">
                     <p className="text-xs text-white/80 mb-2 drop-shadow-md">最近互动</p>
@@ -422,76 +314,22 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
               </div>
             </div>
 
-            {/* ── Footprints (white background) ──────────────── */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar bg-white rounded-t-3xl -mt-3 relative z-10">
-              <div className="px-5 pt-5 pb-4">
-                <p className="text-xs text-gray-400 mb-3 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  历史足迹
-                </p>
-                {footprints.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-6">还没有发布过足迹</p>
-                ) : (
-                  <div className="space-y-3">
-                    {footprints.map((fp) => (
-                      <div key={fp._id} className="bg-gray-50 rounded-xl p-3">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <Clock className="w-3 h-3 text-gray-300" />
-                          <span className="text-xs text-gray-400">{timeAgo(fp.createdAt)}</span>
-                          {fp.mood && <span className="text-sm">{fp.mood}</span>}
-                        </div>
-                        <p className="text-xs text-gray-500 mb-1">
-                          <MapPin className="w-3 h-3 inline mr-0.5" />
-                          {fp.placeName || 'Unknown'}
-                        </p>
-                        {fp.photoUrl && (
-                          <img
-                            src={fp.photoUrl}
-                            className="w-full max-h-[200px] object-cover rounded-lg mt-2 mb-2"
-                          />
-                        )}
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                          {fp.message}
-                        </p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                          <span className="flex items-center gap-1">
-                            <Heart className="w-3 h-3" />
-                            {(fp.reactions || []).length}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <MessageCircle className="w-3 h-3" />
-                            {(fp.comments || []).length}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {isOwnProfile && onLogout && (
-                  <button
-                    onClick={onLogout}
-                    className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl
-                      bg-red-50 hover:bg-red-100 text-red-500 text-sm font-medium transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    退出登录
-                  </button>
-                )}
-              </div>
-            </div>
+            {/* Footprints */}
+            <FootprintCardList
+              footprints={footprints}
+              isOwnProfile={isOwnProfile}
+              onLogout={onLogout}
+            />
           </>
         )}
       </div>
 
-      {/* Slide-in animation */}
       <style>{`
         @keyframes slide-in {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
         }
         .animate-slide-in { animation: slide-in 0.3s cubic-bezier(0.2,0.8,0.2,1); }
-
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
