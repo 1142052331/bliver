@@ -20,6 +20,7 @@ import FlyToFootprint from './components/FlyToFootprint';
 import RecenterOnLoad from './components/RecenterOnLoad';
 import PanToTarget from './components/PanToTarget';
 import Toast from './components/Toast';
+import AboutModal from './components/AboutModal';
 import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -52,6 +53,7 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showPhotoWall, setShowPhotoWall] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [viewingProfileId, setViewingProfileId] = useState(null);
 
   // ── Auth / share / period ─────────────────────────────
@@ -280,6 +282,7 @@ export default function App() {
           onlineCount={onlineCount}
           user={user}
           onLogout={handleLogout}
+          onLogoClick={() => setShowAbout(true)}
           unreadCount={unreadCount}
           onBellClick={() => setShowNotifs((v) => !v)}
           isAdmin={isAdmin}
@@ -414,6 +417,8 @@ export default function App() {
             onSelect={(fpId) => { setShowPhotoWall(false); setTimelineTargetFpId(fpId); }}
           />
         )}
+
+        <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
 
         {showAuth && (
           <AuthModal

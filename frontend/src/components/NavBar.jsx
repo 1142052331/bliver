@@ -1,16 +1,20 @@
 import { MapPin, LogOut, Bell, Shield, LogIn, UserPlus } from 'lucide-react';
 
-export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister, onCheckIn }) {
+export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister, onCheckIn, onLogoClick }) {
   return (
     <nav className="absolute top-3 z-[1000] hidden md:flex items-center justify-between
       px-4 py-2.5 aurora-glass rounded-2xl"
       style={{ fontFamily: 'var(--font-body)', left: 'max(12px, env(safe-area-inset-left))', right: 'max(12px, env(safe-area-inset-right))' }}>
       {/* Logo + Check In */}
       <div className="flex items-center gap-2">
-        <div className="relative w-9 h-9 rounded-xl aurora-btn flex items-center justify-center
-          shadow-lg" style={{ boxShadow: '0 4px 20px var(--aurora-glow-teal), 0 0 40px var(--aurora-glow-purple)' }}>
+        <button
+          onClick={onLogoClick}
+          className="relative w-9 h-9 rounded-xl aurora-btn flex items-center justify-center
+            shadow-lg hover:scale-110 transition-transform duration-300 cursor-pointer"
+          title="关于 Bliver"
+          style={{ boxShadow: '0 4px 20px var(--aurora-glow-teal), 0 0 40px var(--aurora-glow-purple)' }}>
           <MapPin className="w-4 h-4 text-white" />
-        </div>
+        </button>
         <span className="font-bold text-lg tracking-tight text-white/90">Bliver</span>
         <button
           onClick={onCheckIn}
