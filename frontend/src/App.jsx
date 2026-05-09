@@ -334,10 +334,12 @@ export default function App() {
   }, [user]);
 
   const markAsRead = useCallback(async (notifId) => {
+    console.log('[markAsRead] called with notifId:', notifId, 'type:', typeof notifId);
     setReadIds((prev) => {
       const next = new Set(prev);
       next.add(notifId);
       try { localStorage.setItem(READ_KEY, JSON.stringify([...next])); } catch {}
+      console.log('[markAsRead] readIds now:', [...next]);
       return next;
     });
     setNotifications((prev) =>
@@ -377,6 +379,7 @@ export default function App() {
   }, [clusterData, footprints]);
 
   const unreadCount = notifications.filter((n) => !readIds.has(n._id)).length;
+  console.log('[unreadCount]', unreadCount, '| notifs:', notifications.length, '| readIds:', [...readIds]);
 
   const isAdmin = user?.role === 'admin';
 

@@ -36,7 +36,7 @@ export default function NotificationPanel({ notifications, onClose, onMarkRead }
               <button
                 type="button"
                 key={n._id}
-                onClick={() => { if (!n.isRead) onMarkRead(n._id); }}
+                onClick={() => { console.log('[Notif] clicked', n._id, 'isRead', n.isRead); onMarkRead(n._id); }}
                 className={`w-full text-left px-5 py-3 border-b border-gray-50 transition-colors
                   ${n.isRead ? 'bg-white hover:bg-gray-50' : 'bg-blue-50/60 hover:bg-blue-50'}`}
               >
