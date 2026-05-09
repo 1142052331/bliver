@@ -1,111 +1,26 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Footprint = require('../models/Footprint');
-const Notification = require('../models/Notification');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
-const { auth, admin, optionalAuth, JWT_SECRET } = require('../middleware/auth');
+const { auth, admin, optionalAuth } = require('../middleware/auth');
 const { reverseGeocode } = require('../services/nominatim');
 const { getWeather } = require('../services/weather');
 const { blurCoordinate, sanitizeLocation } = require('../services/location');
-const { sendPushToUser } = require('./push');
+const { populateFootprint } = require('../services/footprint');
+const { makeCreateNotification } = require('../services/notification');
+
+const authRoutes = require('./auth');
+const notificationRoutes = require('./notifications');
 
 module.exports = (io) => {
   const router = express.Router();
 
-  // ── Auth ──────────────────────────────────────────────
+  // Mount sub-routers
+  router.use(authRoutes());
+  router.use(notificationRoutes());
 
-  // POST /api/auth/register
-  router.post('/auth/register', upload.single('avatar'), uploadToCloudinary, async (req, res) => {
-    try {
-      const { name, password } = req.body;
-      if (!name || !password) return res.status(400).json({ error: 'Name and password required' });
-
-      const exists = await User.findOne({ name });
-      if (exists) return res.status(400).json({ error: 'Name already taken' });
-
-      const hash = await bcrypt.hash(password, 10);
-      const user = await User.create({
-        name,
-        password: hash,
-        avatarUrl: req.cloudinaryUrl || '',
-      });
-
-      const token = jwt.sign({ id: user._id, name: user.name }, JWT_SECRET, { expiresIn: '30d' });
-      res.status(201).json({ user: { _id: user._id, name: user.name, avatarUrl: user.avatarUrl, role: user.role }, token });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // POST /api/auth/login
-  router.post('/auth/login', async (req, res) => {
-    try {
-      const { name, password } = req.body;
-      const user = await User.findOne({ name });
-      if (!user) return res.status(400).json({ error: 'User not found' });
-
-      const match = await bcrypt.compare(password, user.password);
-      if (!match) return res.status(400).json({ error: 'Wrong password' });
-
-      // Auto-promote 阿森 to admin
-      if (user.name === '阿森' && user.role !== 'admin') {
-        user.role = 'admin';
-        await user.save();
-      }
-
-      const token = jwt.sign({ id: user._id, name: user.name }, JWT_SECRET, { expiresIn: '30d' });
-      res.json({ user: { _id: user._id, name: user.name, avatarUrl: user.avatarUrl, role: user.role }, token });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // GET /api/auth/me
-  router.get('/auth/me', auth, async (req, res) => {
-    try {
-      const user = await User.findById(req.user.id).select('-password');
-
-      // Auto-promote 阿森 to admin
-      if (user && user.name === '阿森' && user.role !== 'admin') {
-        user.role = 'admin';
-        await user.save();
-      }
-
-      res.json({ user });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // ── Helpers ───────────────────────────────────────────
-
-  const populateFootprint = (q) =>
-    q.populate('userId', 'name avatarUrl isOnline role checkinStreak');
-
-  async function createNotification({ recipientId, senderName, type, footprintId, content }) {
-    const notifData = { recipientId, senderName, type, content };
-    if (footprintId) notifData.footprintId = footprintId;
-    const notif = await Notification.create(notifData);
-    io.to(recipientId.toString()).emit('new_notification', { notification: notif });
-
-    // Also send web push notification
-    let pushTitle;
-    if (type === 'reaction') {
-      pushTitle = `${senderName} 对你的打卡表示了 ${content}`;
-    } else if (type === 'profile_view') {
-      pushTitle = `${senderName} 浏览了你的主页`;
-    } else {
-      pushTitle = `${senderName} 评论了你`;
-    }
-    sendPushToUser(recipientId, {
-      title: pushTitle,
-      body: content,
-      icon: '/marker-icon.png',
-      data: { url: footprintId ? `/?fp=${footprintId}` : '/' },
-    });
-  }
+  // Shared helper: create notification (DB + socket + push)
+  const createNotification = makeCreateNotification(io);
 
   // ── Footprints ────────────────────────────────────────
 
@@ -120,12 +35,11 @@ module.exports = (io) => {
         start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
       } else if (period === 'week') {
         const day = now.getDay();
-        const mondayOffset = day === 0 ? -6 : 1 - day; // Monday start
+        const mondayOffset = day === 0 ? -6 : 1 - day;
         start = new Date(now);
         start.setDate(now.getDate() + mondayOffset);
         start.setHours(0, 0, 0, 0);
       } else {
-        // today
         start = new Date();
         start.setHours(0, 0, 0, 0);
       }
@@ -159,7 +73,7 @@ module.exports = (io) => {
     }
   });
 
-  // POST /api/checkin (protected)
+  // POST /api/checkin
   router.post('/checkin', auth, upload.single('photo'), uploadToCloudinary, async (req, res) => {
     try {
       const { lat, lng, message, mood, precise } = req.body;
@@ -231,7 +145,7 @@ module.exports = (io) => {
     }
   });
 
-  // POST /api/footprints/:id/react (protected)
+  // POST /api/footprints/:id/react
   router.post('/footprints/:id/react', auth, async (req, res) => {
     try {
       const { emoji } = req.body;
@@ -246,14 +160,11 @@ module.exports = (io) => {
 
       if (existing) {
         if (existing.emoji === emoji) {
-          // Same emoji clicked again — remove reaction
           fp.reactions.pull({ userId });
         } else {
-          // Different emoji — update
           existing.emoji = emoji;
         }
       } else {
-        // New reaction
         fp.reactions.push({ userId, username, emoji });
       }
 
@@ -265,7 +176,6 @@ module.exports = (io) => {
 
       io.emit('footprint:updated', { footprint: fpObj });
 
-      // Create notification if reacting to someone else's footprint
       if (fp.userId.toString() !== userId) {
         const action = existing && existing.emoji === emoji ? null : fp.reactions.find(r => r.userId.toString() === userId);
         if (action) {
@@ -285,13 +195,11 @@ module.exports = (io) => {
     }
   });
 
-  // POST /api/footprints/:id/comment (protected)
+  // POST /api/footprints/:id/comment
   router.post('/footprints/:id/comment', auth, async (req, res) => {
     try {
       const { content } = req.body;
-      if (!content) {
-        return res.status(400).json({ error: 'content is required' });
-      }
+      if (!content) return res.status(400).json({ error: 'content is required' });
 
       const fp = await Footprint.findById(req.params.id);
       if (!fp) return res.status(404).json({ error: 'Not found' });
@@ -311,7 +219,6 @@ module.exports = (io) => {
 
       io.emit('footprint:updated', { footprint: fpObj });
 
-      // Create notification if commenting on someone else's footprint
       if (fp.userId.toString() !== req.user.id) {
         await createNotification({
           recipientId: fp.userId,
@@ -342,33 +249,6 @@ module.exports = (io) => {
     }
   });
 
-  // ── Notifications ─────────────────────────────────────
-
-  // GET /api/notifications (protected)
-  router.get('/notifications', auth, async (req, res) => {
-    try {
-      const notifs = await Notification.find({ recipientId: req.user.id })
-        .sort({ createdAt: -1 })
-        .limit(50);
-      res.json({ notifications: notifs });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // PUT /api/notifications/:id/read (protected)
-  router.put('/notifications/:id/read', auth, async (req, res) => {
-    try {
-      await Notification.findOneAndUpdate(
-        { _id: req.params.id, recipientId: req.user.id },
-        { isRead: true }
-      );
-      res.json({ ok: true });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   // ── Profile ──────────────────────────────────────────
 
   // GET /api/users/:id/profile
@@ -388,7 +268,6 @@ module.exports = (io) => {
 
         let alreadyVisitedToday = false;
 
-        // Update existing visit timestamp or push new visitor record
         for (const v of user.profileVisitors) {
           if (v.visitorId?.toString() === req.user.id && new Date(v.visitedAt) >= today) {
             v.visitedAt = new Date();
@@ -401,7 +280,6 @@ module.exports = (io) => {
           user.profileVisitors.push({ visitorId: req.user.id });
         }
 
-        // Keep last 30 visitors
         if (user.profileVisitors.length > 30) {
           user.profileVisitors = user.profileVisitors.slice(-30);
         }
@@ -417,7 +295,6 @@ module.exports = (io) => {
           });
         }
 
-        // Re-populate the saved visitors
         await user.populate('profileVisitors.visitorId', 'name avatarUrl');
       }
 
@@ -426,7 +303,6 @@ module.exports = (io) => {
       );
       const footprints = docs.map((fp) => sanitizeLocation(fp.toObject(), req.isAdmin));
 
-      // Recent interactions: latest liked/commented footprints by this user
       const recentReactions = await Footprint.find({ 'reactions.userId': req.params.id })
         .sort({ 'reactions.0.createdAt': -1 }).limit(5)
         .populate('userId', 'name avatarUrl');
@@ -449,10 +325,7 @@ module.exports = (io) => {
       const user = await User.findById(req.params.id);
       if (!user) return res.status(404).json({ error: 'User not found' });
 
-      user.profileComments.push({
-        senderName: req.user.name,
-        content,
-      });
+      user.profileComments.push({ senderName: req.user.name, content });
       await user.save();
 
       const updated = await User.findById(req.params.id).select('-password')
@@ -476,9 +349,7 @@ module.exports = (io) => {
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       const senderId = req.user.id;
-      const existing = user.profileReactions.find(
-        (r) => r.senderId.toString() === senderId
-      );
+      const existing = user.profileReactions.find((r) => r.senderId.toString() === senderId);
 
       if (existing) {
         if (existing.emoji === emoji) {
@@ -503,12 +374,10 @@ module.exports = (io) => {
     }
   });
 
-  // POST /api/users/profile/banner (protected)
+  // POST /api/users/profile/banner
   router.post('/users/profile/banner', auth, upload.single('banner'), uploadToCloudinary, async (req, res) => {
     try {
-      if (!req.cloudinaryUrl) {
-        return res.status(400).json({ error: 'No banner image uploaded' });
-      }
+      if (!req.cloudinaryUrl) return res.status(400).json({ error: 'No banner image uploaded' });
 
       const user = await User.findByIdAndUpdate(
         req.user.id,
@@ -524,7 +393,7 @@ module.exports = (io) => {
     }
   });
 
-  // PUT /api/users/profile (protected) — update name or avatar
+  // PUT /api/users/profile — update name or avatar
   router.put('/users/profile', auth, upload.single('avatar'), uploadToCloudinary, async (req, res) => {
     try {
       const { name } = req.body;
@@ -547,7 +416,6 @@ module.exports = (io) => {
 
       const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('-password');
 
-      // If name changed, emit profile:updated so ProfileDrawer reflects it
       io.emit('profile:updated', { userId: req.user.id, user });
 
       res.json({ user });
@@ -558,7 +426,6 @@ module.exports = (io) => {
 
   // ── Admin setup ───────────────────────────────────────
 
-  // POST /api/admin/setup (logged-in user + secret key)
   router.post('/admin/setup', auth, async (req, res) => {
     try {
       if (req.body.secret !== 'bliver_admin_2026') {
