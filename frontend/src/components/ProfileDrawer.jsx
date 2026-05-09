@@ -127,17 +127,17 @@ export default function ProfileDrawer({ userId, onClose }) {
         {loading ? (
           <div className="flex flex-col h-full animate-pulse">
             {/* Banner skeleton */}
-            <div className="h-40 bg-gray-200" />
+            <div className="h-28 bg-gray-200" />
             {/* Avatar skeleton */}
-            <div className="relative px-5 h-14">
-              <div className="absolute -top-12 w-24 h-24 rounded-full bg-gray-300 border-4 border-white" />
+            <div className="relative px-5 h-10">
+              <div className="absolute -top-10 w-20 h-20 rounded-full bg-gray-300 border-4 border-white" />
             </div>
             {/* Name skeleton */}
-            <div className="px-5 pt-3 pb-4">
+            <div className="px-5 pt-2 pb-3">
               <div className="h-5 w-24 bg-gray-200 rounded" />
             </div>
             {/* Stats skeleton */}
-            <div className="flex justify-around px-5 pb-5">
+            <div className="flex justify-around px-5 pb-3">
               {[1,2,3].map(i => (
                 <div key={i} className="flex flex-col items-center gap-1">
                   <div className="h-4 w-10 bg-gray-200 rounded" />
@@ -179,7 +179,7 @@ export default function ProfileDrawer({ userId, onClose }) {
               {/* Foreground content */}
               <div className="relative z-10">
                 {/* Banner area */}
-                <div className="relative h-40">
+                <div className="relative h-28">
                   <div className="absolute top-3 right-3 flex items-center gap-2">
                     {isOwnProfile && (
                       <>
@@ -223,16 +223,16 @@ export default function ProfileDrawer({ userId, onClose }) {
                 </div>
 
                 {/* Avatar — overlapping */}
-                <div className="relative px-5 h-14">
-                  <div className="absolute -top-12">
+                <div className="relative px-5 h-10">
+                  <div className="absolute -top-10">
                     {profile.avatarUrl ? (
                       <img
                         src={profile.avatarUrl}
-                        className="w-24 h-24 rounded-full object-cover border-4 border-white/30 shadow-lg"
+                        className="w-20 h-20 rounded-full object-cover border-4 border-white/30 shadow-lg"
                       />
                     ) : (
-                      <div className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center
-                        text-white text-4xl font-bold border-4 border-white/30 shadow-lg">
+                      <div className="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center
+                        text-white text-3xl font-bold border-4 border-white/30 shadow-lg">
                         {(profile.name || '?')[0].toUpperCase()}
                       </div>
                     )}
@@ -240,12 +240,12 @@ export default function ProfileDrawer({ userId, onClose }) {
                 </div>
 
                 {/* Name */}
-                <div className="px-5 pt-3 pb-4">
-                  <h2 className="text-xl font-bold text-white drop-shadow-md">{profile.name}</h2>
+                <div className="px-5 pt-2 pb-3">
+                  <h2 className="text-lg font-bold text-white drop-shadow-md">{profile.name}</h2>
                 </div>
 
                 {/* Stats */}
-                <div className="flex justify-around px-5 pb-5">
+                <div className="flex justify-around px-5 pb-3">
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-1 text-sm font-bold text-white drop-shadow-md">
                       <Footprints className="w-3.5 h-3.5 text-blue-300" />
@@ -271,7 +271,7 @@ export default function ProfileDrawer({ userId, onClose }) {
 
                 {/* Recent interactions */}
                 {(recentReactions.length > 0 || recentComments.length > 0) && (
-                  <div className="px-5 pb-5">
+                  <div className="px-5 pb-3">
                     <p className="text-xs text-white/80 mb-2 drop-shadow-md">最近互动</p>
                     <div className="flex flex-wrap gap-1.5">
                       {recentReactions.map((fp) => (
