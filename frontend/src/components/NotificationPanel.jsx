@@ -33,10 +33,11 @@ export default function NotificationPanel({ notifications, onClose, onMarkRead }
             </div>
           ) : (
             notifications.map((n) => (
-              <div
+              <button
+                type="button"
                 key={n._id}
                 onClick={() => { if (!n.isRead) onMarkRead(n._id); }}
-                className={`px-5 py-3 border-b border-gray-50 cursor-pointer transition-colors
+                className={`w-full text-left px-5 py-3 border-b border-gray-50 transition-colors
                   ${n.isRead ? 'bg-white hover:bg-gray-50' : 'bg-blue-50/60 hover:bg-blue-50'}`}
               >
                 <p className="text-sm text-gray-800">
@@ -53,7 +54,7 @@ export default function NotificationPanel({ notifications, onClose, onMarkRead }
                   {timeAgo(n.createdAt)}
                   {!n.isRead && <span className="ml-2 inline-block w-2 h-2 rounded-full bg-blue-500" />}
                 </p>
-              </div>
+              </button>
             ))
           )}
         </div>
