@@ -149,7 +149,7 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
             {comments.length > 0 ? (
               <div className="space-y-2 mb-3">
                 {comments.map((c, i) => (
-                  <div key={i}
+                  <div key={c.createdAt + '-' + i}
                     className="p-3 rounded-xl transition-all"
                     style={{ background: 'rgba(45,212,191,0.04)', border: '1px solid rgba(45,212,191,0.06)' }}>
                     <p className="text-sm">

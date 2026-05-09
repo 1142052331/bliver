@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Heart } from 'lucide-react';
 
 const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '🙏', '👍'];
@@ -9,12 +9,15 @@ export default function ReactionPicker({ fp, userId, onReact }) {
 
   const reactions = fp.reactions || [];
   const myReaction = reactions.find((r) => r.userId === userId);
-  const reactionSummary = REACTION_EMOJIS
-    .map((e) => {
-      const count = reactions.filter((r) => r.emoji === e).length;
-      return count > 0 ? { emoji: e, count } : null;
-    })
-    .filter(Boolean);
+  const reactionSummary = useMemo(() =>
+    REACTION_EMOJIS
+      .map((e) => {
+        const count = reactions.filter((r) => r.emoji === e).length;
+        return count > 0 ? { emoji: e, count } : null;
+      })
+      .filter(Boolean),
+    [reactions]
+  );
 
   const handleMouseEnter = () => {
     clearTimeout(timerRef.current);

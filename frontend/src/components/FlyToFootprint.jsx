@@ -5,6 +5,8 @@ export default function FlyToFootprint({ footprints, activeFootprintId, onArrive
   const map = useMap();
   const footprintsRef = useRef(footprints);
   footprintsRef.current = footprints;
+  const onArriveRef = useRef(onArrive);
+  onArriveRef.current = onArrive;
   const flyingRef = useRef(false);
 
   useEffect(() => {
@@ -19,7 +21,8 @@ export default function FlyToFootprint({ footprints, activeFootprintId, onArrive
     const onMoveEnd = () => {
       if (flyingRef.current) {
         flyingRef.current = false;
-        if (fp && onArrive) onArrive(fp);
+        const latest = footprintsRef.current.find((f) => f._id === activeFootprintId);
+        if (latest && onArriveRef.current) onArriveRef.current(latest);
       }
     };
 
@@ -28,7 +31,7 @@ export default function FlyToFootprint({ footprints, activeFootprintId, onArrive
     return () => {
       map.off('moveend', onMoveEnd);
     };
-  }, [activeFootprintId]);
+  }, [activeFootprintId, map]);
 
   return null;
 }
