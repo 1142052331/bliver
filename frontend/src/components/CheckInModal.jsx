@@ -11,6 +11,7 @@ export default function CheckInModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(null);
   const [locating, setLocating] = useState(false);
+  const [locDenied, setLocDenied] = useState(false);
   const [precise, setPrecise] = useState(false);
   const fileRef = useRef(null);
 
@@ -23,14 +24,17 @@ export default function CheckInModal({ isOpen, onClose }) {
       setPreview('');
       setLocation(null);
       setPrecise(false);
+      setLocDenied(false);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           setLocating(false);
+          setLocDenied(false);
         },
-        () => {
+        (err) => {
           setLocation({ lat: null, lng: null });
           setLocating(false);
+          setLocDenied(err.code === 1); // PERMISSION_DENIED
         }
       );
     }
@@ -78,6 +82,7 @@ export default function CheckInModal({ isOpen, onClose }) {
     setPreview('');
     setLocation(null);
     setPrecise(false);
+    setLocDenied(false);
     onClose();
   };
 
@@ -105,16 +110,30 @@ export default function CheckInModal({ isOpen, onClose }) {
         </div>
 
         {/* Location status */}
-        <div className="mb-4 p-3 bg-teal-400/5 border border-teal-400/10 rounded-xl text-sm text-teal-300 flex items-center gap-2">
+        <div className={`mb-4 p-3 rounded-xl text-sm flex items-start gap-2
+          ${locDenied
+            ? 'bg-amber-400/5 border border-amber-400/10 text-amber-300'
+            : 'bg-teal-400/5 border border-teal-400/10 text-teal-300'}`}>
           {locating ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin mt-0.5" />
           ) : location?.lat ? (
             <>
-              <MapPin className="w-4 h-4 text-blue-500" />
-              {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+              <MapPin className="w-4 h-4 text-blue-500 mt-0.5" />
+              <span>{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span>
+            </>
+          ) : locDenied ? (
+            <>
+              <MapPin className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-amber-300 font-medium">位置权限已关闭</p>
+                <p className="text-amber-300/60 text-xs mt-0.5">请在浏览器设置 → 网站设置 → 位置 中开启</p>
+              </div>
             </>
           ) : (
-            <span className="text-red-500">Location unavailable</span>
+            <>
+              <MapPin className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+              <span className="text-red-400">Location unavailable</span>
+            </>
           )}
         </div>
 

@@ -22,8 +22,16 @@ export async function subscribeToPush() {
     return { success: false, reason: 'unsupported' };
   }
 
-  const permission = await Notification.requestPermission();
-  console.log('[Push] Notification permission:', permission);
+  // Only prompt if the user hasn't decided yet. If already denied, skip.
+  let permission = Notification.permission;
+  if (permission === 'denied') {
+    console.log('[Push] Notification permission previously denied, skipping');
+    return { success: false, reason: 'denied' };
+  }
+  if (permission === 'default') {
+    permission = await Notification.requestPermission();
+    console.log('[Push] Notification permission:', permission);
+  }
   if (permission !== 'granted') {
     return { success: false, reason: 'denied' };
   }
