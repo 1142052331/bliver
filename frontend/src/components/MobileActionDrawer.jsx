@@ -28,7 +28,7 @@ export default function MobileActionDrawer({
   const btnClass = "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.97]";
 
   return (
-    <div className="md:hidden fixed right-0 top-1/3 z-[1200]" ref={drawerRef}>
+    <div className={`md:hidden fixed right-0 top-1/3 z-[1200] ${open ? '' : 'pointer-events-none'}`} ref={drawerRef}>
       {/* Pull tab */}
       {!open && (
         <button
@@ -38,7 +38,7 @@ export default function MobileActionDrawer({
             flex items-center justify-center
             shadow-lg shadow-black/20
             border border-white/10 border-r-0
-            active:scale-95 transition-transform"
+            active:scale-95 transition-transform pointer-events-auto"
         >
           <ChevronLeft className="w-4 h-4 text-white/60" />
         </button>
@@ -46,7 +46,7 @@ export default function MobileActionDrawer({
 
       {/* Drawer panel */}
       <div className={`transition-transform duration-300 ease-in-out overflow-hidden
-        ${open ? 'translate-x-0' : 'translate-x-full'}`}>
+        ${open ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
         <div className="aurora-glass rounded-l-2xl shadow-2xl shadow-black/30
           border border-white/10 border-r-0
           max-h-[70vh] overflow-y-auto aurora-scroll
