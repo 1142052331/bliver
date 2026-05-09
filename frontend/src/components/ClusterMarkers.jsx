@@ -5,15 +5,6 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
-const MOOD_COLORS = {
-  '😊': '#f59e0b',
-  '😭': '#9ca3af',
-  '😋': '#10b981',
-  '🏋️': '#ef4444',
-  '😴': '#8b5cf6',
-  '🍺': '#d97706',
-};
-
 const READ_KEY = 'bliver_read_comments';
 
 function getReadMap() {
@@ -45,11 +36,22 @@ function isUnread(fp) {
 }
 
 function createMoodIcon(mood) {
-  const color = MOOD_COLORS[mood] || '#3b82f6';
   return L.divIcon({
     html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
       <span class="marker-mood-float" style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${mood}</span>
-      <div style="width:20px;height:20px;background:${color};border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>
+      <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(45,212,191,0.5)"></div>
+    </div>`,
+    className: '',
+    iconSize: [30, 50],
+    iconAnchor: [15, 25],
+  });
+}
+
+function createDefaultIcon() {
+  return L.divIcon({
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span class="marker-mood-float" style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">📍</span>
+      <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(45,212,191,0.5)"></div>
     </div>`,
     className: '',
     iconSize: [30, 50],
@@ -206,7 +208,7 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       } else if (fp.mood) {
         icon = createMoodIcon(fp.mood);
       } else {
-        icon = new L.Icon.Default();
+        icon = createDefaultIcon();
       }
 
       const marker = L.marker([fp.location.lat, fp.location.lng], {
