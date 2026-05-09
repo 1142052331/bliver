@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, MapPin, Clock, MessageCircle, Heart, Footprints, Camera, Loader2 } from 'lucide-react';
+import { X, MapPin, Clock, MessageCircle, Heart, Footprints, Camera, Loader2, LogOut } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import api from '../api';
 import { getUser } from '../auth';
@@ -14,7 +14,7 @@ function timeAgo(date) {
   return `${Math.floor(hours / 24)}天前`;
 }
 
-export default function ProfileDrawer({ userId, onClose }) {
+export default function ProfileDrawer({ userId, onClose, onLogout }) {
   const [profile, setProfile] = useState(null);
   const [footprints, setFootprints] = useState([]);
   const [recentReactions, setRecentReactions] = useState([]);
@@ -334,6 +334,17 @@ export default function ProfileDrawer({ userId, onClose }) {
                       </div>
                     ))}
                   </div>
+                )}
+
+                {isOwnProfile && onLogout && (
+                  <button
+                    onClick={onLogout}
+                    className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl
+                      bg-red-50 hover:bg-red-100 text-red-500 text-sm font-medium transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    退出登录
+                  </button>
                 )}
               </div>
             </div>

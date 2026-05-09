@@ -28,7 +28,7 @@ export default function MobileActionDrawer({
   const btnClass = "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.97]";
 
   return (
-    <div className={`md:hidden fixed right-0 top-1/3 z-[1200] ${open ? '' : 'pointer-events-none'}`} ref={drawerRef}>
+    <div className={`md:hidden fixed right-0 top-[15%] z-[1200] ${open ? '' : 'pointer-events-none'}`} ref={drawerRef}>
       {/* Pull tab */}
       {!open && (
         <button

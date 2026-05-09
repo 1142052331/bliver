@@ -507,6 +507,7 @@ export default function App() {
         <ProfileDrawer
           userId={viewingProfileId}
           onClose={() => setViewingProfileId(null)}
+          onLogout={() => { setViewingProfileId(null); handleLogout(); }}
         />
       )}
 
