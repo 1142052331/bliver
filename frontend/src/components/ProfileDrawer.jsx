@@ -332,8 +332,8 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
         .animate-slide-in { animation: slide-in 0.3s cubic-bezier(0.2,0.8,0.2,1); }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); }
       `}</style>
     </div>
   );
