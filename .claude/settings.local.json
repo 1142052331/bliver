@@ -51,7 +51,8 @@
       "PowerShell(Copy-Item *)",
       "PowerShell(Stop-Process *)",
       "Bash(Select-String \":5000\")",
-      "PowerShell(Get-NetTCPConnection *)"
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(Get-Content *)"
     ]
   }
 }
