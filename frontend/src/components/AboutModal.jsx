@@ -91,7 +91,7 @@ export default function AboutModal({ isOpen, onClose, user }) {
         </div>
 
         {/* Scrollable body */}
-        <div className="relative flex-1 overflow-y-auto px-6 pb-6 space-y-5">
+        <div className="relative flex-1 overflow-y-auto about-scroll px-6 pb-6 space-y-5">
           {/* Creator */}
           <div
             className="text-center py-3 rounded-2xl"
@@ -184,6 +184,10 @@ export default function AboutModal({ isOpen, onClose, user }) {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
           }
+          .about-scroll::-webkit-scrollbar { width: 4px; }
+          .about-scroll::-webkit-scrollbar-track { background: transparent; }
+          .about-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.04); border-radius: 4px; }
+          .about-scroll:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
         `}</style>
       </div>
     </div>
