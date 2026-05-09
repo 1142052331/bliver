@@ -47,7 +47,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
 
           <div
             className="fixed bottom-0 left-0 right-0 z-[1600] bg-white rounded-t-2xl shadow-2xl
-              max-h-[70vh] flex flex-col animate-slide-up pointer-events-none"
+              max-h-[70vh] flex flex-col animate-slide-up"
             style={{ animation: 'slideUp 0.3s ease-out' }}
           >
         {/* Handle bar */}
