@@ -418,7 +418,7 @@ export default function App() {
           />
         )}
 
-        <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
+        <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} user={user} />
 
         {showAuth && (
           <AuthModal
