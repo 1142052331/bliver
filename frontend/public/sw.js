@@ -1,3 +1,8 @@
+// Required for Android Chrome "Add to Home Screen" prompt
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener('install', () => {
   self.skipWaiting();
 });

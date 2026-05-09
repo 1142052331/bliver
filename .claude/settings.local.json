@@ -35,7 +35,21 @@
       "WebFetch(domain:bliver-c3ihb8oa2-1142052331s-projects.vercel.app)",
       "Bash(/c/Program Files/nodejs/npm.cmd install *)",
       "Bash(\"/c/Program Files/nodejs/npm.cmd\" install bcryptjs jsonwebtoken --save)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(git reset *)",
+      "Bash(grep -v \"useState\\\\|//.*set\\\\|\\\\.then\\\\|onClick\\\\|onChange\\\\|onClose\\\\|onDone\\\\|onOpen\\\\|onBell\\\\|onLogout\\\\|onSelect\\\\|onMark\\\\|onReact\\\\|onDelete\\\\|onShare\\\\|onComment\\\\|onArrive\")",
+      "Bash(npm list *)",
+      "WebFetch(domain:bliver.onrender.com)",
+      "Bash(git diff *)",
+      "Bash(netstat -ano)",
+      "WebSearch",
+      "WebFetch(domain:www.itdog.cn)",
+      "Bash(git *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\1\\\\Desktop\\\\Bliver\\\\backend\" -File)",
+      "Bash(Select-Object Name)",
+      "Bash(copy *)",
+      "PowerShell(Copy-Item *)",
+      "PowerShell(Stop-Process *)"
     ]
   }
 }
