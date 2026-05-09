@@ -99,6 +99,7 @@ export default function App() {
   const [authTab, setAuthTab] = useState('login');
   const [authMessage, setAuthMessage] = useState('');
   const pendingActionRef = useRef(null);
+  const userMarkedReadRef = useRef(new Set());
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [flyArrivedFp, setFlyArrivedFp] = useState(null);
   const [footprintPeriod, setFootprintPeriod] = useState('week');
@@ -326,6 +327,7 @@ export default function App() {
   }, [user]);
 
   const markAsRead = useCallback(async (notifId) => {
+    userMarkedReadRef.current.add(notifId);
     setNotifications((prev) =>
       prev.map((n) => (n._id === notifId ? { ...n, isRead: true } : n))
     );
@@ -362,7 +364,14 @@ export default function App() {
     return footprints.filter(f => ids.has(f._id));
   }, [clusterData, footprints]);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = useMemo(() => {
+    // Guard: if notifications array is unexpectedly empty, don't flash to 0
+    if (notifications.length === 0) return 0;
+    // Use the higher of server read-flag and user-explicitly-clicked — badge only disappears on click
+    const byServer = notifications.filter((n) => !n.isRead).length;
+    const byUser = notifications.filter((n) => !userMarkedReadRef.current.has(n._id)).length;
+    return Math.max(byServer, byUser);
+  }, [notifications]);
 
   const isAdmin = user?.role === 'admin';
 
