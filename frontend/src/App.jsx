@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer } from 'react-leaflet';
 import { io } from 'socket.io-client';
 import api from './api';
 import { getUser, getToken, clearAuth, saveAuth, isAutoLogin } from './auth';
@@ -18,6 +18,9 @@ import ClusterDetailPanel from './components/ClusterDetailPanel';
 import NotificationPanel from './components/NotificationPanel';
 import AdminPanel from './components/AdminPanel';
 import FlyToFootprint from './components/FlyToFootprint';
+import RecenterOnLoad from './components/RecenterOnLoad';
+import PanToTarget from './components/PanToTarget';
+import Toast from './components/Toast';
 import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -33,6 +36,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const CENTER = [33.5597, 133.5311];
+
 function getSocketURL() {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
   if (import.meta.env.VITE_API_URL) {
@@ -41,64 +45,40 @@ function getSocketURL() {
   return window.location.origin;
 }
 
-function RecenterOnLoad({ footprints, targetId }) {
-  const map = useMap();
-  useEffect(() => {
-    if (targetId) {
-      const fp = footprints.find((f) => f._id === targetId);
-      if (fp) {
-        setTimeout(() => {
-          map.setView([fp.location.lat, fp.location.lng], 14);
-        }, 500);
-      }
-    } else if (footprints.length > 0) {
-      const last = footprints[0];
-      map.setView([last.location.lat, last.location.lng], map.getZoom());
-    }
-  }, []);
-  return null;
-}
-
-function PanToTarget({ targetId, footprints, onArrive }) {
-  const map = useMap();
-  const fpRef = useRef(footprints);
-  fpRef.current = footprints;
-
-  useEffect(() => {
-    if (!targetId) return;
-    const fp = fpRef.current.find((f) => f._id === targetId);
-    if (!fp?.location?.lat || !fp?.location?.lng) return;
-
-    map.panTo([fp.location.lat, fp.location.lng], { animate: true, duration: 0.8 });
-
-    const timer = setTimeout(() => {
-      const latest = fpRef.current.find((f) => f._id === targetId);
-      if (latest) onArrive(latest);
-    }, 900);
-
-    return () => clearTimeout(timer);
-  }, [targetId]);
-
-  return null;
-}
-
 export default function App() {
+  // ── Core state ────────────────────────────────────────
   const [user, setUser] = useState(null);
   const [footprints, setFootprints] = useState([]);
   const [onlineCount, setOnlineCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [toast, setToast] = useState(null);
+
+  // ── UI visibility toggles ─────────────────────────────
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
-  const [shareTarget, setShareTarget] = useState(null);
-  const [clusterData, setClusterData] = useState(null);
-  const [notifications, setNotifications] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [toast, setToast] = useState(null);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [activeFootprintId, setActiveFootprintId] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [showPhotoWall, setShowPhotoWall] = useState(false);
+  const [viewingProfileId, setViewingProfileId] = useState(null);
+
+  // ── Auth / share / period ─────────────────────────────
   const [authTab, setAuthTab] = useState('login');
   const [authMessage, setAuthMessage] = useState('');
+  const [shareTarget, setShareTarget] = useState(null);
+  const [footprintPeriod, setFootprintPeriod] = useState('week');
+  const [footprintsLoading, setFootprintsLoading] = useState(true);
+
+  // ── Map interaction ───────────────────────────────────
+  const [clusterData, setClusterData] = useState(null);
+  const [activeFootprintId, setActiveFootprintId] = useState(null);
+  const [flyArrivedFp, setFlyArrivedFp] = useState(null);
+  const [timelineTargetFpId, setTimelineTargetFpId] = useState(null);
+
+  // ── Refs ──────────────────────────────────────────────
   const pendingActionRef = useRef(null);
+  const socketRef = useRef(null);
+  const toastTimerRef = useRef(null);
 
   // ── Read-notification tracking (React state + localStorage persistence) ──
   const READ_KEY = 'bliver_read_v2';
@@ -107,16 +87,9 @@ export default function App() {
     catch { return new Set(); }
   });
 
-  const [viewingProfileId, setViewingProfileId] = useState(null);
-  const [flyArrivedFp, setFlyArrivedFp] = useState(null);
-  const [footprintPeriod, setFootprintPeriod] = useState('week');
-  const [footprintsLoading, setFootprintsLoading] = useState(true);
-  const [showPhotoWall, setShowPhotoWall] = useState(false);
-  const [timelineTargetFpId, setTimelineTargetFpId] = useState(null);
-
+  // ── Auto-login on mount ───────────────────────────────
   useEffect(() => {
     const saved = getUser();
-    // Only auto-login if the user enabled it
     if (saved && getToken() && isAutoLogin()) {
       api.get('/api/auth/me').then((res) => {
         const u = res.data.user;
@@ -132,6 +105,7 @@ export default function App() {
     }
   }, []);
 
+  // ── Parse ?fp= share link ─────────────────────────────
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const fpId = params.get('fp');
@@ -141,7 +115,7 @@ export default function App() {
     }
   }, []);
 
-  // Fetch footprints when period changes
+  // ── Fetch footprints when period changes ──────────────
   useEffect(() => {
     setFootprintsLoading(true);
     api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
@@ -151,24 +125,20 @@ export default function App() {
     });
   }, [footprintPeriod]);
 
-  // ── Visibility change: refresh data when tab returns to foreground ──
-  const socketRef = useRef(null);
+  // ── Visibility change: refresh data on foreground ─────
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible' || !user) return;
 
-      // Force socket reconnect if disconnected (iOS kills WS on bg)
       if (socketRef.current && !socketRef.current.connected) {
         socketRef.current.connect();
         socketRef.current.emit('user:online', user._id);
       }
 
-      // Re-fetch footprints to catch up
       api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
         if (res?.data?.footprints) setFootprints(res.data.footprints);
       }).catch(() => {});
 
-      // Re-fetch notifications
       api.get('/api/notifications').then((res) => {
         setNotifications(res.data.notifications);
       }).catch(() => {});
@@ -178,7 +148,7 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [user, footprintPeriod]);
 
-  // Socket connection + notifications (logged-in only)
+  // ── Socket connection (logged-in only) ────────────────
   useEffect(() => {
     if (!user) {
       setNotifications([]);
@@ -200,18 +170,15 @@ export default function App() {
     socket.emit('user:online', user._id);
 
     socket.on('online:count', (data) => {
-      console.log('[Socket] online:count:', data.count);
       setOnlineCount(data.count);
     });
 
     socket.on('footprint:new', (data) => {
-      console.log('[Socket] footprint:new:', data.footprint?._id?.slice(-6), data.footprint?.placeName);
       setFootprints((prev) => [data.footprint, ...prev]);
       window.dispatchEvent(new CustomEvent('ws:footprint:new', { detail: data }));
     });
 
     socket.on('footprint:updated', (data) => {
-      console.log('[Socket] footprint:updated:', data.footprint?._id?.slice(-6));
       setFootprints((prev) =>
         prev.map((fp) => (fp._id === data.footprint._id
           ? { ...fp, reactions: data.footprint.reactions, comments: data.footprint.comments }
@@ -221,7 +188,6 @@ export default function App() {
     });
 
     socket.on('footprint:deleted', (data) => {
-      console.log('[Socket] footprint:deleted:', data.footprintId?.slice(-6));
       setFootprints((prev) => prev.filter((fp) => fp._id !== data.footprintId));
       window.dispatchEvent(new CustomEvent('ws:footprint:deleted', { detail: data }));
     });
@@ -239,17 +205,20 @@ export default function App() {
           ? `${n.senderName} 浏览了你的主页`
           : `${n.senderName} 评论了你`;
       setToast(msg);
-      setTimeout(() => setToast(null), 4000);
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToast(null), 4000);
     });
 
     socket.on('user_online', (data) => {
       setToast(`${data.name} 上线了`);
-      setTimeout(() => setToast(null), 3000);
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToast(null), 3000);
     });
 
     socket.on('user_offline', (data) => {
       setToast(`${data.name} 下线了`);
-      setTimeout(() => setToast(null), 3000);
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToast(null), 3000);
     });
 
     socket.on('force_logout', (data) => {
@@ -259,12 +228,13 @@ export default function App() {
     });
 
     return () => {
+      clearTimeout(toastTimerRef.current);
       socket.disconnect();
       socketRef.current = null;
     };
   }, [user]);
 
-  // Keep flyArrivedFp in sync with latest footprints data
+  // ── Keep flyArrivedFp synced with latest footprints ────
   useEffect(() => {
     if (flyArrivedFp) {
       const latest = footprints.find((f) => f._id === flyArrivedFp._id);
@@ -274,7 +244,7 @@ export default function App() {
     }
   }, [footprints, flyArrivedFp]);
 
-  // Execute pending action after login
+  // ── Execute pending action after login ─────────────────
   useEffect(() => {
     if (user && pendingActionRef.current) {
       const action = pendingActionRef.current;
@@ -286,6 +256,8 @@ export default function App() {
       }
     }
   }, [user]);
+
+  // ── Handlers ───────────────────────────────────────────
 
   const requireLogin = (action) => {
     if (!user) {
@@ -306,7 +278,7 @@ export default function App() {
         prev.map((fp) => (fp._id === footprintId ? { ...fp, reactions: data.footprint.reactions } : fp))
       );
     } catch (err) {
-      console.error(err);
+      console.error('React failed:', err);
     }
   }, [user]);
 
@@ -316,7 +288,7 @@ export default function App() {
     try {
       await api.delete(`/api/footprints/${footprintId}`);
     } catch (err) {
-      console.error(err);
+      console.error('Delete failed:', err);
     }
   }, [user]);
 
@@ -327,10 +299,14 @@ export default function App() {
 
   const handleComment = useCallback(async (footprintId, content) => {
     if (!requireLogin({ type: 'comment', footprintId })) return;
-    const { data } = await api.post(`/api/footprints/${footprintId}/comment`, { content });
-    setFootprints((prev) =>
-      prev.map((fp) => (fp._id === footprintId ? { ...fp, comments: data.footprint.comments } : fp))
-    );
+    try {
+      const { data } = await api.post(`/api/footprints/${footprintId}/comment`, { content });
+      setFootprints((prev) =>
+        prev.map((fp) => (fp._id === footprintId ? { ...fp, comments: data.footprint.comments } : fp))
+      );
+    } catch (err) {
+      console.error('Comment failed:', err);
+    }
   }, [user]);
 
   const markAsRead = useCallback(async (notifId) => {
@@ -346,14 +322,14 @@ export default function App() {
     await api.put(`/api/notifications/${notifId}/read`).catch(() => {});
   }, []);
 
-  // Listen for cluster click events from ClusterMarkers
+  // ── Event listeners ────────────────────────────────────
+
   useEffect(() => {
     const handler = (e) => setClusterData(e.detail);
     window.addEventListener('cluster:click', handler);
     return () => window.removeEventListener('cluster:click', handler);
   }, []);
 
-  // Listen for profile view events
   useEffect(() => {
     const handler = (e) => setViewingProfileId(e.detail.userId);
     window.addEventListener('profile:view', handler);
@@ -369,7 +345,8 @@ export default function App() {
     }).catch(() => {});
   };
 
-  // Derive latest cluster footprints from live footprints state
+  // ── Derived values ─────────────────────────────────────
+
   const clusterFootprints = useMemo(() => {
     if (!clusterData) return null;
     const ids = new Set(clusterData.footprints.map(f => f._id));
@@ -377,212 +354,180 @@ export default function App() {
   }, [clusterData, footprints]);
 
   const unreadCount = notifications.filter((n) => !readIds.has(n._id)).length;
-
   const isAdmin = user?.role === 'admin';
 
-  // ── Map Dashboard view ──────────────────────────────────
-
-  const mapDashboard = (
-    <div className="relative w-full h-dvh overflow-hidden"
-      style={{ background: 'var(--aurora-deep)' }}>
-      <NavBar
-        onlineCount={onlineCount}
-        user={user}
-        onLogout={handleLogout}
-        unreadCount={unreadCount}
-        onBellClick={() => setShowNotifs((v) => !v)}
-        isAdmin={isAdmin}
-        onOpenAdmin={() => setShowAdmin(true)}
-        onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
-        onOpenRegister={() => { setAuthTab('register'); setAuthMessage(''); setShowAuth(true); }}
-        onCheckIn={() => {
-          if (!requireLogin({ type: 'checkin' })) return;
-          setShowCheckIn(true);
-        }}
-      />
-
-      {showNotifs && (
-        <NotificationPanel
-          notifications={notifications}
-          onClose={() => setShowNotifs(false)}
-          onMarkRead={markAsRead}
-        />
-      )}
-
-      <MapContainer key="map" center={CENTER} zoom={6} scrollWheelZoom zoomControl={false} className="w-full h-full">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <RecenterOnLoad footprints={footprints} targetId={shareTarget} />
-        <FlyToFootprint
-          footprints={footprints}
-          activeFootprintId={activeFootprintId}
-          onArrive={(fp) => setFlyArrivedFp(fp)}
-        />
-        <PanToTarget
-          targetId={timelineTargetFpId}
-          footprints={footprints}
-          onArrive={(fp) => {
-            setTimelineTargetFpId(null);
-            setFlyArrivedFp(fp);
-          }}
-        />
-        <ClusterMarkers
-          footprints={footprints}
-          userId={user?._id}
-          isAdmin={isAdmin}
-        />
-      </MapContainer>
-
-      {/* Side buttons group — desktop only */}
-      <div className="hidden md:flex absolute top-[88px] z-[1000] flex-col gap-2"
-        style={{ right: `max(12px, env(safe-area-inset-right))` }}>
-        <button
-          onClick={() => setShowTimeline(true)}
-          className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium
-            flex items-center gap-2"
-        >
-          <Clock className="w-4 h-4 text-teal-400" />
-          <span className="text-white/80">足迹记录</span>
-        </button>
-
-        <button
-          onClick={() => setShowPhotoWall(true)}
-          className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium
-            flex items-center gap-2"
-        >
-          <Image className="w-4 h-4 text-purple-400" />
-          <span className="text-white/80">照片墙</span>
-        </button>
-      </div>
-
-      <CheckInModal
-        isOpen={showCheckIn}
-        onClose={() => setShowCheckIn(false)}
-      />
-
-      <TimelineDrawer
-        isOpen={showTimeline}
-        onClose={() => setShowTimeline(false)}
-        footprints={footprints}
-        userId={user?._id}
-        isAdmin={isAdmin}
-        onReact={handleReact}
-        onDelete={handleDelete}
-        onShare={handleShare}
-        onSelectFootprint={(fpId) => { setShowTimeline(false); setTimelineTargetFpId(fpId); }}
-        period={footprintPeriod}
-        onChangePeriod={setFootprintPeriod}
-        loading={footprintsLoading}
-      />
-
-      {/* Mobile action drawer */}
-      <MobileActionDrawer
-        user={user}
-        isAdmin={isAdmin}
-        unreadCount={unreadCount}
-        onCheckIn={() => {
-          if (!requireLogin({ type: 'checkin' })) return;
-          setShowCheckIn(true);
-        }}
-        onTimeline={() => setShowTimeline(true)}
-        onPhotoWall={() => setShowPhotoWall(true)}
-        onProfile={(uid) => setViewingProfileId(uid)}
-        onBell={() => setShowNotifs((v) => !v)}
-        onOpenAdmin={() => setShowAdmin(true)}
-        onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
-        onOpenRegister={() => { setAuthTab('register'); setAuthMessage(''); setShowAuth(true); }}
-      />
-
-      {/* Fly-arrived detail modal (from timeline click) */}
-      {flyArrivedFp && (
-        <FootprintDetailModal
-          fp={flyArrivedFp}
-          userId={user?._id}
-          isAdmin={isAdmin}
-          onReact={handleReact}
-          onDelete={handleDelete}
-          onShare={handleShare}
-          onComment={handleComment}
-          onClose={() => { setFlyArrivedFp(null); setActiveFootprintId(null); }}
-        />
-      )}
-
-      {/* Cluster drawer (from marker click) */}
-      {clusterFootprints && (
-        <ClusterDetailPanel
-          footprints={clusterFootprints}
-          userId={user?._id}
-          isAdmin={isAdmin}
-          onReact={handleReact}
-          onDelete={handleDelete}
-          onShare={handleShare}
-          onComment={handleComment}
-          onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
-        />
-      )}
-
-      {/* Admin Panel */}
-      {showAdmin && (
-        <AdminPanel onClose={() => setShowAdmin(false)} />
-      )}
-
-      {/* Photo Wall */}
-      {showPhotoWall && (
-        <PhotoWall
-          footprints={footprints}
-          onClose={() => setShowPhotoWall(false)}
-          onSelect={(fpId) => {
-            setShowPhotoWall(false);
-            setTimelineTargetFpId(fpId);
-          }}
-        />
-      )}
-
-      {/* Auth Modal Overlay */}
-      {showAuth && (
-        <AuthModal
-          initialTab={authTab}
-          message={authMessage}
-          onDone={(u) => { setUser(u); setShowAuth(false); subscribeToPush().catch(() => {}); }}
-          onClose={() => setShowAuth(false)}
-        />
-      )}
-
-      {/* Profile Drawer */}
-      {viewingProfileId && (
-        <ProfileDrawer
-          userId={viewingProfileId}
-          onClose={() => setViewingProfileId(null)}
-          onLogout={() => { setViewingProfileId(null); handleLogout(); }}
-        />
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1900]
-          px-5 py-3 bg-gray-900/90 backdrop-blur-md text-white text-sm font-medium
-          rounded-2xl shadow-2xl shadow-black/20
-          animate-slide-down flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 flex-shrink-0" />
-          {toast}
-        </div>
-      )}
-
-      <style>{`
-        @keyframes slideDown {
-          from { opacity: 0; transform: translate(-50%, -12px); }
-          to { opacity: 1; transform: translate(-50%, 0); }
-        }
-        .animate-slide-down { animation: slideDown 0.4s cubic-bezier(0.2,0.8,0.2,1); }
-      `}</style>
-    </div>
-  );
+  // ── Render ─────────────────────────────────────────────
 
   return (
     <ErrorBoundary>
-      {mapDashboard}
+      <div className="relative w-full h-dvh overflow-hidden"
+        style={{ background: 'var(--aurora-deep)' }}>
+        <NavBar
+          onlineCount={onlineCount}
+          user={user}
+          onLogout={handleLogout}
+          unreadCount={unreadCount}
+          onBellClick={() => setShowNotifs((v) => !v)}
+          isAdmin={isAdmin}
+          onOpenAdmin={() => setShowAdmin(true)}
+          onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
+          onOpenRegister={() => { setAuthTab('register'); setAuthMessage(''); setShowAuth(true); }}
+          onCheckIn={() => {
+            if (!requireLogin({ type: 'checkin' })) return;
+            setShowCheckIn(true);
+          }}
+        />
+
+        {showNotifs && (
+          <NotificationPanel
+            notifications={notifications}
+            onClose={() => setShowNotifs(false)}
+            onMarkRead={markAsRead}
+          />
+        )}
+
+        <MapContainer key="map" center={CENTER} zoom={6} scrollWheelZoom zoomControl={false} className="w-full h-full">
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <RecenterOnLoad footprints={footprints} targetId={shareTarget} />
+          <FlyToFootprint
+            footprints={footprints}
+            activeFootprintId={activeFootprintId}
+            onArrive={(fp) => setFlyArrivedFp(fp)}
+          />
+          <PanToTarget
+            targetId={timelineTargetFpId}
+            footprints={footprints}
+            onArrive={(fp) => {
+              setTimelineTargetFpId(null);
+              setFlyArrivedFp(fp);
+            }}
+          />
+          <ClusterMarkers
+            footprints={footprints}
+            userId={user?._id}
+            isAdmin={isAdmin}
+          />
+        </MapContainer>
+
+        {/* Desktop side buttons */}
+        <div className="hidden md:flex absolute top-[88px] z-[1000] flex-col gap-2"
+          style={{ right: `max(12px, env(safe-area-inset-right))` }}>
+          <button
+            onClick={() => setShowTimeline(true)}
+            className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium flex items-center gap-2"
+          >
+            <Clock className="w-4 h-4 text-teal-400" />
+            <span className="text-white/80">足迹记录</span>
+          </button>
+          <button
+            onClick={() => setShowPhotoWall(true)}
+            className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium flex items-center gap-2"
+          >
+            <Image className="w-4 h-4 text-purple-400" />
+            <span className="text-white/80">照片墙</span>
+          </button>
+        </div>
+
+        <CheckInModal isOpen={showCheckIn} onClose={() => setShowCheckIn(false)} />
+
+        <TimelineDrawer
+          isOpen={showTimeline}
+          onClose={() => setShowTimeline(false)}
+          footprints={footprints}
+          userId={user?._id}
+          isAdmin={isAdmin}
+          onReact={handleReact}
+          onDelete={handleDelete}
+          onShare={handleShare}
+          onSelectFootprint={(fpId) => { setShowTimeline(false); setTimelineTargetFpId(fpId); }}
+          period={footprintPeriod}
+          onChangePeriod={setFootprintPeriod}
+          loading={footprintsLoading}
+        />
+
+        <MobileActionDrawer
+          user={user}
+          isAdmin={isAdmin}
+          unreadCount={unreadCount}
+          onCheckIn={() => {
+            if (!requireLogin({ type: 'checkin' })) return;
+            setShowCheckIn(true);
+          }}
+          onTimeline={() => setShowTimeline(true)}
+          onPhotoWall={() => setShowPhotoWall(true)}
+          onProfile={(uid) => setViewingProfileId(uid)}
+          onBell={() => setShowNotifs((v) => !v)}
+          onOpenAdmin={() => setShowAdmin(true)}
+          onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
+          onOpenRegister={() => { setAuthTab('register'); setAuthMessage(''); setShowAuth(true); }}
+        />
+
+        {flyArrivedFp && (
+          <FootprintDetailModal
+            fp={flyArrivedFp}
+            userId={user?._id}
+            isAdmin={isAdmin}
+            onReact={handleReact}
+            onDelete={handleDelete}
+            onShare={handleShare}
+            onComment={handleComment}
+            onClose={() => { setFlyArrivedFp(null); setActiveFootprintId(null); }}
+          />
+        )}
+
+        {clusterFootprints && (
+          <ClusterDetailPanel
+            footprints={clusterFootprints}
+            userId={user?._id}
+            isAdmin={isAdmin}
+            onReact={handleReact}
+            onDelete={handleDelete}
+            onShare={handleShare}
+            onComment={handleComment}
+            onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
+          />
+        )}
+
+        {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+
+        {showPhotoWall && (
+          <PhotoWall
+            footprints={footprints}
+            onClose={() => setShowPhotoWall(false)}
+            onSelect={(fpId) => { setShowPhotoWall(false); setTimelineTargetFpId(fpId); }}
+          />
+        )}
+
+        {showAuth && (
+          <AuthModal
+            initialTab={authTab}
+            message={authMessage}
+            onDone={(u) => { setUser(u); setShowAuth(false); subscribeToPush().catch(() => {}); }}
+            onClose={() => setShowAuth(false)}
+          />
+        )}
+
+        {viewingProfileId && (
+          <ProfileDrawer
+            userId={viewingProfileId}
+            onClose={() => setViewingProfileId(null)}
+            onLogout={() => { setViewingProfileId(null); handleLogout(); }}
+          />
+        )}
+
+        <Toast message={toast} />
+
+        <style>{`
+          @keyframes slideDown {
+            from { opacity: 0; transform: translate(-50%, -12px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+          }
+          .animate-slide-down { animation: slideDown 0.4s cubic-bezier(0.2,0.8,0.2,1); }
+        `}</style>
+      </div>
     </ErrorBoundary>
   );
 }
