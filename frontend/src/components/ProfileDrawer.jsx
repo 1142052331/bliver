@@ -160,7 +160,8 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
 
       {/* Drawer */}
       <div
-        className="absolute top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl
+        style={{ right: `max(0px, env(safe-area-inset-right))` }}
+        className="absolute top-0 h-full w-full md:w-96 bg-white shadow-2xl
           transform transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]
           translate-x-0 flex flex-col animate-slide-in pointer-events-auto"
       >
@@ -363,7 +364,42 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
                     </div>
                     <p className="text-xs text-white/70 mt-0.5 drop-shadow-sm">活跃天数</p>
                   </div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 text-sm font-bold text-white drop-shadow-md">
+                      <span className="text-base">🔥</span>
+                      {profile.checkinStreak?.current || 0}
+                    </div>
+                    <p className="text-xs text-white/70 mt-0.5 drop-shadow-sm">连续打卡</p>
+                  </div>
                 </div>
+
+                {/* Recent visitors */}
+                {profile.profileVisitors && profile.profileVisitors.length > 0 && (
+                  <div className="px-5 pb-3">
+                    <p className="text-xs text-white/80 mb-2 drop-shadow-md">最近访客</p>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        // Deduplicate by visitorId, keep latest visit, then take last 3
+                        const seen = new Map();
+                        profile.profileVisitors.forEach((v) => {
+                          if (v.visitorId?._id) seen.set(v.visitorId._id, v);
+                        });
+                        return Array.from(seen.values()).slice(-3).reverse().map((v) => (
+                          <div key={v._id} className="flex items-center gap-1.5">
+                            {v.visitorId?.avatarUrl ? (
+                              <img src={v.visitorId.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-white/30" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-xs font-bold">
+                                {(v.visitorId?.name || '?')[0]}
+                              </div>
+                            )}
+                            <span className="text-xs text-white/60">{v.visitorId?.name || '?'}</span>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                )}
 
                 {/* Recent interactions */}
                 {(recentReactions.length > 0 || recentComments.length > 0) && (

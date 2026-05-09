@@ -78,6 +78,20 @@ function createNewCommentIcon(mood) {
   });
 }
 
+function createStreakIcon(mood, streak) {
+  const emoji = mood || '📍';
+  const badge = streak >= 7 ? '🔥' : streak >= 3 ? '✨' : '';
+  return L.divIcon({
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+      <span class="marker-mood-float" style="font-size:${badge ? '16' : '22'}px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${emoji}${badge}</span>
+      <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fb923c;box-shadow:0 0 12px rgba(251,146,60,0.5),0 2px 8px rgba(45,212,191,0.3)"></div>
+    </div>`,
+    className: '',
+    iconSize: [30, 50],
+    iconAnchor: [15, 25],
+  });
+}
+
 export default function ClusterMarkers({ footprints, userId, isAdmin }) {
   const map = useMap();
   const clusterGroup = useRef(null);
@@ -201,9 +215,12 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       if (!fp.location?.lat || !fp.location?.lng) return;
 
       const unread = isUnread(fp);
+      const streak = fp.userId?.checkinStreak?.current || 0;
 
       let icon;
-      if (unread) {
+      if (streak > 0) {
+        icon = createStreakIcon(fp.mood, streak);
+      } else if (unread) {
         icon = createNewCommentIcon(fp.mood);
       } else if (fp.mood) {
         icon = createMoodIcon(fp.mood);

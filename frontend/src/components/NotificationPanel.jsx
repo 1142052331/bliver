@@ -14,7 +14,8 @@ export default function NotificationPanel({ notifications, onClose, onMarkRead }
   return (
     <>
       <div className="fixed inset-0 z-[1700] pointer-events-none bg-black/30 backdrop-blur-sm" style={{opacity: 1, pointerEvents: 'auto'}} onClick={onClose} />
-      <div className="absolute top-14 right-4 z-[1800] w-[360px] max-w-[90vw] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden pointer-events-auto">
+      <div className="absolute top-14 z-[1800] w-[360px] max-w-[90vw] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden pointer-events-auto"
+        style={{ right: `max(16px, env(safe-area-inset-right))` }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h3 className="font-bold text-gray-800">Notifications</h3>
@@ -42,6 +43,8 @@ export default function NotificationPanel({ notifications, onClose, onMarkRead }
                   <span className="font-medium">{n.senderName}</span>
                   {n.type === 'reaction' ? (
                     <> 对你的打卡表示了 <span className="text-lg">{n.content}</span></>
+                  ) : n.type === 'profile_view' ? (
+                    <> {n.content}</>
                   ) : (
                     <> 评论了你：<span className="text-gray-500">{n.content}</span></>
                   )}

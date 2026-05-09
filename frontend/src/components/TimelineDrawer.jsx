@@ -127,7 +127,8 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
       />
 
       <div
-        className={`fixed top-0 right-0 h-full w-[360px] max-w-[85vw] z-[1600]
+        style={{ right: `max(0px, env(safe-area-inset-right))` }}
+        className={`fixed top-0 h-dvh w-[360px] max-w-[85vw] z-[1600]
           bg-white/95 backdrop-blur-xl shadow-2xl shadow-black/10
           transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
           flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}

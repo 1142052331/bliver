@@ -2,9 +2,9 @@ import { MapPin, LogOut, Bell, Shield, LogIn, UserPlus } from 'lucide-react';
 
 export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister, onCheckIn }) {
   return (
-    <nav className="absolute top-3 left-3 right-3 z-[1000] hidden md:flex items-center justify-between
+    <nav className="absolute top-3 z-[1000] hidden md:flex items-center justify-between
       px-4 py-2.5 aurora-glass rounded-2xl"
-      style={{ fontFamily: 'var(--font-body)' }}>
+      style={{ fontFamily: 'var(--font-body)', left: 'max(12px, env(safe-area-inset-left))', right: 'max(12px, env(safe-area-inset-right))' }}>
       {/* Logo + Check In */}
       <div className="flex items-center gap-2">
         <div className="relative w-9 h-9 rounded-xl aurora-btn flex items-center justify-center

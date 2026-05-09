@@ -11,6 +11,7 @@ export default function CheckInModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(null);
   const [locating, setLocating] = useState(false);
+  const [precise, setPrecise] = useState(false);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function CheckInModal({ isOpen, onClose }) {
       setPhoto(null);
       setPreview('');
       setLocation(null);
+      setPrecise(false);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
@@ -52,6 +54,7 @@ export default function CheckInModal({ isOpen, onClose }) {
     form.append('message', message);
     if (mood) form.append('mood', mood);
     if (photo) form.append('photo', photo);
+    form.append('precise', precise);
 
     try {
       await api.post('/api/checkin', form);
@@ -74,6 +77,7 @@ export default function CheckInModal({ isOpen, onClose }) {
     setPhoto(null);
     setPreview('');
     setLocation(null);
+    setPrecise(false);
     onClose();
   };
 
@@ -83,7 +87,8 @@ export default function CheckInModal({ isOpen, onClose }) {
     <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center pointer-events-none">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto" onClick={handleClose} />
       <div className="relative w-full sm:max-w-md mx-0 sm:mx-auto pointer-events-auto
-        aurora-glass rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 animate-slide-up">
+        aurora-glass rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 animate-slide-up
+        max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-white/90 flex items-center gap-2"
@@ -114,6 +119,35 @@ export default function CheckInModal({ isOpen, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* Privacy toggle */}
+          <div className="mb-4">
+            <p className="text-xs text-white/30 mb-2" style={{ fontFamily: 'var(--font-body)' }}>定位精度</p>
+            <div className="flex gap-1 p-1 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => setPrecise(false)}
+                className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all duration-300
+                  ${!precise
+                    ? 'bg-teal-400/10 border border-teal-400/40 text-teal-300 shadow-[0_0_15px_rgba(45,212,191,0.1)]'
+                    : 'text-white/30 hover:text-white/50'
+                  }`}
+              >
+                模糊定位
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrecise(true)}
+                className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all duration-300
+                  ${precise
+                    ? 'bg-teal-400/10 border border-teal-400/40 text-teal-300 shadow-[0_0_15px_rgba(45,212,191,0.1)]'
+                    : 'text-white/30 hover:text-white/50'
+                  }`}
+              >
+                精确定位
+              </button>
+            </div>
+          </div>
+
           {/* Message */}
           <textarea
             className="w-full p-3 aurora-input rounded-xl resize-none text-sm mb-4 h-24"

@@ -78,21 +78,28 @@ module.exports = (io) => {
   // ── Helpers ───────────────────────────────────────────
 
   const populateFootprint = (q) =>
-    q.populate('userId', 'name avatarUrl isOnline role');
+    q.populate('userId', 'name avatarUrl isOnline role checkinStreak');
 
   async function createNotification({ recipientId, senderName, type, footprintId, content }) {
-    const notif = await Notification.create({ recipientId, senderName, type, footprintId, content });
+    const notifData = { recipientId, senderName, type, content };
+    if (footprintId) notifData.footprintId = footprintId;
+    const notif = await Notification.create(notifData);
     io.to(recipientId.toString()).emit('new_notification', { notification: notif });
 
     // Also send web push notification
-    const pushTitle = type === 'reaction'
-      ? `${senderName} 对你的打卡表示了 ${content}`
-      : `${senderName} 评论了你`;
+    let pushTitle;
+    if (type === 'reaction') {
+      pushTitle = `${senderName} 对你的打卡表示了 ${content}`;
+    } else if (type === 'profile_view') {
+      pushTitle = `${senderName} 浏览了你的主页`;
+    } else {
+      pushTitle = `${senderName} 评论了你`;
+    }
     sendPushToUser(recipientId, {
       title: pushTitle,
       body: content,
       icon: '/marker-icon.png',
-      data: { url: `/?fp=${footprintId}` },
+      data: { url: footprintId ? `/?fp=${footprintId}` : '/' },
     });
   }
 
@@ -151,29 +158,61 @@ module.exports = (io) => {
   // POST /api/checkin (protected)
   router.post('/checkin', auth, upload.single('photo'), uploadToCloudinary, async (req, res) => {
     try {
-      const { lat, lng, message, mood } = req.body;
+      const { lat, lng, message, mood, precise } = req.body;
       if (lat == null || lng == null) {
         return res.status(400).json({ error: 'lat, lng are required' });
       }
 
       const latNum = Number(lat);
       const lngNum = Number(lng);
+      const isPrecise = precise === 'true';
 
-      const blurred = blurCoordinate(latNum, lngNum);
+      const displayLocation = isPrecise
+        ? { lat: latNum, lng: lngNum }
+        : blurCoordinate(latNum, lngNum);
 
       const [placeName, weatherData] = await Promise.all([
-        reverseGeocode(blurred.lat, blurred.lng),
+        reverseGeocode(displayLocation.lat, displayLocation.lng),
         getWeather(latNum, lngNum),
       ]);
 
-      const footprint = await Footprint.create({
+      const footprintData = {
         userId:    req.user.id,
-        location:  blurred,
-        realLocation: { lat: latNum, lng: lngNum },
+        location:  displayLocation,
         placeName: placeName,
         message:   `🌤 ${weatherData.weather}  ${weatherData.temp !== null ? weatherData.temp + '°C' : ''}\n${message || ''}`,
         photoUrl:  req.cloudinaryUrl || '',
         mood:      mood || '',
+      };
+
+      if (!isPrecise) {
+        footprintData.realLocation = { lat: latNum, lng: lngNum };
+      }
+
+      const footprint = await Footprint.create(footprintData);
+
+      // Update daily check-in streak
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const streakUser = await User.findById(req.user.id);
+      const lastDate = streakUser.checkinStreak?.lastCheckinDate;
+      let newStreak = 1;
+
+      if (lastDate) {
+        const last = new Date(lastDate);
+        last.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((today - last) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+          newStreak = streakUser.checkinStreak.current;
+        } else if (diffDays === 1) {
+          newStreak = streakUser.checkinStreak.current + 1;
+        }
+      }
+
+      await User.findByIdAndUpdate(req.user.id, {
+        checkinStreak: { current: newStreak, lastCheckinDate: today },
       });
 
       const populated = await populateFootprint(Footprint.findById(footprint._id));
@@ -333,9 +372,50 @@ module.exports = (io) => {
     try {
       const user = await User.findById(req.params.id)
         .select('-password')
-        .populate('profileReactions.senderId', 'name avatarUrl');
+        .populate('profileReactions.senderId', 'name avatarUrl')
+        .populate('profileVisitors.visitorId', 'name avatarUrl');
 
       if (!user) return res.status(404).json({ error: 'User not found' });
+
+      // Record visit when another logged-in user views this profile
+      if (req.user && req.user.id !== req.params.id) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let alreadyVisitedToday = false;
+
+        // Update existing visit timestamp or push new visitor record
+        for (const v of user.profileVisitors) {
+          if (v.visitorId?.toString() === req.user.id && new Date(v.visitedAt) >= today) {
+            v.visitedAt = new Date();
+            alreadyVisitedToday = true;
+            break;
+          }
+        }
+
+        if (!alreadyVisitedToday) {
+          user.profileVisitors.push({ visitorId: req.user.id });
+        }
+
+        // Keep last 30 visitors
+        if (user.profileVisitors.length > 30) {
+          user.profileVisitors = user.profileVisitors.slice(-30);
+        }
+        await user.save();
+
+        if (!alreadyVisitedToday) {
+          await createNotification({
+            recipientId: req.params.id,
+            senderName: req.user.name,
+            type: 'profile_view',
+            footprintId: null,
+            content: '浏览了你的主页',
+          });
+        }
+
+        // Re-populate the saved visitors
+        await user.populate('profileVisitors.visitorId', 'name avatarUrl');
+      }
 
       const docs = await populateFootprint(
         Footprint.find({ userId: req.params.id }).sort({ createdAt: -1 }).limit(30)

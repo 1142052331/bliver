@@ -16,6 +16,14 @@ const userSchema = new mongoose.Schema({
     senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     emoji:    { type: String, required: true },
   }],
+  checkinStreak: {
+    current:        { type: Number, default: 0 },
+    lastCheckinDate: Date,
+  },
+  profileVisitors: [{
+    visitorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    visitedAt: { type: Date, default: Date.now },
+  }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

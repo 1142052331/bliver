@@ -129,7 +129,8 @@ export default function MapLayers() {
       <WeatherTile visible={active.precipitation} type="precipitation" />
       <WeatherTile visible={active.temp} type="temp" />
 
-      <div className="absolute top-20 left-3 z-[1000] flex flex-col gap-1">
+      <div className="absolute top-20 z-[1000] flex flex-col gap-1"
+        style={{ left: `max(12px, env(safe-area-inset-left))` }}>
         {layers.map(({ key, label, icon: Icon }) => (
           <button
             key={key}

@@ -143,6 +143,33 @@ export default function App() {
     });
   }, [footprintPeriod]);
 
+  // ── Visibility change: refresh data when tab returns to foreground ──
+  const socketRef = useRef(null);
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible' || !user) return;
+
+      // Force socket reconnect if disconnected (iOS kills WS on bg)
+      if (socketRef.current && !socketRef.current.connected) {
+        socketRef.current.connect();
+        socketRef.current.emit('user:online', user._id);
+      }
+
+      // Re-fetch footprints to catch up
+      api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
+        if (res?.data?.footprints) setFootprints(res.data.footprints);
+      }).catch(() => {});
+
+      // Re-fetch notifications
+      api.get('/api/notifications').then((res) => {
+        setNotifications(res.data.notifications);
+      }).catch(() => {});
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [user, footprintPeriod]);
+
   // Socket connection + notifications (logged-in only)
   useEffect(() => {
     if (!user) {
@@ -158,6 +185,7 @@ export default function App() {
     const socketUrl = getSocketURL();
     console.log('[Socket] Connecting to:', socketUrl);
     const socket = io(socketUrl);
+    socketRef.current = socket;
     socket.on('connect', () => console.log('[Socket] Connected:', socket.id));
     socket.on('connect_error', (e) => console.error('[Socket] Connect error:', e.message));
     socket.on('disconnect', (reason) => console.log('[Socket] Disconnected:', reason));
@@ -199,7 +227,9 @@ export default function App() {
       const n = data.notification;
       const msg = n.type === 'reaction'
         ? `${n.senderName} 对你的打卡表示了 ${n.content}`
-        : `${n.senderName} 评论了你`;
+        : n.type === 'profile_view'
+          ? `${n.senderName} 浏览了你的主页`
+          : `${n.senderName} 评论了你`;
       setToast(msg);
       setTimeout(() => setToast(null), 4000);
     });
@@ -220,7 +250,10 @@ export default function App() {
       setUser(null);
     });
 
-    return () => { socket.disconnect(); };
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, [user]);
 
   // Keep flyArrivedFp in sync with latest footprints data
@@ -336,7 +369,7 @@ export default function App() {
   // ── Map Dashboard view ──────────────────────────────────
 
   const mapDashboard = (
-    <div className="relative w-full h-screen overflow-hidden"
+    <div className="relative w-full h-dvh overflow-hidden"
       style={{ background: 'var(--aurora-deep)' }}>
       <NavBar
         onlineCount={onlineCount}
@@ -389,7 +422,8 @@ export default function App() {
       </MapContainer>
 
       {/* Side buttons group — desktop only */}
-      <div className="hidden md:flex absolute top-[88px] right-3 z-[1000] flex-col gap-2">
+      <div className="hidden md:flex absolute top-[88px] z-[1000] flex-col gap-2"
+        style={{ right: `max(12px, env(safe-area-inset-right))` }}>
         <button
           onClick={() => setShowTimeline(true)}
           className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium
