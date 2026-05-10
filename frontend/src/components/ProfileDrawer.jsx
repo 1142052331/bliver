@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { X, MapPin, Camera, Loader2, Pencil, Check } from 'lucide-react';
+import { X, MapPin, Camera, Loader2, Pencil, Check, MessageCircle, Clock, UserPlus } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import api from '../api';
 import { getUser } from '../auth';
@@ -8,7 +8,7 @@ import ProfileStats from './ProfileStats';
 import ProfileVisitors from './ProfileVisitors';
 import FootprintCardList from './FootprintCardList';
 
-export default function ProfileDrawer({ userId, onClose, onLogout }) {
+export default function ProfileDrawer({ userId, onClose, onLogout, friendshipStatus, pendingRequestId, onSendFriendRequest, onAcceptRequest, onRejectRequest, onOpenChat }) {
   const [profile, setProfile] = useState(null);
   const [footprints, setFootprints] = useState([]);
   const [recentReactions, setRecentReactions] = useState([]);
@@ -22,6 +22,9 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
   const bannerFileRef = useRef(null);
   const avatarFileRef = useRef(null);
   const bannerTimerRef = useRef(null);
+
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const currentUser = getUser();
   const isOwnProfile = currentUser?._id === userId;
@@ -43,12 +46,12 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
       const form = new FormData();
       form.append('banner', compressed);
       const { data } = await api.post('/api/users/profile/banner', form);
-      setProfile(data.user);
+      if (mountedRef.current) setProfile(data.user);
       showBannerMsg('背景更换成功！');
     } catch (err) {
       showBannerMsg(err.response?.data?.error || '上传失败');
     }
-    setUploadingBanner(false);
+    if (mountedRef.current) setUploadingBanner(false);
   };
 
   const handleUpdateProfile = async (updates) => {
@@ -61,12 +64,12 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
         form.append('avatar', compressed);
       }
       const { data } = await api.put('/api/users/profile', form);
-      setProfile(data.user);
+      if (mountedRef.current) setProfile(data.user);
       showBannerMsg('更新成功！');
     } catch (err) {
       showBannerMsg(err.response?.data?.error || '更新失败');
     }
-    setSavingProfile(false);
+    if (mountedRef.current) setSavingProfile(false);
   };
 
   const handleSaveName = () => {
@@ -226,7 +229,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
                 <div className="relative px-5 h-10">
                   <div className="absolute -top-10">
                     {profile.avatarUrl ? (
-                      <img src={profile.avatarUrl} className="w-20 h-20 rounded-full object-cover border-4 border-white/30 shadow-lg" alt="" />
+                      <img src={profile.avatarUrl} className="w-20 h-20 rounded-full object-cover border-4 border-white/30 shadow-lg" alt="" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
                     ) : (
                       <div className="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-3xl font-bold border-4 border-white/30 shadow-lg">
                         {(profile.name || '?')[0].toUpperCase()}
@@ -292,6 +295,104 @@ export default function ProfileDrawer({ userId, onClose, onLogout }) {
 
                 {/* Visitors */}
                 <ProfileVisitors visitors={profile.profileVisitors} />
+
+                {/* ── Friend action button (only on others' profiles) ── */}
+                {!isOwnProfile && (() => {
+                  const status = friendshipStatus ? friendshipStatus(userId) : 'none';
+                  const isAsen = profile?.name === '阿森';
+                  const showChat = status === 'accepted' || isAsen;
+                  const showPending = status === 'pending_out' || status === 'pending_in';
+                  const hasIncoming = status === 'pending_in';
+                  const canSendRequest = status === 'none';
+
+                  if (showChat) {
+                    return (
+                      <div className="px-5 pt-2 pb-1">
+                        <button
+                          onClick={() => onOpenChat?.(userId)}
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                            bg-cyan-600/20 text-cyan-400 border border-cyan-500/30
+                            hover:bg-cyan-600/40 backdrop-blur-md
+                            transition-all duration-200 text-sm font-semibold
+                            shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+                          style={{ fontFamily: 'var(--font-body)' }}
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          发送私信
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (showPending) {
+                    return (
+                      <div className="px-5 pt-2 pb-1 space-y-2">
+                        {hasIncoming && pendingRequestId ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={async () => {
+                                await onAcceptRequest?.(pendingRequestId);
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl
+                                bg-cyan-600/20 text-cyan-400 border border-cyan-500/30
+                                hover:bg-cyan-600/40 backdrop-blur-md
+                                transition-all duration-200 text-sm font-semibold"
+                              style={{ fontFamily: 'var(--font-body)' }}
+                            >
+                              <Check className="w-4 h-4" />
+                              同意申请
+                            </button>
+                            <button
+                              onClick={async () => {
+                                await onRejectRequest?.(pendingRequestId);
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl
+                                bg-white/5 text-white/40 border border-white/[0.06]
+                                hover:bg-white/10 hover:text-white/60 backdrop-blur-md
+                                transition-all duration-200 text-sm"
+                              style={{ fontFamily: 'var(--font-body)' }}
+                            >
+                              <X className="w-4 h-4" />
+                              拒绝
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                            bg-white/5 border border-white/[0.06]
+                            opacity-50 cursor-not-allowed text-sm text-white/30"
+                            style={{ fontFamily: 'var(--font-body)' }}
+                          >
+                            <Clock className="w-4 h-4" />
+                            等待对方通过
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (canSendRequest) {
+                    return (
+                      <div className="px-5 pt-2 pb-1">
+                        <button
+                          onClick={async () => {
+                            await onSendFriendRequest?.(userId);
+                          }}
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                            bg-white/10 hover:bg-white/20 backdrop-blur-md
+                            border border-white/10
+                            text-white/80 hover:text-white
+                            transition-all duration-200 text-sm font-semibold"
+                          style={{ fontFamily: 'var(--font-body)' }}
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          申请加为好友
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
 
                 {/* Interactions */}
                 {(recentReactions.length > 0 || recentComments.length > 0) && (

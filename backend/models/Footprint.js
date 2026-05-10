@@ -28,4 +28,6 @@ const footprintSchema = new mongoose.Schema({
   }],
 }, { timestamps: true });
 
+footprintSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('Footprint', footprintSchema);

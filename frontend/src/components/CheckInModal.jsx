@@ -24,9 +24,10 @@ export default function CheckInModal({ isOpen, onClose }) {
     }
   };
 
-  // 组件卸载时释放 Blob URL
+  // 组件卸载时释放 Blob URL + 卸载守卫
+  const mountedRef = useRef(true);
   useEffect(() => {
-    return () => revokePreview();
+    return () => { mountedRef.current = false; revokePreview(); };
   }, []);
 
   useEffect(() => {
@@ -49,7 +50,8 @@ export default function CheckInModal({ isOpen, onClose }) {
           setLocation({ lat: null, lng: null });
           setLocating(false);
           setLocDenied(err.code === 1); // PERMISSION_DENIED
-        }
+        },
+        { timeout: 15000, enableHighAccuracy: true }
       );
     }
   }, [isOpen]);
@@ -89,7 +91,7 @@ export default function CheckInModal({ isOpen, onClose }) {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
 

@@ -37,7 +37,7 @@ module.exports = (io) => {
 
       res.json({ online: enriched });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -61,7 +61,7 @@ module.exports = (io) => {
 
       res.json({ users: result });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -84,7 +84,7 @@ module.exports = (io) => {
 
       res.json({ user });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -121,7 +121,7 @@ module.exports = (io) => {
 
       res.json({ ok: true, message: 'User and all associated data deleted' });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -152,7 +152,7 @@ module.exports = (io) => {
         res.json({ ok: true, message: `User ${user.name} is not online, marked offline` });
       }
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 

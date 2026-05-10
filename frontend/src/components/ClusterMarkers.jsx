@@ -96,13 +96,14 @@ function createStreakIcon(mood, streak) {
 }
 
 function pickIcon(fp, streak, unread) {
-  if (streak > 0) {
-    const key = `streak:${fp.mood || 'none'}:${streak >= 7 ? 'fire' : streak >= 3 ? 'sparkle' : 'none'}`;
-    return cachedIcon(key, () => createStreakIcon(fp.mood, streak));
-  }
+  // unread takes highest priority — override streak/mood icons
   if (unread) {
     const key = `unread:${fp.mood || 'none'}`;
     return cachedIcon(key, () => createNewCommentIcon(fp.mood));
+  }
+  if (streak > 0) {
+    const key = `streak:${fp.mood || 'none'}:${streak >= 7 ? 'fire' : streak >= 3 ? 'sparkle' : 'none'}`;
+    return cachedIcon(key, () => createStreakIcon(fp.mood, streak));
   }
   if (fp.mood) {
     const key = `mood:${fp.mood}`;
@@ -243,6 +244,7 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       }
     `;
     document.head.appendChild(style);
+    return () => { style.remove(); };
   }, []);
 
   // Initialize cluster group

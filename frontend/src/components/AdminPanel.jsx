@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Users, Shield, Trash2, Edit3, Zap, RefreshCw, Wifi, WifiOff, Check, PencilLine } from 'lucide-react';
 import api from '../api';
 
@@ -14,6 +14,8 @@ export default function AdminPanel({ onClose }) {
   const [editName, setEditName] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const msgTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(msgTimerRef.current), []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -34,7 +36,8 @@ export default function AdminPanel({ onClose }) {
 
   const showMsg = (msg) => {
     setActionMsg(msg);
-    setTimeout(() => setActionMsg(''), 3000);
+    clearTimeout(msgTimerRef.current);
+    msgTimerRef.current = setTimeout(() => setActionMsg(''), 3000);
   };
 
   const handleKick = async (userId, name) => {
@@ -91,7 +94,8 @@ export default function AdminPanel({ onClose }) {
           <div className="flex items-center gap-2">
             <button
               onClick={fetchData}
-              className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+              disabled={loading}
+              className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-40"
               title="Refresh"
             >
               <RefreshCw className="w-4 h-4 text-gray-400" />
@@ -141,7 +145,7 @@ export default function AdminPanel({ onClose }) {
                           <div className="flex items-center gap-3">
                             <div className="relative">
                               {u.avatarUrl ? (
-                                <img src={u.avatarUrl} className="w-8 h-8 rounded-full object-cover" />
+                                <img src={u.avatarUrl} className="w-8 h-8 rounded-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
                               ) : (
                                 <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
                                   {(u.name || '?')[0].toUpperCase()}

@@ -3,14 +3,16 @@ const webpush = require('web-push');
 const PushSubscription = require('../models/PushSubscription');
 const { auth } = require('../middleware/auth');
 
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BMFEhvJfmygc8SVFDdq6LrBHSGcLFaj0YTUk9uF2GeJDh6z2nIc_RjmczJ9ckbsTVg-Gtg1BO_PhJtzIpQUiYoU';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'uSXARIb_oolf2oqNpbpsp0wGft4Xc6J_FEbqtM15qK4';
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
 
-webpush.setVapidDetails(
-  'mailto:bliver@example.com',
-  VAPID_PUBLIC_KEY,
-  VAPID_PRIVATE_KEY
-);
+let vapidReady = false;
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails('mailto:bliver@example.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  vapidReady = true;
+} else {
+  console.warn('[Push] VAPID keys not configured — push notifications disabled');
+}
 
 module.exports = () => {
   const router = express.Router();
@@ -58,6 +60,7 @@ module.exports = () => {
 // ── Push sending helper ──────────────────────────────────
 
 async function sendPushToUser(userId, payload) {
+  if (!vapidReady) return;
   try {
     const subs = await PushSubscription.find({ userId });
     console.log(`[Push] Sending to user ${userId}: ${subs.length} subscription(s)`);

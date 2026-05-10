@@ -1,7 +1,9 @@
 export const READ_KEY = 'bliver_read_comments';
 
-/** 页面加载时刻，用于种子时间戳——晚于此时间的足迹/留言才算"新" */
+/** 页面加载时刻，晚于此时间的足迹/留言才算"新" */
 const PAGE_LOAD_TIME = Date.now();
+/** 7天时间锁：超过7天的足迹不再标记为"新打卡" */
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function getReadMap() {
   try {
@@ -21,6 +23,8 @@ export function markRead(fpId) {
  * 首次出现时用页面加载时间作为已读基准：
  * - 页面前的足迹/留言 → 不提示
  * - 页面后的足迹/留言 → 提示"新"
+ *
+ * 防御：不覆盖已存在的 readTime（防止 seed 反复调用冲掉真实已读时间）
  */
 export function seedReadMap(fpIds) {
   const existing = getReadMap();
@@ -39,33 +43,25 @@ export function seedReadMap(fpIds) {
 
 /**
  * 足迹维度已读/未读判定：
- * - 足迹本身是新打卡（createdAt > 已读时间）
- * - 或有新留言（最新评论时间 > 已读时间）
+ * - 条件 A：最新留言时间 > 已读时间
+ * - 条件 B：足迹 createdAt > 已读时间，且 createdAt 在最近 7 天内
+ * 满足 A 或 B 任意一项 → isUnread: true
  */
 export function isUnread(fp, readMap) {
   const readTime = readMap[fp._id] || 0;
+  const now = Date.now();
 
-  // 新打卡（足迹本身的创建时间晚于已读时间）
+  // 条件 B：新打卡（足迹创建时间 > 已读时间，且不超过 7 天）
   const fpTime = new Date(fp.createdAt).getTime();
-  if (fpTime > readTime) {
-    console.log('[isUnread] TRUE (new footprint) fp:', fp._id?.slice(-6),
-      'fpCreated:', new Date(fpTime).toISOString(),
-      'readTime:', new Date(readTime).toISOString());
+  if (fpTime > readTime && (now - fpTime) < SEVEN_DAYS_MS) {
     return true;
   }
 
-  // 新留言
+  // 条件 A：新留言（最新评论 > 已读时间）
   const comments = (fp.comments || []).filter((c) => c.content?.trim());
   if (comments.length === 0) return false;
   const latestTime = Math.max(...comments.map((c) => new Date(c.createdAt).getTime()));
-  const result = latestTime > readTime;
-  if (result) {
-    console.log('[isUnread] TRUE (new comment) fp:', fp._id?.slice(-6),
-      'latestComment:', new Date(latestTime).toISOString(),
-      'readTime:', new Date(readTime).toISOString(),
-      'diff_ms:', latestTime - readTime);
-  }
-  return result;
+  return latestTime > readTime;
 }
 
 /**
@@ -79,9 +75,10 @@ export function getUnreadComments(fp, readMap) {
 }
 
 /**
- * 足迹本身是否为新打卡（创建时间 > 已读时间）
+ * 足迹本身是否为新打卡（创建时间 > 已读时间，且在7天内）
  */
 export function isNewFootprint(fp, readMap) {
   const readTime = readMap[fp._id] || 0;
-  return new Date(fp.createdAt).getTime() > readTime;
+  const fpTime = new Date(fp.createdAt).getTime();
+  return fpTime > readTime && (Date.now() - fpTime) < SEVEN_DAYS_MS;
 }

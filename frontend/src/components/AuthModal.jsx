@@ -15,6 +15,16 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
   const [rememberMe, setRememberMe] = useState(false);
   const [autoLoginCheck, setAutoLoginCheck] = useState(false);
   const fileRef = useRef(null);
+  const previewUrlRef = useRef(null);
+
+  const revokePreview = () => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+  };
+
+  useEffect(() => () => revokePreview(), []);
 
   // Sync tab and load saved credentials
   useEffect(() => {
@@ -32,7 +42,10 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
     if (!file) return;
     const compressed = await imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 300 });
     setAvatar(compressed);
-    setPreview(URL.createObjectURL(compressed));
+    revokePreview();
+    const url = URL.createObjectURL(compressed);
+    previewUrlRef.current = url;
+    setPreview(url);
   };
 
   const handleSubmit = async (e) => {

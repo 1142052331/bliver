@@ -30,6 +30,7 @@ export default function FlyToFootprint({ footprints, activeFootprintId, onArrive
 
     return () => {
       map.off('moveend', onMoveEnd);
+      map.stop(); // Cancel in-progress flyTo animation
     };
   }, [activeFootprintId, map]);
 

@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { X, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send, Bell } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
-import { getReadMap, markRead, getUnreadComments, isNewFootprint } from '../readStatus';
+import { getReadMap, seedReadMap, markRead, getUnreadComments, isNewFootprint } from '../readStatus';
 
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -20,6 +20,10 @@ function maskIp(ip) {
 export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare, onComment, onDeleteComment, onClose }) {
   if (!fp) return null;
 
+  const mountedRef = useRef(true);
+  const copyTimerRef = useRef(null);
+  useEffect(() => () => { mountedRef.current = false; clearTimeout(copyTimerRef.current); }, []);
+
   const [copied, setCopied] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
@@ -27,7 +31,10 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
 
   // ── New-message section ──────────────────────────────
   const [unreadDismissed, setUnreadDismissed] = useState(false);
-  useEffect(() => { setUnreadDismissed(false); }, [fp._id]);
+  useEffect(() => {
+    setUnreadDismissed(false);
+    seedReadMap([fp._id]); // Mark as "read at" now to avoid false-positive "new" badge
+  }, [fp._id]);
 
   const { unreadComments, footprintIsNew } = useMemo(() => {
     if (unreadDismissed) return { unreadComments: [], footprintIsNew: false };
@@ -60,11 +67,11 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
     setSending(true);
     try {
       await onComment(fp._id, commentText.trim());
-      setCommentText('');
+      if (mountedRef.current) setCommentText('');
     } catch (err) {
       console.error(err);
     }
-    setSending(false);
+    if (mountedRef.current) setSending(false);
   };
 
   return (
@@ -77,7 +84,7 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
         {/* Photo */}
         {fp.photoUrl ? (
           <div className="relative">
-            <img src={fp.photoUrl} className="w-full max-h-[50vh] object-cover rounded-t-2xl" />
+            <img src={fp.photoUrl} className="w-full max-h-[50vh] object-cover rounded-t-2xl" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f28] via-transparent to-transparent rounded-t-2xl" />
           </div>
         ) : (
@@ -102,7 +109,8 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
               onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}>
               {user.avatarUrl ? (
                 <img src={user.avatarUrl}
-                  className="w-10 h-10 rounded-full object-cover ring-2 ring-teal-400/30 hover:ring-teal-400/60 transition-all" />
+                  className="w-10 h-10 rounded-full object-cover ring-2 ring-teal-400/30 hover:ring-teal-400/60 transition-all"
+                  onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
               ) : (
                 <div className="w-10 h-10 rounded-full aurora-btn flex items-center justify-center
                   text-white font-bold text-sm ring-2 ring-teal-400/30 hover:ring-teal-400/60 transition-all">
@@ -146,7 +154,8 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
                 onClick={() => {
                   onShare(fp._id);
                   setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
+                  clearTimeout(copyTimerRef.current);
+                  copyTimerRef.current = setTimeout(() => { if (mountedRef.current) setCopied(false); }, 2000);
                 }}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg
                   bg-white/[0.04] text-white/50 text-sm hover:bg-white/[0.08] hover:text-white/70 transition-colors"

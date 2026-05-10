@@ -25,8 +25,12 @@ import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import PhotoWall from './components/PhotoWall';
+import AnnouncementPanel, { hasUnreadAnnouncements } from './components/AnnouncementPanel';
+import FriendsPanel from './components/FriendsPanel';
+import ChatWindow from './components/ChatWindow';
 import MobileActionDrawer from './components/MobileActionDrawer';
 import useSocket from './hooks/useSocket';
+import useFriends from './hooks/useFriends';
 import { subscribeToPush } from './push';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -54,6 +58,10 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [showPhotoWall, setShowPhotoWall] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
+  const [announceHasUnread, setAnnounceHasUnread] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
+  const [chatUserId, setChatUserId] = useState(null);
   const [viewingProfileId, setViewingProfileId] = useState(null);
 
   // ── Auth / share / period ─────────────────────────────
@@ -75,6 +83,12 @@ export default function App() {
     user, setUser, setFootprints, setNotifications, setOnlineCount, setToast,
   });
 
+  const {
+    friends, onlineStatus, unreadCounts, pendingRequests,
+    friendshipStatus, getPendingRequestId,
+    sendFriendRequest, acceptRequest, rejectRequest, clearUnread,
+  } = useFriends({ user, socketRef });
+
   // ── Unread notification counter ────────────────────────
   const READ_COUNT_KEY = 'bliver_unread_v1';
   const [unreadCount, setUnreadCount] = useState(() => {
@@ -93,20 +107,23 @@ export default function App() {
 
   // ── Auto-login on mount ───────────────────────────────
   useEffect(() => {
+    const controller = new AbortController();
     const saved = getUser();
     if (saved && getToken() && isAutoLogin()) {
-      api.get('/api/auth/me').then((res) => {
+      api.get('/api/auth/me', { signal: controller.signal }).then((res) => {
         const u = res.data.user;
         setUser(u);
         saveAuth({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl, role: u.role }, getToken());
         subscribeToPush().catch(() => {});
-      }).catch(() => {
+      }).catch((err) => {
+        if (err.name === 'CanceledError') return;
         clearAuth();
         setUser(null);
       });
     } else if (!isAutoLogin()) {
       clearAuth();
     }
+    return () => controller.abort();
   }, []);
 
   // ── Parse ?fp= share link ─────────────────────────────
@@ -121,46 +138,74 @@ export default function App() {
 
   // ── Fetch footprints when period changes ──────────────
   useEffect(() => {
+    const controller = new AbortController();
     setFootprintsLoading(true);
-    api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
+    api.get(`/api/footprints/today?period=${footprintPeriod}`, { signal: controller.signal }).then((res) => {
       if (res?.data?.footprints) setFootprints(res.data.footprints);
-    }).catch(() => {}).finally(() => {
+    }).catch((err) => {
+      if (err.name !== 'CanceledError') console.error(err);
+    }).finally(() => {
       setFootprintsLoading(false);
     });
+    return () => controller.abort();
   }, [footprintPeriod]);
 
   // ── Visibility change: refresh data on foreground ─────
+  const visibilityAbortRef = useRef(null);
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible' || !user) return;
 
       if (socketRef.current && !socketRef.current.connected) {
         socketRef.current.connect();
-        socketRef.current.emit('user:online', user._id);
+        socketRef.current.emit('user:online');
       }
 
-      api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
+      // Cancel any in-flight visibility refresh
+      if (visibilityAbortRef.current) visibilityAbortRef.current.abort();
+      const controller = new AbortController();
+      visibilityAbortRef.current = controller;
+      const signal = controller.signal;
+
+      api.get(`/api/footprints/today?period=${footprintPeriod}`, { signal }).then((res) => {
         if (res?.data?.footprints) setFootprints(res.data.footprints);
       }).catch(() => {});
 
-      api.get('/api/notifications').then((res) => {
+      api.get('/api/notifications', { signal }).then((res) => {
         setNotifications(res.data.notifications);
       }).catch(() => {});
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (visibilityAbortRef.current) visibilityAbortRef.current.abort();
+    };
   }, [user, footprintPeriod]);
 
   // ── Keep flyArrivedFp synced with latest footprints ────
   useEffect(() => {
     if (flyArrivedFp) {
       const latest = footprints.find((f) => f._id === flyArrivedFp._id);
-      if (latest && (latest.comments !== flyArrivedFp.comments || latest.reactions !== flyArrivedFp.reactions)) {
+      if (!latest) {
+        setFlyArrivedFp(null); // footprint was deleted
+      } else if (latest.comments !== flyArrivedFp.comments || latest.reactions !== flyArrivedFp.reactions) {
         setFlyArrivedFp(latest);
       }
     }
   }, [footprints, flyArrivedFp]);
+
+  // ── Check for unread announcements ──────────────────────
+  useEffect(() => {
+    if (!user) { setAnnounceHasUnread(false); return; }
+    let cancelled = false;
+    api.get('/api/announcements').then(({ data }) => {
+      if (!cancelled && data?.announcements) {
+        setAnnounceHasUnread(hasUnreadAnnouncements(data.announcements));
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
 
   // ── Execute pending action after login ─────────────────
   useEffect(() => {
@@ -205,6 +250,8 @@ export default function App() {
     if (!confirm('确认删除这条足迹？')) return;
     try {
       await api.delete(`/api/footprints/${footprintId}`);
+      setFootprints((prev) => prev.filter((fp) => fp._id !== footprintId));
+      setFlyArrivedFp((prev) => prev && prev._id === footprintId ? null : prev);
     } catch (err) {
       console.error('Delete failed:', err);
     }
@@ -225,7 +272,7 @@ export default function App() {
 
   const handleShare = useCallback((footprintId) => {
     const url = `${window.location.origin}${window.location.pathname}?fp=${footprintId}`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(url).catch(() => {});
   }, []);
 
   const handleComment = useCallback(async (footprintId, content) => {
@@ -287,6 +334,14 @@ export default function App() {
   }, [clusterData, footprints]);
 
   const isAdmin = user?.role === 'admin';
+  const isAsen = user?.name === '阿森';
+
+  // Derived: friend info for ChatWindow
+  const chatFriend = chatUserId ? friends.find(f => f._id === chatUserId) || {
+    _id: chatUserId, name: '用户', avatarUrl: null,
+  } : null;
+
+  const totalFriendUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
   // ── Render ─────────────────────────────────────────────
 
@@ -315,6 +370,10 @@ export default function App() {
           onLogoClick={() => setShowAbout(true)}
           unreadCount={unreadCount}
           onBellClick={() => setShowNotifs((v) => !v)}
+          announceHasUnread={announceHasUnread}
+          onAnnounceClick={() => setShowAnnouncements(true)}
+          friendUnreadCount={totalFriendUnread}
+          onFriendsClick={() => setShowFriends(true)}
           isAdmin={isAdmin}
           onOpenAdmin={() => setShowAdmin(true)}
           onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
@@ -330,6 +389,40 @@ export default function App() {
             notifications={notifications}
             onClose={() => setShowNotifs(false)}
             onMarkRead={markAsRead}
+          />
+        )}
+
+        {showAnnouncements && (
+          <AnnouncementPanel
+            isOpen={showAnnouncements}
+            onClose={() => { setShowAnnouncements(false); setAnnounceHasUnread(false); }}
+            isAsen={user?.name === '阿森'}
+            onToast={(msg) => setToast(msg)}
+          />
+        )}
+
+        {showFriends && (
+          <FriendsPanel
+            isOpen={showFriends}
+            onClose={() => setShowFriends(false)}
+            friends={friends}
+            onlineStatus={onlineStatus}
+            unreadCounts={unreadCounts}
+            onOpenProfile={(uid) => { setShowFriends(false); setViewingProfileId(uid); }}
+            onOpenChat={(uid) => { setShowFriends(false); setChatUserId(uid); }}
+          />
+        )}
+
+        {chatUserId && chatFriend && (
+          <ChatWindow
+            chatUserId={chatUserId}
+            friendName={chatFriend.name}
+            friendAvatar={chatFriend.avatarUrl}
+            isOnline={onlineStatus[chatUserId] || false}
+            user={user}
+            socketRef={socketRef}
+            onClose={() => { clearUnread(chatUserId); setChatUserId(null); }}
+            onToast={(msg) => setToast(msg)}
           />
         )}
 
@@ -399,6 +492,10 @@ export default function App() {
           user={user}
           isAdmin={isAdmin}
           unreadCount={unreadCount}
+          announceHasUnread={announceHasUnread}
+          onAnnounce={() => setShowAnnouncements(true)}
+          friendUnreadCount={totalFriendUnread}
+          onFriends={() => setShowFriends(true)}
           onCheckIn={() => {
             if (!requireLogin({ type: 'checkin' })) return;
             setShowCheckIn(true);
@@ -427,20 +524,22 @@ export default function App() {
         )}
 
         {clusterFootprints && (
-          <ClusterDetailPanel
-            footprints={clusterFootprints}
-            userId={user?._id}
-            isAdmin={isAdmin}
-            onReact={handleReact}
-            onDelete={handleDelete}
-            onShare={handleShare}
-            onComment={handleComment}
-            onDeleteComment={handleDeleteComment}
-            onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
-          />
+          <ErrorBoundary>
+            <ClusterDetailPanel
+              footprints={clusterFootprints}
+              userId={user?._id}
+              isAdmin={isAdmin}
+              onReact={handleReact}
+              onDelete={handleDelete}
+              onShare={handleShare}
+              onComment={handleComment}
+              onDeleteComment={handleDeleteComment}
+              onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
+            />
+          </ErrorBoundary>
         )}
 
-        {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+        {showAdmin && <ErrorBoundary><AdminPanel onClose={() => setShowAdmin(false)} /></ErrorBoundary>}
 
         {showPhotoWall && (
           <PhotoWall
@@ -462,11 +561,19 @@ export default function App() {
         )}
 
         {viewingProfileId && (
-          <ProfileDrawer
-            userId={viewingProfileId}
-            onClose={() => setViewingProfileId(null)}
-            onLogout={() => { setViewingProfileId(null); handleLogout(); }}
-          />
+          <ErrorBoundary>
+            <ProfileDrawer
+              userId={viewingProfileId}
+              onClose={() => setViewingProfileId(null)}
+              onLogout={() => { setViewingProfileId(null); handleLogout(); }}
+              friendshipStatus={friendshipStatus}
+              pendingRequestId={getPendingRequestId(viewingProfileId)}
+              onSendFriendRequest={sendFriendRequest}
+              onAcceptRequest={acceptRequest}
+              onRejectRequest={rejectRequest}
+              onOpenChat={(uid) => { setViewingProfileId(null); setChatUserId(uid); }}
+            />
+          </ErrorBoundary>
         )}
 
         <Toast message={toast} />

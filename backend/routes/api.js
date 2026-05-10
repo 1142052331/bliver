@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Footprint = require('../models/Footprint');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
 const { auth, admin, optionalAuth } = require('../middleware/auth');
+const { contentLimiter } = require('../middleware/rateLimiter');
 const { reverseGeocode } = require('../services/nominatim');
 const { getWeather } = require('../services/weather');
 const { blurCoordinate, sanitizeLocation } = require('../services/location');
@@ -58,7 +59,7 @@ module.exports = (io) => {
 
       res.json({ footprints, period, start });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -69,16 +70,19 @@ module.exports = (io) => {
       if (!fp) return res.status(404).json({ error: 'Not found' });
       res.json({ footprint: sanitizeLocation(fp.toObject(), req.isAdmin) });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // POST /api/checkin
-  router.post('/checkin', auth, upload.single('photo'), uploadToCloudinary, async (req, res) => {
+  router.post('/checkin', auth, contentLimiter, upload.single('photo'), uploadToCloudinary, async (req, res) => {
     try {
       const { lat, lng, message, mood, precise } = req.body;
       if (lat == null || lng == null) {
         return res.status(400).json({ error: 'lat, lng are required' });
+      }
+      if (message && message.length > 1000) {
+        return res.status(400).json({ error: '内容不能超过1000字' });
       }
 
       const latNum = Number(lat);
@@ -109,97 +113,92 @@ module.exports = (io) => {
 
       const footprint = await Footprint.create(footprintData);
 
-      // Update daily check-in streak
+      // Update daily check-in streak atomically
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
 
-      const streakUser = await User.findById(req.user.id);
-      const lastDate = streakUser.checkinStreak?.lastCheckinDate;
-      let newStreak = 1;
+      // Try: consecutive day → increment
+      const incResult = await User.findOneAndUpdate(
+        { _id: req.user.id, 'checkinStreak.lastCheckinDate': yesterday },
+        { $inc: { 'checkinStreak.current': 1 }, $set: { 'checkinStreak.lastCheckinDate': today } }
+      );
 
-      if (lastDate) {
-        const last = new Date(lastDate);
-        last.setHours(0, 0, 0, 0);
-        const diffDays = Math.floor((today - last) / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) {
-          newStreak = streakUser.checkinStreak.current;
-        } else if (diffDays === 1) {
-          newStreak = streakUser.checkinStreak.current + 1;
-        }
+      if (!incResult) {
+        // Not consecutive, or first checkin — reset to 1 (unless already checked in today)
+        await User.findOneAndUpdate(
+          { _id: req.user.id, 'checkinStreak.lastCheckinDate': { $ne: today } },
+          { $set: { 'checkinStreak': { current: 1, lastCheckinDate: today } } }
+        );
       }
-
-      await User.findByIdAndUpdate(req.user.id, {
-        checkinStreak: { current: newStreak, lastCheckinDate: today },
-      });
 
       const populated = await populateFootprint(Footprint.findById(footprint._id));
       const fpObj = populated.toObject();
-      delete fpObj.realLocation;
-
-      io.emit('footprint:new', { footprint: fpObj });
 
       res.status(201).json({ footprint: sanitizeLocation(fpObj, req.user.role === 'admin') });
+      delete fpObj.realLocation;
+      io.emit('footprint:new', { footprint: fpObj });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // POST /api/footprints/:id/react
-  router.post('/footprints/:id/react', auth, async (req, res) => {
+  router.post('/footprints/:id/react', auth, contentLimiter, async (req, res) => {
     try {
       const { emoji } = req.body;
       if (!emoji) return res.status(400).json({ error: 'emoji is required' });
 
-      const fp = await Footprint.findById(req.params.id);
-      if (!fp) return res.status(404).json({ error: 'Not found' });
-
       const userId = req.user.id;
       const username = req.user.name;
-      const existing = fp.reactions.find((r) => r.userId.toString() === userId);
 
-      if (existing) {
-        if (existing.emoji === emoji) {
-          fp.reactions.pull({ userId });
-        } else {
-          existing.emoji = emoji;
-        }
-      } else {
-        fp.reactions.push({ userId, username, emoji });
+      // Atomically remove any existing reaction by this user
+      const before = await Footprint.findOneAndUpdate(
+        { _id: req.params.id },
+        { $pull: { reactions: { userId } } },
+        { new: false }
+      );
+
+      if (!before) return res.status(404).json({ error: 'Not found' });
+
+      const oldReaction = before.reactions.find(r => r.userId.toString() === userId);
+      const isToggleOff = oldReaction && oldReaction.emoji === emoji;
+
+      if (!isToggleOff) {
+        await Footprint.findByIdAndUpdate(req.params.id, {
+          $push: { reactions: { userId, username, emoji } }
+        });
       }
 
-      await fp.save();
-
-      const populated = await populateFootprint(Footprint.findById(fp._id));
+      const populated = await populateFootprint(Footprint.findById(req.params.id));
       const fpObj = populated.toObject();
       delete fpObj.realLocation;
 
       io.emit('footprint:updated', { footprint: fpObj });
 
-      if (fp.userId.toString() !== userId) {
-        const action = existing && existing.emoji === emoji ? null : fp.reactions.find(r => r.userId.toString() === userId);
-        if (action) {
-          await createNotification({
-            recipientId: fp.userId,
-            senderName: username,
-            type: 'reaction',
-            footprintId: fp._id,
-            content: emoji,
-          });
-        }
+      if (populated.userId.toString() !== userId && !isToggleOff) {
+        await createNotification({
+          recipientId: populated.userId,
+          senderName: username,
+          type: 'reaction',
+          footprintId: populated._id,
+          content: emoji,
+        });
       }
 
-      res.json({ footprint: populated });
+      res.json({ footprint: fpObj });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // POST /api/footprints/:id/comment
-  router.post('/footprints/:id/comment', auth, async (req, res) => {
+  router.post('/footprints/:id/comment', auth, contentLimiter, async (req, res) => {
     try {
       const { content } = req.body;
       if (!content) return res.status(400).json({ error: 'content is required' });
+      if (content.length > 500) return res.status(400).json({ error: '评论不能超过500字' });
 
       const fp = await Footprint.findById(req.params.id);
       if (!fp) return res.status(404).json({ error: 'Not found' });
@@ -231,12 +230,12 @@ module.exports = (io) => {
 
       res.status(201).json({ footprint: populated });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // DELETE /api/footprints/:footprintId/comments/:commentId
-  router.delete('/footprints/:footprintId/comments/:commentId', auth, async (req, res) => {
+  router.delete('/footprints/:footprintId/comments/:commentId', auth, contentLimiter, async (req, res) => {
     try {
       const fp = await Footprint.findById(req.params.footprintId);
       if (!fp) return res.status(404).json({ error: 'Footprint not found' });
@@ -263,7 +262,7 @@ module.exports = (io) => {
 
       res.json({ footprint: fpObj });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -277,7 +276,7 @@ module.exports = (io) => {
 
       res.json({ ok: true });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -298,26 +297,18 @@ module.exports = (io) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        let alreadyVisitedToday = false;
+        // Atomically try to update existing visitor's timestamp (already visited today)
+        const existed = await User.findOneAndUpdate(
+          { _id: req.params.id, 'profileVisitors.visitorId': req.user.id, 'profileVisitors.visitedAt': { $gte: today } },
+          { $set: { 'profileVisitors.$.visitedAt': new Date() } }
+        );
 
-        for (const v of user.profileVisitors) {
-          if (v.visitorId?.toString() === req.user.id && new Date(v.visitedAt) >= today) {
-            v.visitedAt = new Date();
-            alreadyVisitedToday = true;
-            break;
-          }
-        }
+        if (!existed) {
+          // New visitor — atomically push and cap at 30
+          await User.findByIdAndUpdate(req.params.id, {
+            $push: { profileVisitors: { $each: [{ visitorId: req.user.id, visitedAt: new Date() }], $slice: -30 } }
+          });
 
-        if (!alreadyVisitedToday) {
-          user.profileVisitors.push({ visitorId: req.user.id });
-        }
-
-        if (user.profileVisitors.length > 30) {
-          user.profileVisitors = user.profileVisitors.slice(-30);
-        }
-        await user.save();
-
-        if (!alreadyVisitedToday) {
           await createNotification({
             recipientId: req.params.id,
             senderName: req.user.name,
@@ -326,8 +317,6 @@ module.exports = (io) => {
             content: '浏览了你的主页',
           });
         }
-
-        await user.populate('profileVisitors.visitorId', 'name avatarUrl');
       }
 
       const docs = await populateFootprint(
@@ -344,15 +333,16 @@ module.exports = (io) => {
 
       res.json({ user, footprints, recentReactions, recentComments });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // POST /api/users/:id/profile/comment
-  router.post('/users/:id/profile/comment', auth, async (req, res) => {
+  router.post('/users/:id/profile/comment', auth, contentLimiter, async (req, res) => {
     try {
       const { content } = req.body;
       if (!content) return res.status(400).json({ error: 'content is required' });
+      if (content.length > 500) return res.status(400).json({ error: '留言不能超过500字' });
 
       const user = await User.findById(req.params.id);
       if (!user) return res.status(404).json({ error: 'User not found' });
@@ -367,33 +357,35 @@ module.exports = (io) => {
 
       res.status(201).json({ user: updated });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // POST /api/users/:id/profile/react
-  router.post('/users/:id/profile/react', auth, async (req, res) => {
+  router.post('/users/:id/profile/react', auth, contentLimiter, async (req, res) => {
     try {
       const { emoji } = req.body;
       if (!emoji) return res.status(400).json({ error: 'emoji is required' });
 
-      const user = await User.findById(req.params.id);
-      if (!user) return res.status(404).json({ error: 'User not found' });
-
       const senderId = req.user.id;
-      const existing = user.profileReactions.find((r) => r.senderId.toString() === senderId);
 
-      if (existing) {
-        if (existing.emoji === emoji) {
-          user.profileReactions.pull({ senderId });
-        } else {
-          existing.emoji = emoji;
-        }
-      } else {
-        user.profileReactions.push({ senderId, emoji });
+      // Atomically remove any existing reaction by this user
+      const before = await User.findOneAndUpdate(
+        { _id: req.params.id },
+        { $pull: { profileReactions: { senderId } } },
+        { new: false }
+      );
+
+      if (!before) return res.status(404).json({ error: 'User not found' });
+
+      const oldReaction = before.profileReactions.find(r => r.senderId?.toString() === senderId);
+      const isToggleOff = oldReaction && oldReaction.emoji === emoji;
+
+      if (!isToggleOff) {
+        await User.findByIdAndUpdate(req.params.id, {
+          $push: { profileReactions: { senderId, emoji } }
+        });
       }
-
-      await user.save();
 
       const updated = await User.findById(req.params.id).select('-password')
         .populate('profileReactions.senderId', 'name avatarUrl');
@@ -402,7 +394,7 @@ module.exports = (io) => {
 
       res.json({ user: updated });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -421,7 +413,7 @@ module.exports = (io) => {
 
       res.json({ user });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -452,7 +444,7 @@ module.exports = (io) => {
 
       res.json({ user });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -460,13 +452,15 @@ module.exports = (io) => {
 
   router.post('/admin/setup', auth, async (req, res) => {
     try {
-      if (req.body.secret !== 'bliver_admin_2026') {
+      const adminSecret = process.env.ADMIN_SETUP_SECRET;
+      if (!adminSecret) return res.status(500).json({ error: 'Not configured' });
+      if (req.body.secret !== adminSecret) {
         return res.status(403).json({ error: 'Wrong secret' });
       }
       await User.findByIdAndUpdate(req.user.id, { role: 'admin' });
       res.json({ ok: true, message: 'Admin role granted' });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 

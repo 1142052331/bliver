@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import api from '../api';
-import { clearAuth } from '../auth';
+import { clearAuth, getToken } from '../auth';
 
 function getSocketURL() {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
@@ -40,13 +40,16 @@ export default function useSocket({
 
     const socketUrl = getSocketURL();
     console.log('[Socket] Connecting to:', socketUrl);
-    const socket = io(socketUrl);
+    const token = getToken();
+    const socket = io(socketUrl, { auth: { token } });
     socketRef.current = socket;
 
-    socket.on('connect', () => console.log('[Socket] Connected:', socket.id));
+    socket.on('connect', () => {
+      console.log('[Socket] Connected:', socket.id);
+      socket.emit('user:online');
+    });
     socket.on('connect_error', (e) => console.error('[Socket] Connect error:', e.message));
     socket.on('disconnect', (reason) => console.log('[Socket] Disconnected:', reason));
-    socket.emit('user:online', user._id);
 
     socket.on('online:count', (data) => {
       setOnlineCount(data.count);

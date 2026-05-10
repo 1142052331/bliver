@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'bliver_secret_key_change_in_prod';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('FATAL: JWT_SECRET environment variable is required');
 
 const auth = (req, res, next) => {
   const header = req.headers.authorization;
@@ -18,13 +19,15 @@ const auth = (req, res, next) => {
 
 const admin = async (req, res, next) => {
   try {
+    // Trust JWT role first (saves DB query), fall back to DB on cache miss
+    if (req.user.role === 'admin') return next();
     const user = await User.findById(req.user.id);
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin only' });
     }
     next();
   } catch {
-    res.status(403).json({ error: 'Admin only' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 

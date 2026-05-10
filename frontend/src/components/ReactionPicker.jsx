@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { Heart } from 'lucide-react';
 
 const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '🙏', '👍'];
@@ -6,9 +6,10 @@ const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '🙏', '👍'];
 export default function ReactionPicker({ fp, userId, onReact }) {
   const [showPicker, setShowPicker] = useState(false);
   const timerRef = useRef(null);
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const reactions = fp.reactions || [];
-  const myReaction = reactions.find((r) => r.userId === userId);
+  const myReaction = reactions.find((r) => r.userId?.toString() === userId || r.userId === userId);
   const reactionSummary = useMemo(() =>
     REACTION_EMOJIS
       .map((e) => {

@@ -1,6 +1,6 @@
-import { MapPin, LogOut, Bell, Shield, LogIn, UserPlus } from 'lucide-react';
+import { MapPin, LogOut, Bell, Megaphone, Users, Shield, LogIn, UserPlus } from 'lucide-react';
 
-export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister, onCheckIn, onLogoClick }) {
+export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, announceHasUnread, onAnnounceClick, friendUnreadCount, onFriendsClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister, onCheckIn, onLogoClick }) {
   return (
     <nav className="absolute top-3 z-[1000] hidden md:flex items-center justify-between
       px-4 py-2.5 aurora-glass rounded-2xl"
@@ -35,6 +35,33 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
           <span className="text-white/30">在线</span>
         </div>
 
+        {/* Announcements */}
+        {user && (
+          <button onClick={onAnnounceClick}
+            className="relative p-2 hover:bg-white/[0.04] rounded-xl transition-all duration-200 text-white/50 hover:text-white/80">
+            <Megaphone className="w-4 h-4" />
+            {announceHasUnread && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400
+                shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
+            )}
+          </button>
+        )}
+
+        {/* Friends */}
+        {user && (
+          <button onClick={onFriendsClick}
+            className="relative p-2 hover:bg-white/[0.04] rounded-xl transition-all duration-200 text-white/50 hover:text-white/80">
+            <Users className="w-4 h-4" />
+            {friendUnreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center
+                bg-red-500 text-white text-[9px] font-bold rounded-full
+                shadow-[0_0_8px_rgba(239,68,68,0.4)]">
+                {friendUnreadCount > 99 ? '99+' : friendUnreadCount}
+              </span>
+            )}
+          </button>
+        )}
+
         {/* Bell */}
         {user && (
           <button onClick={onBellClick}
@@ -68,7 +95,8 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl}
                   className="w-8 h-8 rounded-full object-cover ring-2 ring-teal-400/30
-                    hover:ring-teal-400/60 transition-all duration-200" />
+                    hover:ring-teal-400/60 transition-all duration-200"
+                  onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
               ) : (
                 <div className="w-8 h-8 rounded-full aurora-btn flex items-center justify-center
                   text-white text-xs font-bold ring-2 ring-teal-400/30 hover:ring-teal-400/60 transition-all duration-200">

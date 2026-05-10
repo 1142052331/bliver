@@ -3,6 +3,8 @@ const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
@@ -11,6 +13,9 @@ const { blurCoordinate } = require('./services/location');
 const apiRoutes = require('./routes/api');
 const adminRoutes = require('./routes/admin');
 const pushRoutes = require('./routes/push');
+const announcementRoutes = require('./routes/announcements');
+const friendRoutes = require('./routes/friends');
+const messageRoutes = require('./routes/messages');
 const setupSocket = require('./socket');
 
 const app = express();
@@ -21,7 +26,17 @@ const io = new Server(server, {
 
 app.set('trust proxy', true);
 app.use(cors());
-app.use(express.json());
+app.use(helmet());
+app.use(express.json({ limit: '1mb' }));
+
+// ── Global rate limit: 200 req/min per IP ──
+app.use(rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: '请求过于频繁，请稍后再试' },
+}));
 app.use((req, res, next) => {
   res.charset = 'utf-8';
   next();
@@ -30,6 +45,9 @@ app.use((req, res, next) => {
 app.use('/api', apiRoutes(io));
 app.use('/api', adminRoutes(io));
 app.use('/api', pushRoutes());
+app.use('/api', announcementRoutes());
+app.use('/api', friendRoutes());
+app.use('/api', messageRoutes());
 
 // Serve frontend static files
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');

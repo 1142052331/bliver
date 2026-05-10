@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { X, Clock, Trash2, Share2, Check } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
 
@@ -7,11 +7,14 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
     new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
   const [copiedId, setCopiedId] = useState(null);
+  const copyTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(copyTimerRef.current), []);
 
   const handleCopy = (fpId) => {
     onShare(fpId);
     setCopiedId(fpId);
-    setTimeout(() => setCopiedId(null), 2000);
+    clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
@@ -22,7 +25,7 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
           onClick={() => user?._id && window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
         >
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover hover:ring-2 hover:ring-blue-300 transition-all" />
+            <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover hover:ring-2 hover:ring-blue-300 transition-all" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
           ) : (
             <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-blue-300 transition-all">
               {(user?.name || '?')[0]}
