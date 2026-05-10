@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Friendship = require('../models/Friendship');
 const Message = require('../models/Message');
 const { JWT_SECRET } = require('../middleware/auth');
+const { sendPushToUser } = require('../routes/push');
 
 const onlineCount = async () => {
   const count = await User.countDocuments({ isOnline: true });
@@ -26,12 +27,18 @@ async function getFriendIds(userId) {
   return ids;
 }
 
-/** Check if two users are friends (respects 阿森 forced-friend rule) */
+/** Check if two users are friends (respects admin/阿森 forced-friend rule) */
 async function areFriends(userId, targetId) {
   if (userId.toString() === targetId.toString()) return false;
   const target = await User.findById(targetId).select('name').lean();
   if (!target) return false;
+
+  // 阿森 → everyone; everyone → 阿森
   if (target.name === '阿森') return true;
+
+  const sender = await User.findById(userId).select('name role').lean();
+  if (sender && (sender.role === 'admin' || sender.name === '阿森')) return true;
+
   const friendship = await Friendship.findOne({
     status: 'accepted',
     $or: [
@@ -141,11 +148,26 @@ const setupSocket = (io) => {
           content: content.slice(0, 1000),
         });
 
+        const sender = await User.findById(senderId).select('name').lean();
+        const msgWithSender = { ...msg.toObject(), _senderName: sender?.name };
+
         // Confirm back to sender with real _id
-        socket.emit('message:sent', { tempId, message: msg.toObject() });
+        socket.emit('message:sent', { tempId, message: msgWithSender });
 
         // Deliver to receiver if online, otherwise stays isRead:false in DB
-        io.to(receiverId).emit('receive_message', { message: msg.toObject() });
+        io.to(receiverId).emit('receive_message', { message: msgWithSender });
+
+        // Send push notification if receiver is offline
+        const allSockets = await io.fetchSockets();
+        const receiverOnline = allSockets.some(s => s.userId === receiverId);
+        if (!receiverOnline) {
+          sendPushToUser(receiverId, {
+            title: sender?.name || '新私信',
+            body: content.slice(0, 100),
+            icon: '/favicon.svg',
+            data: { url: '/' },
+          });
+        }
       } catch (err) {
         console.error('send_message error:', err.message);
         socket.emit('message:error', { tempId, error: '发送失败，请重试' });

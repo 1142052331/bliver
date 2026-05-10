@@ -61,6 +61,8 @@ export default function useFriends({ user, socketRef }) {
         ...prev,
         [message.senderId]: (prev[message.senderId] || 0) + 1,
       }));
+      // Dispatch for global Toast (App.jsx will decide whether to show)
+      window.dispatchEvent(new CustomEvent('ws:new_message', { detail: message }));
     };
 
     socket.on('friend:online', onFriendOnline);

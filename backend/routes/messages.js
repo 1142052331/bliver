@@ -8,13 +8,16 @@ const { contentLimiter } = require('../middleware/rateLimiter');
 
 const PAGE_SIZE = 20;
 
-/** Check if two users are friends (or target is 阿森 — forced friend) */
+/** Check if two users are friends (or admin/阿森 forced-friend rule) */
 async function areFriends(userId, targetId) {
   const target = await User.findById(targetId).select('name').lean();
   if (!target) return false;
 
-  // 阿森 is everyone's forced friend
+  // 阿森 → everyone; everyone → 阿森
   if (target.name === '阿森') return true;
+
+  const sender = await User.findById(userId).select('name role').lean();
+  if (sender && (sender.role === 'admin' || sender.name === '阿森')) return true;
 
   const friendship = await Friendship.findOne({
     status: 'accepted',

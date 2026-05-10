@@ -336,10 +336,37 @@ export default function App() {
   const isAdmin = user?.role === 'admin';
   const isAsen = user?.name === '阿森';
 
-  // Derived: friend info for ChatWindow
-  const chatFriend = chatUserId ? friends.find(f => f._id === chatUserId) || {
-    _id: chatUserId, name: '用户', avatarUrl: null,
-  } : null;
+  // Derived: friend info for ChatWindow (async fallback for non-friend admin chats)
+  const [chatFriendMeta, setChatFriendMeta] = useState(null);
+  useEffect(() => {
+    if (!chatUserId) { setChatFriendMeta(null); return; }
+    let cancelled = false;
+    const existing = friends.find(f => f._id === chatUserId);
+    if (existing) {
+      setChatFriendMeta(existing);
+    } else {
+      api.get(`/api/users/${chatUserId}/profile`).then(res => {
+        if (!cancelled && res?.data?.user) {
+          setChatFriendMeta({ _id: chatUserId, name: res.data.user.name, avatarUrl: res.data.user.avatarUrl });
+        }
+      }).catch(() => {
+        if (!cancelled) setChatFriendMeta({ _id: chatUserId, name: '用户', avatarUrl: null });
+      });
+    }
+    return () => { cancelled = true; };
+  }, [chatUserId, friends]);
+
+  // Toast listener for new private messages (when chat window is not focused on sender)
+  useEffect(() => {
+    const handler = (e) => {
+      const msg = e.detail;
+      if (msg?.senderId && chatUserId !== msg.senderId) {
+        setToast(`来自 ${msg._senderName || '好友'} 的新私信`);
+      }
+    };
+    window.addEventListener('ws:new_message', handler);
+    return () => window.removeEventListener('ws:new_message', handler);
+  }, [chatUserId]);
 
   const totalFriendUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
@@ -433,11 +460,11 @@ export default function App() {
           />
         )}
 
-        {chatUserId && chatFriend && (
+        {chatUserId && chatFriendMeta && (
           <ChatWindow
             chatUserId={chatUserId}
-            friendName={chatFriend.name}
-            friendAvatar={chatFriend.avatarUrl}
+            friendName={chatFriendMeta.name}
+            friendAvatar={chatFriendMeta.avatarUrl}
             isOnline={onlineStatus[chatUserId] || false}
             user={user}
             socketRef={socketRef}
