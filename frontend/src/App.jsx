@@ -6,7 +6,7 @@ import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { MapPin, Image, Clock } from 'lucide-react';
+import { MapPin, Image, Clock, Megaphone } from 'lucide-react';
 
 import NavBar from './components/NavBar';
 import AuthModal from './components/AuthModal';
@@ -363,6 +363,26 @@ export default function App() {
           Bliver
         </button>
 
+        {/* Mobile announcement button — below Bliver watermark */}
+        {user && (
+          <button
+            type="button"
+            onClick={() => setShowAnnouncements(true)}
+            className="md:hidden fixed z-[1000] pointer-events-auto
+              w-9 h-9 rounded-full flex items-center justify-center
+              bg-[#121212]/50 backdrop-blur-xl
+              border border-white/10
+              shadow-lg cursor-pointer active:scale-90 transition-transform duration-200"
+            style={{ left: 'max(14px, env(safe-area-inset-left))', top: '4rem' }}
+          >
+            <Megaphone className="w-4 h-4 text-white/60" />
+            {announceHasUnread && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-amber-400
+                shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
+            )}
+          </button>
+        )}
+
         <NavBar
           onlineCount={onlineCount}
           user={user}
@@ -492,8 +512,6 @@ export default function App() {
           user={user}
           isAdmin={isAdmin}
           unreadCount={unreadCount}
-          announceHasUnread={announceHasUnread}
-          onAnnounce={() => setShowAnnouncements(true)}
           friendUnreadCount={totalFriendUnread}
           onFriends={() => setShowFriends(true)}
           onCheckIn={() => {

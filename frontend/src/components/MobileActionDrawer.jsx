@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, Clock, Image, Bell, Megaphone, Users, User, Shield, Menu, X } from 'lucide-react';
+import { MapPin, Clock, Image, Bell, Users, User, Shield, Menu, X } from 'lucide-react';
 
 export default function MobileActionDrawer({
-  user, isAdmin, unreadCount, announceHasUnread, friendUnreadCount,
+  user, isAdmin, unreadCount, friendUnreadCount,
   onCheckIn, onTimeline, onPhotoWall, onProfile,
-  onBell, onAnnounce, onFriends, onOpenAdmin, onOpenLogin, onOpenRegister,
+  onBell, onFriends, onOpenAdmin, onOpenLogin, onOpenRegister,
 }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
@@ -108,21 +108,6 @@ export default function MobileActionDrawer({
             <Image className="w-5 h-5 text-purple-400" />
             照片墙
           </button>
-
-          {/* Announcements */}
-          {user && (
-            <button
-              type="button"
-              onClick={closeAnd(onAnnounce)}
-              className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06] relative`}
-            >
-              <Megaphone className="w-5 h-5 text-amber-400" />
-              公告
-              {announceHasUnread && (
-                <span className="ml-auto w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
-              )}
-            </button>
-          )}
 
           {/* Friends */}
           {user && (
