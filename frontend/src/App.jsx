@@ -121,8 +121,6 @@ export default function App() {
         clearAuth();
         setUser(null);
       });
-    } else if (!isAutoLogin()) {
-      clearAuth();
     }
     return () => controller.abort();
   }, []);
