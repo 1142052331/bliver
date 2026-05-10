@@ -58,7 +58,7 @@ export default function useSocket({
       setNotifications(prev => {
         const apiIds = new Set(res.data.notifications.map(n => n._id));
         const socketOnly = prev.filter(n => !apiIds.has(n._id));
-        return [...res.data.notifications, ...socketOnly];
+        return [...socketOnly, ...res.data.notifications];
       });
     }).catch(() => {});
 
