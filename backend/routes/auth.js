@@ -4,13 +4,13 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
 const { auth, JWT_SECRET } = require('../middleware/auth');
-const { authLimiter } = require('../middleware/rateLimiter');
+
 
 module.exports = () => {
   const router = express.Router();
 
   // POST /api/auth/register
-  router.post('/auth/register', authLimiter, upload.single('avatar'), uploadToCloudinary, async (req, res) => {
+  router.post('/auth/register', upload.single('avatar'), uploadToCloudinary, async (req, res) => {
     try {
       const { name, password } = req.body;
       if (!name || !password) return res.status(400).json({ error: 'Name and password required' });
@@ -33,7 +33,7 @@ module.exports = () => {
   });
 
   // POST /api/auth/login
-  router.post('/auth/login', authLimiter, async (req, res) => {
+  router.post('/auth/login', async (req, res) => {
     try {
       const { name, password } = req.body;
       const user = await User.findOne({ name });
