@@ -39,8 +39,24 @@ module.exports = () => {
           const asenId = asen._id.toString();
           const alreadyExists = friends.some(f => f._id.toString() === asenId);
           if (!alreadyExists) {
-            friends.unshift(asen); // Place 阿森 at the top
+            friends.unshift(asen);
           }
+        }
+      } else {
+        // 阿森本人: inject users with chat history (forced-friend symmetry)
+        const Message = require('../models/Message');
+        const sentIds = await Message.distinct('receiverId', { senderId: userId });
+        const recvIds = await Message.distinct('senderId', { receiverId: userId });
+        const chatterIdSet = new Set([...sentIds.map(String), ...recvIds.map(String)]);
+        // Remove IDs already in friends list
+        friends.forEach(f => chatterIdSet.delete(f._id.toString()));
+
+        if (chatterIdSet.size > 0) {
+          const chatterIds = [...chatterIdSet].map(id => new mongoose.Types.ObjectId(id));
+          const chatters = await User.find({ _id: { $in: chatterIds } })
+            .select('name avatarUrl isOnline role').lean();
+          // Prepend chatters — they appear above any explicit friends
+          friends.unshift(...chatters);
         }
       }
 
