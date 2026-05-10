@@ -255,7 +255,10 @@ export default function App() {
   // ── Event listeners ────────────────────────────────────
 
   useEffect(() => {
-    const handler = (e) => setClusterData(e.detail);
+    const handler = (e) => {
+      console.log('[App] cluster:click received, footprints:', e.detail?.footprints?.length);
+      setClusterData(e.detail);
+    };
     window.addEventListener('cluster:click', handler);
     return () => window.removeEventListener('cluster:click', handler);
   }, []);

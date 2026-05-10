@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
-import { X, MapPin, Clock, MessageCircle } from 'lucide-react';
+import { X, MapPin, Clock, MessageCircle, Bell } from 'lucide-react';
 import FootprintDetailModal from './FootprintDetailModal';
+import { getReadMap, isUnread } from '../readStatus';
 
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -10,12 +11,16 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
   const [detailFpId, setDetailFpId] = useState(null);
   const detailFp = detailFpId ? footprints.find(f => f._id === detailFpId) : null;
 
-  // Auto-open detail modal triggered by timeline click (via activeFootprintId)
+  // Auto-open detail for single footprint (from marker click) or timeline click
   useEffect(() => {
     if (autoOpenId) {
+      console.log('[ClusterDetailPanel] autoOpenId:', autoOpenId);
       setDetailFpId(autoOpenId);
+    } else if (footprints.length === 1) {
+      console.log('[ClusterDetailPanel] auto-open single fp:', footprints[0]._id);
+      setDetailFpId(footprints[0]._id);
     }
-  }, [autoOpenId]);
+  }, [autoOpenId, footprints]);
 
   const grouped = useMemo(() => {
     const map = {};
@@ -27,6 +32,17 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
     Object.values(map).forEach((g) => g.items.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
     return Object.values(map);
   }, [footprints]);
+
+  // Read once for all cards — check which footprints are unread
+  const readMap = useMemo(() => getReadMap(), [footprints]);
+  const unreadSet = useMemo(() => {
+    const s = new Set();
+    footprints.forEach((fp) => {
+      if (isUnread(fp, readMap)) s.add(fp._id);
+    });
+    return s;
+  }, [footprints, readMap]);
+  const hasAnyUnread = unreadSet.size > 0;
 
   const placeName = footprints[0]?.placeName || 'this location';
   const count = footprints.length;
@@ -58,8 +74,15 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div>
-            <h2 className="font-bold text-lg text-gray-800">
+            <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2">
               {count} footprint{count > 1 ? 's' : ''}
+              {hasAnyUnread && (
+                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold"
+                  style={{ background: 'rgba(34,211,238,0.12)', color: '#0891b2' }}>
+                  <Bell className="w-3 h-3" />
+                  {unreadSet.size} 新消息
+                </span>
+              )}
             </h2>
             <p className="text-sm text-gray-400 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" />
@@ -103,13 +126,29 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
                 {items.map((fp) => {
                   const reactionCount = (fp.reactions || []).length;
                   const commentCount = fp.comments?.length || 0;
+                  const fpUnread = unreadSet.has(fp._id);
 
                   return (
                     <div
                       key={fp._id}
                       onClick={() => setDetailFpId(fp._id)}
-                      className="flex gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+                      className={`flex gap-3 p-3 rounded-xl transition-colors cursor-pointer relative ${
+                        fpUnread
+                          ? 'bg-cyan-50 border border-cyan-200 hover:bg-cyan-100'
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
                     >
+                      {/* Unread badge */}
+                      {fpUnread && (
+                        <span className="absolute -top-1.5 -right-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold z-10"
+                          style={{
+                            background: '#22d3ee',
+                            color: '#fff',
+                            boxShadow: '0 0 8px rgba(34,211,238,0.5)',
+                          }}>
+                          新
+                        </span>
+                      )}
                       {/* Thumbnail — only show when photo exists */}
                       {fp.photoUrl && (
                         <img

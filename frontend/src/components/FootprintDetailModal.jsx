@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { X, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { X, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send, Bell } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
+import { getReadMap, markRead, getUnreadComments, isNewFootprint } from '../readStatus';
 
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -23,6 +24,33 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
   const [commentText, setCommentText] = useState('');
   const [sending, setSending] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+
+  // ── New-message section ──────────────────────────────
+  const [unreadDismissed, setUnreadDismissed] = useState(false);
+  useEffect(() => { setUnreadDismissed(false); }, [fp._id]);
+
+  const { unreadComments, footprintIsNew } = useMemo(() => {
+    if (unreadDismissed) return { unreadComments: [], footprintIsNew: false };
+    try {
+      const readMap = getReadMap();
+      const comments = getUnreadComments(fp, readMap);
+      const isNew = isNewFootprint(fp, readMap);
+      console.log('[FootprintDetailModal] fpId:', fp._id?.slice(-6),
+        'footprintIsNew:', isNew,
+        'unreadComments:', comments.length);
+      return { unreadComments: comments, footprintIsNew: isNew };
+    } catch { return { unreadComments: [], footprintIsNew: false }; }
+  }, [fp, unreadDismissed]);
+
+  const showUnreadSection = unreadComments.length > 0 || footprintIsNew;
+
+  const handleDismissUnread = () => {
+    console.log('[FootprintDetailModal] handleDismissUnread called for', fp._id?.slice(-6));
+    markRead(fp._id);
+    setUnreadDismissed(true);
+    window.dispatchEvent(new CustomEvent('footprint:markRead'));
+  };
+  // ──────────────────────────────────────────────────────
 
   const user = fp.userId || {};
   const comments = fp.comments || [];
@@ -139,8 +167,62 @@ export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onD
             </div>
           </div>
 
+          {/* ── New-Message Section ────────────────────────── */}
+          {showUnreadSection && (
+            <div className="mt-4 pt-4 border-t border-cyan-400/20">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="flex items-center gap-1.5 font-semibold text-sm"
+                  style={{ fontFamily: 'var(--font-body)', color: '#22d3ee' }}>
+                  <Bell className="w-4 h-4" />
+                  {footprintIsNew && unreadComments.length > 0
+                    ? '新打卡 · 有新留言'
+                    : footprintIsNew
+                      ? '新打卡'
+                      : '新消息 · 你还没看过'}
+                </h3>
+                <button
+                  onClick={handleDismissUnread}
+                  className="text-xs px-3 py-1 rounded-full
+                    bg-cyan-400/10 text-cyan-400
+                    border border-cyan-400/25
+                    hover:bg-cyan-400/20 transition-colors"
+                  style={{ fontFamily: 'var(--font-body)' }}
+                >
+                  已读
+                </button>
+              </div>
+              {footprintIsNew && unreadComments.length === 0 && (
+                <p className="text-xs text-cyan-400/60 mb-3"
+                  style={{ fontFamily: 'var(--font-body)' }}>
+                  这条足迹你还没看过
+                </p>
+              )}
+              {unreadComments.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {unreadComments.map((c, i) => (
+                    <div key={c._id || 'unread-' + i}
+                      className="relative p-3 rounded-xl transition-all"
+                      style={{
+                        background: 'rgba(34,211,238,0.06)',
+                        border: '1px solid rgba(34,211,238,0.15)',
+                      }}>
+                      <p className="text-sm pr-6">
+                        <span className="font-semibold text-cyan-300">{c.username}</span>
+                        <span className="text-white/15 mx-1.5">·</span>
+                        <span className="text-white/80">{c.content}</span>
+                      </p>
+                      <p className="text-xs text-white/20 mt-1.5">
+                        {new Date(c.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Comments Section ──────────────────────────── */}
-          <div className="mt-4 pt-4 border-t border-white/[0.06]">
+          <div className={showUnreadSection ? 'pt-4 border-t border-white/[0.06]' : 'mt-4 pt-4 border-t border-white/[0.06]'}>
             <h3 className="flex items-center gap-1.5 font-semibold text-sm text-white/60 mb-3"
               style={{ fontFamily: 'var(--font-body)' }}>
               <MessageCircle className="w-4 h-4 text-teal-400" />
