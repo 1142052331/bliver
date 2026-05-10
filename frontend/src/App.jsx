@@ -376,39 +376,45 @@ export default function App() {
     <ErrorBoundary>
       <div className="relative w-full h-dvh overflow-hidden"
         style={{ background: 'var(--aurora-deep)' }}>
-        {/* Mobile watermark — Bliver branding, opens AboutModal on tap */}
-        <button
-          type="button"
-          onClick={() => setShowAbout(true)}
-          className="md:hidden fixed top-6 z-[1000] pointer-events-auto
-            px-4 py-2 rounded-full
-            bg-[#121212]/50 backdrop-blur-xl
-            border border-white/10
-            text-white font-bold shadow-lg cursor-pointer"
-          style={{ fontFamily: 'var(--font-body)', left: 'max(14px, env(safe-area-inset-left))' }}
-        >
-          Bliver
-        </button>
+        {/* ── Mobile top bar: Bliver (left) ‖ 公告 + 好友 + 菜单 (right) ── */}
+        <div className="md:hidden fixed z-[1000] pointer-events-none inset-x-0 flex items-start justify-between"
+          style={{ top: `max(14px, env(safe-area-inset-top))`, paddingLeft: `max(14px, env(safe-area-inset-left))`, paddingRight: `max(12px, env(safe-area-inset-right))` }}>
 
-        {/* Mobile announcement button — below Bliver watermark */}
-        {user && (
-          <button
-            type="button"
-            onClick={() => setShowAnnouncements(true)}
-            className="md:hidden fixed z-[1000] pointer-events-auto
-              w-9 h-9 rounded-full flex items-center justify-center
-              bg-[#121212]/50 backdrop-blur-xl
-              border border-white/10
-              shadow-lg cursor-pointer active:scale-90 transition-transform duration-200"
-            style={{ left: 'max(14px, env(safe-area-inset-left))', top: '4rem' }}
-          >
-            <Megaphone className="w-4 h-4 text-white/60" />
-            {announceHasUnread && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-amber-400
-                shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
+          {/* Left column */}
+          <div className="pointer-events-auto flex flex-col items-start gap-2.5">
+            <button
+              type="button"
+              onClick={() => setShowAbout(true)}
+              className="px-3.5 py-2 rounded-xl
+                bg-[#121212]/50 backdrop-blur-xl
+                border border-white/10
+                text-white text-sm font-bold shadow-lg
+                active:scale-95 transition-transform duration-150"
+              style={{ fontFamily: 'var(--font-body)' }}
+            >
+              Bliver
+            </button>
+
+            {user && (
+              <button
+                type="button"
+                onClick={() => setShowAnnouncements(true)}
+                className="relative w-8 h-8 rounded-lg flex items-center justify-center
+                  bg-[#121212]/50 backdrop-blur-xl
+                  border border-white/[0.08]
+                  shadow-lg active:scale-90 transition-all duration-150"
+              >
+                <Megaphone className="w-3.5 h-3.5 text-white/50" />
+                {announceHasUnread && (
+                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400
+                    shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
+                )}
+              </button>
             )}
-          </button>
-        )}
+          </div>
+
+          {/* Right: handled by MobileActionDrawer (unchanged) */}
+        </div>
 
         <NavBar
           onlineCount={onlineCount}

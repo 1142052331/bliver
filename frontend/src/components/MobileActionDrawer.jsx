@@ -27,7 +27,7 @@ export default function MobileActionDrawer({
 
   return (
     <div className="md:hidden fixed z-[1000]"
-      style={{ right: `max(12px, env(safe-area-inset-right))`, top: '1.25rem' }}>
+      style={{ right: `max(12px, env(safe-area-inset-right))`, top: `max(14px, env(safe-area-inset-top))` }}>
 
       {/* ── FAB hamburger button ─────────────────────────── */}
       {!open && (
