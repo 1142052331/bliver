@@ -374,8 +374,8 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="relative w-full h-dvh overflow-hidden"
-        style={{ background: 'var(--aurora-deep)' }}>
+      <div className="relative w-full h-screen overflow-hidden"
+        style={{ background: 'var(--aurora-deep)', minHeight: '100dvh' }}>
         {/* ── Mobile top bar: Bliver (left) ‖ 公告 + 好友 + 菜单 (right) ── */}
         <div className="md:hidden fixed z-[1000] pointer-events-none inset-x-0 flex items-start justify-between"
           style={{ top: `max(14px, env(safe-area-inset-top))`, paddingLeft: `max(14px, env(safe-area-inset-left))`, paddingRight: `max(12px, env(safe-area-inset-right))` }}>
@@ -479,10 +479,13 @@ export default function App() {
           />
         )}
 
-        <MapContainer key="map" center={CENTER} zoom={6} scrollWheelZoom zoomControl={false} className="w-full h-full">
+        <MapContainer key="map" center={CENTER} zoom={6} scrollWheelZoom zoomControl={false}
+          className="absolute inset-0"
+          style={{ zIndex: 0 }}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            crossOrigin=""
           />
           <RecenterOnLoad footprints={footprints} targetId={shareTarget} />
           <FlyToFootprint
