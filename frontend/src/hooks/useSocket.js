@@ -51,15 +51,20 @@ export default function useSocket({
       }
     } catch {}
 
-    // Initial notification fetch
+    // ── Fetch notifications BEFORE socket connects (avoid race) ──
+    const socketUrl = getSocketURL();
     api.get('/api/notifications').then((res) => {
-      setNotifications(res.data.notifications);
+      // Merge: keep any socket-delivered notifications that arrived during fetch
+      setNotifications(prev => {
+        const apiIds = new Set(res.data.notifications.map(n => n._id));
+        const socketOnly = prev.filter(n => !apiIds.has(n._id));
+        return [...res.data.notifications, ...socketOnly];
+      });
     }).catch(() => {});
 
-    const socketUrl = getSocketURL();
-    console.log('[Socket] Connecting to:', socketUrl);
     const socket = io(socketUrl, { auth: { token } });
     socketRef.current = socket;
+    console.log('[Socket] Connecting:', socketUrl);
 
     socket.on('connect', () => {
       console.log('[Socket] Connected:', socket.id, 'userId:', user._id?.slice(-6));

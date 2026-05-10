@@ -172,7 +172,12 @@ export default function App() {
       }).catch(() => {});
 
       api.get('/api/notifications', { signal }).then((res) => {
-        setNotifications(res.data.notifications);
+        // Merge: preserve socket-delivered notifications
+        setNotifications(prev => {
+          const apiIds = new Set(res.data.notifications.map(n => n._id));
+          const socketOnly = prev.filter(n => !apiIds.has(n._id));
+          return [...res.data.notifications, ...socketOnly];
+        });
       }).catch(() => {});
     };
 
