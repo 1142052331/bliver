@@ -33,6 +33,24 @@ export default function useSocket({
       return;
     }
 
+    // ── Defensive: verify stored token belongs to current user ──
+    const token = getToken();
+    if (!token) {
+      clearAuth();
+      setUser(null);
+      return;
+    }
+    // Decode JWT payload to verify identity match (prevents cross-tab token pollution)
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.id !== user._id) {
+        console.warn('[Socket] Token mismatch — clearing stale auth');
+        clearAuth();
+        setUser(null);
+        return;
+      }
+    } catch {}
+
     // Initial notification fetch
     api.get('/api/notifications').then((res) => {
       setNotifications(res.data.notifications);
@@ -40,12 +58,11 @@ export default function useSocket({
 
     const socketUrl = getSocketURL();
     console.log('[Socket] Connecting to:', socketUrl);
-    const token = getToken();
     const socket = io(socketUrl, { auth: { token } });
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('[Socket] Connected:', socket.id);
+      console.log('[Socket] Connected:', socket.id, 'userId:', user._id?.slice(-6));
       socket.emit('user:online');
     });
     socket.on('connect_error', (e) => console.error('[Socket] Connect error:', e.message));
