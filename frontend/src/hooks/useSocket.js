@@ -33,23 +33,12 @@ export default function useSocket({
       return;
     }
 
-    // ── Defensive: verify stored token belongs to current user ──
     const token = getToken();
     if (!token) {
       clearAuth();
       setUser(null);
       return;
     }
-    // Decode JWT payload to verify identity match (prevents cross-tab token pollution)
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      if (payload.id !== user._id) {
-        console.warn('[Socket] Token mismatch — clearing stale auth');
-        clearAuth();
-        setUser(null);
-        return;
-      }
-    } catch {}
 
     // ── Fetch notifications BEFORE socket connects (avoid race) ──
     const socketUrl = getSocketURL();

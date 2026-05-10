@@ -114,8 +114,7 @@ export default function App() {
       api.get('/api/auth/me', { signal: controller.signal }).then((res) => {
         const u = res.data.user;
         setUser(u);
-        saveAuth({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl, role: u.role }, getToken());
-        // No broadcastLogin here — page refresh auto-login should not notify other tabs
+        // Don't overwrite localStorage on auto-login — prevents cross-tab write storm
         subscribeToPush().catch(() => {});
       }).catch((err) => {
         if (err.name === 'CanceledError') return;
