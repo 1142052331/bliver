@@ -4,7 +4,10 @@
       "Bash(npx kill-port *)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Count: {len\\(d[\\\\\"friends\\\\\"]\\)}'\\); [print\\(f' - {f[\\\\\"name\\\\\"]}'\\) for f in d['friends']]\")",
       "Bash(cd c:/Users/1\\\\Desktop/Bliver\\\\frontend && npx vite build 2>&1 | tail -6)",
-      "Read(//c/Users/1Desktop/**)"
+      "Read(//c/Users/1Desktop/**)",
+      "Bash(node index.js)",
+      "Bash(cat /tmp/backend.log 2>/dev/null)",
+      "Read(//tmp/**)"
     ]
   }
 }

@@ -35,6 +35,7 @@ app.use(rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: { error: '请求过于频繁，请稍后再试' },
 }));
 app.use((req, res, next) => {
