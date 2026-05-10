@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import api from './api';
 import { getUser, getToken, clearAuth, saveAuth, isAutoLogin } from './auth';
+import { broadcastLogin, broadcastLogout, listenAuthSync } from './authSync';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -114,6 +115,7 @@ export default function App() {
         const u = res.data.user;
         setUser(u);
         saveAuth({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl, role: u.role }, getToken());
+        broadcastLogin(u);
         subscribeToPush().catch(() => {});
       }).catch((err) => {
         if (err.name === 'CanceledError') return;
@@ -187,6 +189,21 @@ export default function App() {
       if (visibilityAbortRef.current) visibilityAbortRef.current.abort();
     };
   }, [user, footprintPeriod]);
+
+  // ── Cross-tab auth sync (BroadcastChannel) ─────────────
+  useEffect(() => {
+    return listenAuthSync({
+      currentUserId: user?._id,
+      onForeignLogin: () => {
+        clearAuth();
+        window.location.reload();
+      },
+      onForeignLogout: () => {
+        clearAuth();
+        window.location.reload();
+      },
+    });
+  }, [user?._id]);
 
   // ── Keep flyArrivedFp synced with latest footprints ────
   useEffect(() => {
@@ -323,6 +340,7 @@ export default function App() {
 
   const handleLogout = () => {
     clearAuth();
+    broadcastLogout();
     setUser(null);
     setNotifications([]);
     api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
@@ -479,6 +497,7 @@ export default function App() {
             isOnline={onlineStatus[chatUserId] || false}
             user={user}
             socketRef={socketRef}
+            onOpen={() => { setToast(null); clearUnread(chatUserId); }}
             onClose={() => { clearUnread(chatUserId); setChatUserId(null); }}
             onToast={(msg) => setToast(msg)}
           />
@@ -614,7 +633,7 @@ export default function App() {
           <AuthModal
             initialTab={authTab}
             message={authMessage}
-            onDone={(u) => { setUser(u); setShowAuth(false); subscribeToPush().catch(() => {}); }}
+            onDone={(u) => { setUser(u); setShowAuth(false); broadcastLogin(u); subscribeToPush().catch(() => {}); }}
             onClose={() => setShowAuth(false)}
           />
         )}

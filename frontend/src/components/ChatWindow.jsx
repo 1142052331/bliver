@@ -8,7 +8,7 @@ function timeStr(date) {
 
 export default function ChatWindow({
   chatUserId, friendName, friendAvatar, isOnline,
-  user, socketRef, onClose, onToast,
+  user, socketRef, onOpen, onClose, onToast,
 }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +61,7 @@ export default function ChatWindow({
     setHasMore(false);
     lastMsgIdRef.current = null;
     fetchMessages();
+    onOpen?.(); // Clear Toast + unread on this chat
   }, [chatUserId, fetchMessages]);
 
   // ── Infinite scroll (IntersectionObserver) ─────────────
