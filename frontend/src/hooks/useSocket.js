@@ -22,6 +22,7 @@ export default function useSocket({
   setNotifications,
   setOnlineCount,
   setToast,
+  kickExistingRef,
 }) {
   const socketRef = useRef(null);
   const toastTimerRef = useRef(null);
@@ -58,6 +59,10 @@ export default function useSocket({
     socket.on('connect', () => {
       console.log('[Socket] Connected:', socket.id, 'userId:', user._id?.slice(-6));
       socket.emit('user:online');
+      if (kickExistingRef?.current) {
+        kickExistingRef.current = false;
+        socket.emit('force_single_session');
+      }
     });
     socket.on('connect_error', (e) => console.error('[Socket] Connect error:', e.message));
     socket.on('disconnect', (reason) => console.log('[Socket] Disconnected:', reason));

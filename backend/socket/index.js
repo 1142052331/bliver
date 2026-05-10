@@ -71,6 +71,22 @@ const setupSocket = (io) => {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id, 'userId:', socket.userId);
 
+    // ── force_single_session — kick other tabs of same user (manual login only) ──
+    socket.on('force_single_session', async () => {
+      try {
+        const userId = socket.userId;
+        const existing = await io.fetchSockets();
+        for (const s of existing) {
+          if (s.id !== socket.id && s.userId === userId) {
+            s.emit('force_logout', { reason: '您的账号在其他地方登录了' });
+            s.disconnect(true);
+          }
+        }
+      } catch (err) {
+        console.error('force_single_session error:', err.message);
+      }
+    });
+
     // ── user:online — set online + broadcast to friends ──
     socket.on('user:online', async () => {
       try {

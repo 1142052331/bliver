@@ -80,8 +80,10 @@ export default function App() {
 
   // ── Refs ──────────────────────────────────────────────
   const pendingActionRef = useRef(null);
+  const kickExistingRef = useRef(false);
   const { socketRef, toastTimerRef } = useSocket({
     user, setUser, setFootprints, setNotifications, setOnlineCount, setToast,
+    kickExistingRef,
   });
 
   const {
@@ -639,7 +641,7 @@ export default function App() {
           <AuthModal
             initialTab={authTab}
             message={authMessage}
-            onDone={(u) => { setUser(u); setShowAuth(false); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
+            onDone={(u) => { kickExistingRef.current = true; setUser(u); setShowAuth(false); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
             onClose={() => setShowAuth(false)}
           />
         )}
