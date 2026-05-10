@@ -189,10 +189,8 @@ export default function App() {
     };
 
     document.addEventListener('visibilitychange', handleWake);
-    window.addEventListener('focus', wakeSocket);
     return () => {
       document.removeEventListener('visibilitychange', handleWake);
-      window.removeEventListener('focus', wakeSocket);
       if (visibilityAbortRef.current) visibilityAbortRef.current.abort();
     };
   }, [user, footprintPeriod]);
