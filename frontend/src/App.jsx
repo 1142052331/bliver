@@ -115,7 +115,7 @@ export default function App() {
         const u = res.data.user;
         setUser(u);
         saveAuth({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl, role: u.role }, getToken());
-        broadcastLogin(u);
+        // No broadcastLogin here — page refresh auto-login should not notify other tabs
         subscribeToPush().catch(() => {});
       }).catch((err) => {
         if (err.name === 'CanceledError') return;

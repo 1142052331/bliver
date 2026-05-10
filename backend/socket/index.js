@@ -83,14 +83,9 @@ const setupSocket = (io) => {
           pendingOffline.delete(userId);
         }
 
-        // Kick existing sockets for this user (one session per account)
-        const existing = await io.fetchSockets();
-        for (const s of existing) {
-          if (s.id !== socket.id && s.userId === userId) {
-            s.emit('force_logout', { reason: '您的账号在其他地方登录了' });
-            s.disconnect(true);
-          }
-        }
+        // Check if this is the user's first connection (multi-tab support)
+        const userSockets = await io.in(userId).fetchSockets();
+        const isFirstConnection = userSockets.length === 1;
 
         const user = await User.findByIdAndUpdate(userId, { isOnline: true }, { new: true }).select('name avatarUrl');
         const count = await onlineCount();
@@ -101,21 +96,20 @@ const setupSocket = (io) => {
         // Broadcast to all connected clients (legacy)
         socket.broadcast.emit('user_online', { userId, name: user.name, avatarUrl: user.avatarUrl });
 
-        // ── 好友精准广播 ──────────────────────────
+        // ── 好友精准广播（仅第一端连接时触发）──
+        if (!isFirstConnection) return;
+
         if (user.name === '阿森') {
-          // 阿森 → 所有人都是强制好友，广播给全部在线客户端
           socket.broadcast.emit('friend:online', {
             userId, name: user.name, avatarUrl: user.avatarUrl,
           });
         } else {
-          // 普通用户 → 通知每个好友 + 额外通知阿森
           const friendIds = await getFriendIds(userId);
           for (const fid of friendIds) {
             io.to(fid).emit('friend:online', {
               userId, name: user.name, avatarUrl: user.avatarUrl,
             });
           }
-          // Force-notify 阿森
           const asen = await User.findOne({ name: '阿森', isOnline: true }).select('_id').lean();
           if (asen && !friendIds.has(asen._id.toString())) {
             io.to(asen._id.toString()).emit('friend:online', {
