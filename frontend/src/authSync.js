@@ -27,11 +27,12 @@ export function broadcastLogin(user) {
 
 /**
  * Broadcast a logout event to other tabs.
+ * @param {string} userId — the user who just logged out
  */
-export function broadcastLogout() {
+export function broadcastLogout(userId) {
   const ch = getChannel();
   if (!ch) return;
-  ch.postMessage({ type: 'logout', ts: Date.now() });
+  ch.postMessage({ type: 'logout', userId, ts: Date.now() });
 }
 
 /**
@@ -43,13 +44,17 @@ export function listenAuthSync({ currentUserId, onForeignLogin, onForeignLogout 
   if (!ch) return () => {};
 
   const handler = (event) => {
-    // Ignore messages from self (BroadcastChannel doesn't deliver to sender)
+    // BroadcastChannel does NOT deliver to sender — only OTHER tabs receive this
     const { type, userId } = event.data;
+    if (!userId) return;
     if (type === 'login' && userId !== currentUserId) {
+      // Different user logged in elsewhere → our session is stale
       onForeignLogin?.();
-    } else if (type === 'logout') {
+    } else if (type === 'logout' && userId === currentUserId) {
+      // Same user logged out elsewhere → sync logout
       onForeignLogout?.();
     }
+    // Same-user login or different-user logout → ignore
   };
 
   ch.addEventListener('message', handler);

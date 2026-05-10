@@ -152,18 +152,19 @@ export default function App() {
     return () => controller.abort();
   }, [footprintPeriod]);
 
-  // ── Visibility change: refresh data on foreground ─────
+  // ── Visibility change + focus: refresh data + wake zombie socket ──
   const visibilityAbortRef = useRef(null);
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState !== 'visible' || !user) return;
-
+    const wakeSocket = () => {
+      if (!user) return;
       if (socketRef.current && !socketRef.current.connected) {
         socketRef.current.connect();
         socketRef.current.emit('user:online');
       }
+    };
 
-      // Cancel any in-flight visibility refresh
+    const refreshData = () => {
+      if (!user) return;
       if (visibilityAbortRef.current) visibilityAbortRef.current.abort();
       const controller = new AbortController();
       visibilityAbortRef.current = controller;
@@ -174,7 +175,6 @@ export default function App() {
       }).catch(() => {});
 
       api.get('/api/notifications', { signal }).then((res) => {
-        // Merge: preserve socket-delivered notifications (socket-first = newest)
         setNotifications(prev => {
           const apiIds = new Set(res.data.notifications.map(n => n._id));
           const socketOnly = prev.filter(n => !apiIds.has(n._id));
@@ -183,9 +183,17 @@ export default function App() {
       }).catch(() => {});
     };
 
-    document.addEventListener('visibilitychange', handleVisibility);
+    const handleWake = () => {
+      if (document.visibilityState !== 'visible') return;
+      wakeSocket();
+      refreshData();
+    };
+
+    document.addEventListener('visibilitychange', handleWake);
+    window.addEventListener('focus', wakeSocket);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('visibilitychange', handleWake);
+      window.removeEventListener('focus', wakeSocket);
       if (visibilityAbortRef.current) visibilityAbortRef.current.abort();
     };
   }, [user, footprintPeriod]);
@@ -195,10 +203,12 @@ export default function App() {
     return listenAuthSync({
       currentUserId: user?._id,
       onForeignLogin: () => {
+        if (!user?._id) return; // Already logged out
         clearAuth();
         window.location.reload();
       },
       onForeignLogout: () => {
+        if (!user?._id) return; // Already logged out
         clearAuth();
         window.location.reload();
       },
@@ -339,8 +349,9 @@ export default function App() {
   }, []);
 
   const handleLogout = () => {
+    const uid = user?._id;
     clearAuth();
-    broadcastLogout();
+    broadcastLogout(uid);
     setUser(null);
     setNotifications([]);
     api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
@@ -633,7 +644,7 @@ export default function App() {
           <AuthModal
             initialTab={authTab}
             message={authMessage}
-            onDone={(u) => { setUser(u); setShowAuth(false); broadcastLogin(u); subscribeToPush().catch(() => {}); }}
+            onDone={(u) => { setUser(u); setShowAuth(false); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
             onClose={() => setShowAuth(false)}
           />
         )}
