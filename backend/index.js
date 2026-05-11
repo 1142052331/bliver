@@ -7,6 +7,15 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 require('dotenv').config();
 
+const Sentry = require('@sentry/node');
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    tracesSampleRate: 0.1,
+    environment: process.env.NODE_ENV || 'production',
+  });
+}
+
 const connectDB = require('./config/db');
 const Footprint = require('./models/Footprint');
 const { blurCoordinate } = require('./services/location');
@@ -102,6 +111,10 @@ if (require.main === module) {
       console.log(`Server running on port ${PORT}`);
     });
   });
+}
+
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
 }
 
 module.exports = { app, server, io };

@@ -1,6 +1,16 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
+import * as Sentry from '@sentry/react';
+
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 0.1,
+    environment: import.meta.env.MODE,
+  });
+}
 import api from './api';
 import useAuth from './hooks/useAuth';
 import L from 'leaflet';
