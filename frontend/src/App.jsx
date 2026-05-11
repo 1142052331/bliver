@@ -408,11 +408,12 @@ export default function App() {
           </button>
         </div>
 
-        {/* Mobile check-in FAB — one-tap access to primary action */}
+        {/* Mobile check-in FAB — iOS glass style, bottom center */}
         <div className="md:hidden fixed z-[1000] pointer-events-none transform-gpu will-change-transform"
           style={{
-            bottom: `max(24px, env(safe-area-inset-bottom))`,
-            right: `max(16px, env(safe-area-inset-right))`,
+            bottom: `max(20px, env(safe-area-inset-bottom))`,
+            left: '50%',
+            transform: 'translateX(-50%)',
           }}>
           <button
             onClick={() => {
@@ -420,12 +421,14 @@ export default function App() {
               setPendingCheckInLocation(null);
               openCheckIn();
             }}
-            className="pointer-events-auto w-14 h-14 rounded-full flex items-center justify-center
-              bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500
-              shadow-lg shadow-purple-500/30
-              active:scale-90 transition-transform duration-200"
+            className="pointer-events-auto flex items-center gap-2 px-5 py-3 rounded-full
+              bg-[#121212]/60 backdrop-blur-xl
+              border border-white/[0.08]
+              shadow-lg shadow-black/20
+              active:scale-95 transition-all duration-200"
           >
-            <MapPin className="w-6 h-6 text-white" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
+            <MapPin className="w-4 h-4 text-blue-400" />
+            <span className="text-sm font-medium text-white/80">打卡</span>
           </button>
         </div>
 

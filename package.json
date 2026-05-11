@@ -20,10 +20,10 @@
   },
   "lint-staged": {
     "frontend/src/**/*.{ts,tsx,js,jsx}": [
-      "cd frontend && npx tsc --noEmit"
+      "bash -c 'cd frontend && npx tsc --noEmit'"
     ],
     "backend/**/*.js": [
-      "cd backend && npx jest --forceExit --passWithNoTests"
+      "bash -c 'cd backend && npx jest --forceExit --passWithNoTests'"
     ]
   },
   "dependencies": {
