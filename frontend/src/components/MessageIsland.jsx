@@ -1,19 +1,36 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, ArrowRight } from 'lucide-react';
+import { Heart, MessageCircle, Eye, ArrowRight } from 'lucide-react';
 
-export default function MessageIsland({ senderName, senderId, onView, onDismiss }) {
+const typeCfg = {
+  reaction:     { Icon: Heart,         glow: 'rgba(244,63,94,0.12)',   color: 'text-rose-400',   bg: 'bg-rose-500/15' },
+  comment:      { Icon: MessageCircle, glow: 'rgba(45,212,191,0.12)',  color: 'text-teal-400',   bg: 'bg-teal-500/15' },
+  message:      { Icon: MessageCircle, glow: 'rgba(56,189,248,0.12)',  color: 'text-sky-400',    bg: 'bg-sky-500/15' },
+  profile_view: { Icon: Eye,           glow: 'rgba(168,85,247,0.12)',  color: 'text-purple-400', bg: 'bg-purple-500/15' },
+};
+
+const subLabel = {
+  reaction:     '对你的打卡有新的表态',
+  comment:      '给你的足迹留下了评论',
+  message:      '发来了新私信',
+  profile_view: '浏览了你的主页',
+};
+
+export default function MessageIsland({ type, senderName, footprintId, senderId, onView, onDismiss }) {
   useEffect(() => {
-    if (!senderId) return;
+    if (!senderName) return;
     const timer = setTimeout(onDismiss, 5000);
     return () => clearTimeout(timer);
-  }, [senderId, onDismiss]);
+  }, [senderName, onDismiss]);
 
+  const cfg = typeCfg[type] || typeCfg.comment;
+  const Icon = cfg.Icon;
   const initial = (senderName || '?')[0].toUpperCase();
+  const label = subLabel[type] || '有新动态';
 
   return (
     <AnimatePresence>
-      {senderId && (
+      {senderName && (
         <motion.div
           initial={{ opacity: 0, y: -60, scale: 0.75 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -26,21 +43,21 @@ export default function MessageIsland({ senderName, senderId, onView, onDismiss 
             pointer-events-auto cursor-default"
           style={{ transform: 'translateX(-50%)' }}
         >
-          {/* Left — Message icon */}
-          <div className="w-9 h-9 rounded-full bg-teal-500/15 flex items-center justify-center flex-shrink-0"
-            style={{ boxShadow: '0 0 12px rgba(45,212,191,0.15)' }}>
-            <MessageCircle className="w-4 h-4 text-teal-400" />
+          {/* Left — Type icon */}
+          <div className={`w-9 h-9 rounded-full ${cfg.bg} flex items-center justify-center flex-shrink-0`}
+            style={{ boxShadow: `0 0 12px ${cfg.glow}` }}>
+            <Icon className={`w-4 h-4 ${cfg.color}`} />
           </div>
 
           {/* Center — Sender avatar + name + subtitle */}
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0" onClick={onView}>
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500
               flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
               {initial}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-white truncate leading-tight">{senderName}</p>
-              <p className="text-[11px] text-gray-400 leading-tight">新私信</p>
+              <p className="text-[11px] text-gray-400 leading-tight">{label}</p>
             </div>
           </div>
 

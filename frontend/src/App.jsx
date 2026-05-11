@@ -87,10 +87,8 @@ export default function App() {
     setClusterData, setShareTarget,
     openChat, closeChat, openProfile, closeProfile,
     setAuthTab, setAuthMessage,
+    messageIsland, setMessageIsland, clearMessageIsland,
   } = useUIStore();
-
-  // ── Message island ─────────────────────────────────────
-  const [messageIsland, setMessageIsland] = useState(null);
 
   // ── Refs ──────────────────────────────────────────────
   const pendingActionRef = useRef(null);
@@ -387,6 +385,7 @@ export default function App() {
       const msg = e.detail;
       if (msg?.senderId && chatUserId !== msg.senderId) {
         setMessageIsland({
+          type: 'message',
           senderId: msg.senderId,
           senderName: msg._senderName || '好友',
         });
@@ -394,7 +393,7 @@ export default function App() {
     };
     window.addEventListener('ws:new_message', handler);
     return () => window.removeEventListener('ws:new_message', handler);
-  }, [chatUserId]);
+  }, [chatUserId, setMessageIsland]);
 
   const totalFriendUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
@@ -495,7 +494,7 @@ export default function App() {
             isOnline={onlineStatus[chatUserId] || false}
             user={user}
             socketRef={socketRef}
-            onOpen={() => { useUIStore.getState().dismissByType('message'); clearUnread(chatUserId); }}
+            onOpen={() => { useUIStore.getState().dismissByType('message'); clearMessageIsland(); clearUnread(chatUserId); }}
             onClose={() => { clearUnread(chatUserId); closeChat(); }}
             onToast={(msg) => useUIStore.getState().addNotification({ type: 'message', content: msg })}
           />
@@ -653,14 +652,20 @@ export default function App() {
         </AnimatePresence>
 
         <MessageIsland
+          type={messageIsland?.type}
           senderName={messageIsland?.senderName}
+          footprintId={messageIsland?.footprintId}
           senderId={messageIsland?.senderId}
           onView={() => {
-            const sid = messageIsland?.senderId;
-            setMessageIsland(null);
-            if (sid) openChat(sid);
+            const island = messageIsland;
+            clearMessageIsland();
+            if (island?.type === 'message' && island?.senderId) {
+              openChat(island.senderId);
+            } else if (island?.footprintId) {
+              setActiveFootprintId(island.footprintId);
+            }
           }}
-          onDismiss={() => setMessageIsland(null)}
+          onDismiss={clearMessageIsland}
         />
 
         <GlobalToaster />

@@ -30,6 +30,9 @@ const useUIStore = create((set) => ({
   // ── Floating notifications ──────────────────────
   notifications: [],
 
+  // ── Dynamic Island notification ────────────────
+  messageIsland: null,
+
   // ── Actions ─────────────────────────────────────
 
   openCheckIn: () => set({ showCheckIn: true }),
@@ -92,6 +95,10 @@ const useUIStore = create((set) => ({
     set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) })),
   dismissByType: (type) =>
     set((s) => ({ notifications: s.notifications.filter((n) => n.type !== type) })),
+
+  // ── Dynamic Island ────────────────────────────
+  setMessageIsland: (data) => set({ messageIsland: data }),
+  clearMessageIsland: () => set({ messageIsland: null }),
 }));
 
 export default useUIStore;

@@ -90,26 +90,26 @@ export default function useSocket({
       window.dispatchEvent(new CustomEvent('ws:profile:updated', { detail: data }));
     });
 
-    const add = useUIStore.getState().addNotification;
+    const setMsg = useUIStore.getState().setMessageIsland;
 
     socket.on('new_notification', (data) => {
       setNotifications((prev) => [data.notification, ...prev]);
       const n = data.notification;
-      if (n.type === 'reaction') {
-        add({ type: 'reaction', content: `${n.senderName} 对你的打卡表示了 ${n.content}` });
-      } else if (n.type === 'profile_view') {
-        add({ type: 'reaction', content: `${n.senderName} 浏览了你的主页` });
-      } else {
-        add({ type: 'comment', content: `${n.senderName} 评论了你` });
-      }
+      const type = n.type === 'profile_view' ? 'profile_view' : n.type === 'reaction' ? 'reaction' : 'comment';
+      setMsg({
+        type,
+        senderName: n.senderName,
+        footprintId: n.footprintId,
+        content: n.content,
+      });
     });
 
     socket.on('user_online', (data) => {
-      add({ type: 'online', content: `${data.name} 上线了`, duration: 3000 });
+      useUIStore.getState().addNotification({ type: 'online', content: `${data.name} 上线了`, duration: 3000 });
     });
 
     socket.on('user_offline', (data) => {
-      add({ type: 'offline', content: `${data.name} 下线了`, duration: 3000 });
+      useUIStore.getState().addNotification({ type: 'offline', content: `${data.name} 下线了`, duration: 3000 });
     });
 
     socket.on('force_logout', (data) => {
