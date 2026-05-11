@@ -1,6 +1,21 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* ── iOS viewport lockdown ─────────────────────────────── */
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  position: fixed;
+  background: #121212;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
 @theme {
   --animate-slide-up: slide-up 0.3s ease-out;
 }
@@ -12,5 +27,5 @@
 
 .leaflet-container {
   width: 100%;
-  height: 100dvh;
+  height: 100%;
 }

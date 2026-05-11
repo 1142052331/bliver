@@ -26,6 +26,7 @@ import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import PhotoWall from './components/PhotoWall';
+import MapResizeHandler from './components/MapResizeHandler';
 import AnnouncementPanel, { hasUnreadAnnouncements } from './components/AnnouncementPanel';
 import FriendsPanel from './components/FriendsPanel';
 import ChatWindow from './components/ChatWindow';
@@ -405,8 +406,8 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="relative w-full overflow-hidden"
-        style={{ background: 'var(--aurora-deep)', height: '100dvh' }}>
+      <div className="fixed inset-0 overflow-hidden"
+        style={{ background: 'var(--aurora-deep)' }}>
         {/* ── Mobile top bar: Bliver (left) ‖ 公告 + 好友 + 菜单 (right) ── */}
         <div className="md:hidden fixed z-[1000] pointer-events-none inset-x-0 flex items-start justify-between transform-gpu will-change-transform"
           style={{ top: `max(14px, env(safe-area-inset-top))`, paddingLeft: `max(14px, env(safe-area-inset-left))`, paddingRight: `max(12px, env(safe-area-inset-right))` }}>
@@ -512,8 +513,9 @@ export default function App() {
         )}
 
         <MapContainer key="map" center={CENTER} zoom={6} scrollWheelZoom zoomControl={false}
-          className="absolute inset-0"
+          className="w-full h-full"
           style={{ zIndex: 0 }}>
+          <MapResizeHandler />
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
