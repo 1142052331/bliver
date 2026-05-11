@@ -1,6 +1,8 @@
 import { MapPin, LogOut, Bell, Megaphone, Users, Shield, LogIn, UserPlus } from 'lucide-react';
+import useUIStore from '../store/useUIStore';
 
-export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, announceHasUnread, onAnnounceClick, friendUnreadCount, onFriendsClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister, onCheckIn, onLogoClick }) {
+export default function NavBar({ onlineCount, user, onLogout, unreadCount, announceHasUnread, friendUnreadCount, isAdmin, onCheckIn }) {
+  const { toggleNotifs, openAnnouncements, openFriends, openAdmin, openAuth, openAbout } = useUIStore();
   return (
     <nav className="absolute z-[1000] hidden md:flex items-center justify-between
       px-4 py-2.5 aurora-glass rounded-2xl transform-gpu will-change-transform"
@@ -8,7 +10,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
       {/* Logo + Check In */}
       <div className="flex items-center gap-2">
         <button
-          onClick={onLogoClick}
+          onClick={openAbout}
           className="relative w-9 h-9 rounded-xl aurora-btn flex items-center justify-center
             shadow-lg hover:scale-110 transition-transform duration-300 cursor-pointer"
           title="关于 Bliver"
@@ -37,7 +39,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
 
         {/* Announcements */}
         {user && (
-          <button onClick={onAnnounceClick}
+          <button onClick={openAnnouncements}
             className="relative p-2 hover:bg-white/[0.04] rounded-xl transition-all duration-200 text-white/50 hover:text-white/80">
             <Megaphone className="w-4 h-4" />
             {announceHasUnread && (
@@ -49,7 +51,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
 
         {/* Friends */}
         {user && (
-          <button onClick={onFriendsClick}
+          <button onClick={openFriends}
             className="relative p-2 hover:bg-white/[0.04] rounded-xl transition-all duration-200 text-white/50 hover:text-white/80">
             <Users className="w-4 h-4" />
             {friendUnreadCount > 0 && (
@@ -64,7 +66,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
 
         {/* Bell */}
         {user && (
-          <button onClick={onBellClick}
+          <button onClick={toggleNotifs}
             className="relative p-2 hover:bg-white/[0.04] rounded-xl transition-all duration-200 text-white/50 hover:text-white/80">
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
@@ -79,7 +81,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
 
         {/* Admin */}
         {isAdmin && (
-          <button onClick={onOpenAdmin}
+          <button onClick={openAdmin}
             className="flex items-center gap-1 px-3 py-1.5 aurora-warm text-white text-xs font-semibold
               rounded-xl shadow-[0_4px_15px_rgba(245,158,11,0.2)] transition-all hover:scale-[1.02]"
             style={{ background: 'var(--aurora-warm)' }}>
@@ -113,13 +115,13 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBel
           </>
         ) : (
           <>
-            <button onClick={onOpenLogin}
+            <button onClick={() => openAuth('login', '')}
               className="aurora-btn px-3.5 py-1.5 text-white text-xs font-semibold rounded-xl
                 flex items-center gap-1">
               <LogIn className="w-3 h-3" />
               登录
             </button>
-            <button onClick={onOpenRegister}
+            <button onClick={() => openAuth('register', '')}
               className="aurora-btn-glass px-3.5 py-1.5 text-white/70 text-xs font-semibold rounded-xl
                 flex items-center gap-1">
               <UserPlus className="w-3 h-3" />

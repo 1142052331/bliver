@@ -103,7 +103,7 @@ const setupSocket = (io) => {
         const userSockets = await io.in(userId).fetchSockets();
         const isFirstConnection = userSockets.length === 1;
 
-        const user = await User.findByIdAndUpdate(userId, { isOnline: true }, { new: true }).select('name avatarUrl');
+        const user = await User.findByIdAndUpdate(userId, { isOnline: true }, { returnDocument: 'after' }).select('name avatarUrl');
         const count = await onlineCount();
         io.emit('online:count', { count });
 

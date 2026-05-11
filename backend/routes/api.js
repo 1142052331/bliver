@@ -406,7 +406,7 @@ module.exports = (io) => {
       const user = await User.findByIdAndUpdate(
         req.user.id,
         { profileBannerUrl: req.cloudinaryUrl },
-        { new: true }
+        { returnDocument: 'after' }
       ).select('-password');
 
       io.emit('profile:updated', { userId: req.user.id, user });
@@ -438,7 +438,7 @@ module.exports = (io) => {
         return res.status(400).json({ error: 'Nothing to update' });
       }
 
-      const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('-password');
+      const user = await User.findByIdAndUpdate(req.user.id, updates, { returnDocument: 'after' }).select('-password');
 
       io.emit('profile:updated', { userId: req.user.id, user });
 

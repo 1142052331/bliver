@@ -77,7 +77,7 @@ module.exports = (io) => {
         return res.status(400).json({ error: 'Nothing to update' });
       }
 
-      const user = await User.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true })
+      const user = await User.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after', runValidators: true })
         .select('-password');
 
       if (!user) return res.status(404).json({ error: 'User not found' });

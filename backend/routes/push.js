@@ -33,7 +33,7 @@ module.exports = () => {
       const sub = await PushSubscription.findOneAndUpdate(
         { endpoint },
         { userId: req.user.id, endpoint, keys },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
       const total = await PushSubscription.countDocuments({ userId: req.user.id });
       console.log(`[Push] Sub saved for user ${req.user.id.slice(-6)} (${req.user.name}), total subs: ${total}`);

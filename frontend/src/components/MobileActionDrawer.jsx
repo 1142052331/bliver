@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, Clock, Image, Bell, Users, User, Shield, Menu, X } from 'lucide-react';
+import useUIStore from '../store/useUIStore';
 
 export default function MobileActionDrawer({
-  user, isAdmin, unreadCount, friendUnreadCount,
-  onCheckIn, onTimeline, onPhotoWall, onProfile,
-  onBell, onFriends, onOpenAdmin, onOpenLogin, onOpenRegister,
+  user, isAdmin, unreadCount, friendUnreadCount, onCheckIn,
 }) {
+  const { openTimeline, openPhotoWall, toggleNotifs, openFriends, openAdmin, openAuth, openProfile } = useUIStore();
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
 
@@ -92,7 +92,7 @@ export default function MobileActionDrawer({
           {/* Timeline */}
           <button
             type="button"
-            onClick={closeAnd(onTimeline)}
+            onClick={closeAnd(openTimeline)}
             className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06]`}
           >
             <Clock className="w-5 h-5 text-teal-400" />
@@ -102,7 +102,7 @@ export default function MobileActionDrawer({
           {/* Photo Wall */}
           <button
             type="button"
-            onClick={closeAnd(onPhotoWall)}
+            onClick={closeAnd(openPhotoWall)}
             className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06]`}
           >
             <Image className="w-5 h-5 text-purple-400" />
@@ -113,7 +113,7 @@ export default function MobileActionDrawer({
           {user && (
             <button
               type="button"
-              onClick={closeAnd(onFriends)}
+              onClick={closeAnd(openFriends)}
               className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06] relative`}
             >
               <Users className="w-5 h-5 text-indigo-400" />
@@ -131,7 +131,7 @@ export default function MobileActionDrawer({
           {user && (
             <button
               type="button"
-              onClick={closeAnd(onBell)}
+              onClick={closeAnd(toggleNotifs)}
               className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06] relative`}
             >
               <Bell className="w-5 h-5 text-amber-400" />
@@ -149,7 +149,7 @@ export default function MobileActionDrawer({
           {user ? (
             <button
               type="button"
-              onClick={closeAnd(() => onProfile(user._id))}
+              onClick={closeAnd(() => openProfile(user._id))}
               className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06]`}
             >
               {user.avatarUrl ? (
@@ -165,7 +165,7 @@ export default function MobileActionDrawer({
             <>
               <button
                 type="button"
-                onClick={closeAnd(onOpenLogin)}
+                onClick={closeAnd(() => openAuth('login', ''))}
                 className={`${itemClass} text-white/80`}
                 style={{ background: 'rgba(255,255,255,0.04)' }}
               >
@@ -174,7 +174,7 @@ export default function MobileActionDrawer({
               </button>
               <button
                 type="button"
-                onClick={closeAnd(onOpenRegister)}
+                onClick={closeAnd(() => openAuth('register', ''))}
                 className={`${itemClass} text-white/50 hover:bg-white/[0.03] active:bg-white/[0.06]`}
               >
                 注册
@@ -186,7 +186,7 @@ export default function MobileActionDrawer({
           {isAdmin && (
             <button
               type="button"
-              onClick={closeAnd(onOpenAdmin)}
+              onClick={closeAnd(openAdmin)}
               className={`${itemClass} text-amber-200`}
               style={{ background: 'rgba(245,158,11,0.10)' }}
             >

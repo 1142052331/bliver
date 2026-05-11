@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import api from './api';
 import { getUser, getToken, clearAuth, saveAuth, isAutoLogin } from './auth';
@@ -31,8 +32,10 @@ import AnnouncementPanel, { hasUnreadAnnouncements } from './components/Announce
 import FriendsPanel from './components/FriendsPanel';
 import ChatWindow from './components/ChatWindow';
 import MobileActionDrawer from './components/MobileActionDrawer';
+import useUIStore from './store/useUIStore';
 import useSocket from './hooks/useSocket';
 import useFriends from './hooks/useFriends';
+import useFootprints from './hooks/useFootprints';
 import { subscribeToPush } from './push';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -47,37 +50,43 @@ const CENTER = [33.5597, 133.5311];
 export default function App() {
   // ── Core state ────────────────────────────────────────
   const [user, setUser] = useState(null);
-  const [footprints, setFootprints] = useState([]);
   const [onlineCount, setOnlineCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [toast, setToast] = useState(null);
-
-  // ── UI visibility toggles ─────────────────────────────
-  const [showCheckIn, setShowCheckIn] = useState(false);
-  const [showTimeline, setShowTimeline] = useState(false);
-  const [showNotifs, setShowNotifs] = useState(false);
-  const [showAdmin, setShowAdmin] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
-  const [showPhotoWall, setShowPhotoWall] = useState(false);
-  const [showAbout, setShowAbout] = useState(false);
-  const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [announceHasUnread, setAnnounceHasUnread] = useState(false);
-  const [showFriends, setShowFriends] = useState(false);
-  const [chatUserId, setChatUserId] = useState(null);
-  const [viewingProfileId, setViewingProfileId] = useState(null);
-
-  // ── Auth / share / period ─────────────────────────────
-  const [authTab, setAuthTab] = useState('login');
-  const [authMessage, setAuthMessage] = useState('');
-  const [shareTarget, setShareTarget] = useState(null);
   const [footprintPeriod, setFootprintPeriod] = useState('week');
-  const [footprintsLoading, setFootprintsLoading] = useState(true);
 
-  // ── Map interaction ───────────────────────────────────
-  const [clusterData, setClusterData] = useState(null);
-  const [activeFootprintId, setActiveFootprintId] = useState(null);
-  const [flyArrivedFp, setFlyArrivedFp] = useState(null);
-  const [timelineTargetFpId, setTimelineTargetFpId] = useState(null);
+  // ── React Query: footprints ────────────────────────────
+  const queryClient = useQueryClient();
+  const periodRef = useRef(footprintPeriod);
+  periodRef.current = footprintPeriod;
+  const { data: footprints = [], isLoading: footprintsLoading, refetch: refetchFootprints } = useFootprints(footprintPeriod);
+
+  // Stable cache updater for socket/mutations (uses ref to avoid stale period)
+  const setFootprints = useCallback((updater) => {
+    queryClient.setQueryData(['footprints', periodRef.current], (old) => {
+      if (typeof updater === 'function') return updater(old || []);
+      return updater;
+    });
+  }, [queryClient]);
+
+  // ── UI state (Zustand) ────────────────────────────────
+  const {
+    showCheckIn, showTimeline, showNotifs, showAdmin, showAuth,
+    showPhotoWall, showAbout, showAnnouncements, showFriends,
+    chatUserId, viewingProfileId,
+    authTab, authMessage,
+    shareTarget, clusterData, activeFootprintId, flyArrivedFp, timelineTargetFpId,
+    openCheckIn, closeCheckIn, openTimeline, closeTimeline,
+    toggleNotifs, closeNotifs, openAdmin, closeAdmin,
+    openAuth, closeAuth, openPhotoWall, closePhotoWall,
+    openAbout, closeAbout, openAnnouncements, closeAnnouncements,
+    openFriends, closeFriends,
+    setActiveFootprintId, setFlyArrivedFp, setTimelineTargetFpId,
+    setClusterData, setShareTarget,
+    openChat, closeChat, openProfile, closeProfile,
+    setAuthTab, setAuthMessage,
+  } = useUIStore();
 
   // ── Refs ──────────────────────────────────────────────
   const pendingActionRef = useRef(null);
@@ -138,20 +147,6 @@ export default function App() {
     }
   }, []);
 
-  // ── Fetch footprints when period changes ──────────────
-  useEffect(() => {
-    const controller = new AbortController();
-    setFootprintsLoading(true);
-    api.get(`/api/footprints/today?period=${footprintPeriod}`, { signal: controller.signal }).then((res) => {
-      if (res?.data?.footprints) setFootprints(res.data.footprints);
-    }).catch((err) => {
-      if (err.name !== 'CanceledError') console.error(err);
-    }).finally(() => {
-      setFootprintsLoading(false);
-    });
-    return () => controller.abort();
-  }, [footprintPeriod]);
-
   // ── Visibility change + focus: refresh data + wake zombie socket ──
   const visibilityAbortRef = useRef(null);
   useEffect(() => {
@@ -170,9 +165,7 @@ export default function App() {
       visibilityAbortRef.current = controller;
       const signal = controller.signal;
 
-      api.get(`/api/footprints/today?period=${footprintPeriod}`, { signal }).then((res) => {
-        if (res?.data?.footprints) setFootprints(res.data.footprints);
-      }).catch(() => {});
+      refetchFootprints();
 
       api.get('/api/notifications', { signal }).then((res) => {
         setNotifications(prev => {
@@ -243,7 +236,7 @@ export default function App() {
       const action = pendingActionRef.current;
       pendingActionRef.current = null;
       if (action.type === 'checkin') {
-        setShowCheckIn(true);
+        openCheckIn();
       } else if (action.type === 'comment' || action.type === 'react') {
         setActiveFootprintId(action.footprintId);
       }
@@ -257,7 +250,7 @@ export default function App() {
       pendingActionRef.current = action;
       setAuthMessage('登录后即可参与互动喔！');
       setAuthTab('login');
-      setShowAuth(true);
+      openAuth();
       return false;
     }
     return true;
@@ -341,7 +334,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handler = (e) => setViewingProfileId(e.detail.userId);
+    const handler = (e) => openProfile(e.detail.userId);
     window.addEventListener('profile:view', handler);
     return () => window.removeEventListener('profile:view', handler);
   }, []);
@@ -352,9 +345,7 @@ export default function App() {
     broadcastLogout(uid);
     setUser(null);
     setNotifications([]);
-    api.get(`/api/footprints/today?period=${footprintPeriod}`).then((res) => {
-      if (res?.data?.footprints) setFootprints(res.data.footprints);
-    }).catch(() => {});
+    refetchFootprints();
   };
 
   // ── Derived values ─────────────────────────────────────
@@ -416,7 +407,7 @@ export default function App() {
           <div className="pointer-events-auto flex flex-col items-start gap-2.5">
             <button
               type="button"
-              onClick={() => setShowAbout(true)}
+              onClick={() => openAbout()}
               className="px-3.5 py-2 rounded-xl
                 bg-[#121212]/50 backdrop-blur-xl
                 border border-white/10
@@ -430,7 +421,7 @@ export default function App() {
             {user && (
               <button
                 type="button"
-                onClick={() => setShowAnnouncements(true)}
+                onClick={() => openAnnouncements()}
                 className="relative w-8 h-8 rounded-lg flex items-center justify-center
                   bg-[#121212]/50 backdrop-blur-xl
                   border border-white/[0.08]
@@ -452,27 +443,20 @@ export default function App() {
           onlineCount={onlineCount}
           user={user}
           onLogout={handleLogout}
-          onLogoClick={() => setShowAbout(true)}
           unreadCount={unreadCount}
-          onBellClick={() => setShowNotifs((v) => !v)}
           announceHasUnread={announceHasUnread}
-          onAnnounceClick={() => setShowAnnouncements(true)}
           friendUnreadCount={totalFriendUnread}
-          onFriendsClick={() => setShowFriends(true)}
           isAdmin={isAdmin}
-          onOpenAdmin={() => setShowAdmin(true)}
-          onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
-          onOpenRegister={() => { setAuthTab('register'); setAuthMessage(''); setShowAuth(true); }}
           onCheckIn={() => {
             if (!requireLogin({ type: 'checkin' })) return;
-            setShowCheckIn(true);
+            openCheckIn();
           }}
         />
 
         {showNotifs && (
           <NotificationPanel
             notifications={notifications}
-            onClose={() => setShowNotifs(false)}
+            onClose={() => closeNotifs()}
             onMarkRead={markAsRead}
           />
         )}
@@ -480,7 +464,7 @@ export default function App() {
         {showAnnouncements && (
           <AnnouncementPanel
             isOpen={showAnnouncements}
-            onClose={() => { setShowAnnouncements(false); setAnnounceHasUnread(false); }}
+            onClose={() => { closeAnnouncements(); setAnnounceHasUnread(false); }}
             isAsen={user?.name === '阿森'}
             onToast={(msg) => setToast(msg)}
           />
@@ -489,12 +473,12 @@ export default function App() {
         {showFriends && (
           <FriendsPanel
             isOpen={showFriends}
-            onClose={() => setShowFriends(false)}
+            onClose={() => closeFriends()}
             friends={friends}
             onlineStatus={onlineStatus}
             unreadCounts={unreadCounts}
-            onOpenProfile={(uid) => { setShowFriends(false); setViewingProfileId(uid); }}
-            onOpenChat={(uid) => { setShowFriends(false); setChatUserId(uid); }}
+            onOpenProfile={(uid) => { closeFriends(); openProfile(uid); }}
+            onOpenChat={(uid) => { closeFriends(); openChat(uid); }}
           />
         )}
 
@@ -507,7 +491,7 @@ export default function App() {
             user={user}
             socketRef={socketRef}
             onOpen={() => { setToast(null); clearUnread(chatUserId); }}
-            onClose={() => { clearUnread(chatUserId); setChatUserId(null); }}
+            onClose={() => { clearUnread(chatUserId); closeChat(); }}
             onToast={(msg) => setToast(msg)}
           />
         )}
@@ -546,14 +530,14 @@ export default function App() {
         <div className="hidden md:flex absolute z-[1000] flex-col gap-2 transform-gpu will-change-transform"
           style={{ top: `max(88px, calc(env(safe-area-inset-top) + 64px))`, right: `max(12px, env(safe-area-inset-right))` }}>
           <button
-            onClick={() => setShowTimeline(true)}
+            onClick={() => openTimeline()}
             className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium flex items-center gap-2"
           >
             <Clock className="w-4 h-4 text-teal-400" />
             <span className="text-white/80">足迹记录</span>
           </button>
           <button
-            onClick={() => setShowPhotoWall(true)}
+            onClick={() => openPhotoWall()}
             className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium flex items-center gap-2"
           >
             <Image className="w-4 h-4 text-purple-400" />
@@ -561,18 +545,18 @@ export default function App() {
           </button>
         </div>
 
-        <CheckInModal isOpen={showCheckIn} onClose={() => setShowCheckIn(false)} />
+        <CheckInModal isOpen={showCheckIn} onClose={closeCheckIn} />
 
         <TimelineDrawer
           isOpen={showTimeline}
-          onClose={() => setShowTimeline(false)}
+          onClose={() => closeTimeline()}
           footprints={footprints}
           userId={user?._id}
           isAdmin={isAdmin}
           onReact={handleReact}
           onDelete={handleDelete}
           onShare={handleShare}
-          onSelectFootprint={(fpId) => { setShowTimeline(false); setTimelineTargetFpId(fpId); }}
+          onSelectFootprint={(fpId) => { closeTimeline(); setTimelineTargetFpId(fpId); }}
           period={footprintPeriod}
           onChangePeriod={setFootprintPeriod}
           loading={footprintsLoading}
@@ -583,18 +567,10 @@ export default function App() {
           isAdmin={isAdmin}
           unreadCount={unreadCount}
           friendUnreadCount={totalFriendUnread}
-          onFriends={() => setShowFriends(true)}
           onCheckIn={() => {
             if (!requireLogin({ type: 'checkin' })) return;
-            setShowCheckIn(true);
+            openCheckIn();
           }}
-          onTimeline={() => setShowTimeline(true)}
-          onPhotoWall={() => setShowPhotoWall(true)}
-          onProfile={(uid) => setViewingProfileId(uid)}
-          onBell={() => setShowNotifs((v) => !v)}
-          onOpenAdmin={() => setShowAdmin(true)}
-          onOpenLogin={() => { setAuthTab('login'); setAuthMessage(''); setShowAuth(true); }}
-          onOpenRegister={() => { setAuthTab('register'); setAuthMessage(''); setShowAuth(true); }}
         />
 
         {flyArrivedFp && (
@@ -627,24 +603,24 @@ export default function App() {
           </ErrorBoundary>
         )}
 
-        {showAdmin && <ErrorBoundary><AdminPanel onClose={() => setShowAdmin(false)} /></ErrorBoundary>}
+        {showAdmin && <ErrorBoundary><AdminPanel onClose={() => closeAdmin()} /></ErrorBoundary>}
 
         {showPhotoWall && (
           <PhotoWall
             footprints={footprints}
-            onClose={() => setShowPhotoWall(false)}
-            onSelect={(fpId) => { setShowPhotoWall(false); setTimelineTargetFpId(fpId); }}
+            onClose={() => closePhotoWall()}
+            onSelect={(fpId) => { closePhotoWall(); setTimelineTargetFpId(fpId); }}
           />
         )}
 
-        <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} user={user} />
+        <AboutModal isOpen={showAbout} onClose={() => closeAbout()} user={user} />
 
         {showAuth && (
           <AuthModal
             initialTab={authTab}
             message={authMessage}
-            onDone={(u) => { kickExistingRef.current = true; setUser(u); setShowAuth(false); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
-            onClose={() => setShowAuth(false)}
+            onDone={(u) => { kickExistingRef.current = true; setUser(u); closeAuth(); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
+            onClose={() => closeAuth()}
           />
         )}
 
@@ -652,14 +628,14 @@ export default function App() {
           <ErrorBoundary>
             <ProfileDrawer
               userId={viewingProfileId}
-              onClose={() => setViewingProfileId(null)}
-              onLogout={() => { setViewingProfileId(null); handleLogout(); }}
+              onClose={() => closeProfile()}
+              onLogout={() => { closeProfile(); handleLogout(); }}
               friendshipStatus={friendshipStatus}
               pendingRequestId={getPendingRequestId(viewingProfileId)}
               onSendFriendRequest={sendFriendRequest}
               onAcceptRequest={acceptRequest}
               onRejectRequest={rejectRequest}
-              onOpenChat={(uid) => { setViewingProfileId(null); setChatUserId(uid); }}
+              onOpenChat={(uid) => { closeProfile(); openChat(uid); }}
             />
           </ErrorBoundary>
         )}
