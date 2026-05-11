@@ -32,6 +32,7 @@ import MapResizeHandler from './components/MapResizeHandler';
 import AnnouncementPanel, { hasUnreadAnnouncements } from './components/AnnouncementPanel';
 import FriendsPanel from './components/FriendsPanel';
 import ChatWindow from './components/ChatWindow';
+import MessageIsland from './components/MessageIsland';
 import MobileActionDrawer from './components/MobileActionDrawer';
 import useUIStore from './store/useUIStore';
 import useSocket from './hooks/useSocket';
@@ -87,6 +88,9 @@ export default function App() {
     openChat, closeChat, openProfile, closeProfile,
     setAuthTab, setAuthMessage,
   } = useUIStore();
+
+  // ── Message island ─────────────────────────────────────
+  const [messageIsland, setMessageIsland] = useState(null);
 
   // ── Refs ──────────────────────────────────────────────
   const pendingActionRef = useRef(null);
@@ -377,12 +381,15 @@ export default function App() {
     return () => { cancelled = true; };
   }, [chatUserId, friends]);
 
-  // Toast listener for new private messages (when chat window is not focused on sender)
+  // Dynamic Island for new private messages (when chat window is not focused on sender)
   useEffect(() => {
     const handler = (e) => {
       const msg = e.detail;
       if (msg?.senderId && chatUserId !== msg.senderId) {
-        useUIStore.getState().addNotification({ type: 'message', content: `来自 ${msg._senderName || '好友'} 的新私信` });
+        setMessageIsland({
+          senderId: msg.senderId,
+          senderName: msg._senderName || '好友',
+        });
       }
     };
     window.addEventListener('ws:new_message', handler);
@@ -644,6 +651,17 @@ export default function App() {
             </ErrorBoundary>
           )}
         </AnimatePresence>
+
+        <MessageIsland
+          senderName={messageIsland?.senderName}
+          senderId={messageIsland?.senderId}
+          onView={() => {
+            const sid = messageIsland?.senderId;
+            setMessageIsland(null);
+            if (sid) openChat(sid);
+          }}
+          onDismiss={() => setMessageIsland(null)}
+        />
 
         <GlobalToaster />
 
