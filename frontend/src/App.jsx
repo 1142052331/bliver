@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import api from './api';
@@ -622,22 +623,24 @@ export default function App() {
           />
         )}
 
-        {viewingProfileId && (
-          <ErrorBoundary>
-            <ProfileDrawer
-              userId={viewingProfileId}
-              onClose={() => closeProfile()}
-              onLogout={() => { closeProfile(); handleLogout(); }}
-              onSelectFootprint={(fpId) => { closeProfile(); setActiveFootprintId(fpId); }}
-              friendshipStatus={friendshipStatus}
-              pendingRequestId={getPendingRequestId(viewingProfileId)}
-              onSendFriendRequest={sendFriendRequest}
-              onAcceptRequest={acceptRequest}
-              onRejectRequest={rejectRequest}
-              onOpenChat={(uid) => { closeProfile(); openChat(uid); }}
-            />
-          </ErrorBoundary>
-        )}
+        <AnimatePresence>
+          {viewingProfileId && (
+            <ErrorBoundary key={viewingProfileId}>
+              <ProfileDrawer
+                userId={viewingProfileId}
+                onClose={() => closeProfile()}
+                onLogout={() => { closeProfile(); handleLogout(); }}
+                onSelectFootprint={(fpId) => { closeProfile(); setActiveFootprintId(fpId); }}
+                friendshipStatus={friendshipStatus}
+                pendingRequestId={getPendingRequestId(viewingProfileId)}
+                onSendFriendRequest={sendFriendRequest}
+                onAcceptRequest={acceptRequest}
+                onRejectRequest={rejectRequest}
+                onOpenChat={(uid) => { closeProfile(); openChat(uid); }}
+              />
+            </ErrorBoundary>
+          )}
+        </AnimatePresence>
 
         <GlobalToaster />
 

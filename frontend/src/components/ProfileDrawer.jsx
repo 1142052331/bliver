@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { X, MapPin, Camera, Loader2, Pencil, Check, MessageCircle, Clock, UserPlus } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import api from '../api';
@@ -168,16 +169,23 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
 
   return (
     <div className="fixed inset-0 z-[2500] pointer-events-none">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto"
         onClick={onClose}
       />
 
-      <div
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
         style={{ right: `max(0px, env(safe-area-inset-right))` }}
         className="absolute top-0 h-full w-full md:w-96 bg-black/40 backdrop-blur-lg border-l border-white/10 shadow-xl
-          transform transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]
-          translate-x-0 flex flex-col animate-slide-in pointer-events-auto"
+          flex flex-col pointer-events-auto"
       >
         {loading ? (
           <ProfileSkeleton />
@@ -424,14 +432,9 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
             />
           </>
         )}
-      </div>
+      </motion.div>
 
       <style>{`
-        @keyframes slide-in {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        .animate-slide-in { animation: slide-in 0.3s cubic-bezier(0.2,0.8,0.2,1); }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
