@@ -10,7 +10,7 @@ function timeAgo(date) {
   return `${Math.floor(hours / 24)}天前`;
 }
 
-export default function NotificationPanel({ notifications, onClose, onMarkRead }) {
+export default function NotificationPanel({ notifications, onClose, onNavigate }) {
   return (
     <>
       <div className="fixed inset-0 z-[1700] pointer-events-none bg-black/30 backdrop-blur-sm" style={{opacity: 1, pointerEvents: 'auto'}} onClick={onClose} />
@@ -36,7 +36,7 @@ export default function NotificationPanel({ notifications, onClose, onMarkRead }
               <button
                 type="button"
                 key={n._id}
-                onClick={() => { if (!n.isRead) onMarkRead(n._id); }}
+                onClick={() => onNavigate(n)}
                 className={`w-full text-left px-5 py-3 border-b border-white/5 transition-colors
                   ${n.isRead ? 'bg-transparent hover:bg-white/5' : 'bg-blue-500/10 hover:bg-blue-500/15'}`}
               >

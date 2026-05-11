@@ -31,6 +31,13 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
   const [sending, setSending] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
+  // ── Auto-mark backend notifications as read on view ──
+  useEffect(() => {
+    if (fp._id) {
+      window.dispatchEvent(new CustomEvent('footprint:viewed', { detail: { footprintId: fp._id } }));
+    }
+  }, [fp._id]);
+
   // ── New-message section ──────────────────────────────
   const [unreadDismissed, setUnreadDismissed] = useState(false);
   useEffect(() => {

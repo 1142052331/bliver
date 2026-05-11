@@ -322,6 +322,37 @@ export default function App() {
     await api.put(`/api/notifications/${notifId}/read`).catch(() => {});
   }, []);
 
+  // Batch mark all notifications for a footprint as read (read-on-view)
+  const markFootprintRead = useCallback((footprintId) => {
+    setNotifications((prev) => {
+      const toMark = prev.filter(
+        (n) => !n.isRead && n.footprintId === footprintId
+      );
+      if (toMark.length === 0) return prev;
+      // Fire-and-forget API calls
+      toMark.forEach((n) => {
+        api.put(`/api/notifications/${n._id}/read`).catch(() => {});
+      });
+      const ids = new Set(toMark.map((n) => n._id));
+      const unreadRemoved = toMark.length;
+      setUnreadCount((prev) => {
+        const next = Math.max(0, prev - unreadRemoved);
+        try { localStorage.setItem(READ_COUNT_KEY, String(next)); } catch {}
+        return next;
+      });
+      return prev.map((n) => (ids.has(n._id) ? { ...n, isRead: true } : n));
+    });
+  }, []);
+
+  // Navigation handler for notification panel clicks
+  const handleNotifNavigate = useCallback((n) => {
+    if (!n.isRead) markAsRead(n._id);
+    if (n.footprintId) {
+      closeNotifs();
+      setActiveFootprintId(n.footprintId);
+    }
+  }, [markAsRead, closeNotifs, setActiveFootprintId]);
+
   // ── Event listeners ────────────────────────────────────
 
   useEffect(() => {
@@ -338,6 +369,15 @@ export default function App() {
     window.addEventListener('profile:view', handler);
     return () => window.removeEventListener('profile:view', handler);
   }, []);
+
+  // Auto-mark notifications as read when viewing a footprint (read-on-view)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.footprintId) markFootprintRead(e.detail.footprintId);
+    };
+    window.addEventListener('footprint:viewed', handler);
+    return () => window.removeEventListener('footprint:viewed', handler);
+  }, [markFootprintRead]);
 
   const handleLogout = () => {
     const uid = user?._id;
@@ -461,7 +501,7 @@ export default function App() {
           <NotificationPanel
             notifications={notifications}
             onClose={() => closeNotifs()}
-            onMarkRead={markAsRead}
+            onNavigate={handleNotifNavigate}
           />
         )}
 
@@ -665,6 +705,10 @@ export default function App() {
           onView={() => {
             const island = messageIsland;
             clearMessageIsland();
+            // Mark related backend notifications as read
+            if (island?.footprintId) {
+              markFootprintRead(island.footprintId);
+            }
             if (island?.type === 'message' && island?.senderId) {
               openChat(island.senderId);
             } else if (island?.footprintId) {
