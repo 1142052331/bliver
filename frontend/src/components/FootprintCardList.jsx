@@ -15,8 +15,8 @@ function timeAgo(date) {
  */
 export default function FootprintCardList({ footprints, isOwnProfile, onLogout, onSelectFootprint }) {
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar bg-white/5 rounded-t-3xl -mt-3 relative z-10">
-      <div className="px-5 pt-5 pb-4">
+    <div className="flex-1 overflow-y-auto custom-scrollbar bg-white/5 rounded-t-3xl -mt-1 relative z-10">
+      <div className="px-5 pt-6 pb-4">
         <p className="text-xs text-gray-500 mb-3 flex items-center gap-1">
           <MapPin className="w-3 h-3" />
           历史足迹
