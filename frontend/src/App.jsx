@@ -60,11 +60,13 @@ export default function App() {
   const periodRef = useRef(footprintPeriod);
   periodRef.current = footprintPeriod;
   const ghostUserId = useUIStore((s) => s.ghostMode?.userId) || null;
+  const ghostUserIdRef = useRef(ghostUserId);
+  ghostUserIdRef.current = ghostUserId;
   const { data: footprints = [], isLoading: footprintsLoading, refetch: refetchFootprints } = useFootprints(footprintPeriod, ghostUserId);
 
-  // Stable cache updater for socket/mutations (uses ref to avoid stale period)
+  // Stable cache updater for socket/mutations (uses refs to avoid stale closures)
   const setFootprints = useCallback((updater) => {
-    queryClient.setQueryData(['footprints', periodRef.current], (old) => {
+    queryClient.setQueryData(['footprints', periodRef.current, ghostUserIdRef.current], (old) => {
       if (typeof updater === 'function') return updater(old || []);
       return updater;
     });
