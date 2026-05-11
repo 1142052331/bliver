@@ -465,26 +465,32 @@ export default function App() {
           />
         )}
 
-        {showAnnouncements && (
-          <AnnouncementPanel
-            isOpen={showAnnouncements}
-            onClose={() => { closeAnnouncements(); setAnnounceHasUnread(false); }}
-            isAsen={user?.name === '阿森'}
-            onToast={(msg) => useUIStore.getState().addNotification({ type: 'announcement', content: msg })}
-          />
-        )}
+        <AnimatePresence>
+          {showAnnouncements && (
+            <AnnouncementPanel
+              key="announcements"
+              isOpen={showAnnouncements}
+              onClose={() => { closeAnnouncements(); setAnnounceHasUnread(false); }}
+              isAsen={user?.name === '阿森'}
+              onToast={(msg) => useUIStore.getState().addNotification({ type: 'announcement', content: msg })}
+            />
+          )}
+        </AnimatePresence>
 
-        {showFriends && (
-          <FriendsPanel
-            isOpen={showFriends}
-            onClose={() => closeFriends()}
-            friends={friends}
-            onlineStatus={onlineStatus}
-            unreadCounts={unreadCounts}
-            onOpenProfile={(uid) => { closeFriends(); openProfile(uid); }}
-            onOpenChat={(uid) => { closeFriends(); openChat(uid); }}
-          />
-        )}
+        <AnimatePresence>
+          {showFriends && (
+            <FriendsPanel
+              key="friends"
+              isOpen={showFriends}
+              onClose={() => closeFriends()}
+              friends={friends}
+              onlineStatus={onlineStatus}
+              unreadCounts={unreadCounts}
+              onOpenProfile={(uid) => { closeFriends(); openProfile(uid); }}
+              onOpenChat={(uid) => { closeFriends(); openChat(uid); }}
+            />
+          )}
+        </AnimatePresence>
 
         {chatUserId && chatFriendMeta && (
           <ChatWindow

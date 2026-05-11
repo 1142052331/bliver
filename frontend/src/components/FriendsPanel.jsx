@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { X, Users, MessageCircle } from 'lucide-react';
 
 export default function FriendsPanel({
@@ -14,16 +15,26 @@ export default function FriendsPanel({
   });
 
   return (
-    <div className="fixed inset-0 z-[1700] flex items-center justify-center md:justify-end pointer-events-none">
+    <div className="fixed inset-0 z-[1700] pointer-events-none">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
+        onClick={onClose}
+      />
 
-      {/* Panel */}
-      <div className="relative z-10 pointer-events-auto w-full h-full md:w-[360px] md:h-full md:mr-0
-        bg-[#0f0f14]/90 backdrop-blur-2xl
-        border-l border-white/[0.06]
-        shadow-[0_0_60px_rgba(0,0,0,0.5)]
-        flex flex-col"
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+        className="absolute top-0 right-0 h-full w-full md:w-96
+          bg-black/40 backdrop-blur-lg border-l border-white/10 shadow-xl
+          flex flex-col pointer-events-auto"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 flex-shrink-0
@@ -87,8 +98,7 @@ export default function FriendsPanel({
                         {(f.name || '?')[0].toUpperCase()}
                       </div>
                     )}
-                    {/* Online indicator */}
-                    <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0f0f14]
+                    <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-black/40
                       ${isOnline
                         ? 'bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.5)] animate-pulse'
                         : 'bg-white/15'}`}
@@ -139,7 +149,7 @@ export default function FriendsPanel({
             })
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
