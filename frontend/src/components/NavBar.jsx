@@ -2,9 +2,9 @@ import { MapPin, LogOut, Bell, Megaphone, Users, Shield, LogIn, UserPlus } from 
 
 export default function NavBar({ onlineCount, user, onLogout, unreadCount, onBellClick, announceHasUnread, onAnnounceClick, friendUnreadCount, onFriendsClick, isAdmin, onOpenAdmin, onOpenLogin, onOpenRegister, onCheckIn, onLogoClick }) {
   return (
-    <nav className="absolute top-3 z-[1000] hidden md:flex items-center justify-between
-      px-4 py-2.5 aurora-glass rounded-2xl"
-      style={{ fontFamily: 'var(--font-body)', left: 'max(12px, env(safe-area-inset-left))', right: 'max(12px, env(safe-area-inset-right))' }}>
+    <nav className="absolute z-[1000] hidden md:flex items-center justify-between
+      px-4 py-2.5 aurora-glass rounded-2xl transform-gpu will-change-transform"
+      style={{ fontFamily: 'var(--font-body)', top: `max(12px, env(safe-area-inset-top))`, left: 'max(12px, env(safe-area-inset-left))', right: 'max(12px, env(safe-area-inset-right))' }}>
       {/* Logo + Check In */}
       <div className="flex items-center gap-2">
         <button

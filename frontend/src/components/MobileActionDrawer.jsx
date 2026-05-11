@@ -26,7 +26,7 @@ export default function MobileActionDrawer({
   const closeAnd = (fn) => () => { setOpen(false); fn(); };
 
   return (
-    <div className="md:hidden fixed z-[1000]"
+    <div className="md:hidden fixed z-[1000] transform-gpu will-change-transform"
       style={{ right: `max(12px, env(safe-area-inset-right))`, top: `max(14px, env(safe-area-inset-top))` }}>
 
       {/* ── FAB hamburger button ─────────────────────────── */}

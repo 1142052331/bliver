@@ -405,10 +405,10 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="relative w-full h-screen overflow-hidden"
-        style={{ background: 'var(--aurora-deep)', minHeight: '100dvh' }}>
+      <div className="relative w-full overflow-hidden"
+        style={{ background: 'var(--aurora-deep)', height: '100dvh' }}>
         {/* ── Mobile top bar: Bliver (left) ‖ 公告 + 好友 + 菜单 (right) ── */}
-        <div className="md:hidden fixed z-[1000] pointer-events-none inset-x-0 flex items-start justify-between"
+        <div className="md:hidden fixed z-[1000] pointer-events-none inset-x-0 flex items-start justify-between transform-gpu will-change-transform"
           style={{ top: `max(14px, env(safe-area-inset-top))`, paddingLeft: `max(14px, env(safe-area-inset-left))`, paddingRight: `max(12px, env(safe-area-inset-right))` }}>
 
           {/* Left column */}
@@ -541,8 +541,8 @@ export default function App() {
         </MapContainer>
 
         {/* Desktop side buttons */}
-        <div className="hidden md:flex absolute top-[88px] z-[1000] flex-col gap-2"
-          style={{ right: `max(12px, env(safe-area-inset-right))` }}>
+        <div className="hidden md:flex absolute z-[1000] flex-col gap-2 transform-gpu will-change-transform"
+          style={{ top: `max(88px, calc(env(safe-area-inset-top) + 64px))`, right: `max(12px, env(safe-area-inset-right))` }}>
           <button
             onClick={() => setShowTimeline(true)}
             className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium flex items-center gap-2"
