@@ -93,13 +93,19 @@ async function migrateLocationBlur() {
   }
 }
 
-connectDB().then(async () => {
-  await migrateLocationBlur();
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+// Only auto-start when run directly (node index.js), not when imported for tests
+if (require.main === module) {
+  connectDB().then(async () => {
+    await migrateLocationBlur();
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
   });
-});
+}
+
+module.exports = { app, server, io };
+
 
 
 

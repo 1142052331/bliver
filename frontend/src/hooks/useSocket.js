@@ -105,11 +105,11 @@ export default function useSocket({
     });
 
     socket.on('user_online', (data) => {
-      useUIStore.getState().addNotification({ type: 'online', content: `${data.name} 上线了`, duration: 3000 });
+      useUIStore.getState().addToast({ type: 'online', content: `${data.name} 上线了`, duration: 3000 });
     });
 
     socket.on('user_offline', (data) => {
-      useUIStore.getState().addNotification({ type: 'offline', content: `${data.name} 下线了`, duration: 3000 });
+      useUIStore.getState().addToast({ type: 'offline', content: `${data.name} 下线了`, duration: 3000 });
     });
 
     socket.on('force_logout', (data) => {

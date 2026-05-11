@@ -1,10 +1,8 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
-import { MapContainer, TileLayer } from 'react-leaflet';
 import api from './api';
-import { getUser, getToken, clearAuth, saveAuth, isAutoLogin } from './auth';
-import { broadcastLogin, broadcastLogout, listenAuthSync } from './authSync';
+import useAuth from './hooks/useAuth';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -15,21 +13,16 @@ import NavBar from './components/NavBar';
 import AuthModal from './components/AuthModal';
 import CheckInModal from './components/CheckInModal';
 import TimelineDrawer from './components/TimelineDrawer';
-import ClusterMarkers from './components/ClusterMarkers';
+import MapView from './components/MapView';
 import ClusterDetailPanel from './components/ClusterDetailPanel';
 import NotificationPanel from './components/NotificationPanel';
 import AdminPanel from './components/AdminPanel';
-import MapContextMenu from './components/MapContextMenu';
-import FlyToFootprint from './components/FlyToFootprint';
-import RecenterOnLoad from './components/RecenterOnLoad';
-import PanToTarget from './components/PanToTarget';
 import GlobalToaster from './components/GlobalToaster';
 import AboutModal from './components/AboutModal';
 import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import PhotoWall from './components/PhotoWall';
-import MapResizeHandler from './components/MapResizeHandler';
 import AnnouncementPanel, { hasUnreadAnnouncements } from './components/AnnouncementPanel';
 import FriendsPanel from './components/FriendsPanel';
 import ChatWindow from './components/ChatWindow';
@@ -38,7 +31,9 @@ import MobileActionDrawer from './components/MobileActionDrawer';
 import useUIStore from './store/useUIStore';
 import useSocket from './hooks/useSocket';
 import useFriends from './hooks/useFriends';
+import useFootprintActions from './hooks/useFootprintActions';
 import useFootprints from './hooks/useFootprints';
+import useNotifications from './hooks/useNotifications';
 import { subscribeToPush } from './push';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -48,13 +43,15 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-const CENTER = [33.5597, 133.5311];
-
 export default function App() {
+  // ── Auth ───────────────────────────────────────────────
+  const { user, setUser, isAdmin, isAsen, requireLogin, logout, pendingActionRef } = useAuth();
+
+  // ── Notifications ─────────────────────────────────────
+  const { notifications, setNotifications, unreadCount, handleNotifNavigate } = useNotifications();
+
   // ── Core state ────────────────────────────────────────
-  const [user, setUser] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
-  const [notifications, setNotifications] = useState([]);
   const [announceHasUnread, setAnnounceHasUnread] = useState(false);
   const [footprintPeriod, setFootprintPeriod] = useState('week');
 
@@ -95,7 +92,6 @@ export default function App() {
   } = useUIStore();
 
   // ── Refs ──────────────────────────────────────────────
-  const pendingActionRef = useRef(null);
   const { socketRef } = useSocket({
     user, setUser, setFootprints, setNotifications, setOnlineCount,
   });
@@ -105,41 +101,6 @@ export default function App() {
     friendshipStatus, getPendingRequestId,
     sendFriendRequest, acceptRequest, rejectRequest, clearUnread,
   } = useFriends({ user, socketRef });
-
-  // ── Unread notification counter ────────────────────────
-  const READ_COUNT_KEY = 'bliver_unread_v1';
-  const [unreadCount, setUnreadCount] = useState(() => {
-    try { return parseInt(localStorage.getItem(READ_COUNT_KEY), 10) || 0; }
-    catch { return 0; }
-  });
-
-  // Sync counter from server notifications on mount / change
-  useEffect(() => {
-    if (notifications.length > 0) {
-      const count = notifications.filter((n) => !n.isRead).length;
-      setUnreadCount(count);
-      try { localStorage.setItem(READ_COUNT_KEY, String(count)); } catch {}
-    }
-  }, [notifications]);
-
-  // ── Auto-login on mount ───────────────────────────────
-  useEffect(() => {
-    const controller = new AbortController();
-    const saved = getUser();
-    if (saved && getToken() && isAutoLogin()) {
-      api.get('/api/auth/me', { signal: controller.signal }).then((res) => {
-        const u = res.data.user;
-        setUser(u);
-        // Don't overwrite localStorage on auto-login — prevents cross-tab write storm
-        subscribeToPush().catch(() => {});
-      }).catch((err) => {
-        if (err.name === 'CanceledError') return;
-        clearAuth();
-        setUser(null);
-      });
-    }
-    return () => controller.abort();
-  }, []);
 
   // ── Parse ?fp= share link ─────────────────────────────
   useEffect(() => {
@@ -193,23 +154,6 @@ export default function App() {
     };
   }, [user, footprintPeriod]);
 
-  // ── Cross-tab auth sync (BroadcastChannel) ─────────────
-  useEffect(() => {
-    return listenAuthSync({
-      currentUserId: user?._id,
-      onForeignLogin: () => {
-        if (!user?._id) return; // Already logged out
-        clearAuth();
-        window.location.reload();
-      },
-      onForeignLogout: () => {
-        if (!user?._id) return; // Already logged out
-        clearAuth();
-        window.location.reload();
-      },
-    });
-  }, [user?._id]);
-
   // ── Keep flyArrivedFp synced with latest footprints ────
   useEffect(() => {
     if (flyArrivedFp) {
@@ -234,128 +178,10 @@ export default function App() {
     return () => { cancelled = true; };
   }, [user]);
 
-  // ── Execute pending action after login ─────────────────
-  useEffect(() => {
-    if (user && pendingActionRef.current) {
-      const action = pendingActionRef.current;
-      pendingActionRef.current = null;
-      if (action.type === 'checkin') {
-        openCheckIn();
-      } else if (action.type === 'comment' || action.type === 'react') {
-        setActiveFootprintId(action.footprintId);
-      }
-    }
-  }, [user]);
+  // ── Footprint actions ──────────────────────────────────
 
-  // ── Handlers ───────────────────────────────────────────
-
-  const requireLogin = (action) => {
-    if (!user) {
-      pendingActionRef.current = action;
-      setAuthMessage('登录后即可参与互动喔！');
-      setAuthTab('login');
-      openAuth();
-      return false;
-    }
-    return true;
-  };
-
-  const handleReact = useCallback(async (footprintId, emoji) => {
-    if (!requireLogin({ type: 'react', footprintId })) return;
-    try {
-      const { data } = await api.post(`/api/footprints/${footprintId}/react`, { emoji });
-      setFootprints((prev) =>
-        prev.map((fp) => (fp._id === footprintId ? { ...fp, reactions: data.footprint.reactions } : fp))
-      );
-    } catch (err) {
-      console.error('React failed:', err);
-    }
-  }, [user]);
-
-  const handleDelete = useCallback(async (footprintId) => {
-    if (!requireLogin({ type: 'delete', footprintId })) return;
-    if (!confirm('确认删除这条足迹？')) return;
-    try {
-      await api.delete(`/api/footprints/${footprintId}`);
-      setFootprints((prev) => prev.filter((fp) => fp._id !== footprintId));
-      setFlyArrivedFp((prev) => prev && prev._id === footprintId ? null : prev);
-    } catch (err) {
-      console.error('Delete failed:', err);
-    }
-  }, [user]);
-
-  const handleDeleteComment = useCallback(async (footprintId, commentId) => {
-    try {
-      const { data } = await api.delete(`/api/footprints/${footprintId}/comments/${commentId}`);
-      setFootprints((prev) =>
-        prev.map((fp) => (fp._id === footprintId
-          ? { ...fp, comments: data.footprint.comments }
-          : fp))
-      );
-    } catch (err) {
-      console.error('Delete comment failed:', err);
-    }
-  }, []);
-
-  const handleShare = useCallback((footprintId) => {
-    const url = `${window.location.origin}${window.location.pathname}?fp=${footprintId}`;
-    navigator.clipboard.writeText(url).catch(() => {});
-  }, []);
-
-  const handleComment = useCallback(async (footprintId, content) => {
-    if (!requireLogin({ type: 'comment', footprintId })) return;
-    try {
-      const { data } = await api.post(`/api/footprints/${footprintId}/comment`, { content });
-      setFootprints((prev) =>
-        prev.map((fp) => (fp._id === footprintId ? { ...fp, comments: data.footprint.comments } : fp))
-      );
-    } catch (err) {
-      console.error('Comment failed:', err);
-    }
-  }, [user]);
-
-  const markAsRead = useCallback(async (notifId) => {
-    setUnreadCount((prev) => {
-      const next = Math.max(0, prev - 1);
-      try { localStorage.setItem(READ_COUNT_KEY, String(next)); } catch {}
-      return next;
-    });
-    setNotifications((prev) =>
-      prev.map((n) => (n._id === notifId ? { ...n, isRead: true } : n))
-    );
-    await api.put(`/api/notifications/${notifId}/read`).catch(() => {});
-  }, []);
-
-  // Batch mark all notifications for a footprint as read (read-on-view)
-  const markFootprintRead = useCallback((footprintId) => {
-    setNotifications((prev) => {
-      const toMark = prev.filter(
-        (n) => !n.isRead && n.footprintId === footprintId
-      );
-      if (toMark.length === 0) return prev;
-      // Fire-and-forget API calls
-      toMark.forEach((n) => {
-        api.put(`/api/notifications/${n._id}/read`).catch(() => {});
-      });
-      const ids = new Set(toMark.map((n) => n._id));
-      const unreadRemoved = toMark.length;
-      setUnreadCount((prev) => {
-        const next = Math.max(0, prev - unreadRemoved);
-        try { localStorage.setItem(READ_COUNT_KEY, String(next)); } catch {}
-        return next;
-      });
-      return prev.map((n) => (ids.has(n._id) ? { ...n, isRead: true } : n));
-    });
-  }, []);
-
-  // Navigation handler for notification panel clicks
-  const handleNotifNavigate = useCallback((n) => {
-    if (!n.isRead) markAsRead(n._id);
-    if (n.footprintId) {
-      closeNotifs();
-      setActiveFootprintId(n.footprintId);
-    }
-  }, [markAsRead, closeNotifs, setActiveFootprintId]);
+  const { handleReact, handleDelete, handleDeleteComment, handleShare, handleComment } =
+    useFootprintActions({ user, requireLogin, setFootprints });
 
   // ── Event listeners ────────────────────────────────────
 
@@ -374,20 +200,8 @@ export default function App() {
     return () => window.removeEventListener('profile:view', handler);
   }, []);
 
-  // Auto-mark notifications as read when viewing a footprint (read-on-view)
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.detail?.footprintId) markFootprintRead(e.detail.footprintId);
-    };
-    window.addEventListener('footprint:viewed', handler);
-    return () => window.removeEventListener('footprint:viewed', handler);
-  }, [markFootprintRead]);
-
   const handleLogout = () => {
-    const uid = user?._id;
-    clearAuth();
-    broadcastLogout(uid);
-    setUser(null);
+    logout();
     setNotifications([]);
     refetchFootprints();
   };
@@ -399,9 +213,6 @@ export default function App() {
     const ids = new Set(clusterData.footprints.map(f => f._id));
     return footprints.filter(f => ids.has(f._id));
   }, [clusterData, footprints]);
-
-  const isAdmin = user?.role === 'admin';
-  const isAsen = user?.name === '阿森';
 
   // Derived: friend info for ChatWindow (async fallback for non-friend admin chats)
   const [chatFriendMeta, setChatFriendMeta] = useState(null);
@@ -470,12 +281,12 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => openAnnouncements()}
-                className="relative w-8 h-8 rounded-lg flex items-center justify-center
+                className="relative w-11 h-11 rounded-lg flex items-center justify-center
                   bg-[#121212]/50 backdrop-blur-xl
                   border border-white/[0.08]
                   shadow-lg active:scale-90 transition-all duration-150"
               >
-                <Megaphone className="w-3.5 h-3.5 text-white/50" />
+                <Megaphone className="w-4 h-4 text-white/50" />
                 {announceHasUnread && (
                   <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400
                     shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
@@ -531,7 +342,7 @@ export default function App() {
               isOpen={showAnnouncements}
               onClose={() => { closeAnnouncements(); setAnnounceHasUnread(false); }}
               isAsen={user?.name === '阿森'}
-              onToast={(msg) => useUIStore.getState().addNotification({ type: 'announcement', content: msg })}
+              onToast={(msg) => useUIStore.getState().addToast({ type: 'announcement', content: msg })}
             />
           )}
         </AnimatePresence>
@@ -559,42 +370,22 @@ export default function App() {
             isOnline={onlineStatus[chatUserId] || false}
             user={user}
             socketRef={socketRef}
-            onOpen={() => { useUIStore.getState().dismissByType('message'); clearMessageIsland(); clearUnread(chatUserId); }}
+            onOpen={() => { useUIStore.getState().dismissToastByType('message'); clearMessageIsland(); clearUnread(chatUserId); }}
             onClose={() => { clearUnread(chatUserId); closeChat(); }}
-            onToast={(msg) => useUIStore.getState().addNotification({ type: 'message', content: msg })}
+            onToast={(msg) => useUIStore.getState().addToast({ type: 'message', content: msg })}
           />
         )}
 
-        <MapContainer key="map" center={CENTER} zoom={6} scrollWheelZoom zoomControl={false}
-          className="w-full h-full"
-          style={{ zIndex: 0 }}>
-          <MapResizeHandler />
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            crossOrigin=""
-          />
-          <RecenterOnLoad footprints={footprints} targetId={shareTarget} />
-          <FlyToFootprint
-            footprints={footprints}
-            activeFootprintId={activeFootprintId}
-            onArrive={(fp) => setFlyArrivedFp(fp)}
-          />
-          <PanToTarget
-            targetId={timelineTargetFpId}
-            footprints={footprints}
-            onArrive={(fp) => {
-              setTimelineTargetFpId(null);
-              setFlyArrivedFp(fp);
-            }}
-          />
-          <ClusterMarkers
-            footprints={footprints}
-            userId={user?._id}
-            isAdmin={isAdmin}
-          />
-          {isAdmin && <MapContextMenu />}
-        </MapContainer>
+        <MapView
+          footprints={footprints}
+          shareTarget={shareTarget}
+          activeFootprintId={activeFootprintId}
+          timelineTargetFpId={timelineTargetFpId}
+          user={user}
+          isAdmin={isAdmin}
+          setFlyArrivedFp={setFlyArrivedFp}
+          setTimelineTargetFpId={setTimelineTargetFpId}
+        />
 
         {/* Desktop side buttons */}
         <div className="hidden md:flex absolute z-[1000] flex-col gap-2 transform-gpu will-change-transform"
@@ -612,6 +403,27 @@ export default function App() {
           >
             <Image className="w-4 h-4 text-purple-400" />
             <span className="text-white/80">照片墙</span>
+          </button>
+        </div>
+
+        {/* Mobile check-in FAB — one-tap access to primary action */}
+        <div className="md:hidden fixed z-[1000] pointer-events-none transform-gpu will-change-transform"
+          style={{
+            bottom: `max(24px, env(safe-area-inset-bottom))`,
+            right: `max(16px, env(safe-area-inset-right))`,
+          }}>
+          <button
+            onClick={() => {
+              if (!requireLogin({ type: 'checkin' })) return;
+              setPendingCheckInLocation(null);
+              openCheckIn();
+            }}
+            className="pointer-events-auto w-14 h-14 rounded-full flex items-center justify-center
+              bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500
+              shadow-lg shadow-purple-500/30
+              active:scale-90 transition-transform duration-200"
+          >
+            <MapPin className="w-6 h-6 text-white" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
           </button>
         </div>
 

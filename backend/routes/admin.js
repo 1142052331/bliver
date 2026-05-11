@@ -128,45 +128,34 @@ module.exports = (io) => {
   });
 
   // GET /api/admin/clones — group users by shared IPs to detect alt accounts
+  // Uses MongoDB $group aggregation to leverage indexes on registerIp / lastLoginIp
   router.get('/admin/clones', async (req, res) => {
     try {
-      const users = await User.find().select('name avatarUrl registerIp lastLoginIp lastLoginAt isOnline role createdAt').lean();
+      const totalUsers = await User.countDocuments();
 
-      const byRegisterIp = {};
-      const byLastLoginIp = {};
+      const [registerGroups, loginGroups] = await Promise.all([
+        User.aggregate([
+          { $match: { registerIp: { $ne: '' } } },
+          { $group: { _id: '$registerIp', users: { $push: { _id: '$_id', name: '$name', avatarUrl: '$avatarUrl', registerIp: '$registerIp', lastLoginIp: '$lastLoginIp', lastLoginAt: '$lastLoginAt', isOnline: '$isOnline', role: '$role', createdAt: '$createdAt' } }, count: { $sum: 1 } } },
+          { $match: { count: { $gte: 2 } } },
+          { $sort: { count: -1 } },
+        ]),
+        User.aggregate([
+          { $match: { lastLoginIp: { $ne: '' } } },
+          { $group: { _id: '$lastLoginIp', users: { $push: { _id: '$_id', name: '$name', avatarUrl: '$avatarUrl', registerIp: '$registerIp', lastLoginIp: '$lastLoginIp', lastLoginAt: '$lastLoginAt', isOnline: '$isOnline', role: '$role', createdAt: '$createdAt' } }, count: { $sum: 1 } } },
+          { $match: { count: { $gte: 2 } } },
+          { $sort: { count: -1 } },
+        ]),
+      ]);
 
-      for (const u of users) {
-        const rip = u.registerIp || '';
-        const lip = u.lastLoginIp || '';
-        // Skip users with no IP data yet (old accounts before tracking was added)
-        if (!rip && !lip) continue;
-
-        if (rip) {
-          if (!byRegisterIp[rip]) byRegisterIp[rip] = [];
-          byRegisterIp[rip].push(u);
-        }
-
-        if (lip) {
-          if (!byLastLoginIp[lip]) byLastLoginIp[lip] = [];
-          byLastLoginIp[lip].push(u);
-        }
-      }
-
-      // Only keep groups with 2+ users sharing the same IP
-      const registerGroups = Object.values(byRegisterIp)
-        .filter(g => g.length >= 2)
-        .map(users => ({ ip: users[0].registerIp, users, type: 'registerIp' }));
-
-      const loginGroups = Object.values(byLastLoginIp)
-        .filter(g => g.length >= 2)
-        .map(users => ({ ip: users[0].lastLoginIp, users, type: 'lastLoginIp' }));
-
-      // Merge: deduplicate by user-set overlap
-      const allGroups = [...registerGroups, ...loginGroups];
+      const allGroups = [
+        ...registerGroups.map(g => ({ ip: g._id, users: g.users, type: 'registerIp' })),
+        ...loginGroups.map(g => ({ ip: g._id, users: g.users, type: 'lastLoginIp' })),
+      ];
 
       res.json({
         groups: allGroups.sort((a, b) => b.users.length - a.users.length),
-        totalUsers: users.length,
+        totalUsers,
         suspiciousCount: new Set(allGroups.flatMap(g => g.users.map(u => u._id.toString()))).size,
       });
     } catch (err) {

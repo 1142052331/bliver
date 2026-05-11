@@ -11,14 +11,14 @@ const typeConfig = {
 };
 
 export default function GlobalToaster() {
-  const notifications = useUIStore((s) => s.notifications);
-  const dismissNotification = useUIStore((s) => s.dismissNotification);
+  const toasts = useUIStore((s) => s.toasts);
+  const dismissToast = useUIStore((s) => s.dismissToast);
 
   return (
     <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1900] flex flex-col gap-2 pointer-events-none
       max-w-[90vw]">
       <AnimatePresence>
-        {notifications.map((n) => {
+        {toasts.map((n) => {
           const cfg = typeConfig[n.type] || typeConfig.comment;
           return (
             <motion.div
@@ -28,7 +28,7 @@ export default function GlobalToaster() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.7, y: -20 }}
               transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.8 }}
-              onClick={() => dismissNotification(n.id)}
+              onClick={() => dismissToast(n.id)}
               className="pointer-events-auto cursor-pointer
                 px-4 py-2.5 bg-gray-900/85 backdrop-blur-xl
                 text-white text-sm font-medium

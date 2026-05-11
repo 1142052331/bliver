@@ -34,7 +34,7 @@ export default function MobileActionDrawer({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-10 h-10 rounded-full flex items-center justify-center
+          className="w-11 h-11 rounded-full flex items-center justify-center
             bg-[#121212]/50 backdrop-blur-xl
             border border-white/10
             shadow-xl

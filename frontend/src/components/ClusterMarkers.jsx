@@ -24,8 +24,8 @@ function createMoodIcon(mood) {
       <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(45,212,191,0.5)"></div>
     </div>`,
     className: '',
-    iconSize: [30, 50],
-    iconAnchor: [15, 25],
+    iconSize: [44, 64],   // larger hit area for mobile taps
+    iconAnchor: [22, 32],
   });
 }
 
@@ -38,8 +38,8 @@ function getDefaultIcon() {
         <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(45,212,191,0.5)"></div>
       </div>`,
       className: '',
-      iconSize: [30, 50],
-      iconAnchor: [15, 25],
+      iconSize: [44, 64],   // larger hit area for mobile taps
+      iconAnchor: [22, 32],
     });
   }
   return defaultIcon;
@@ -76,8 +76,8 @@ function createNewCommentIcon(mood) {
       </div>
     </div>`,
     className: '',
-    iconSize: [60, 60],
-    iconAnchor: [30, 58],
+    iconSize: [74, 74],   // larger hit area for mobile taps
+    iconAnchor: [37, 72],
   });
 }
 
@@ -90,8 +90,8 @@ function createStreakIcon(mood, streak) {
       <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fb923c;box-shadow:0 0 12px rgba(251,146,60,0.5),0 2px 8px rgba(45,212,191,0.3)"></div>
     </div>`,
     className: '',
-    iconSize: [30, 50],
-    iconAnchor: [15, 25],
+    iconSize: [44, 64],   // larger hit area for mobile taps
+    iconAnchor: [22, 32],
   });
 }
 

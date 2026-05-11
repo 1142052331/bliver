@@ -1,0 +1,215 @@
+import { create } from 'zustand';
+
+// ── Types ───────────────────────────────────────────
+
+export interface GhostMode {
+  userId: string;
+  userName: string;
+}
+
+export interface PendingLocation {
+  lat: number;
+  lng: number;
+}
+
+export interface Toast {
+  type: string;
+  content: string;
+  duration?: number;
+}
+
+interface ToastEntry extends Toast {
+  id: string;
+  timestamp: number;
+}
+
+interface MessageIslandData {
+  senderId?: string;
+  senderName?: string;
+  content?: string;
+  footprintId?: string;
+  [key: string]: unknown;
+}
+
+interface ClusterPayload {
+  footprints: Array<{ _id: string }>;
+  [key: string]: unknown;
+}
+
+// ── Store ───────────────────────────────────────────
+
+interface UIStore {
+  // Modal / Drawer toggles
+  showCheckIn: boolean;
+  showTimeline: boolean;
+  showNotifs: boolean;
+  showAdmin: boolean;
+  showAuth: boolean;
+  showPhotoWall: boolean;
+  showAbout: boolean;
+  showAnnouncements: boolean;
+  showFriends: boolean;
+
+  // Auth modal helpers
+  authTab: string;
+  authMessage: string;
+
+  // Map interaction
+  activeFootprintId: string | null;
+  flyArrivedFp: unknown;
+  timelineTargetFpId: string | null;
+  clusterData: ClusterPayload | null;
+  shareTarget: string | null;
+
+  // Chat / Profile
+  chatUserId: string | null;
+  viewingProfileId: string | null;
+
+  // Floating toasts
+  toasts: ToastEntry[];
+
+  // Dynamic Island
+  messageIsland: MessageIslandData | null;
+
+  // Ghost Mode
+  ghostMode: GhostMode | null;
+
+  // Admin Teleport
+  pendingCheckInLocation: PendingLocation | null;
+
+  // ── Actions ──
+  openCheckIn: () => void;
+  closeCheckIn: () => void;
+  openTimeline: () => void;
+  closeTimeline: () => void;
+  toggleNotifs: () => void;
+  closeNotifs: () => void;
+  openAdmin: () => void;
+  closeAdmin: () => void;
+  openAuth: (tab?: string, message?: string) => void;
+  closeAuth: () => void;
+  openPhotoWall: () => void;
+  closePhotoWall: () => void;
+  openAbout: () => void;
+  closeAbout: () => void;
+  openAnnouncements: () => void;
+  closeAnnouncements: () => void;
+  openFriends: () => void;
+  closeFriends: () => void;
+
+  setActiveFootprintId: (id: string | null) => void;
+  setFlyArrivedFp: (fp: unknown) => void;
+  setTimelineTargetFpId: (id: string | null) => void;
+  setClusterData: (data: ClusterPayload | null) => void;
+  setShareTarget: (id: string | null) => void;
+
+  openChat: (uid: string) => void;
+  closeChat: () => void;
+  openProfile: (uid: string) => void;
+  closeProfile: () => void;
+
+  setAuthTab: (tab: string) => void;
+  setAuthMessage: (msg: string) => void;
+
+  addToast: (toast: Toast) => void;
+  dismissToast: (id: string) => void;
+  dismissToastByType: (type: string) => void;
+
+  setMessageIsland: (data: MessageIslandData | null) => void;
+  clearMessageIsland: () => void;
+
+  enterGhostMode: (userId: string, userName: string) => void;
+  exitGhostMode: () => void;
+  setPendingCheckInLocation: (loc: PendingLocation | null) => void;
+}
+
+const useUIStore = create<UIStore>()((set) => ({
+  // ── Modal / Drawer toggles ──────────────────────
+  showCheckIn: false,
+  showTimeline: false,
+  showNotifs: false,
+  showAdmin: false,
+  showAuth: false,
+  showPhotoWall: false,
+  showAbout: false,
+  showAnnouncements: false,
+  showFriends: false,
+
+  authTab: 'login',
+  authMessage: '',
+
+  activeFootprintId: null,
+  flyArrivedFp: null,
+  timelineTargetFpId: null,
+  clusterData: null,
+  shareTarget: null,
+
+  chatUserId: null,
+  viewingProfileId: null,
+
+  toasts: [],
+
+  messageIsland: null,
+
+  ghostMode: null,
+  pendingCheckInLocation: null,
+
+  // ── Actions ─────────────────────────────────────
+  openCheckIn: () => set({ showCheckIn: true }),
+  closeCheckIn: () => set({ showCheckIn: false }),
+  openTimeline: () => set({ showTimeline: true }),
+  closeTimeline: () => set({ showTimeline: false }),
+  toggleNotifs: () => set((s) => ({ showNotifs: !s.showNotifs })),
+  closeNotifs: () => set({ showNotifs: false }),
+  openAdmin: () => set({ showAdmin: true }),
+  closeAdmin: () => set({ showAdmin: false }),
+  openAuth: (tab = 'login', message = '') =>
+    set({ showAuth: true, authTab: tab, authMessage: message }),
+  closeAuth: () => set({ showAuth: false }),
+  openPhotoWall: () => set({ showPhotoWall: true }),
+  closePhotoWall: () => set({ showPhotoWall: false }),
+  openAbout: () => set({ showAbout: true }),
+  closeAbout: () => set({ showAbout: false }),
+  openAnnouncements: () => set({ showAnnouncements: true }),
+  closeAnnouncements: () => set({ showAnnouncements: false }),
+  openFriends: () => set({ showFriends: true }),
+  closeFriends: () => set({ showFriends: false }),
+
+  setActiveFootprintId: (id) => set({ activeFootprintId: id }),
+  setFlyArrivedFp: (fp) => set({ flyArrivedFp: fp }),
+  setTimelineTargetFpId: (id) => set({ timelineTargetFpId: id }),
+  setClusterData: (data) => set({ clusterData: data }),
+  setShareTarget: (id) => set({ shareTarget: id }),
+
+  openChat: (uid) => set({ chatUserId: uid }),
+  closeChat: () => set({ chatUserId: null }),
+  openProfile: (uid) => set({ viewingProfileId: uid }),
+  closeProfile: () => set({ viewingProfileId: null }),
+
+  setAuthTab: (tab) => set({ authTab: tab }),
+  setAuthMessage: (msg) => set({ authMessage: msg }),
+
+  addToast: (toast) => {
+    const id = 't' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    const entry: ToastEntry = { id, ...toast, timestamp: Date.now() };
+    set((s) => ({ toasts: [...s.toasts, entry] }));
+    const ms = toast.duration || 4000;
+    setTimeout(() => {
+      useUIStore.getState().dismissToast(id);
+    }, ms);
+  },
+  dismissToast: (id) =>
+    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  dismissToastByType: (type) =>
+    set((s) => ({ toasts: s.toasts.filter((t) => t.type !== type) })),
+
+  setMessageIsland: (data) => set({ messageIsland: data }),
+  clearMessageIsland: () => set({ messageIsland: null }),
+
+  enterGhostMode: (userId, userName) => set({ ghostMode: { userId, userName } }),
+  exitGhostMode: () => set({ ghostMode: null }),
+
+  setPendingCheckInLocation: (loc) => set({ pendingCheckInLocation: loc }),
+}));
+
+export default useUIStore;
