@@ -12,8 +12,6 @@ import FootprintCardList from './FootprintCardList';
 export default function ProfileDrawer({ userId, onClose, onLogout, friendshipStatus, pendingRequestId, onSendFriendRequest, onAcceptRequest, onRejectRequest, onOpenChat, onSelectFootprint }) {
   const [profile, setProfile] = useState(null);
   const [footprints, setFootprints] = useState([]);
-  const [recentReactions, setRecentReactions] = useState([]);
-  const [recentComments, setRecentComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [bannerMsg, setBannerMsg] = useState('');
@@ -98,8 +96,6 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
       if (cancelled) return;
       setProfile(data.user);
       setFootprints(data.footprints);
-      setRecentReactions(data.recentReactions);
-      setRecentComments(data.recentComments);
     }).catch((err) => {
       if (!cancelled) console.error(err);
     }).finally(() => {
@@ -402,24 +398,6 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                   return null;
                 })()}
 
-                {/* Interactions */}
-                {(recentReactions.length > 0 || recentComments.length > 0) && (
-                  <div className="px-5 pb-3">
-                    <p className="text-xs text-white/80 mb-2 drop-shadow-md">最近互动</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {recentReactions.map((fp) => (
-                        <span key={fp._id} className="text-xs bg-white/20 backdrop-blur-sm text-white px-2.5 py-1 rounded-full">
-                          {fp.userId?.name || '?'}
-                        </span>
-                      ))}
-                      {recentComments.map((fp) => (
-                        <span key={fp._id} className="text-xs bg-white/20 backdrop-blur-sm text-white px-2.5 py-1 rounded-full">
-                          {fp.userId?.name || '?'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
