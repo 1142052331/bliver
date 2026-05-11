@@ -8,7 +8,7 @@ import ProfileStats from './ProfileStats';
 import ProfileVisitors from './ProfileVisitors';
 import FootprintCardList from './FootprintCardList';
 
-export default function ProfileDrawer({ userId, onClose, onLogout, friendshipStatus, pendingRequestId, onSendFriendRequest, onAcceptRequest, onRejectRequest, onOpenChat }) {
+export default function ProfileDrawer({ userId, onClose, onLogout, friendshipStatus, pendingRequestId, onSendFriendRequest, onAcceptRequest, onRejectRequest, onOpenChat, onSelectFootprint }) {
   const [profile, setProfile] = useState(null);
   const [footprints, setFootprints] = useState([]);
   const [recentReactions, setRecentReactions] = useState([]);
@@ -420,6 +420,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
               footprints={footprints}
               isOwnProfile={isOwnProfile}
               onLogout={onLogout}
+              onSelectFootprint={onSelectFootprint}
             />
           </>
         )}

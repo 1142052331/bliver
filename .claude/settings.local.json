@@ -52,7 +52,15 @@
       "PowerShell(Stop-Process *)",
       "Bash(Select-String \":5000\")",
       "PowerShell(Get-NetTCPConnection *)",
-      "PowerShell(Get-Content *)"
+      "PowerShell(Get-Content *)",
+      "mcp__bliver-db__query_bliver_db",
+      "Bash(dir \"c:\\\\Users\\\\1\\\\Desktop\\\\BliverApp\\\\frontend\\\\src\" /B)",
+      "Bash(Get-ChildItem \"c:\\\\Users\\\\1\\\\Desktop\\\\BliverApp\\\\frontend\\\\src\" -Name)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\1\\\\Desktop\\\\BliverApp\\\\frontend\\\\src\" -Directory | ForEach-Object { $_.Name })",
+      "PowerShell($files = @\\(\"frontend/src/components/AdminPanel.jsx\", \"frontend/src/components/FootprintCardList.jsx\", \"frontend/src/components/ProfileDrawer.jsx\", \"frontend/src/components/FootprintDetailModal.jsx\", \"frontend/src/components/ClusterDetailPanel.jsx\", \"frontend/src/App.jsx\", \"frontend/index.html\"\\); foreach \\($f in $files\\) { $a = \\(Get-ChildItem \"c:/Users/1/Desktop/BliverApp/$f\"\\).Length; $b = \\(Get-ChildItem \"c:/Users/1/Desktop/Bliver/$f\"\\).Length; Write-Output \"$f | BliverApp: $a | Bliver: $b\" })"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\1\\Desktop\\bliver-mcp-server"
     ]
   }
 }

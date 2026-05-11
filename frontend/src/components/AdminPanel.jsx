@@ -142,7 +142,9 @@ export default function AdminPanel({ onClose }) {
                     <div className="space-y-2">
                       {onlineUsers.map((u) => (
                         <div key={u.socketId} className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 cursor-pointer"
+                            onClick={() => u._id && window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: u._id } }))}
+                          >
                             <div className="relative">
                               {u.avatarUrl ? (
                                 <img src={u.avatarUrl} className="w-8 h-8 rounded-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
@@ -193,7 +195,9 @@ export default function AdminPanel({ onClose }) {
                                 className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:border-blue-400"
                               />
                             ) : (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => u._id && window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: u._id } }))}
+                              >
                                 {u.avatarUrl ? (
                                   <img src={u.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
                                 ) : (

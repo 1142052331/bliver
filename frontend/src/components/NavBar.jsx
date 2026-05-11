@@ -31,7 +31,8 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
       <div className="flex items-center gap-2">
         {/* Online count */}
         <div className="flex items-center gap-1.5 text-xs
-          bg-white/[0.03] border border-white/[0.06] rounded-full pl-2 pr-3 py-1">
+          bg-white/[0.03] border border-white/[0.06] rounded-full pl-2 pr-3 py-1"
+          title={`${onlineCount} 位用户在线`}>
           <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.6)] animate-pulse" />
           <span className="font-semibold text-white/80">{onlineCount}</span>
           <span className="text-white/30">在线</span>

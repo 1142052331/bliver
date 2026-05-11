@@ -13,7 +13,7 @@ function timeAgo(date) {
 /**
  * 足迹历史列表 + 退出登录按钮。
  */
-export default function FootprintCardList({ footprints, isOwnProfile, onLogout }) {
+export default function FootprintCardList({ footprints, isOwnProfile, onLogout, onSelectFootprint }) {
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar bg-white rounded-t-3xl -mt-3 relative z-10">
       <div className="px-5 pt-5 pb-4">
@@ -27,7 +27,8 @@ export default function FootprintCardList({ footprints, isOwnProfile, onLogout }
         ) : (
           <div className="space-y-3">
             {footprints.map((fp) => (
-              <div key={fp._id} className="bg-gray-50 rounded-xl p-3">
+              <div key={fp._id} className="bg-gray-50 rounded-xl p-3 cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => onSelectFootprint?.(fp._id)}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <Clock className="w-3 h-3 text-gray-300" />
                   <span className="text-xs text-gray-400">{timeAgo(fp.createdAt)}</span>

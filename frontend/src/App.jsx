@@ -573,6 +573,7 @@ export default function App() {
         {flyArrivedFp && (
           <FootprintDetailModal
             fp={flyArrivedFp}
+            allFootprints={footprints}
             userId={user?._id}
             isAdmin={isAdmin}
             onReact={handleReact}
@@ -627,6 +628,7 @@ export default function App() {
               userId={viewingProfileId}
               onClose={() => closeProfile()}
               onLogout={() => { closeProfile(); handleLogout(); }}
+              onSelectFootprint={(fpId) => { closeProfile(); setActiveFootprintId(fpId); }}
               friendshipStatus={friendshipStatus}
               pendingRequestId={getPendingRequestId(viewingProfileId)}
               onSendFriendRequest={sendFriendRequest}

@@ -17,7 +17,8 @@ function maskIp(ip) {
   return ip;
 }
 
-export default function FootprintDetailModal({ fp, userId, isAdmin, onReact, onDelete, onShare, onComment, onDeleteComment, onClose }) {
+export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onReact, onDelete, onShare, onComment, onDeleteComment, onClose, allFootprints }) {
+  const fp = allFootprints && fpProp ? allFootprints.find(f => f._id === fpProp._id) || fpProp : fpProp;
   if (!fp) return null;
 
   const mountedRef = useRef(true);

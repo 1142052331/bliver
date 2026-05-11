@@ -201,6 +201,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
       {detailFp && (
         <FootprintDetailModal
           fp={detailFp}
+          allFootprints={footprints}
           userId={userId}
           isAdmin={isAdmin}
           onReact={onReact}
