@@ -1,17 +1,28 @@
 import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 
-/** Calls map.invalidateSize() on window resize — fixes iOS address bar reflow */
+/** Calls map.invalidateSize() on resize, orientation change, and wake-from-background */
 export default function MapResizeHandler() {
   const map = useMap();
 
   useEffect(() => {
-    const onResize = () => map.invalidateSize();
-    window.addEventListener('resize', onResize);
-    window.addEventListener('orientationchange', onResize);
+    const invalidate = () => {
+      window.dispatchEvent(new Event('resize'));
+      setTimeout(() => map.invalidateSize(), 100);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') invalidate();
+    };
+
+    window.addEventListener('resize', invalidate);
+    window.addEventListener('orientationchange', invalidate);
+    document.addEventListener('visibilitychange', onVisibility);
+
     return () => {
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('orientationchange', onResize);
+      window.removeEventListener('resize', invalidate);
+      window.removeEventListener('orientationchange', invalidate);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [map]);
 

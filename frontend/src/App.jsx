@@ -407,7 +407,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div className="fixed inset-0 overflow-hidden"
-        style={{ background: 'var(--aurora-deep)' }}>
+        style={{ background: 'var(--aurora-deep)', touchAction: 'none' }}>
         {/* ── Mobile top bar: Bliver (left) ‖ 公告 + 好友 + 菜单 (right) ── */}
         <div className="md:hidden fixed z-[1000] pointer-events-none inset-x-0 flex items-start justify-between transform-gpu will-change-transform"
           style={{ top: `max(14px, env(safe-area-inset-top))`, paddingLeft: `max(14px, env(safe-area-inset-left))`, paddingRight: `max(12px, env(safe-area-inset-right))` }}>
