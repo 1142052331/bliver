@@ -71,6 +71,21 @@ const setupSocket = (io) => {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id, 'userId:', socket.userId);
 
+    // ── Update lastLoginIp on every socket connection ──
+    (async () => {
+      try {
+        const ip = socket.handshake.headers['x-forwarded-for']?.split(',')[0]?.trim()
+          || socket.handshake.address
+          || 'unknown';
+        const user = await User.findByIdAndUpdate(socket.userId, { lastLoginIp: ip, lastLoginAt: new Date() }, { returnDocument: 'after' }).select('name').lean();
+        if (user) {
+          io.emit('admin:audit', { type: 'connect', user: user.name, ip, timestamp: new Date().toISOString() });
+        }
+      } catch (err) {
+        console.error('IP capture on connect error:', err.message);
+      }
+    })();
+
     // ── Single-session enforcement — kick old sockets for this userId (always enforced) ──
     (async () => {
       try {
@@ -212,6 +227,12 @@ const setupSocket = (io) => {
     socket.on('disconnect', async () => {
       console.log('User disconnected:', socket.id);
       if (!socket.userId) return;
+
+      // Emit audit event immediately (before delayed offline logic)
+      try {
+        const u = await User.findById(socket.userId).select('name').lean();
+        if (u) io.emit('admin:audit', { type: 'disconnect', user: u.name, timestamp: new Date().toISOString() });
+      } catch (err) { console.error('audit disconnect error:', err.message); }
 
       const uid = socket.userId.toString();
       const timer = setTimeout(async () => {

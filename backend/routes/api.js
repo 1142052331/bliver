@@ -17,7 +17,7 @@ module.exports = (io) => {
   const router = express.Router();
 
   // Mount sub-routers
-  router.use(authRoutes());
+  router.use(authRoutes(io));
   router.use(notificationRoutes());
 
   // Shared helper: create notification (DB + socket + push)
@@ -48,8 +48,14 @@ module.exports = (io) => {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
 
+      const filter = { createdAt: { $gte: start, $lte: end } };
+      // Admin ghost mode: filter by specific userId
+      if (req.query.userId && req.isAdmin) {
+        filter.userId = req.query.userId;
+      }
+
       const docs = await populateFootprint(
-        Footprint.find({ createdAt: { $gte: start, $lte: end } }).sort({ createdAt: -1 })
+        Footprint.find(filter).sort({ createdAt: -1 })
       );
 
       const footprints = docs.map((fp) => {
@@ -139,6 +145,7 @@ module.exports = (io) => {
       res.status(201).json({ footprint: sanitizeLocation(fpObj, req.user.role === 'admin') });
       delete fpObj.realLocation;
       io.emit('footprint:new', { footprint: fpObj });
+      io.emit('admin:audit', { type: 'checkin', user: req.user.name, mood: mood || '📍', placeName, timestamp: new Date().toISOString() });
     } catch (err) {
       console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
     }
@@ -176,6 +183,7 @@ module.exports = (io) => {
       delete fpObj.realLocation;
 
       io.emit('footprint:updated', { footprint: fpObj });
+      io.emit('admin:audit', { type: 'reaction', user: username, emoji: isToggleOff ? '取消' : emoji, footprintId: req.params.id, timestamp: new Date().toISOString() });
 
       if (populated.userId.toString() !== userId && !isToggleOff) {
         await createNotification({
@@ -217,6 +225,7 @@ module.exports = (io) => {
       delete fpObj.realLocation;
 
       io.emit('footprint:updated', { footprint: fpObj });
+      io.emit('admin:audit', { type: 'comment', user: username, content: content.slice(0, 80), footprintId: req.params.id, timestamp: new Date().toISOString() });
 
       if (fp.userId.toString() !== req.user.id) {
         await createNotification({
@@ -273,6 +282,7 @@ module.exports = (io) => {
       if (!fp) return res.status(404).json({ error: 'Not found' });
 
       io.emit('footprint:deleted', { footprintId: req.params.id });
+      io.emit('admin:audit', { type: 'footprint_delete', actor: req.user.name, footprintId: req.params.id, timestamp: new Date().toISOString() });
 
       res.json({ ok: true });
     } catch (err) {

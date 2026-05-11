@@ -3,7 +3,7 @@ import api from '../api';
 import imageCompression from 'browser-image-compression';
 import { X, MapPin, Camera, Loader2 } from 'lucide-react';
 
-export default function CheckInModal({ isOpen, onClose }) {
+export default function CheckInModal({ isOpen, onClose, presetLocation = null }) {
   const [message, setMessage] = useState('');
   const [mood, setMood] = useState('');
   const [photo, setPhoto] = useState(null);
@@ -32,14 +32,21 @@ export default function CheckInModal({ isOpen, onClose }) {
 
   useEffect(() => {
     if (isOpen) {
-      setLocating(true);
       setMessage('');
       setMood('');
       setPhoto(null);
       setPreview('');
-      setLocation(null);
       setPrecise(false);
       setLocDenied(false);
+
+      if (presetLocation && presetLocation.lat != null && presetLocation.lng != null) {
+        setLocation({ lat: presetLocation.lat, lng: presetLocation.lng });
+        setLocating(false);
+        return;
+      }
+
+      setLocating(true);
+      setLocation(null);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });

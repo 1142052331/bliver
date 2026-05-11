@@ -26,13 +26,13 @@ module.exports = (io) => {
 
       // Enrich with user names
       const userIds = online.map((o) => o.userId);
-      const users = await User.find({ _id: { $in: userIds } }).select('name avatarUrl');
+      const users = await User.find({ _id: { $in: userIds } }).select('name avatarUrl registerIp lastLoginIp');
       const userMap = {};
       users.forEach((u) => { userMap[u._id.toString()] = u; });
 
       const enriched = online.map((o) => {
         const u = userMap[o.userId.toString()] || {};
-        return { ...o, name: u.name || 'Unknown', avatarUrl: u.avatarUrl || '' };
+        return { ...o, name: u.name || 'Unknown', avatarUrl: u.avatarUrl || '', registerIp: u.registerIp || '', lastLoginIp: u.lastLoginIp || '' };
       });
 
       res.json({ online: enriched });
@@ -83,6 +83,7 @@ module.exports = (io) => {
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       res.json({ user });
+      io.emit('admin:audit', { type: 'user_edit', actor: req.user.name, target: user.name, timestamp: new Date().toISOString() });
     } catch (err) {
       console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }
@@ -120,8 +121,57 @@ module.exports = (io) => {
       }
 
       res.json({ ok: true, message: 'User and all associated data deleted' });
+      io.emit('admin:audit', { type: 'delete', actor: req.user.name, target: user.name, timestamp: new Date().toISOString() });
     } catch (err) {
       console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/admin/clones — group users by shared IPs to detect alt accounts
+  router.get('/admin/clones', async (req, res) => {
+    try {
+      const users = await User.find().select('name avatarUrl registerIp lastLoginIp lastLoginAt isOnline role createdAt').lean();
+
+      const byRegisterIp = {};
+      const byLastLoginIp = {};
+
+      for (const u of users) {
+        const rip = u.registerIp || '';
+        const lip = u.lastLoginIp || '';
+        // Skip users with no IP data yet (old accounts before tracking was added)
+        if (!rip && !lip) continue;
+
+        if (rip) {
+          if (!byRegisterIp[rip]) byRegisterIp[rip] = [];
+          byRegisterIp[rip].push(u);
+        }
+
+        if (lip) {
+          if (!byLastLoginIp[lip]) byLastLoginIp[lip] = [];
+          byLastLoginIp[lip].push(u);
+        }
+      }
+
+      // Only keep groups with 2+ users sharing the same IP
+      const registerGroups = Object.values(byRegisterIp)
+        .filter(g => g.length >= 2)
+        .map(users => ({ ip: users[0].registerIp, users, type: 'registerIp' }));
+
+      const loginGroups = Object.values(byLastLoginIp)
+        .filter(g => g.length >= 2)
+        .map(users => ({ ip: users[0].lastLoginIp, users, type: 'lastLoginIp' }));
+
+      // Merge: deduplicate by user-set overlap
+      const allGroups = [...registerGroups, ...loginGroups];
+
+      res.json({
+        groups: allGroups.sort((a, b) => b.users.length - a.users.length),
+        totalUsers: users.length,
+        suspiciousCount: new Set(allGroups.flatMap(g => g.users.map(u => u._id.toString()))).size,
+      });
+    } catch (err) {
+      console.error('[admin]', err);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -151,6 +201,7 @@ module.exports = (io) => {
       } else {
         res.json({ ok: true, message: `User ${user.name} is not online, marked offline` });
       }
+      io.emit('admin:audit', { type: 'kick', actor: req.user.name, target: user.name, timestamp: new Date().toISOString() });
     } catch (err) {
       console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }

@@ -19,6 +19,7 @@ import ClusterMarkers from './components/ClusterMarkers';
 import ClusterDetailPanel from './components/ClusterDetailPanel';
 import NotificationPanel from './components/NotificationPanel';
 import AdminPanel from './components/AdminPanel';
+import MapContextMenu from './components/MapContextMenu';
 import FlyToFootprint from './components/FlyToFootprint';
 import RecenterOnLoad from './components/RecenterOnLoad';
 import PanToTarget from './components/PanToTarget';
@@ -61,7 +62,8 @@ export default function App() {
   const queryClient = useQueryClient();
   const periodRef = useRef(footprintPeriod);
   periodRef.current = footprintPeriod;
-  const { data: footprints = [], isLoading: footprintsLoading, refetch: refetchFootprints } = useFootprints(footprintPeriod);
+  const ghostUserId = useUIStore((s) => s.ghostMode?.userId) || null;
+  const { data: footprints = [], isLoading: footprintsLoading, refetch: refetchFootprints } = useFootprints(footprintPeriod, ghostUserId);
 
   // Stable cache updater for socket/mutations (uses ref to avoid stale period)
   const setFootprints = useCallback((updater) => {
@@ -88,6 +90,8 @@ export default function App() {
     openChat, closeChat, openProfile, closeProfile,
     setAuthTab, setAuthMessage,
     messageIsland, setMessageIsland, clearMessageIsland,
+    ghostMode, enterGhostMode, exitGhostMode,
+    pendingCheckInLocation, setPendingCheckInLocation,
   } = useUIStore();
 
   // ── Refs ──────────────────────────────────────────────
@@ -497,6 +501,21 @@ export default function App() {
           }}
         />
 
+        {/* Ghost Mode Banner */}
+        {ghostMode && (
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 z-[1100] mt-2 px-4 py-2 bg-amber-500/90 backdrop-blur border border-amber-400/50 rounded-full shadow-2xl flex items-center gap-3">
+            <span className="text-sm font-bold text-gray-900">
+              👁️ 正在以 <span className="underline">{ghostMode.userName}</span> 的视角浏览
+            </span>
+            <button
+              onClick={exitGhostMode}
+              className="text-xs font-bold text-gray-900/70 hover:text-gray-900 bg-gray-900/10 hover:bg-gray-900/20 px-2 py-0.5 rounded-full transition-colors"
+            >
+              退出幻影模式
+            </button>
+          </div>
+        )}
+
         {showNotifs && (
           <NotificationPanel
             notifications={notifications}
@@ -574,6 +593,7 @@ export default function App() {
             userId={user?._id}
             isAdmin={isAdmin}
           />
+          {isAdmin && <MapContextMenu />}
         </MapContainer>
 
         {/* Desktop side buttons */}
@@ -595,7 +615,11 @@ export default function App() {
           </button>
         </div>
 
-        <CheckInModal isOpen={showCheckIn} onClose={closeCheckIn} />
+        <CheckInModal
+          isOpen={showCheckIn}
+          onClose={() => { closeCheckIn(); setPendingCheckInLocation(null); }}
+          presetLocation={pendingCheckInLocation}
+        />
 
         <TimelineDrawer
           isOpen={showTimeline}
@@ -657,7 +681,7 @@ export default function App() {
           </ErrorBoundary>
         )}
 
-        {showAdmin && <ErrorBoundary><AdminPanel onClose={() => closeAdmin()} /></ErrorBoundary>}
+        {showAdmin && <ErrorBoundary><AdminPanel onClose={() => closeAdmin()} socketRef={socketRef} /></ErrorBoundary>}
 
         {showPhotoWall && (
           <PhotoWall

@@ -24,6 +24,9 @@ const userSchema = new mongoose.Schema({
     visitorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     visitedAt: { type: Date, default: Date.now },
   }],
+  registerIp:  { type: String, default: '' },
+  lastLoginIp: { type: String, default: '' },
+  lastLoginAt: { type: Date, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

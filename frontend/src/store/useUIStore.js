@@ -99,6 +99,15 @@ const useUIStore = create((set) => ({
   // ── Dynamic Island ────────────────────────────
   setMessageIsland: (data) => set({ messageIsland: data }),
   clearMessageIsland: () => set({ messageIsland: null }),
+
+  // ── Ghost Mode (Admin View-As-User) ────────────
+  ghostMode: null,
+  enterGhostMode: (userId, userName) => set({ ghostMode: { userId, userName } }),
+  exitGhostMode: () => set({ ghostMode: null }),
+
+  // ── Admin Teleport (Right-Click CheckIn) ────────
+  pendingCheckInLocation: null,
+  setPendingCheckInLocation: (loc) => set({ pendingCheckInLocation: loc }),
 }));
 
 export default useUIStore;
