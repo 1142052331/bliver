@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../api';
 import { clearAuth, getToken } from '../auth';
 import useUIStore from '../store/useUIStore';
@@ -22,9 +23,9 @@ export default function useSocket({
   setFootprints,
   setNotifications,
   setOnlineCount,
-  kickExistingRef,
 }) {
   const socketRef = useRef(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!user) {
@@ -58,10 +59,6 @@ export default function useSocket({
     socket.on('connect', () => {
       console.log('[Socket] Connected:', socket.id, 'userId:', user._id?.slice(-6));
       socket.emit('user:online');
-      if (kickExistingRef?.current) {
-        kickExistingRef.current = false;
-        socket.emit('force_single_session');
-      }
     });
     socket.on('connect_error', (e) => console.error('[Socket] Connect error:', e.message));
     socket.on('disconnect', (reason) => console.log('[Socket] Disconnected:', reason));
@@ -117,7 +114,7 @@ export default function useSocket({
 
     socket.on('force_logout', (data) => {
       clearAuth();
-      alert(data?.reason || '您已被管理员踢出');
+      queryClient.clear();
       setUser(null);
     });
 

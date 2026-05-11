@@ -89,10 +89,8 @@ export default function App() {
 
   // ── Refs ──────────────────────────────────────────────
   const pendingActionRef = useRef(null);
-  const kickExistingRef = useRef(false);
   const { socketRef } = useSocket({
     user, setUser, setFootprints, setNotifications, setOnlineCount,
-    kickExistingRef,
   });
 
   const {
@@ -618,7 +616,7 @@ export default function App() {
           <AuthModal
             initialTab={authTab}
             message={authMessage}
-            onDone={(u) => { kickExistingRef.current = true; setUser(u); closeAuth(); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
+            onDone={(u) => { setUser(u); closeAuth(); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
             onClose={() => closeAuth()}
           />
         )}
