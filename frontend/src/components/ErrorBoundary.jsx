@@ -13,13 +13,13 @@ export default class ErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900 p-8">
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl">
-            <h2 className="text-lg font-bold text-red-600 mb-2">页面出错了</h2>
-            <p className="text-sm text-gray-600 mb-3">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-8">
+          <div className="bg-black/40 backdrop-blur-lg border border-white/10 shadow-xl rounded-2xl p-6 max-w-lg w-full">
+            <h2 className="text-lg font-bold text-red-400 mb-2">页面出错了</h2>
+            <p className="text-sm text-gray-300 mb-3">
               请尝试刷新页面，或将此错误信息反馈给管理员。
             </p>
-            <pre className="bg-gray-100 rounded-xl p-3 text-xs text-gray-700 overflow-auto max-h-40 mb-4">
+            <pre className="bg-white/5 rounded-xl p-3 text-xs text-gray-300 overflow-auto max-h-40 mb-4">
               {this.state.error?.message || String(this.state.error)}
             </pre>
             <button

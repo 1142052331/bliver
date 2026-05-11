@@ -175,7 +175,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
 
       <div
         style={{ right: `max(0px, env(safe-area-inset-right))` }}
-        className="absolute top-0 h-full w-full md:w-96 bg-white shadow-2xl
+        className="absolute top-0 h-full w-full md:w-96 bg-black/40 backdrop-blur-lg border-l border-white/10 shadow-xl
           transform transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]
           translate-x-0 flex flex-col animate-slide-in pointer-events-auto"
       >
@@ -244,7 +244,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                           className="absolute bottom-0 right-0 p-1.5 bg-white/90 hover:bg-white rounded-full shadow-md transition-colors disabled:opacity-50"
                           title="更换头像"
                         >
-                          <Camera className="w-3 h-3 text-gray-600" />
+                          <Camera className="w-3 h-3 text-gray-300" />
                         </button>
                       </>
                     )}
@@ -435,7 +435,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
-        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
       `}</style>
     </div>
   );

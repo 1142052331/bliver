@@ -62,35 +62,35 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
           />
 
           <div
-            className="fixed bottom-0 left-0 right-0 z-[1600] bg-white rounded-t-2xl shadow-2xl
+            className="fixed bottom-0 left-0 right-0 z-[1600] bg-black/40 backdrop-blur-lg border border-white/10 border-b-0 shadow-xl rounded-t-2xl
               max-h-[70vh] flex flex-col animate-slide-up"
             style={{ animation: 'slideUp 0.3s ease-out', paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
         {/* Handle bar */}
         <div className="flex justify-center pt-2 pb-1">
-          <div className="w-10 h-1 rounded-full bg-gray-300" />
+          <div className="w-10 h-1 rounded-full bg-white/30" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
           <div>
-            <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+            <h2 className="font-bold text-lg text-white flex items-center gap-2">
               {count} footprint{count > 1 ? 's' : ''}
               {hasAnyUnread && (
                 <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold"
-                  style={{ background: 'rgba(34,211,238,0.12)', color: '#0891b2' }}>
+                  style={{ background: 'rgba(34,211,238,0.12)', color: '#22d3ee' }}>
                   <Bell className="w-3 h-3" />
                   {unreadSet.size} 新消息
                 </span>
               )}
             </h2>
-            <p className="text-sm text-gray-400 flex items-center gap-1">
+            <p className="text-sm text-gray-300 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" />
               {placeName}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-            <X className="w-5 h-5 text-gray-400" />
+          <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-full transition-colors">
+            <X className="w-5 h-5 text-gray-300" />
           </button>
         </div>
 
@@ -105,20 +105,20 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
                   onClick={() => user?._id && window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
                 >
                   {user?.avatarUrl ? (
-                    <img src={user.avatarUrl} className="w-8 h-8 rounded-full object-cover ring-2 ring-blue-100 hover:ring-blue-300 transition-all" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
+                    <img src={user.avatarUrl} className="w-8 h-8 rounded-full object-cover ring-2 ring-white/20 hover:ring-white/40 transition-all" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-blue-300 transition-all">
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-white/40 transition-all">
                       {(user?.name || '?')[0].toUpperCase()}
                     </div>
                   )}
                 </span>
                 <span
-                  className="cursor-pointer font-semibold text-sm text-gray-800 hover:text-blue-600"
+                  className="cursor-pointer font-semibold text-sm text-gray-200 hover:text-white"
                   onClick={() => user?._id && window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
                 >
                   {user?.name || 'Unknown'}
                 </span>
-                <span className="text-xs text-gray-400">{items.length} post{items.length > 1 ? 's' : ''}</span>
+                <span className="text-xs text-gray-500">{items.length} post{items.length > 1 ? 's' : ''}</span>
               </div>
 
               {/* Post Cards */}
@@ -134,8 +134,8 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
                       onClick={() => setDetailFpId(fp._id)}
                       className={`flex gap-3 p-3 rounded-xl transition-colors cursor-pointer relative ${
                         fpUnread
-                          ? 'bg-cyan-50 border border-cyan-200 hover:bg-cyan-100'
-                          : 'bg-gray-50 hover:bg-gray-100'
+                          ? 'bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/15'
+                          : 'bg-white/5 hover:bg-white/10'
                       }`}
                     >
                       {/* Unread badge */}
@@ -160,7 +160,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-0.5">
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-gray-500">
                             <Clock className="w-3 h-3 inline mr-0.5" />
                             {timeStr(fp.createdAt)}
                           </span>
@@ -168,18 +168,18 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
                             <span className="text-base leading-none">{fp.mood}</span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-700 line-clamp-2 whitespace-pre-wrap leading-relaxed">
+                        <p className="text-sm text-gray-300 line-clamp-2 whitespace-pre-wrap leading-relaxed">
                           {fp.message}
                         </p>
                         <div className="flex items-center gap-3 mt-1.5">
                           {reactionCount > 0 && (
-                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                            <span className="flex items-center gap-1 text-xs text-gray-500">
                               {[...new Set((fp.reactions || []).map(r => r.emoji))].slice(0, 3).join('')}
                               {reactionCount > 1 && <span>{reactionCount}</span>}
                             </span>
                           )}
                           {commentCount > 0 && (
-                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                            <span className="flex items-center gap-1 text-xs text-gray-500">
                               <MessageCircle className="w-3 h-3" />
                               {commentCount}
                             </span>
