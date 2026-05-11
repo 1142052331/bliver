@@ -31,8 +31,8 @@ export default function AboutModal({ isOpen, onClose, user }) {
   if (!isOpen) return null;
 
   const handleViewProfile = () => {
-    // 如果当前登录用户是阿森，使用他自己的 ID 打开主页
-    if (user?._id) {
+    // 只有阿森本人点击时打开主页（其他人看到的是创作者署名，不可点击）
+    if (user?.name === '阿森') {
       window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }));
       onClose();
     }
@@ -98,14 +98,20 @@ export default function AboutModal({ isOpen, onClose, user }) {
             style={{ background: 'rgba(45,212,191,0.03)' }}
           >
             <p className="text-[10px] text-white/30">Designed & Developed by</p>
-            <button
-              type="button"
-              onClick={handleViewProfile}
-              className="text-sm font-semibold mt-0.5 transition-colors hover:underline underline-offset-4"
-              style={{ color: '#2dd4bf' }}
-            >
-              阿森
-            </button>
+            {user?.name === '阿森' ? (
+              <button
+                type="button"
+                onClick={handleViewProfile}
+                className="text-sm font-semibold mt-0.5 transition-colors hover:underline underline-offset-4"
+                style={{ color: '#2dd4bf' }}
+              >
+                阿森
+              </button>
+            ) : (
+              <span className="text-sm font-semibold mt-0.5" style={{ color: '#2dd4bf' }}>
+                阿森
+              </span>
+            )}
           </div>
 
           {/* Divider */}
