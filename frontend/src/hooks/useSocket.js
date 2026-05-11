@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import api from '../api';
 import { clearAuth, getToken } from '../auth';
+import useUIStore from '../store/useUIStore';
 
 function getSocketURL() {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
@@ -21,11 +22,9 @@ export default function useSocket({
   setFootprints,
   setNotifications,
   setOnlineCount,
-  setToast,
   kickExistingRef,
 }) {
   const socketRef = useRef(null);
-  const toastTimerRef = useRef(null);
 
   useEffect(() => {
     if (!user) {
@@ -94,30 +93,26 @@ export default function useSocket({
       window.dispatchEvent(new CustomEvent('ws:profile:updated', { detail: data }));
     });
 
-    // Toast helper: show message, auto-dismiss after ms
-    const showToast = (msg, ms) => {
-      setToast(msg);
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToast(null), ms);
-    };
+    const add = useUIStore.getState().addNotification;
 
     socket.on('new_notification', (data) => {
       setNotifications((prev) => [data.notification, ...prev]);
       const n = data.notification;
-      const msg = n.type === 'reaction'
-        ? `${n.senderName} 对你的打卡表示了 ${n.content}`
-        : n.type === 'profile_view'
-          ? `${n.senderName} 浏览了你的主页`
-          : `${n.senderName} 评论了你`;
-      showToast(msg, 4000);
+      if (n.type === 'reaction') {
+        add({ type: 'reaction', content: `${n.senderName} 对你的打卡表示了 ${n.content}` });
+      } else if (n.type === 'profile_view') {
+        add({ type: 'reaction', content: `${n.senderName} 浏览了你的主页` });
+      } else {
+        add({ type: 'comment', content: `${n.senderName} 评论了你` });
+      }
     });
 
     socket.on('user_online', (data) => {
-      showToast(`${data.name} 上线了`, 3000);
+      add({ type: 'online', content: `${data.name} 上线了`, duration: 3000 });
     });
 
     socket.on('user_offline', (data) => {
-      showToast(`${data.name} 下线了`, 3000);
+      add({ type: 'offline', content: `${data.name} 下线了`, duration: 3000 });
     });
 
     socket.on('force_logout', (data) => {
@@ -127,11 +122,10 @@ export default function useSocket({
     });
 
     return () => {
-      clearTimeout(toastTimerRef.current);
       socket.disconnect();
       socketRef.current = null;
     };
   }, [user]);
 
-  return { socketRef, toastTimerRef };
+  return { socketRef };
 }

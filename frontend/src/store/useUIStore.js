@@ -27,6 +27,9 @@ const useUIStore = create((set) => ({
   chatUserId: null,
   viewingProfileId: null,
 
+  // ── Floating notifications ──────────────────────
+  notifications: [],
+
   // ── Actions ─────────────────────────────────────
 
   openCheckIn: () => set({ showCheckIn: true }),
@@ -73,6 +76,22 @@ const useUIStore = create((set) => ({
   // ── Auth helpers ────────────────────────────────
   setAuthTab: (tab) => set({ authTab: tab }),
   setAuthMessage: (msg) => set({ authMessage: msg }),
+
+  // ── Notification actions ────────────────────────
+  addNotification: (notif) => {
+    const id = 'n' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    const entry = { id, ...notif, timestamp: Date.now() };
+    set((s) => ({ notifications: [...s.notifications, entry] }));
+    // Auto-dismiss after `duration` ms (default 4s)
+    const ms = notif.duration || 4000;
+    setTimeout(() => {
+      useUIStore.getState().dismissNotification(id);
+    }, ms);
+  },
+  dismissNotification: (id) =>
+    set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) })),
+  dismissByType: (type) =>
+    set((s) => ({ notifications: s.notifications.filter((n) => n.type !== type) })),
 }));
 
 export default useUIStore;

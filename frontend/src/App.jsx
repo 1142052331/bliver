@@ -21,7 +21,7 @@ import AdminPanel from './components/AdminPanel';
 import FlyToFootprint from './components/FlyToFootprint';
 import RecenterOnLoad from './components/RecenterOnLoad';
 import PanToTarget from './components/PanToTarget';
-import Toast from './components/Toast';
+import GlobalToaster from './components/GlobalToaster';
 import AboutModal from './components/AboutModal';
 import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
@@ -52,7 +52,6 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
-  const [toast, setToast] = useState(null);
   const [announceHasUnread, setAnnounceHasUnread] = useState(false);
   const [footprintPeriod, setFootprintPeriod] = useState('week');
 
@@ -91,8 +90,8 @@ export default function App() {
   // ── Refs ──────────────────────────────────────────────
   const pendingActionRef = useRef(null);
   const kickExistingRef = useRef(false);
-  const { socketRef, toastTimerRef } = useSocket({
-    user, setUser, setFootprints, setNotifications, setOnlineCount, setToast,
+  const { socketRef } = useSocket({
+    user, setUser, setFootprints, setNotifications, setOnlineCount,
     kickExistingRef,
   });
 
@@ -384,7 +383,7 @@ export default function App() {
     const handler = (e) => {
       const msg = e.detail;
       if (msg?.senderId && chatUserId !== msg.senderId) {
-        setToast(`来自 ${msg._senderName || '好友'} 的新私信`);
+        useUIStore.getState().addNotification({ type: 'message', content: `来自 ${msg._senderName || '好友'} 的新私信` });
       }
     };
     window.addEventListener('ws:new_message', handler);
@@ -466,7 +465,7 @@ export default function App() {
             isOpen={showAnnouncements}
             onClose={() => { closeAnnouncements(); setAnnounceHasUnread(false); }}
             isAsen={user?.name === '阿森'}
-            onToast={(msg) => setToast(msg)}
+            onToast={(msg) => useUIStore.getState().addNotification({ type: 'announcement', content: msg })}
           />
         )}
 
@@ -490,9 +489,9 @@ export default function App() {
             isOnline={onlineStatus[chatUserId] || false}
             user={user}
             socketRef={socketRef}
-            onOpen={() => { setToast(null); clearUnread(chatUserId); }}
+            onOpen={() => { useUIStore.getState().dismissByType('message'); clearUnread(chatUserId); }}
             onClose={() => { clearUnread(chatUserId); closeChat(); }}
-            onToast={(msg) => setToast(msg)}
+            onToast={(msg) => useUIStore.getState().addNotification({ type: 'message', content: msg })}
           />
         )}
 
@@ -640,7 +639,7 @@ export default function App() {
           </ErrorBoundary>
         )}
 
-        <Toast message={toast} />
+        <GlobalToaster />
 
         <style>{`
           @keyframes slideDown {
