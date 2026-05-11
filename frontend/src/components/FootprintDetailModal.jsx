@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { X, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send, Bell } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
 import { getReadMap, seedReadMap, markRead, getUnreadComments, isNewFootprint } from '../readStatus';
@@ -34,7 +35,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
   const [unreadDismissed, setUnreadDismissed] = useState(false);
   useEffect(() => {
     setUnreadDismissed(false);
-    seedReadMap([fp._id]); // Mark as "read at" now to avoid false-positive "new" badge
+    seedReadMap([fp._id]);
   }, [fp._id]);
 
   const { unreadComments, footprintIsNew } = useMemo(() => {
@@ -43,9 +44,6 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
       const readMap = getReadMap();
       const comments = getUnreadComments(fp, readMap);
       const isNew = isNewFootprint(fp, readMap);
-      console.log('[FootprintDetailModal] fpId:', fp._id?.slice(-6),
-        'footprintIsNew:', isNew,
-        'unreadComments:', comments.length);
       return { unreadComments: comments, footprintIsNew: isNew };
     } catch { return { unreadComments: [], footprintIsNew: false }; }
   }, [fp, unreadDismissed]);
@@ -53,7 +51,6 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
   const showUnreadSection = unreadComments.length > 0 || footprintIsNew;
 
   const handleDismissUnread = () => {
-    console.log('[FootprintDetailModal] handleDismissUnread called for', fp._id?.slice(-6));
     markRead(fp._id);
     setUnreadDismissed(true);
     window.dispatchEvent(new CustomEvent('footprint:markRead'));
@@ -77,30 +74,44 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
 
   return (
     <div className="fixed inset-0 z-[1800] flex items-center justify-center p-4 pointer-events-none">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
-      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto aurora-scroll z-10 pointer-events-auto
-        aurora-glass rounded-2xl shadow-2xl"
-        style={{ background: 'var(--aurora-surface)' }}>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
+        onClick={onClose}
+      />
 
+      {/* Card */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92, y: 30 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ type: 'spring', damping: 26, stiffness: 320, mass: 0.9 }}
+        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto z-10 pointer-events-auto
+          bg-black/40 backdrop-blur-lg border border-white/10 shadow-2xl rounded-2xl"
+      >
         {/* Photo */}
         {fp.photoUrl ? (
           <div className="relative">
             <img src={fp.photoUrl} className="w-full max-h-[50vh] object-cover rounded-t-2xl" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f28] via-transparent to-transparent rounded-t-2xl" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent rounded-t-2xl" />
           </div>
         ) : (
-          <div className="w-full h-40 flex items-center justify-center"
-            style={{ background: 'var(--aurora-surface-glow)' }}>
+          <div className="w-full h-32 flex items-center justify-center bg-white/[0.02]">
             <Image className="w-10 h-10 text-white/10" />
           </div>
         )}
 
+        {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 bg-black/40 hover:bg-black/60
-            backdrop-blur rounded-full text-white/80 hover:text-white transition-colors z-10"
+          className="absolute top-3 right-3 p-2 bg-black/50 hover:bg-black/70
+            backdrop-blur-md rounded-full text-white/80 hover:text-white transition-colors z-10"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
         <div className="p-5">
@@ -113,18 +124,18 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
                   className="w-10 h-10 rounded-full object-cover ring-2 ring-teal-400/30 hover:ring-teal-400/60 transition-all"
                   onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
               ) : (
-                <div className="w-10 h-10 rounded-full aurora-btn flex items-center justify-center
+                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center
                   text-white font-bold text-sm ring-2 ring-teal-400/30 hover:ring-teal-400/60 transition-all">
                   {(user.name || '?')[0].toUpperCase()}
                 </div>
               )}
             </span>
             <div>
-              <span className="cursor-pointer font-semibold text-white/90 hover:text-teal-300 transition-colors"
+              <span className="cursor-pointer font-semibold text-white hover:text-teal-300 transition-colors"
                 onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}>
                 {user.name || 'Unknown'}
               </span>
-              <div className="flex items-center gap-1 text-xs text-white/30">
+              <div className="flex items-center gap-1 text-xs text-gray-400">
                 <Clock className="w-3 h-3" />
                 {new Date(fp.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
@@ -133,7 +144,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
 
           {/* Location + Mood */}
           <div className="flex items-center gap-2 mb-2">
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-gray-400">
               <MapPin className="w-3.5 h-3.5 inline mr-1" />
               {fp.placeName || 'Unknown location'}
             </p>
@@ -141,7 +152,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
           </div>
 
           {/* Message */}
-          <p className="text-white/80 whitespace-pre-wrap text-[15px] leading-relaxed mb-4"
+          <p className="text-white/90 font-medium whitespace-pre-wrap text-[15px] leading-relaxed mb-4"
             style={{ fontFamily: 'var(--font-body)' }}>
             {fp.message}
           </p>
@@ -158,19 +169,19 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
                   clearTimeout(copyTimerRef.current);
                   copyTimerRef.current = setTimeout(() => { if (mountedRef.current) setCopied(false); }, 2000);
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg
-                  bg-white/[0.04] text-white/50 text-sm hover:bg-white/[0.08] hover:text-white/70 transition-colors"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full
+                  bg-white/10 text-white/80 text-sm hover:bg-white/20 transition-colors"
               >
-                {copied ? <Check className="w-4 h-4 text-teal-400" /> : <Share2 className="w-4 h-4" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-teal-400" /> : <Share2 className="w-3.5 h-3.5" />}
                 {copied ? 'Copied' : 'Share'}
               </button>
               {isAdmin && (
                 <button
                   onClick={() => { onClose(); onDelete(fp._id); }}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full
                     bg-red-400/10 text-red-400 text-sm hover:bg-red-400/20 transition-colors"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                   Delete
                 </button>
               )}
@@ -181,8 +192,8 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
           {showUnreadSection && (
             <div className="mt-4 pt-4 border-t border-cyan-400/20">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="flex items-center gap-1.5 font-semibold text-sm"
-                  style={{ fontFamily: 'var(--font-body)', color: '#22d3ee' }}>
+                <h3 className="flex items-center gap-1.5 font-semibold text-sm text-cyan-400"
+                  style={{ fontFamily: 'var(--font-body)' }}>
                   <Bell className="w-4 h-4" />
                   {footprintIsNew && unreadComments.length > 0
                     ? '新打卡 · 有新留言'
@@ -211,7 +222,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
                 <div className="space-y-2 mb-3">
                   {unreadComments.map((c, i) => (
                     <div key={c._id || 'unread-' + i}
-                      className="relative p-3 rounded-xl transition-all"
+                      className="relative p-3 rounded-xl"
                       style={{
                         background: 'rgba(34,211,238,0.06)',
                         border: '1px solid rgba(34,211,238,0.15)',
@@ -221,7 +232,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
                         <span className="text-white/15 mx-1.5">·</span>
                         <span className="text-white/80">{c.content}</span>
                       </p>
-                      <p className="text-xs text-white/20 mt-1.5">
+                      <p className="text-xs text-gray-500 mt-1.5">
                         {new Date(c.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
@@ -233,7 +244,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
 
           {/* ── Comments Section ──────────────────────────── */}
           <div className={showUnreadSection ? 'pt-4 border-t border-white/[0.06]' : 'mt-4 pt-4 border-t border-white/[0.06]'}>
-            <h3 className="flex items-center gap-1.5 font-semibold text-sm text-white/60 mb-3"
+            <h3 className="flex items-center gap-1.5 font-semibold text-sm text-white/80 mb-3"
               style={{ fontFamily: 'var(--font-body)' }}>
               <MessageCircle className="w-4 h-4 text-teal-400" />
               留言 ({comments.length})
@@ -242,7 +253,6 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
             {comments.length > 0 ? (
               <div className="space-y-2 mb-3">
                 {comments.map((c, i) => {
-                  // 仅管理员或评论作者可删除
                   const canDelete = isAdmin || (c.userId && c.userId === userId);
                   return (
                   <div key={c._id || c.createdAt + '-' + i}
@@ -251,9 +261,9 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
                     <p className="text-sm pr-6">
                       <span className="font-semibold text-teal-300">{c.username}</span>
                       <span className="text-white/20 mx-1.5">·</span>
-                      <span className="text-white/70">{c.content}</span>
+                      <span className="text-white/80">{c.content}</span>
                     </p>
-                    <p className="text-xs text-white/20 mt-1.5">
+                    <p className="text-xs text-gray-500 mt-1.5">
                       {maskIp(c.ipAddress)}
                       <span className="mx-1.5">·</span>
                       {new Date(c.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -283,7 +293,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
                 })}
               </div>
             ) : (
-              <p className="text-xs text-white/20 mb-3">还没有回复，来说点什么吧</p>
+              <p className="text-xs text-gray-500 mb-3">还没有回复，来说点什么吧</p>
             )}
 
             {/* Comment Form */}
@@ -293,12 +303,15 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="写留言..."
                 rows={2}
-                className="flex-1 px-3 py-2 text-sm aurora-input rounded-xl resize-none"
+                className="flex-1 px-3 py-2 text-sm bg-white/5 border border-white/10 rounded-xl
+                  text-white placeholder:text-gray-500 resize-none
+                  focus:ring-2 focus:ring-teal-500/30 focus:border-transparent outline-none"
               />
               <button
                 onClick={handleSubmitComment}
                 disabled={sending || !commentText.trim()}
-                className="flex-shrink-0 px-4 py-2 aurora-btn text-white rounded-xl text-sm font-medium
+                className="flex-shrink-0 px-4 py-2 bg-white/10 hover:bg-white/20 text-white
+                  rounded-full text-sm font-medium
                   disabled:opacity-30 disabled:cursor-not-allowed transition-all
                   flex items-center gap-1.5"
               >
@@ -307,7 +320,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

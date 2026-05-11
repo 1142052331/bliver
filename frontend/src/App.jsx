@@ -571,20 +571,23 @@ export default function App() {
           }}
         />
 
-        {flyArrivedFp && (
-          <FootprintDetailModal
-            fp={flyArrivedFp}
-            allFootprints={footprints}
-            userId={user?._id}
-            isAdmin={isAdmin}
-            onReact={handleReact}
-            onDelete={handleDelete}
-            onShare={handleShare}
-            onComment={handleComment}
-            onDeleteComment={handleDeleteComment}
-            onClose={() => { setFlyArrivedFp(null); setActiveFootprintId(null); }}
-          />
-        )}
+        <AnimatePresence>
+          {flyArrivedFp && (
+            <FootprintDetailModal
+              key={flyArrivedFp._id}
+              fp={flyArrivedFp}
+              allFootprints={footprints}
+              userId={user?._id}
+              isAdmin={isAdmin}
+              onReact={handleReact}
+              onDelete={handleDelete}
+              onShare={handleShare}
+              onComment={handleComment}
+              onDeleteComment={handleDeleteComment}
+              onClose={() => { setFlyArrivedFp(null); setActiveFootprintId(null); }}
+            />
+          )}
+        </AnimatePresence>
 
         {clusterFootprints && (
           <ErrorBoundary>

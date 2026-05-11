@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { X, MapPin, Clock, MessageCircle, Bell } from 'lucide-react';
 import FootprintDetailModal from './FootprintDetailModal';
 import { getReadMap, isUnread } from '../readStatus';
@@ -198,23 +199,26 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
       )}
 
       {/* Detail Modal */}
-      {detailFp && (
-        <FootprintDetailModal
-          fp={detailFp}
-          allFootprints={footprints}
-          userId={userId}
-          isAdmin={isAdmin}
-          onReact={onReact}
-          onDelete={onDelete}
-          onShare={onShare}
-          onComment={onComment}
-          onDeleteComment={onDeleteComment}
-          onClose={() => {
-            if (isSingle) onClose(); // close everything for single footprint
-            else setDetailFpId(null); // just close modal, keep drawer open
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {detailFp && (
+          <FootprintDetailModal
+            key={detailFp._id}
+            fp={detailFp}
+            allFootprints={footprints}
+            userId={userId}
+            isAdmin={isAdmin}
+            onReact={onReact}
+            onDelete={onDelete}
+            onShare={onShare}
+            onComment={onComment}
+            onDeleteComment={onDeleteComment}
+            onClose={() => {
+              if (isSingle) onClose();
+              else setDetailFpId(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Slide-up animation */}
       <style>{`
