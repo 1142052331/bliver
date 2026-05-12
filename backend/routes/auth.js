@@ -12,10 +12,9 @@ const router = express.Router();
 router.post('/auth/register', upload.single('avatar'), uploadToCloudinary, validate(registerSchema), async (req, res, next) => {
   try {
     const { name, password } = req.body;
-    const result = await authService.register({ name, password, avatarUrl: req.cloudinaryUrl || '' });
-    if (result.error) return res.status(result.status).json({ error: result.error });
-
     const ip = authService.getClientIp(req);
+    const result = await authService.register({ name, password, avatarUrl: req.cloudinaryUrl || '', ip });
+    if (result.error) return res.status(result.status).json({ error: result.error });
     const now = new Date().toISOString();
     bus.emit('admin:audit', { type: 'register', user: name, ip, timestamp: now });
     res.status(201).json({ user: result.user, token: result.token });

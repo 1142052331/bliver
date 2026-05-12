@@ -20,13 +20,13 @@ function cachedIcon(key, factory) {
 
 function createMoodIcon(mood) {
   return L.divIcon({
-    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-      <span class="marker-mood-float" style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${mood}</span>
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:0px">
+      <span class="marker-mood-float" style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${mood}</span>
       <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(45,212,191,0.5)"></div>
     </div>`,
     className: '',
-    iconSize: [44, 64],   // larger hit area for mobile taps
-    iconAnchor: [22, 52], // pin tip near bottom of visual content
+    iconSize: [44, 52],
+    iconAnchor: [22, 45], // pin tip at bottom of rotated square
   });
 }
 
@@ -34,28 +34,29 @@ let defaultIcon = null;
 function getDefaultIcon() {
   if (!defaultIcon) {
     defaultIcon = L.divIcon({
-      html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-        <span class="marker-mood-float" style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">📍</span>
+      html: `<div style="display:flex;flex-direction:column;align-items:center;gap:0px">
+        <span class="marker-mood-float" style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">📍</span>
         <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(45,212,191,0.5)"></div>
       </div>`,
       className: '',
-      iconSize: [44, 64],   // larger hit area for mobile taps
-      iconAnchor: [22, 52], // pin tip near bottom of visual content
+      iconSize: [44, 52],
+      iconAnchor: [22, 45],
     });
   }
   return defaultIcon;
 }
 
 function createNewCommentIcon(mood) {
+  const pinTip = 14 + 2 + 16 + 2 + 10 + 14; // emoji + gap + badge + gap + pin/2 + corner_offset
   return L.divIcon({
-    html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:3px">
-      <span class="marker-mood-float" style="font-size:16px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${mood || '💬'}</span>
+    html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:2px">
+      <span class="marker-mood-float" style="font-size:14px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${mood || '💬'}</span>
       <div class="new-msg-bubble" style="
         background:rgba(15,23,32,0.88);backdrop-filter:blur(12px);
         -webkit-backdrop-filter:blur(12px);
         color:#22d3ee;font-size:10px;font-weight:700;
-        padding:2px 10px;border-radius:12px;
-        white-space:nowrap;line-height:1.5;
+        padding:1px 8px;border-radius:10px;
+        white-space:nowrap;line-height:1.4;
         border:1px solid rgba(34,211,238,0.25);
         box-shadow:0 2px 10px rgba(0,0,0,0.35);
       ">新消息</div>
@@ -77,22 +78,23 @@ function createNewCommentIcon(mood) {
       </div>
     </div>`,
     className: '',
-    iconSize: [74, 74],   // larger hit area for mobile taps
-    iconAnchor: [37, 72],
+    iconSize: [74, pinTip + 8],
+    iconAnchor: [37, pinTip],
   });
 }
 
 function createStreakIcon(mood, streak) {
   const emoji = mood || '📍';
   const badge = streak >= 7 ? '🔥' : streak >= 3 ? '✨' : '';
+  const emojiSize = badge ? '16' : '20';
   return L.divIcon({
-    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-      <span class="marker-mood-float" style="font-size:${badge ? '16' : '22'}px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${emoji}${badge}</span>
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:0px">
+      <span class="marker-mood-float" style="font-size:${emojiSize}px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))">${emoji}${badge}</span>
       <div style="width:20px;height:20px;background:#2dd4bf;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fb923c;box-shadow:0 0 12px rgba(251,146,60,0.5),0 2px 8px rgba(45,212,191,0.3)"></div>
     </div>`,
     className: '',
-    iconSize: [44, 64],   // larger hit area for mobile taps
-    iconAnchor: [22, 52], // pin tip near bottom of visual content
+    iconSize: [44, 52],
+    iconAnchor: [22, 44 - (badge ? 3 : 0)], // pin tip at bottom of rotated square
   });
 }
 
@@ -130,10 +132,12 @@ function makeClusterIcon(cluster) {
 
   const pinColor = hasUnread ? '#22d3ee' : '#2dd4bf';
 
+  // Pin tip at bottom of rotated square: s/2 + (s/√2) ≈ s * 1.207
+  const pinTip = Math.round(pin * 1.207);
   return L.divIcon({
-    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))">
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:0px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))">
       ${hasUnread ? `<span class="cluster-unread-badge" style="
-        position:absolute;top:-${badge / 2}px;left:-${badge * 0.35}px;z-index:3;
+        position:absolute;top:-${Math.round(badge * 0.3)}px;left:-${badge * 0.35}px;z-index:3;
         background:rgba(15,23,32,0.92);color:#22d3ee;
         min-width:${badge * 1.1}px;height:${badge}px;padding:0 5px;border-radius:${badge / 2}px;
         display:flex;align-items:center;justify-content:center;
@@ -145,7 +149,7 @@ function makeClusterIcon(cluster) {
         white-space:nowrap;
       ">新消息</span>` : ''}
       <span class="${hasUnread ? 'cluster-unread-badge' : 'cluster-badge-glow'}" style="
-        position:absolute;top:-${badge / 2 + 2}px;right:-${badge * 0.6}px;z-index:2;
+        position:absolute;top:-${Math.round(badge * 0.3)}px;right:-${badge * 0.6}px;z-index:2;
         background:#0f172a;color:${pinColor};
         min-width:${badge}px;height:${badge}px;padding:0 5px;border-radius:${badge / 2}px;
         display:flex;align-items:center;justify-content:center;
@@ -159,8 +163,8 @@ function makeClusterIcon(cluster) {
       "></div>
     </div>`,
     className: '',
-    iconSize: [pin + badge * 2 + 8, pin + badge + 6],
-    iconAnchor: [(pin + badge * 2 + 8) / 2, pin + badge + 4],
+    iconSize: [pin + badge * 2 + 8, pinTip + Math.round(badge * 0.6)],
+    iconAnchor: [(pin + badge * 2 + 8) / 2, pinTip],
   });
 }
 

@@ -11,7 +11,7 @@ function getClientIp(req) {
   return req.socket.remoteAddress || 'unknown';
 }
 
-async function register({ name, password, avatarUrl }) {
+async function register({ name, password, avatarUrl, ip }) {
   const exists = await User.findOne({ name });
   if (exists) return { error: 'Name already taken', status: 400 };
 
@@ -21,8 +21,8 @@ async function register({ name, password, avatarUrl }) {
     name,
     password: hash,
     avatarUrl: avatarUrl || '',
-    registerIp: '',
-    lastLoginIp: '',
+    registerIp: ip || '',
+    lastLoginIp: ip || '',
     lastLoginAt: now,
   });
 
