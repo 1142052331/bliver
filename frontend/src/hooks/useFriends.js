@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import api from '../api';
+import { apiClient } from '../api';
 
 /**
  * 好友系统 hook — 数据拉取 + Socket 实时状态 + 好友操作
@@ -17,8 +17,8 @@ export default function useFriends({ user, socketRef }) {
   const fetchFriends = useCallback(async () => {
     try {
       const [fRes, rRes] = await Promise.all([
-        api.get('/api/friends'),
-        api.get('/api/friends/requests'),
+        apiClient.friends.list(),
+        apiClient.friends.requests(),
       ]);
       const list = fRes.data.friends || [];
       setFriends(list);
@@ -96,17 +96,17 @@ export default function useFriends({ user, socketRef }) {
 
   // ── Actions ───────────────────────────────────────────
   const sendFriendRequest = useCallback(async (targetId) => {
-    await api.post(`/api/friends/request/${targetId}`);
+    await apiClient.friends.sendRequest(targetId);
     outgoingRef.current.add(targetId);
   }, []);
 
   const acceptRequest = useCallback(async (friendshipId) => {
-    await api.post(`/api/friends/accept/${friendshipId}`);
+    await apiClient.friends.accept(friendshipId);
     await fetchFriends(); // Refresh list
   }, [fetchFriends]);
 
   const rejectRequest = useCallback(async (friendshipId) => {
-    await api.post(`/api/friends/reject/${friendshipId}`);
+    await apiClient.friends.reject(friendshipId);
     setPendingRequests(prev => prev.filter(r => r._id !== friendshipId));
     await fetchFriends();
   }, [fetchFriends]);

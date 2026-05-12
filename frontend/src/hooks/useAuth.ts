@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import api from '../api';
+import { apiClient } from '../api';
 import { getUser, getToken, clearAuth, isAutoLogin } from '../auth';
 import { broadcastLogout, listenAuthSync } from '../authSync';
 import { subscribeToPush } from '../push';
@@ -32,7 +32,7 @@ export default function useAuth() {
     const controller = new AbortController();
     const saved = getUser();
     if (saved && getToken() && isAutoLogin()) {
-      api.get('/api/auth/me', { signal: controller.signal }).then((res) => {
+      apiClient.auth.me({ signal: controller.signal }).then((res) => {
         const u: AppUser = res.data.user;
         setUser(u);
         subscribeToPush().catch(() => {});

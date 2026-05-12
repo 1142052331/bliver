@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import api from '../api';
+import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
 
 export default function useFootprintActions({ user, requireLogin, setFootprints }) {
@@ -8,7 +8,7 @@ export default function useFootprintActions({ user, requireLogin, setFootprints 
   const handleReact = useCallback(async (footprintId, emoji) => {
     if (!requireLogin({ type: 'react', footprintId })) return;
     try {
-      const { data } = await api.post(`/api/footprints/${footprintId}/react`, { emoji });
+      const { data } = await apiClient.footprints.react(footprintId, emoji);
       setFootprints((prev) =>
         prev.map((fp) => (fp._id === footprintId ? { ...fp, reactions: data.footprint.reactions } : fp))
       );
@@ -21,7 +21,7 @@ export default function useFootprintActions({ user, requireLogin, setFootprints 
     if (!requireLogin({ type: 'delete', footprintId })) return;
     if (!confirm('确认删除这条足迹？')) return;
     try {
-      await api.delete(`/api/footprints/${footprintId}`);
+      await apiClient.footprints.delete(footprintId);
       setFootprints((prev) => prev.filter((fp) => fp._id !== footprintId));
       setFlyArrivedFp((prev) => prev && prev._id === footprintId ? null : prev);
     } catch (err) {
@@ -31,7 +31,7 @@ export default function useFootprintActions({ user, requireLogin, setFootprints 
 
   const handleDeleteComment = useCallback(async (footprintId, commentId) => {
     try {
-      const { data } = await api.delete(`/api/footprints/${footprintId}/comments/${commentId}`);
+      const { data } = await apiClient.footprints.deleteComment(footprintId, commentId);
       setFootprints((prev) =>
         prev.map((fp) => (fp._id === footprintId
           ? { ...fp, comments: data.footprint.comments }
@@ -50,7 +50,7 @@ export default function useFootprintActions({ user, requireLogin, setFootprints 
   const handleComment = useCallback(async (footprintId, content) => {
     if (!requireLogin({ type: 'comment', footprintId })) return;
     try {
-      const { data } = await api.post(`/api/footprints/${footprintId}/comment`, { content });
+      const { data } = await apiClient.footprints.comment(footprintId, content);
       setFootprints((prev) =>
         prev.map((fp) => (fp._id === footprintId ? { ...fp, comments: data.footprint.comments } : fp))
       );

@@ -4,24 +4,29 @@ const Footprint = require('../models/Footprint');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
 const { auth, admin, optionalAuth } = require('../middleware/auth');
 const { contentLimiter } = require('../middleware/rateLimiter');
-const { reverseGeocode } = require('../services/nominatim');
-const { getWeather } = require('../services/weather');
-const { blurCoordinate, sanitizeLocation } = require('../services/location');
+const { sanitizeLocation } = require('../services/location');
+const { checkIn } = require('../services/checkin');
+const { toggleReaction } = require('../services/reaction');
+const { addComment } = require('../services/comment');
 const { populateFootprint } = require('../services/footprint');
 const { makeCreateNotification } = require('../services/notification');
+const bus = require('../events/bus');
+const validate = require('../middleware/validate');
+const { checkin: checkinSchema, comment: commentSchema, reaction: reactionSchema } = require('../validators/schemas');
+const { isSuperuserName } = require('../services/superuser');
 
 const authRoutes = require('./auth');
 const notificationRoutes = require('./notifications');
 
-module.exports = (io) => {
+module.exports = () => {
   const router = express.Router();
 
   // Mount sub-routers
-  router.use(authRoutes(io));
+  router.use(authRoutes());
   router.use(notificationRoutes());
 
   // Shared helper: create notification (DB + socket + push)
-  const createNotification = makeCreateNotification(io);
+  const createNotification = makeCreateNotification();
 
   // ── Footprints ────────────────────────────────────────
 
@@ -81,165 +86,86 @@ module.exports = (io) => {
   });
 
   // POST /api/checkin
-  router.post('/checkin', auth, contentLimiter, upload.single('photo'), uploadToCloudinary, async (req, res) => {
+  router.post('/checkin', auth, contentLimiter, upload.single('photo'), uploadToCloudinary, validate(checkinSchema), async (req, res, next) => {
     try {
       const { lat, lng, message, mood, precise } = req.body;
-      if (lat == null || lng == null) {
-        return res.status(400).json({ error: 'lat, lng are required' });
-      }
-      if (message && message.length > 1000) {
-        return res.status(400).json({ error: '内容不能超过1000字' });
-      }
 
-      const latNum = Number(lat);
-      const lngNum = Number(lng);
-      const isPrecise = precise === 'true';
-
-      const displayLocation = isPrecise
-        ? { lat: latNum, lng: lngNum }
-        : blurCoordinate(latNum, lngNum);
-
-      const [placeName, weatherData] = await Promise.all([
-        reverseGeocode(displayLocation.lat, displayLocation.lng),
-        getWeather(latNum, lngNum),
-      ]);
-
-      const footprintData = {
-        userId:    req.user.id,
-        location:  displayLocation,
-        placeName: placeName,
-        message:   `🌤 ${weatherData.weather}  ${weatherData.temp !== null ? weatherData.temp + '°C' : ''}\n${message || ''}`,
-        photoUrl:  req.cloudinaryUrl || '',
-        mood:      mood || '',
-      };
-
-      if (!isPrecise) {
-        footprintData.realLocation = { lat: latNum, lng: lngNum };
-      }
-
-      const footprint = await Footprint.create(footprintData);
-
-      // Update daily check-in streak atomically
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      // Try: consecutive day → increment
-      const incResult = await User.findOneAndUpdate(
-        { _id: req.user.id, 'checkinStreak.lastCheckinDate': yesterday },
-        { $inc: { 'checkinStreak.current': 1 }, $set: { 'checkinStreak.lastCheckinDate': today } }
-      );
-
-      if (!incResult) {
-        // Not consecutive, or first checkin — reset to 1 (unless already checked in today)
-        await User.findOneAndUpdate(
-          { _id: req.user.id, 'checkinStreak.lastCheckinDate': { $ne: today } },
-          { $set: { 'checkinStreak': { current: 1, lastCheckinDate: today } } }
-        );
-      }
-
-      const populated = await populateFootprint(Footprint.findById(footprint._id));
-      const fpObj = populated.toObject();
+      const fpObj = await checkIn(req.user.id, {
+        lat, lng, message, mood, precise,
+        photoUrl: req.cloudinaryUrl || '',
+      });
 
       res.status(201).json({ footprint: sanitizeLocation(fpObj, req.user.role === 'admin') });
       delete fpObj.realLocation;
-      io.emit('footprint:new', { footprint: fpObj });
-      io.emit('admin:audit', { type: 'checkin', user: req.user.name, mood: mood || '📍', placeName, timestamp: new Date().toISOString() });
+      bus.emit('footprint:new', { footprint: fpObj });
+      bus.emit('admin:audit', { type: 'checkin', user: req.user.name, mood: mood || '📍', placeName: fpObj.placeName, timestamp: new Date().toISOString() });
     } catch (err) {
-      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
+      next(err);
     }
   });
 
   // POST /api/footprints/:id/react
-  router.post('/footprints/:id/react', auth, contentLimiter, async (req, res) => {
+  router.post('/footprints/:id/react', auth, contentLimiter, validate(reactionSchema), async (req, res, next) => {
     try {
-      const { emoji } = req.body;
-      if (!emoji) return res.status(400).json({ error: 'emoji is required' });
-
       const userId = req.user.id;
       const username = req.user.name;
+      const { emoji } = req.body;
 
-      // Atomically remove any existing reaction by this user
-      const before = await Footprint.findOneAndUpdate(
-        { _id: req.params.id },
-        { $pull: { reactions: { userId } } },
-        { new: false }
-      );
+      const result = await toggleReaction(req.params.id, userId, username, emoji);
+      if (!result) return res.status(404).json({ error: 'Not found' });
 
-      if (!before) return res.status(404).json({ error: 'Not found' });
+      const { footprint, isToggleOff, footprintOwnerId } = result;
 
-      const oldReaction = before.reactions.find(r => r.userId.toString() === userId);
-      const isToggleOff = oldReaction && oldReaction.emoji === emoji;
+      bus.emit('footprint:updated', { footprint });
+      bus.emit('admin:audit', { type: 'reaction', user: username, emoji: isToggleOff ? '取消' : emoji, footprintId: req.params.id, timestamp: new Date().toISOString() });
 
-      if (!isToggleOff) {
-        await Footprint.findByIdAndUpdate(req.params.id, {
-          $push: { reactions: { userId, username, emoji } }
-        });
-      }
-
-      const populated = await populateFootprint(Footprint.findById(req.params.id));
-      const fpObj = populated.toObject();
-      delete fpObj.realLocation;
-
-      io.emit('footprint:updated', { footprint: fpObj });
-      io.emit('admin:audit', { type: 'reaction', user: username, emoji: isToggleOff ? '取消' : emoji, footprintId: req.params.id, timestamp: new Date().toISOString() });
-
-      if (populated.userId.toString() !== userId && !isToggleOff) {
+      if (footprintOwnerId !== userId && !isToggleOff) {
         await createNotification({
-          recipientId: populated.userId,
+          recipientId: footprintOwnerId,
           senderName: username,
           type: 'reaction',
-          footprintId: populated._id,
+          footprintId: footprint._id,
           content: emoji,
         });
       }
 
-      res.json({ footprint: fpObj });
+      res.json({ footprint });
     } catch (err) {
-      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
+      next(err);
     }
   });
 
   // POST /api/footprints/:id/comment
-  router.post('/footprints/:id/comment', auth, contentLimiter, async (req, res) => {
+  router.post('/footprints/:id/comment', auth, contentLimiter, validate(commentSchema), async (req, res, next) => {
     try {
       const { content } = req.body;
-      if (!content) return res.status(400).json({ error: 'content is required' });
-      if (content.length > 500) return res.status(400).json({ error: '评论不能超过500字' });
-
-      const fp = await Footprint.findById(req.params.id);
-      if (!fp) return res.status(404).json({ error: 'Not found' });
-
       const username = req.user.name;
       const ip = req.headers['x-forwarded-for']?.split(',')[0].trim()
         || req.ip
         || req.socket.remoteAddress
         || '';
 
-      fp.comments.push({ userId: req.user.id, username, content, ipAddress: ip });
-      await fp.save();
+      const result = await addComment(req.params.id, req.user.id, username, content, ip);
+      if (!result) return res.status(404).json({ error: 'Not found' });
 
-      const populated = await populateFootprint(Footprint.findById(fp._id));
-      const fpObj = populated.toObject();
-      delete fpObj.realLocation;
+      const { footprint, footprintOwnerId } = result;
 
-      io.emit('footprint:updated', { footprint: fpObj });
-      io.emit('admin:audit', { type: 'comment', user: username, content: content.slice(0, 80), footprintId: req.params.id, timestamp: new Date().toISOString() });
+      bus.emit('footprint:updated', { footprint });
+      bus.emit('admin:audit', { type: 'comment', user: username, content: content.slice(0, 80), footprintId: req.params.id, timestamp: new Date().toISOString() });
 
-      if (fp.userId.toString() !== req.user.id) {
+      if (footprintOwnerId !== req.user.id) {
         await createNotification({
-          recipientId: fp.userId,
+          recipientId: footprintOwnerId,
           senderName: username,
           type: 'comment',
-          footprintId: fp._id,
+          footprintId: footprint._id,
           content: content.length > 50 ? content.slice(0, 50) + '...' : content,
         });
       }
 
-      res.status(201).json({ footprint: populated });
+      res.status(201).json({ footprint });
     } catch (err) {
-      console.error('[api]', err); res.status(500).json({ error: 'Internal server error' });
+      next(err);
     }
   });
 
@@ -252,9 +178,9 @@ module.exports = (io) => {
       const comment = fp.comments.id(req.params.commentId);
       if (!comment) return res.status(404).json({ error: 'Comment not found' });
 
-      // 只有 阿森 或评论原作者才能删除
+      // Only superuser or comment author can delete
       const isAuthor = comment.userId?.toString() === req.user.id;
-      const isAsen = req.user.name === '阿森';
+      const isAsen = isSuperuserName(req.user.name);
       if (!isAuthor && !isAsen) {
         return res.status(403).json({ error: '无权删除此评论' });
       }
@@ -267,7 +193,7 @@ module.exports = (io) => {
       const fpObj = populated.toObject();
       delete fpObj.realLocation;
 
-      io.emit('footprint:updated', { footprint: fpObj });
+      bus.emit('footprint:updated', { footprint: fpObj });
 
       res.json({ footprint: fpObj });
     } catch (err) {
@@ -281,8 +207,8 @@ module.exports = (io) => {
       const fp = await Footprint.findByIdAndDelete(req.params.id);
       if (!fp) return res.status(404).json({ error: 'Not found' });
 
-      io.emit('footprint:deleted', { footprintId: req.params.id });
-      io.emit('admin:audit', { type: 'footprint_delete', actor: req.user.name, footprintId: req.params.id, timestamp: new Date().toISOString() });
+      bus.emit('footprint:deleted', { footprintId: req.params.id });
+      bus.emit('admin:audit', { type: 'footprint_delete', actor: req.user.name, footprintId: req.params.id, timestamp: new Date().toISOString() });
 
       res.json({ ok: true });
     } catch (err) {
@@ -363,7 +289,7 @@ module.exports = (io) => {
       const updated = await User.findById(req.params.id).select('-password')
         .populate('profileReactions.senderId', 'name avatarUrl');
 
-      io.emit('profile:updated', { userId: req.params.id, user: updated });
+      bus.emit('profile:updated', { userId: req.params.id, user: updated });
 
       res.status(201).json({ user: updated });
     } catch (err) {
@@ -400,7 +326,7 @@ module.exports = (io) => {
       const updated = await User.findById(req.params.id).select('-password')
         .populate('profileReactions.senderId', 'name avatarUrl');
 
-      io.emit('profile:updated', { userId: req.params.id, user: updated });
+      bus.emit('profile:updated', { userId: req.params.id, user: updated });
 
       res.json({ user: updated });
     } catch (err) {
@@ -419,7 +345,7 @@ module.exports = (io) => {
         { returnDocument: 'after' }
       ).select('-password');
 
-      io.emit('profile:updated', { userId: req.user.id, user });
+      bus.emit('profile:updated', { userId: req.user.id, user });
 
       res.json({ user });
     } catch (err) {
@@ -450,7 +376,7 @@ module.exports = (io) => {
 
       const user = await User.findByIdAndUpdate(req.user.id, updates, { returnDocument: 'after' }).select('-password');
 
-      io.emit('profile:updated', { userId: req.user.id, user });
+      bus.emit('profile:updated', { userId: req.user.id, user });
 
       res.json({ user });
     } catch (err) {

@@ -11,8 +11,9 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     environment: import.meta.env.MODE,
   });
 }
-import api from './api';
+import { apiClient } from './api';
 import useAuth from './hooks/useAuth';
+import { refetchNotifications } from './hooks/useNotifications';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -143,14 +144,7 @@ export default function App() {
       const signal = controller.signal;
 
       refetchFootprints();
-
-      api.get('/api/notifications', { signal }).then((res) => {
-        setNotifications(prev => {
-          const apiIds = new Set(res.data.notifications.map(n => n._id));
-          const socketOnly = prev.filter(n => !apiIds.has(n._id));
-          return [...socketOnly, ...res.data.notifications];
-        });
-      }).catch(() => {});
+      refetchNotifications(setNotifications, { signal });
     };
 
     const handleWake = () => {
@@ -182,7 +176,7 @@ export default function App() {
   useEffect(() => {
     if (!user) { setAnnounceHasUnread(false); return; }
     let cancelled = false;
-    api.get('/api/announcements').then(({ data }) => {
+    apiClient.announcements.list().then(({ data }) => {
       if (!cancelled && data?.announcements) {
         setAnnounceHasUnread(hasUnreadAnnouncements(data.announcements));
       }
@@ -235,7 +229,7 @@ export default function App() {
     if (existing) {
       setChatFriendMeta(existing);
     } else {
-      api.get(`/api/users/${chatUserId}/profile`).then(res => {
+      apiClient.users.profile(chatUserId).then(res => {
         if (!cancelled && res?.data?.user) {
           setChatFriendMeta({ _id: chatUserId, name: res.data.user.name, avatarUrl: res.data.user.avatarUrl });
         }

@@ -1,16 +1,17 @@
 const Notification = require('../models/Notification');
 const { sendPushToUser } = require('../routes/push');
+const bus = require('../events/bus');
 
 /**
  * 创建通知：写入数据库 + Socket 实时推送 + Web Push 离线推送。
  * 由各个路由调用（reaction、comment、profile_view）。
  */
-function makeCreateNotification(io) {
+function makeCreateNotification() {
   return async function createNotification({ recipientId, senderName, type, footprintId, content }) {
     const notifData = { recipientId, senderName, type, content };
     if (footprintId) notifData.footprintId = footprintId;
     const notif = await Notification.create(notifData);
-    io.to(recipientId.toString()).emit('new_notification', { notification: notif });
+    bus.emit('new_notification', { recipientId, notification: notif });
 
     let pushTitle;
     if (type === 'reaction') {

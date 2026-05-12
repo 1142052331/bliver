@@ -1,4 +1,5 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { groupFootprintsByUser } from '../utils/groupFootprints';
 import { X, Clock, Trash2, Share2, Check } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
 
@@ -108,16 +109,7 @@ const PERIODS = [
 ];
 
 export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint, period, onChangePeriod, loading }) {
-  const grouped = useMemo(() => {
-    const map = {};
-    footprints.forEach((fp) => {
-      const uid = fp.userId?._id || fp.userId || 'unknown';
-      if (!map[uid]) map[uid] = { user: fp.userId || null, items: [] };
-      map[uid].items.push(fp);
-    });
-    Object.values(map).forEach((g) => g.items.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
-    return Object.values(map);
-  }, [footprints]);
+  const grouped = groupFootprintsByUser(footprints);
 
   return (
     <>

@@ -4,8 +4,10 @@ const User = require('../models/User');
 const Footprint = require('../models/Footprint');
 const Notification = require('../models/Notification');
 const { auth, admin } = require('../middleware/auth');
+const bus = require('../events/bus');
+const socketRegistry = require('../socket/registry');
 
-module.exports = (io) => {
+module.exports = () => {
   const router = express.Router();
 
   // All /admin routes require auth + admin
@@ -14,15 +16,7 @@ module.exports = (io) => {
   // GET /api/admin/online — list currently connected users
   router.get('/admin/online', async (req, res) => {
     try {
-      const sockets = await io.fetchSockets();
-      const online = sockets
-        .filter((s) => s.userId)
-        .map((s) => ({
-          userId: s.userId,
-          socketId: s.id,
-          ip: s.handshake?.address || s.conn?.remoteAddress || 'unknown',
-          connectedAt: s.handshake?.time || null,
-        }));
+      const online = await socketRegistry.getOnlineUsers();
 
       // Enrich with user names
       const userIds = online.map((o) => o.userId);
@@ -83,7 +77,7 @@ module.exports = (io) => {
       if (!user) return res.status(404).json({ error: 'User not found' });
 
       res.json({ user });
-      io.emit('admin:audit', { type: 'user_edit', actor: req.user.name, target: user.name, timestamp: new Date().toISOString() });
+      bus.emit('admin:audit', { type: 'user_edit', actor: req.user.name, target: user.name, timestamp: new Date().toISOString() });
     } catch (err) {
       console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }
@@ -112,16 +106,10 @@ module.exports = (io) => {
         ),
       ]);
 
-      // Disconnect the user if they are online
-      const sockets = await io.fetchSockets();
-      const target = sockets.find((s) => s.userId === userId);
-      if (target) {
-        target.emit('force_logout', { reason: '您的账户已被管理员删除' });
-        target.disconnect(true);
-      }
+      await socketRegistry.disconnectUser(userId, '您的账户已被管理员删除');
 
       res.json({ ok: true, message: 'User and all associated data deleted' });
-      io.emit('admin:audit', { type: 'delete', actor: req.user.name, target: user.name, timestamp: new Date().toISOString() });
+      bus.emit('admin:audit', { type: 'delete', actor: req.user.name, target: user.name, timestamp: new Date().toISOString() });
     } catch (err) {
       console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }
@@ -179,18 +167,11 @@ module.exports = (io) => {
       // Set offline
       await User.findByIdAndUpdate(userId, { isOnline: false });
 
-      // Find and disconnect socket
-      const sockets = await io.fetchSockets();
-      const target = sockets.find((s) => s.userId === userId);
-
-      if (target) {
-        target.emit('force_logout', { reason: '您已被管理员踢出' });
-        setTimeout(() => target.disconnect(true), 200);
-        res.json({ ok: true, message: `User ${user.name} has been kicked` });
-      } else {
-        res.json({ ok: true, message: `User ${user.name} is not online, marked offline` });
-      }
-      io.emit('admin:audit', { type: 'kick', actor: req.user.name, target: user.name, timestamp: new Date().toISOString() });
+      const disconnected = await socketRegistry.disconnectUser(userId, '您已被管理员踢出');
+      res.json({ ok: true, message: disconnected
+        ? `User ${user.name} has been kicked`
+        : `User ${user.name} is not online, marked offline` });
+      bus.emit('admin:audit', { type: 'kick', actor: req.user.name, target: user.name, timestamp: new Date().toISOString() });
     } catch (err) {
       console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
     }

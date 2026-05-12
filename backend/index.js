@@ -25,6 +25,7 @@ const pushRoutes = require('./routes/push');
 const announcementRoutes = require('./routes/announcements');
 const friendRoutes = require('./routes/friends');
 const messageRoutes = require('./routes/messages');
+const errorHandler = require('./middleware/errorHandler');
 const setupSocket = require('./socket');
 
 const app = express();
@@ -66,8 +67,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/api', apiRoutes(io));
-app.use('/api', adminRoutes(io));
+app.use('/api', apiRoutes());
+app.use('/api', adminRoutes());
 app.use('/api', pushRoutes());
 app.use('/api', announcementRoutes());
 app.use('/api', friendRoutes());
@@ -113,11 +114,15 @@ if (require.main === module) {
   });
 }
 
+// Error reporting: Sentry captures first, then custom handler formats the JSON response.
+// Express 5 auto-forwards async errors — handlers should NOT try/catch 500s themselves.
 if (process.env.SENTRY_DSN) {
   Sentry.setupExpressErrorHandler(app);
 }
+app.use(errorHandler);
 
 module.exports = { app, server, io };
+
 
 
 

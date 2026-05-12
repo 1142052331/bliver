@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { groupFootprintsByUser } from '../utils/groupFootprints';
 import { AnimatePresence } from 'framer-motion';
 import { X, MapPin, Clock, MessageCircle, Bell } from 'lucide-react';
 import FootprintDetailModal from './FootprintDetailModal';
@@ -23,16 +24,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
     }
   }, [autoOpenId, footprints]);
 
-  const grouped = useMemo(() => {
-    const map = {};
-    footprints.forEach((fp) => {
-      const uid = fp.userId?._id || fp.userId || 'unknown';
-      if (!map[uid]) map[uid] = { user: fp.userId || null, items: [] };
-      map[uid].items.push(fp);
-    });
-    Object.values(map).forEach((g) => g.items.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
-    return Object.values(map);
-  }, [footprints]);
+  const grouped = groupFootprintsByUser(footprints);
 
   // Read once for all cards — check which footprints are unread
   const readMap = useMemo(() => getReadMap(), [footprints]);

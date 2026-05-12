@@ -4,13 +4,17 @@ const Friendship = require('../models/Friendship');
 const Message = require('../models/Message');
 const { JWT_SECRET } = require('../middleware/auth');
 const { sendPushToUser } = require('../routes/push');
+const { areFriends } = require('../services/friendship');
+const { SUPERUSER_NAME, isSuperuserName } = require('../services/superuser');
+const socketEvents = require('./events');
+const socketRegistry = require('./registry');
 
 const onlineCount = async () => {
   const count = await User.countDocuments({ isOnline: true });
   return count;
 };
 
-/** Get all accepted friend IDs for a user (DB friends only, 阿森 handled separately) */
+/** Get all accepted friend IDs for a user (DB friends only, superuser handled separately) */
 async function getFriendIds(userId) {
   const friendships = await Friendship.find({
     status: 'accepted',
@@ -27,29 +31,11 @@ async function getFriendIds(userId) {
   return ids;
 }
 
-/** Check if two users are friends (respects admin/阿森 forced-friend rule) */
-async function areFriends(userId, targetId) {
-  if (userId.toString() === targetId.toString()) return false;
-  const target = await User.findById(targetId).select('name').lean();
-  if (!target) return false;
-
-  // 阿森 → everyone; everyone → 阿森
-  if (target.name === '阿森') return true;
-
-  const sender = await User.findById(userId).select('name role').lean();
-  if (sender && (sender.role === 'admin' || sender.name === '阿森')) return true;
-
-  const friendship = await Friendship.findOne({
-    status: 'accepted',
-    $or: [
-      { requester: userId, recipient: targetId },
-      { requester: targetId, recipient: userId },
-    ],
-  }).lean();
-  return !!friendship;
-}
-
 const setupSocket = (io) => {
+  socketEvents.init(io);
+  socketRegistry.init(io);
+  socketEvents.setupSocketEvents();
+
   const pendingOffline = new Map();
 
   // ── JWT authentication middleware — runs before every connection ──
@@ -130,7 +116,7 @@ const setupSocket = (io) => {
         // ── 好友精准广播（仅第一端连接时触发）──
         if (!isFirstConnection) return;
 
-        if (user.name === '阿森') {
+        if (isSuperuserName(user.name)) {
           socket.broadcast.emit('friend:online', {
             userId, name: user.name, avatarUrl: user.avatarUrl,
           });
@@ -141,7 +127,7 @@ const setupSocket = (io) => {
               userId, name: user.name, avatarUrl: user.avatarUrl,
             });
           }
-          const asen = await User.findOne({ name: '阿森', isOnline: true }).select('_id').lean();
+          const asen = await User.findOne({ name: SUPERUSER_NAME, isOnline: true }).select('_id').lean();
           if (asen && !friendIds.has(asen._id.toString())) {
             io.to(asen._id.toString()).emit('friend:online', {
               userId, name: user.name, avatarUrl: user.avatarUrl,
@@ -254,15 +240,15 @@ const setupSocket = (io) => {
         io.emit('user_offline', { userId: socket.userId, name: user.name });
 
         // ── 好友离线广播 ──────────────────────────
-        if (user.name === '阿森') {
+        if (isSuperuserName(user.name)) {
           io.emit('friend:offline', { userId: socket.userId, name: user.name });
         } else {
           const friendIds = await getFriendIds(socket.userId);
           for (const fid of friendIds) {
             io.to(fid).emit('friend:offline', { userId: socket.userId, name: user.name });
           }
-          // Force-notify 阿森
-          const asen = await User.findOne({ name: '阿森', isOnline: true }).select('_id').lean();
+          // Force-notify superuser
+          const asen = await User.findOne({ name: SUPERUSER_NAME, isOnline: true }).select('_id').lean();
           if (asen && !friendIds.has(asen._id.toString())) {
             io.to(asen._id.toString()).emit('friend:offline', { userId: socket.userId, name: user.name });
           }

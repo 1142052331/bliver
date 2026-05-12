@@ -23,7 +23,7 @@ module.exports = () => {
   });
 
   // POST /api/push/subscribe (protected)
-  router.post('/push/subscribe', auth, async (req, res) => {
+  router.post('/push/subscribe', auth, async (req, res, next) => {
     try {
       const { endpoint, keys } = req.body;
       if (!endpoint || !keys?.p256dh || !keys?.auth) {
@@ -40,17 +40,17 @@ module.exports = () => {
 
       res.json({ ok: true });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      next(err);
     }
   });
 
   // POST /api/push/unsubscribe (protected)
-  router.post('/push/unsubscribe', auth, async (req, res) => {
+  router.post('/push/unsubscribe', auth, async (req, res, next) => {
     try {
       await PushSubscription.deleteOne({ endpoint: req.body.endpoint });
       res.json({ ok: true });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      next(err);
     }
   });
 

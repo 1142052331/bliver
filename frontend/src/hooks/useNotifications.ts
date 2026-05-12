@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../api';
+import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
 
 interface ServerNotification {
@@ -42,7 +42,7 @@ export default function useNotifications() {
     setNotifications((prev) =>
       prev.map((n) => (n._id === notifId ? { ...n, isRead: true } : n))
     );
-    await api.put(`/api/notifications/${notifId}/read`).catch(() => {});
+    await apiClient.notifications.markRead(notifId).catch(() => {});
   }, []);
 
   // Batch mark all notifications for a footprint as read (read-on-view)
@@ -53,7 +53,7 @@ export default function useNotifications() {
       );
       if (toMark.length === 0) return prev;
       toMark.forEach((n) => {
-        api.put(`/api/notifications/${n._id}/read`).catch(() => {});
+        apiClient.notifications.markRead(n._id).catch(() => {});
       });
       const ids = new Set(toMark.map((n) => n._id));
       const unreadRemoved = toMark.length;
@@ -93,4 +93,22 @@ export default function useNotifications() {
     markFootprintRead,
     handleNotifNavigate,
   };
+}
+
+/**
+ * Fetch notifications from server and merge with socket-delivered ones.
+ * Call this on socket connect and tab visibility change.
+ */
+export async function refetchNotifications(
+  setNotifications: (updater: (prev: ServerNotification[]) => ServerNotification[]) => void,
+  opts?: Record<string, unknown>
+) {
+  try {
+    const res = await apiClient.notifications.list(opts);
+    setNotifications((prev) => {
+      const apiIds = new Set(res.data.notifications.map((n: ServerNotification) => n._id));
+      const socketOnly = prev.filter((n) => !apiIds.has(n._id));
+      return [...socketOnly, ...res.data.notifications];
+    });
+  } catch { /* silently ignore network errors */ }
 }

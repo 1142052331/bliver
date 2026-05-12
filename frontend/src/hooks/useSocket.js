@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
-import api from '../api';
+import { refetchNotifications } from './useNotifications';
 import { clearAuth, getToken } from '../auth';
 import useUIStore from '../store/useUIStore';
 
@@ -43,14 +43,7 @@ export default function useSocket({
 
     // ── Fetch notifications BEFORE socket connects (avoid race) ──
     const socketUrl = getSocketURL();
-    api.get('/api/notifications').then((res) => {
-      // Merge: keep any socket-delivered notifications that arrived during fetch
-      setNotifications(prev => {
-        const apiIds = new Set(res.data.notifications.map(n => n._id));
-        const socketOnly = prev.filter(n => !apiIds.has(n._id));
-        return [...socketOnly, ...res.data.notifications];
-      });
-    }).catch(() => {});
+    refetchNotifications(setNotifications);
 
     const socket = io(socketUrl, { auth: { token } });
     socketRef.current = socket;

@@ -1,41 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Users, Shield, Trash2, Zap, RefreshCw, Wifi, WifiOff, Check, PencilLine, Crosshair, AlertTriangle, Radio, UserX, Eye, Activity, Pause, Play, LogIn, UserPlus, MapPin, MessageCircle, Heart, UserX as UserXIcon, Trash2 as TrashIcon, Edit3, ZapOff, Wifi as WifiIcon, WifiOff as WifiOffIcon } from 'lucide-react';
-import api from '../api';
+import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
+import AdminOnlineTab from './AdminOnlineTab';
+import AdminUsersTab from './AdminUsersTab';
+import AdminClonesTab from './AdminClonesTab';
+import AdminAuditTab from './AdminAuditTab';
 
 const MAX_AUDIT_LOGS = 200;
-
-const AUDIT_ICONS = {
-  login: LogIn, register: UserPlus, checkin: MapPin,
-  comment: MessageCircle, reaction: Heart,
-  kick: ZapOff, delete: TrashIcon, user_edit: Edit3,
-  connect: WifiIcon, disconnect: WifiOffIcon,
-  footprint_delete: TrashIcon,
-};
-
-const AUDIT_COLORS = {
-  login: 'text-emerald-400', register: 'text-emerald-400', checkin: 'text-emerald-400',
-  comment: 'text-blue-400', reaction: 'text-pink-400',
-  kick: 'text-orange-400', delete: 'text-red-400', user_edit: 'text-orange-400', footprint_delete: 'text-red-400',
-  connect: 'text-gray-500', disconnect: 'text-gray-600',
-};
-
-function auditSummary(e) {
-  switch (e.type) {
-    case 'login': return `${e.user} 登录了 (IP: ${e.ip || 'N/A'})`;
-    case 'register': return `${e.user} 注册了新账号 (IP: ${e.ip || 'N/A'})`;
-    case 'checkin': return `${e.user} 在 ${e.placeName || '未知地点'} ${e.mood || ''} 打卡`;
-    case 'comment': return `${e.user} 评论: "${e.content || ''}"`;
-    case 'reaction': return `${e.user} ${e.emoji} 表态了`;
-    case 'kick': return `${e.actor} 踢出了 ${e.target}`;
-    case 'delete': return `${e.actor} 删除了用户 ${e.target}`;
-    case 'user_edit': return `${e.actor} 编辑了用户 ${e.target}`;
-    case 'footprint_delete': return `${e.actor} 删除了一条足迹`;
-    case 'connect': return `${e.user} 上线了`;
-    case 'disconnect': return `${e.user} 离线了`;
-    default: return e.type || '未知事件';
-  }
-}
 
 export default function AdminPanel({ onClose, socketRef }) {
   const [tab, setTab] = useState('users'); // 'online' | 'users' | 'clones' | 'audit'
@@ -64,8 +36,8 @@ export default function AdminPanel({ onClose, socketRef }) {
     setLoading(true);
     try {
       const [onlineRes, usersRes] = await Promise.all([
-        api.get('/api/admin/online'),
-        api.get('/api/admin/users'),
+        apiClient.admin.online(),
+        apiClient.admin.users(),
       ]);
       setOnlineUsers(onlineRes.data.online);
       setAllUsers(usersRes.data.users);
@@ -124,7 +96,7 @@ export default function AdminPanel({ onClose, socketRef }) {
   const handleKick = async (userId, name) => {
     if (!confirm(`确认踢出用户 ${name}？`)) return;
     try {
-      await api.post(`/api/admin/kick/${userId}`);
+      await apiClient.admin.kick(userId);
       showMsg(`${name} 已被踢出`);
       fetchData();
     } catch (err) { showMsg(err.response?.data?.error || err.message); }
@@ -133,7 +105,7 @@ export default function AdminPanel({ onClose, socketRef }) {
   const handleDelete = async (userId, name) => {
     if (!confirm(`确认删除用户 ${name} 及其所有足迹？此操作不可逆！`)) return;
     try {
-      await api.delete(`/api/admin/users/${userId}`);
+      await apiClient.admin.deleteUser(userId);
       showMsg(`${name} 已被删除`);
       fetchData();
     } catch (err) { showMsg(err.response?.data?.error || err.message); }
@@ -151,7 +123,7 @@ export default function AdminPanel({ onClose, socketRef }) {
     try {
       const body = { name: editName.trim() };
       if (editPassword.trim()) body.password = editPassword.trim();
-      await api.put(`/api/admin/users/${userId}`, body);
+      await apiClient.admin.updateUser(userId, body);
       showMsg('修改成功');
       setEditingId(null);
       fetchData();
@@ -163,7 +135,7 @@ export default function AdminPanel({ onClose, socketRef }) {
     setCloneLoading(true);
     setCloneData(null);
     try {
-      const res = await api.get('/api/admin/clones');
+      const res = await apiClient.admin.clones();
       setCloneData(res.data);
       setTab('clones');
     } catch (err) {
@@ -272,419 +244,38 @@ export default function AdminPanel({ onClose, socketRef }) {
             <>
               {/* ── ONLINE USERS TAB ── */}
               {tab === 'online' && (
-                <div className="p-6">
-                  {onlineUsers.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
-                        <WifiOff className="w-5 h-5 text-gray-600" />
-                      </div>
-                      <p className="text-sm text-gray-500">暂无在线用户</p>
-                      <p className="text-xs text-gray-600 mt-1 font-mono">NO ACTIVE CONNECTIONS</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {onlineUsers.map((u) => (
-                        <div
-                          key={u.socketId}
-                          className="flex items-center justify-between p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/15 hover:border-emerald-500/30 hover:bg-emerald-500/10 transition-all group"
-                        >
-                          <div
-                            className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
-                            onClick={() => viewProfile(u.userId)}
-                          >
-                            <div className="relative shrink-0">
-                              {u.avatarUrl ? (
-                                <img
-                                  src={u.avatarUrl}
-                                  className="w-9 h-9 rounded-full object-cover ring-2 ring-emerald-500/30"
-                                  onError={(e) => { e.target.style.display = 'none'; }}
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="w-9 h-9 rounded-full bg-emerald-600/60 flex items-center justify-center text-white text-xs font-bold ring-2 ring-emerald-500/30">
-                                  {(u.name || '?')[0].toUpperCase()}
-                                </div>
-                              )}
-                              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-black animate-pulse" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors truncate">
-                                {u.name}
-                              </p>
-                              <p className="text-[10px] text-gray-500 font-mono truncate">
-                                SOCK: {u.ip}
-                                {u.lastLoginIp && u.lastLoginIp !== u.ip && (
-                                  <span className="text-gray-600 ml-1">| DB: {u.lastLoginIp}</span>
-                                )}
-                                {u.registerIp && (
-                                  <span className="text-gray-700 ml-1">| REG: {u.registerIp}</span>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-3">
-                            <span className="text-[10px] text-emerald-500/60 font-mono tracking-wider bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">
-                              LIVE
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <AdminOnlineTab onlineUsers={onlineUsers} onViewProfile={viewProfile} />
               )}
 
               {/* ── ALL USERS TAB ── */}
               {tab === 'users' && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-white/10 bg-white/[0.03]">
-                        <th className="text-left px-5 py-3 text-[10px] font-medium text-gray-500 uppercase tracking-wider">用户</th>
-                        <th className="text-left px-5 py-3 text-[10px] font-medium text-gray-500 uppercase tracking-wider">角色</th>
-                        <th className="text-left px-5 py-3 text-[10px] font-medium text-gray-500 uppercase tracking-wider">足迹</th>
-                        <th className="text-left px-5 py-3 text-[10px] font-medium text-gray-500 uppercase tracking-wider">最后IP</th>
-                        <th className="text-left px-5 py-3 text-[10px] font-medium text-gray-500 uppercase tracking-wider">状态</th>
-                        <th className="text-left px-5 py-3 text-[10px] font-medium text-gray-500 uppercase tracking-wider">注册时间</th>
-                        <th className="text-right px-5 py-3 text-[10px] font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {allUsers.map((u) => (
-                        <tr key={u._id} className="hover:bg-white/[0.03] transition-colors group">
-                          <td className="px-5 py-3">
-                            {editingId === u._id ? (
-                              <input
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                className="w-full px-2 py-1 text-sm border border-white/10 bg-white/5 text-gray-200 rounded focus:outline-none focus:border-blue-400"
-                              />
-                            ) : (
-                              <div
-                                className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => viewProfile(u._id)}
-                              >
-                                {u.avatarUrl ? (
-                                  <img src={u.avatarUrl} className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10" />
-                                ) : (
-                                  <div className="w-7 h-7 rounded-full bg-blue-500/60 flex items-center justify-center text-white text-[10px] font-bold ring-1 ring-blue-500/30">
-                                    {(u.name || '?')[0].toUpperCase()}
-                                  </div>
-                                )}
-                                <span className="font-medium text-gray-200 group-hover:text-white transition-colors">
-                                  {u.name}
-                                </span>
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-5 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                              ${u.role === 'admin' ? 'bg-red-500/15 text-red-300 border border-red-500/20' : 'bg-white/10 text-gray-300'}`}>
-                              {u.role === 'admin' ? '管理员' : '用户'}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3">
-                            <span className="text-gray-400 font-mono text-xs">{u.footprintCount}</span>
-                          </td>
-                          <td className="px-5 py-3">
-                            <span className="text-[11px] text-gray-500 font-mono">
-                              {u.lastLoginIp || <span className="text-gray-700 italic">N/A</span>}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3">
-                            {u.isOnline ? (
-                              <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                在线
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
-                                <span className="w-1.5 h-1.5 rounded-full bg-gray-700" />
-                                离线
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-5 py-3 text-xs text-gray-500 font-mono">
-                            {new Date(u.createdAt).toLocaleDateString('zh-CN')}
-                          </td>
-                          <td className="px-5 py-3">
-                            {editingId === u._id ? (
-                              <div className="flex items-center gap-1 justify-end">
-                                <input
-                                  value={editPassword}
-                                  onChange={(e) => setEditPassword(e.target.value)}
-                                  placeholder="新密码(可选)"
-                                  className="w-24 px-2 py-1 text-xs border border-white/10 bg-white/5 text-gray-200 rounded focus:outline-none focus:border-blue-400 placeholder:text-gray-500"
-                                />
-                                <button
-                                  onClick={() => handleSaveEdit(u._id)}
-                                  disabled={saving}
-                                  className="p-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => setEditingId(null)}
-                                  className="p-1.5 bg-white/10 text-gray-300 rounded-lg hover:bg-white/15 transition-colors"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ) : u.role !== 'admin' ? (
-                              <div className="flex items-center gap-1 justify-end">
-                                <button
-                                  onClick={() => { useUIStore.getState().enterGhostMode(u._id, u.name); onClose(); }}
-                                  className="p-1.5 hover:bg-amber-500/10 text-amber-400 rounded-lg transition-colors"
-                                  title="切换视角"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleEdit(u)}
-                                  className="p-1.5 hover:bg-blue-500/10 text-blue-400 rounded-lg transition-colors"
-                                  title="编辑"
-                                >
-                                  <PencilLine className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleKick(u._id, u.name)}
-                                  className="p-1.5 hover:bg-orange-500/10 text-orange-400 rounded-lg transition-colors"
-                                  title="踢出"
-                                >
-                                  <Zap className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(u._id, u.name)}
-                                  className="p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors"
-                                  title="删除"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1 justify-end">
-                                <button
-                                  onClick={() => { useUIStore.getState().enterGhostMode(u._id, u.name); onClose(); }}
-                                  className="p-1.5 hover:bg-amber-500/10 text-amber-400 rounded-lg transition-colors"
-                                  title="切换视角"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <AdminUsersTab
+                  allUsers={allUsers}
+                  editingId={editingId} editName={editName} editPassword={editPassword} saving={saving}
+                  onEditNameChange={(e) => setEditName(e.target.value)}
+                  onEditPasswordChange={(e) => setEditPassword(e.target.value)}
+                  onEdit={handleEdit}
+                  onCancelEdit={() => setEditingId(null)}
+                  onSaveEdit={handleSaveEdit}
+                  onKick={handleKick}
+                  onDelete={handleDelete}
+                  onViewProfile={viewProfile}
+                  onGhostMode={(userId, userName) => { useUIStore.getState().enterGhostMode(userId, userName); onClose(); }}
+                />
               )}
 
               {/* ── CLONE DETECTION TAB ── */}
               {tab === 'clones' && cloneData && (
-                <div className="p-6 space-y-6">
-                  {/* Summary Banner */}
-                  <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-red-500/5 via-orange-500/5 to-red-500/5 border border-red-500/10">
-                    <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-                      <AlertTriangle className="w-6 h-6 text-red-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-red-300 tracking-wide">
-                        风控雷达扫描完成
-                      </h3>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        共扫描 <span className="text-gray-200 font-mono">{cloneData.totalUsers}</span> 名用户，
-                        发现 <span className="text-orange-400 font-mono font-bold">{cloneData.groups.length}</span> 组共享IP账号，
-                        涉及 <span className="text-red-400 font-mono font-bold">{cloneData.suspiciousCount}</span> 个可疑账号
-                      </p>
-                    </div>
-                  </div>
-
-                  {cloneData.groups.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-3">
-                        <Check className="w-5 h-5 text-emerald-400" />
-                      </div>
-                      <p className="text-sm text-gray-400">未发现同IP关联账号</p>
-                      <p className="text-xs text-gray-600 mt-1 font-mono">NO CLONES DETECTED</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-5">
-                      {cloneData.groups.map((group, gi) => {
-                        const sorted = [...group.users].sort(
-                          (a, b) => new Date(b.lastLoginAt || 0) - new Date(a.lastLoginAt || 0)
-                        );
-                        return (
-                        <div
-                          key={gi}
-                          className="rounded-xl border border-red-500/20 bg-black/40 overflow-hidden hover:border-red-500/40 transition-all"
-                        >
-                          {/* Group Header */}
-                          <div className="px-5 py-3.5 border-b border-red-500/10 bg-red-500/[0.06]">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2.5">
-                                <UserX className="w-4 h-4 text-red-400" />
-                                <span className="text-sm font-bold text-red-300">
-                                  同一人？{sorted.length} 个账号
-                                </span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                                  group.type === 'registerIp'
-                                    ? 'bg-purple-500/15 text-purple-400 border border-purple-500/20'
-                                    : 'bg-orange-500/15 text-orange-400 border border-orange-500/20'
-                                }`}>
-                                  {group.type === 'registerIp' ? '同注册IP' : '同登录IP'}
-                                </span>
-                              </div>
-                              <span className="text-xs text-gray-500 font-mono">{group.ip}</span>
-                            </div>
-                            <p className="text-[11px] text-gray-600 mt-1 ml-6">
-                              {group.type === 'registerIp'
-                                ? '这些账号使用了相同的 IP 地址注册，极可能为同一人'
-                                : '这些账号曾使用相同的 IP 地址登录，可能存在关联'}
-                            </p>
-                          </div>
-
-                          {/* Accounts Table */}
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b border-white/5 bg-white/[0.02]">
-                                  <th className="text-left px-5 py-2.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider">账号</th>
-                                  <th className="text-left px-5 py-2.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider">角色</th>
-                                  <th className="text-left px-5 py-2.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider">注册时间</th>
-                                  <th className="text-left px-5 py-2.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider">最后登录</th>
-                                  <th className="text-left px-5 py-2.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider">注册IP</th>
-                                  <th className="text-center px-5 py-2.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider">状态</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-white/5">
-                                {sorted.map((u) => (
-                                  <tr
-                                    key={u._id}
-                                    className="hover:bg-white/[0.03] transition-colors cursor-pointer"
-                                    onClick={() => viewProfile(u._id)}
-                                  >
-                                    <td className="px-5 py-2.5">
-                                      <div className="flex items-center gap-2.5">
-                                        {u.avatarUrl ? (
-                                          <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover ring-1 ring-white/10" />
-                                        ) : (
-                                          <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center text-white text-[9px] font-bold">
-                                            {(u.name || '?')[0].toUpperCase()}
-                                          </div>
-                                        )}
-                                        <span className="font-medium text-gray-200">{u.name}</span>
-                                      </div>
-                                    </td>
-                                    <td className="px-5 py-2.5">
-                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                        u.role === 'admin'
-                                          ? 'bg-red-500/15 text-red-300 border border-red-500/20'
-                                          : 'bg-white/10 text-gray-400'
-                                      }`}>
-                                        {u.role === 'admin' ? '管理员' : '用户'}
-                                      </span>
-                                    </td>
-                                    <td className="px-5 py-2.5 text-xs text-gray-500">
-                                      {new Date(u.createdAt).toLocaleDateString('zh-CN')}
-                                    </td>
-                                    <td className="px-5 py-2.5 text-xs text-gray-400">
-                                      {u.lastLoginAt
-                                        ? new Date(u.lastLoginAt).toLocaleString('zh-CN')
-                                        : <span className="text-gray-700 italic">从未登录</span>
-                                      }
-                                    </td>
-                                    <td className="px-5 py-2.5">
-                                      <span className="text-[11px] text-gray-500 font-mono">
-                                        {u.registerIp || 'N/A'}
-                                      </span>
-                                    </td>
-                                    <td className="px-5 py-2.5 text-center">
-                                      {u.isOnline ? (
-                                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                          在线
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-gray-600">离线</span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <AdminClonesTab cloneData={cloneData} onViewProfile={viewProfile} />
               )}
               {/* ── AUDIT LOG TAB ── */}
               {tab === 'audit' && (
-                <div className="flex flex-col h-full">
-                  {/* Toolbar */}
-                  <div className="flex items-center justify-between px-5 py-2 border-b border-white/5 bg-white/[0.02]">
-                    <span className="text-[10px] text-gray-500 font-mono tracking-wider">
-                      LIVE STREAM — {auditLogs.length} / {MAX_AUDIT_LOGS} events
-                    </span>
-                    <button
-                      onClick={() => {
-                        if (auditPaused) {
-                          setAuditPaused(false);
-                        } else {
-                          setAuditPaused(true);
-                        }
-                      }}
-                      className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded border transition-colors ${
-                        auditPaused
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/20'
-                      }`}
-                    >
-                      {auditPaused ? (
-                        <><Play className="w-3 h-3" /> 继续</>
-                      ) : (
-                        <><Pause className="w-3 h-3" /> 暂停</>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Log List */}
-                  <div className="overflow-y-auto flex-1 max-h-[60vh]">
-                    {auditLogs.length === 0 ? (
-                      <div className="text-center py-16">
-                        <Activity className="w-8 h-8 text-gray-700 mx-auto mb-3" />
-                        <p className="text-sm text-gray-500">等待审计事件...</p>
-                        <p className="text-xs text-gray-600 mt-1 font-mono">AWAITING EVENTS</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-white/[0.03]">
-                        {auditLogs.map((entry) => {
-                          const Icon = AUDIT_ICONS[entry.type] || Activity;
-                          const color = AUDIT_COLORS[entry.type] || 'text-gray-400';
-                          return (
-                            <div key={entry.id} className="flex items-start gap-3 px-5 py-2 hover:bg-white/[0.02] transition-colors">
-                              <div className={`shrink-0 mt-0.5 ${color}`}>
-                                <Icon className="w-3.5 h-3.5" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs text-gray-300 truncate">
-                                  {auditSummary(entry)}
-                                </p>
-                              </div>
-                              <span className="shrink-0 text-[9px] text-gray-600 font-mono mt-0.5">
-                                {new Date(entry.timestamp).toLocaleTimeString('zh-CN', { hour12: false })}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        <div ref={auditEndRef} />
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <AdminAuditTab
+                  auditLogs={auditLogs}
+                  auditPaused={auditPaused}
+                  onTogglePause={() => setAuditPaused((p) => !p)}
+                  auditEndRef={auditEndRef}
+                />
               )}
             </>
           )}

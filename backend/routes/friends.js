@@ -3,11 +3,12 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Friendship = require('../models/Friendship');
 const { auth } = require('../middleware/auth');
+const { SUPERUSER_NAME, isSuperuserName } = require('../services/superuser');
 
 module.exports = () => {
   const router = express.Router();
 
-  // GET /api/friends — friend list (injects 阿森)
+  // GET /api/friends — friend list (injects superuser as forced friend)
   router.get('/friends', auth, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -32,9 +33,9 @@ module.exports = () => {
         .select('name avatarUrl isOnline role')
         .lean();
 
-      // Inject 阿森 unless current user IS 阿森
-      if (req.user.name !== '阿森') {
-        const asen = await User.findOne({ name: '阿森' }).select('name avatarUrl isOnline role').lean();
+      // Inject superuser unless current user IS superuser
+      if (!isSuperuserName(req.user.name)) {
+        const asen = await User.findOne({ name: SUPERUSER_NAME }).select('name avatarUrl isOnline role').lean();
         if (asen) {
           const asenId = asen._id.toString();
           const alreadyExists = friends.some(f => f._id.toString() === asenId);
@@ -43,7 +44,7 @@ module.exports = () => {
           }
         }
       } else {
-        // 阿森本人: inject users with chat history (forced-friend symmetry)
+        // Superuser: inject users with chat history (forced-friend symmetry)
         const Message = require('../models/Message');
         const sentIds = await Message.distinct('receiverId', { senderId: userId });
         const recvIds = await Message.distinct('senderId', { receiverId: userId });
@@ -96,8 +97,8 @@ module.exports = () => {
       const recipient = await User.findById(recipientId).lean();
       if (!recipient) return res.status(404).json({ error: '用户不存在' });
 
-      // 阿森 is already a forced friend — no request needed
-      if (recipient.name === '阿森') {
+      // Superuser is already a forced friend — no request needed
+      if (isSuperuserName(recipient.name)) {
         return res.status(400).json({ error: '管理员已是您的好友，无需申请' });
       }
 
@@ -187,8 +188,8 @@ module.exports = () => {
       const targetUser = await User.findById(req.params.userId).lean();
       if (!targetUser) return res.status(404).json({ error: '用户不存在' });
 
-      // Cannot delete 阿森
-      if (targetUser.name === '阿森') {
+      // Cannot delete superuser
+      if (isSuperuserName(targetUser.name)) {
         return res.status(403).json({ error: '不能删除管理员好友' });
       }
 
