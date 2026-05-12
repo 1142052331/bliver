@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useMap } from 'react-leaflet';
 import { MapPin } from 'lucide-react';
 import useUIStore from '../store/useUIStore';
 
 const LONG_PRESS_MS = 600;
-const MOVE_THRESHOLD = 10; // px — cancel long-press if finger moves more than this
+const MOVE_THRESHOLD = 10;
 
 export default function MapContextMenu() {
   const map = useMap();
@@ -13,35 +14,39 @@ export default function MapContextMenu() {
   const touchStartPos = useRef(null);
   const touchStartLatLng = useRef(null);
 
+  /** Convert lat/lng to page-relative pixel coords (for portal rendering in body) */
+  const latLngToPageXY = useCallback((lat, lng) => {
+    const point = map.latLngToContainerPoint([lat, lng]);
+    const rect = map.getContainer().getBoundingClientRect();
+    return { x: rect.left + point.x, y: rect.top + point.y };
+  }, [map]);
+
   // ── Desktop: right-click ──
   const handleContextMenu = useCallback((e) => {
     e.originalEvent.preventDefault();
     const { lat, lng } = e.latlng;
-    const point = map.latLngToContainerPoint([lat, lng]);
-    setMenu({ lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)), x: point.x, y: point.y });
-  }, [map]);
+    const page = latLngToPageXY(lat, lng);
+    setMenu({ lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)), ...page });
+  }, [latLngToPageXY]);
 
   // ── Mobile: long-press ──
   const handleTouchStart = useCallback((e) => {
     if (e.touches.length !== 1) return;
     const touch = e.touches[0];
     touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    // Convert screen point to latlng
-    const latlng = map.containerPointToLatLng([touch.clientX, touch.clientY]);
-    touchStartLatLng.current = latlng;
+    touchStartLatLng.current = map.containerPointToLatLng([touch.clientX, touch.clientY]);
 
     longPressTimer.current = setTimeout(() => {
       const latlng = touchStartLatLng.current;
       if (!latlng) return;
-      const point = map.latLngToContainerPoint([latlng.lat, latlng.lng]);
+      const page = latLngToPageXY(latlng.lat, latlng.lng);
       setMenu({
         lat: Number(latlng.lat.toFixed(6)),
         lng: Number(latlng.lng.toFixed(6)),
-        x: point.x,
-        y: point.y,
+        ...page,
       });
     }, LONG_PRESS_MS);
-  }, [map]);
+  }, [map, latLngToPageXY]);
 
   const handleTouchMove = useCallback((e) => {
     if (!touchStartPos.current || !e.touches.length) return;
@@ -59,16 +64,14 @@ export default function MapContextMenu() {
     touchStartPos.current = null;
   }, []);
 
-  const handleTeleport = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleTeleport = useCallback(() => {
     if (!menu) return;
     useUIStore.getState().setPendingCheckInLocation({ lat: menu.lat, lng: menu.lng });
     useUIStore.getState().openCheckIn();
     setMenu(null);
   }, [menu]);
 
-  // Close menu on interaction
+  // Close menu on map interaction
   useEffect(() => {
     const close = () => setMenu(null);
     map.on('click', close);
@@ -104,18 +107,16 @@ export default function MapContextMenu() {
 
   if (!menu) return null;
 
-  return (
-    <div
-      className="absolute z-[1500] pointer-events-auto"
-      style={{ left: menu.x, top: menu.y }}
+  // Render in document.body — completely outside Leaflet's DOM tree
+  return createPortal(
+    <button
+      onClick={handleTeleport}
+      className="fixed z-[2000] flex items-center gap-2 px-3 py-2 text-xs font-bold bg-gray-900/95 backdrop-blur border border-red-500/30 text-red-300 rounded-lg hover:bg-red-500/20 hover:border-red-500/50 transition-all shadow-2xl whitespace-nowrap active:scale-95 touch-none select-none"
+      style={{ left: menu.x, top: menu.y, transform: 'translate(-50%, -120%)' }}
     >
-      <button
-        onClick={handleTeleport}
-        className="flex items-center gap-2 px-3 py-2 text-xs font-bold bg-gray-900/95 backdrop-blur border border-red-500/30 text-red-300 rounded-lg hover:bg-red-500/20 hover:border-red-500/50 transition-all shadow-2xl whitespace-nowrap active:scale-95"
-      >
-        <MapPin className="w-3.5 h-3.5" />
-        在此打卡（管理员）
-      </button>
-    </div>
+      <MapPin className="w-3.5 h-3.5" />
+      在此打卡（管理员）
+    </button>,
+    document.body
   );
 }
