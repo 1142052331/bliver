@@ -29,7 +29,8 @@ async function toggleReaction(footprintId, userId, username, emoji) {
   const fpObj = populated.toObject();
   delete fpObj.realLocation;
 
-  return { footprint: fpObj, isToggleOff, footprintOwnerId: populated.userId.toString() };
+  const ownerId = (populated.userId?._id || populated.userId).toString();
+  return { footprint: fpObj, isToggleOff, footprintOwnerId: ownerId };
 }
 
 module.exports = { toggleReaction };

@@ -12,6 +12,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   });
 }
 import { apiClient } from './api';
+import { broadcastLogin } from './authSync';
 import useAuth from './hooks/useAuth';
 import { refetchNotifications } from './hooks/useNotifications';
 import L from 'leaflet';

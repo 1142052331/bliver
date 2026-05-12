@@ -1,14 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 
 /** Calls map.invalidateSize() on resize, orientation change, and wake-from-background */
 export default function MapResizeHandler() {
   const map = useMap();
+  const invalidating = useRef(false);
 
   useEffect(() => {
     const invalidate = () => {
-      window.dispatchEvent(new Event('resize'));
-      setTimeout(() => map.invalidateSize(), 100);
+      if (invalidating.current) return;
+      invalidating.current = true;
+      map.invalidateSize();
+      setTimeout(() => { invalidating.current = false; }, 200);
     };
 
     const onVisibility = () => {
