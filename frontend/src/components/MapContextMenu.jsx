@@ -59,7 +59,9 @@ export default function MapContextMenu() {
     touchStartPos.current = null;
   }, []);
 
-  const handleTeleport = useCallback(() => {
+  const handleTeleport = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!menu) return;
     useUIStore.getState().setPendingCheckInLocation({ lat: menu.lat, lng: menu.lng });
     useUIStore.getState().openCheckIn();
