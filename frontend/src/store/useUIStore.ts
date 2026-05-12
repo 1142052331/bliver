@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 
 // ── Types ───────────────────────────────────────────
 
@@ -69,6 +70,18 @@ interface UIStore {
   // Admin Teleport
   pendingCheckInLocation: PendingLocation | null;
 
+  // Real-time event bus (replaces window CustomEvent)
+  markReadVersion: number;
+  footprintEvent: {
+    type: 'new' | 'updated' | 'deleted';
+    footprint?: any;
+    footprintId?: string;
+  } | null;
+  footprintEventId: number;
+  profileEvent: { userId: string; user: any } | null;
+  profileEventId: number;
+  viewedFootprintId: string | null;
+
   // ── Actions ──
   openCheckIn: () => void;
   closeCheckIn: () => void;
@@ -111,9 +124,19 @@ interface UIStore {
   clearMessageIsland: () => void;
 
   setPendingCheckInLocation: (loc: PendingLocation | null) => void;
+
+  incrementMarkReadVersion: () => void;
+  emitFootprintEvent: (event: {
+    type: 'new' | 'updated' | 'deleted';
+    footprint?: any;
+    footprintId?: string;
+  }) => void;
+  emitProfileEvent: (event: { userId: string; user: any }) => void;
+  setViewedFootprintId: (id: string | null) => void;
 }
 
-const useUIStore = create<UIStore>()((set) => ({
+const useUIStore = create<UIStore>()(
+  subscribeWithSelector((set) => ({
   // ── Modal / Drawer toggles ──────────────────────
   showCheckIn: false,
   showTimeline: false,
@@ -142,6 +165,13 @@ const useUIStore = create<UIStore>()((set) => ({
   messageIsland: null,
 
   pendingCheckInLocation: null,
+
+  markReadVersion: 0,
+  footprintEvent: null,
+  footprintEventId: 0,
+  profileEvent: null,
+  profileEventId: 0,
+  viewedFootprintId: null,
 
   // ── Actions ─────────────────────────────────────
   openCheckIn: () => set({ showCheckIn: true }),
@@ -196,6 +226,13 @@ const useUIStore = create<UIStore>()((set) => ({
   clearMessageIsland: () => set({ messageIsland: null }),
 
   setPendingCheckInLocation: (loc) => set({ pendingCheckInLocation: loc }),
-}));
+
+  incrementMarkReadVersion: () => set((s) => ({ markReadVersion: s.markReadVersion + 1 })),
+  emitFootprintEvent: (event) =>
+    set((s) => ({ footprintEvent: event, footprintEventId: s.footprintEventId + 1 })),
+  emitProfileEvent: (event) =>
+    set((s) => ({ profileEvent: event, profileEventId: s.profileEventId + 1 })),
+  setViewedFootprintId: (id) => set({ viewedFootprintId: id }),
+})));
 
 export default useUIStore;

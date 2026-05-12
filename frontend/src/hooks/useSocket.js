@@ -62,7 +62,7 @@ export default function useSocket({
 
     socket.on('footprint:new', (data) => {
       setFootprints((prev) => [data.footprint, ...prev]);
-      window.dispatchEvent(new CustomEvent('ws:footprint:new', { detail: data }));
+      useUIStore.getState().emitFootprintEvent({ type: 'new', footprint: data.footprint });
     });
 
     socket.on('footprint:updated', (data) => {
@@ -71,16 +71,16 @@ export default function useSocket({
           ? { ...fp, reactions: data.footprint.reactions, comments: data.footprint.comments }
           : fp))
       );
-      window.dispatchEvent(new CustomEvent('ws:footprint:updated', { detail: data }));
+      useUIStore.getState().emitFootprintEvent({ type: 'updated', footprint: data.footprint });
     });
 
     socket.on('footprint:deleted', (data) => {
       setFootprints((prev) => prev.filter((fp) => fp._id !== data.footprintId));
-      window.dispatchEvent(new CustomEvent('ws:footprint:deleted', { detail: data }));
+      useUIStore.getState().emitFootprintEvent({ type: 'deleted', footprintId: data.footprintId });
     });
 
     socket.on('profile:updated', (data) => {
-      window.dispatchEvent(new CustomEvent('ws:profile:updated', { detail: data }));
+      useUIStore.getState().emitProfileEvent({ userId: data.userId, user: data.user });
     });
 
     const setMsg = useUIStore.getState().setMessageIsland;

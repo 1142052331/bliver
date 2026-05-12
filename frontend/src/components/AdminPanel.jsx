@@ -145,7 +145,7 @@ export default function AdminPanel({ onClose, socketRef }) {
   };
 
   const viewProfile = (userId) => {
-    if (userId) window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId } }));
+    if (userId) useUIStore.getState().openProfile(userId);
   };
 
   const tabClass = (t) =>

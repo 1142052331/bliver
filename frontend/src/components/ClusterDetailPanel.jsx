@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import useUIStore from '../store/useUIStore';
 import { groupFootprintsByUser } from '../utils/groupFootprints';
 import { AnimatePresence } from 'framer-motion';
 import { X, MapPin, Clock, MessageCircle, Bell } from 'lucide-react';
@@ -95,7 +96,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
               <div className="flex items-center gap-2 mb-3">
                 <span
                   className="cursor-pointer"
-                  onClick={() => user?._id && window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
+                  onClick={() => user?._id && useUIStore.getState().openProfile(user._id)}
                 >
                   {user?.avatarUrl ? (
                     <img src={user.avatarUrl} className="w-8 h-8 rounded-full object-cover ring-2 ring-white/20 hover:ring-white/40 transition-all" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
@@ -107,7 +108,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
                 </span>
                 <span
                   className="cursor-pointer font-semibold text-sm text-gray-200 hover:text-white"
-                  onClick={() => user?._id && window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
+                  onClick={() => user?._id && useUIStore.getState().openProfile(user._id)}
                 >
                   {user?.name || 'Unknown'}
                 </span>

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import useUIStore from '../store/useUIStore';
 import { groupFootprintsByUser } from '../utils/groupFootprints';
 import { X, Clock, Trash2, Share2, Check } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
@@ -23,7 +24,7 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
       <div className="flex items-center gap-2 mb-3 pl-1">
         <span
           className="cursor-pointer"
-          onClick={() => user?._id && window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
+          onClick={() => user?._id && useUIStore.getState().openProfile(user._id)}
         >
           {user?.avatarUrl ? (
             <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover hover:ring-2 hover:ring-blue-300 transition-all" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
@@ -35,7 +36,7 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
         </span>
         <span
           className="cursor-pointer font-semibold text-sm text-gray-800 hover:text-blue-600"
-          onClick={() => user?._id && window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}
+          onClick={() => user?._id && useUIStore.getState().openProfile(user._id)}
         >
           {user?.name || 'Unknown'}
         </span>

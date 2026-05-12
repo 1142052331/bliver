@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, MapPin, Clock, Image, MessageCircle, Heart, Send } from 'lucide-react';
 import api from '../api';
 import { getUser } from '../auth';
+import useUIStore from '../store/useUIStore';
 
 const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '🙏', '👍'];
 
@@ -48,45 +49,43 @@ export default function ProfilePage() {
 
   useEffect(() => { fetchProfile(); }, [userId]);
 
-  // Subscribe to real-time window events dispatched from socket handlers
+  // Real-time updates via Zustand store
   useEffect(() => {
-    const onNewFp = (e) => {
-      const fp = e.detail.footprint;
-      if (fp.userId?._id === userId || fp.userId === userId) {
-        setFootprints((prev) => [fp, ...prev]);
+    const unsubFp = useUIStore.subscribe(
+      (s) => s.footprintEventId,
+      () => {
+        const evt = useUIStore.getState().footprintEvent;
+        if (!evt) return;
+        if (evt.type === 'new') {
+          const fp = evt.footprint;
+          if (fp && (fp.userId?._id === userId || fp.userId === userId)) {
+            setFootprints((prev) => [fp, ...prev]);
+          }
+        } else if (evt.type === 'updated') {
+          const fp = evt.footprint;
+          if (fp) {
+            setFootprints((prev) =>
+              prev.map((f) => (f._id === fp._id
+                ? { ...f, reactions: fp.reactions, comments: fp.comments }
+                : f))
+            );
+          }
+        } else if (evt.type === 'deleted') {
+          const fid = evt.footprintId;
+          if (fid) setFootprints((prev) => prev.filter((f) => f._id !== fid));
+        }
       }
-    };
+    );
 
-    const onUpdateFp = (e) => {
-      const fp = e.detail.footprint;
-      setFootprints((prev) =>
-        prev.map((f) => (f._id === fp._id
-          ? { ...f, reactions: fp.reactions, comments: fp.comments }
-          : f))
-      );
-    };
-
-    const onDeleteFp = (e) => {
-      setFootprints((prev) => prev.filter((f) => f._id !== e.detail.footprintId));
-    };
-
-    const onProfileUpdated = (e) => {
-      if (e.detail.userId === userId) {
-        setProfile(e.detail.user);
+    const unsubProfile = useUIStore.subscribe(
+      (s) => s.profileEventId,
+      () => {
+        const evt = useUIStore.getState().profileEvent;
+        if (evt?.userId === userId) setProfile(evt.user);
       }
-    };
+    );
 
-    window.addEventListener('ws:footprint:new', onNewFp);
-    window.addEventListener('ws:footprint:updated', onUpdateFp);
-    window.addEventListener('ws:footprint:deleted', onDeleteFp);
-    window.addEventListener('ws:profile:updated', onProfileUpdated);
-
-    return () => {
-      window.removeEventListener('ws:footprint:new', onNewFp);
-      window.removeEventListener('ws:footprint:updated', onUpdateFp);
-      window.removeEventListener('ws:footprint:deleted', onDeleteFp);
-      window.removeEventListener('ws:profile:updated', onProfileUpdated);
-    };
+    return () => { unsubFp(); unsubProfile(); };
   }, [userId]);
 
   const handleComment = async () => {

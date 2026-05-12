@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import useUIStore from '../store/useUIStore';
 import { motion } from 'framer-motion';
 import { X, Trash2, Share2, Check, MapPin, Clock, Image, MessageCircle, Send, Bell } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
@@ -34,7 +35,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
   // ── Auto-mark backend notifications as read on view ──
   useEffect(() => {
     if (fp._id) {
-      window.dispatchEvent(new CustomEvent('footprint:viewed', { detail: { footprintId: fp._id } }));
+      useUIStore.getState().setViewedFootprintId(fp._id);
     }
   }, [fp._id]);
 
@@ -60,7 +61,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
   const handleDismissUnread = () => {
     markRead(fp._id);
     setUnreadDismissed(true);
-    window.dispatchEvent(new CustomEvent('footprint:markRead'));
+    useUIStore.getState().incrementMarkReadVersion();
   };
   // ──────────────────────────────────────────────────────
 
@@ -125,7 +126,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
           {/* User & Time */}
           <div className="flex items-center gap-3 mb-3">
             <span className="cursor-pointer"
-              onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}>
+              onClick={() => useUIStore.getState().openProfile(user._id)}>
               {user.avatarUrl ? (
                 <img src={user.avatarUrl}
                   className="w-10 h-10 rounded-full object-cover ring-2 ring-teal-400/30 hover:ring-teal-400/60 transition-all"
@@ -139,7 +140,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
             </span>
             <div>
               <span className="cursor-pointer font-semibold text-white hover:text-teal-300 transition-colors"
-                onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}>
+                onClick={() => useUIStore.getState().openProfile(user._id)}>
                 {user.name || 'Unknown'}
               </span>
               <div className="flex items-center gap-1 text-xs text-gray-400">

@@ -76,12 +76,13 @@ export default function useNotifications() {
 
   // Auto-mark notifications as read when viewing a footprint
   useEffect(() => {
-    const handler = (e: Event) => {
-      const footprintId = (e as CustomEvent).detail?.footprintId;
-      if (footprintId) markFootprintRead(footprintId);
-    };
-    window.addEventListener('footprint:viewed', handler);
-    return () => window.removeEventListener('footprint:viewed', handler);
+    const unsub = useUIStore.subscribe(
+      (s) => s.viewedFootprintId,
+      (footprintId) => {
+        if (footprintId) markFootprintRead(footprintId);
+      }
+    );
+    return unsub;
   }, [markFootprintRead]);
 
   return {

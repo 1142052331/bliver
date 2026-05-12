@@ -35,7 +35,7 @@ import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import PhotoWall from './components/PhotoWall';
-import AnnouncementPanel, { hasUnreadAnnouncements } from './components/AnnouncementPanel';
+import AnnouncementPanel from './components/AnnouncementPanel';
 import FriendsPanel from './components/FriendsPanel';
 import ChatWindow from './components/ChatWindow';
 import MessageIsland from './components/MessageIsland';
@@ -46,6 +46,7 @@ import useFriends from './hooks/useFriends';
 import useFootprintActions from './hooks/useFootprintActions';
 import useFootprints from './hooks/useFootprints';
 import useNotifications from './hooks/useNotifications';
+import useAnnounceUnread from './hooks/useAnnounceUnread';
 import { subscribeToPush } from './push';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -64,7 +65,7 @@ export default function App() {
 
   // ── Core state ────────────────────────────────────────
   const [onlineCount, setOnlineCount] = useState(0);
-  const [announceHasUnread, setAnnounceHasUnread] = useState(false);
+  const [announceHasUnread, clearAnnounceUnread] = useAnnounceUnread(user);
   const [footprintPeriod, setFootprintPeriod] = useState('week');
 
   // ── React Query: footprints ────────────────────────────
@@ -169,39 +170,10 @@ export default function App() {
     }
   }, [footprints, flyArrivedFp]);
 
-  // ── Check for unread announcements ──────────────────────
-  useEffect(() => {
-    if (!user) { setAnnounceHasUnread(false); return; }
-    let cancelled = false;
-    apiClient.announcements.list().then(({ data }) => {
-      if (!cancelled && data?.announcements) {
-        setAnnounceHasUnread(hasUnreadAnnouncements(data.announcements));
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [user]);
-
   // ── Footprint actions ──────────────────────────────────
 
   const { handleReact, handleDelete, handleDeleteComment, handleShare, handleComment } =
     useFootprintActions({ user, requireLogin, setFootprints });
-
-  // ── Event listeners ────────────────────────────────────
-
-  useEffect(() => {
-    const handler = (e) => {
-      console.log('[App] cluster:click received, footprints:', e.detail?.footprints?.length);
-      setClusterData(e.detail);
-    };
-    window.addEventListener('cluster:click', handler);
-    return () => window.removeEventListener('cluster:click', handler);
-  }, []);
-
-  useEffect(() => {
-    const handler = (e) => openProfile(e.detail.userId);
-    window.addEventListener('profile:view', handler);
-    return () => window.removeEventListener('profile:view', handler);
-  }, []);
 
   const handleLogout = () => {
     logout();
@@ -236,22 +208,6 @@ export default function App() {
     }
     return () => { cancelled = true; };
   }, [chatUserId, friends]);
-
-  // Dynamic Island for new private messages (when chat window is not focused on sender)
-  useEffect(() => {
-    const handler = (e) => {
-      const msg = e.detail;
-      if (msg?.senderId && chatUserId !== msg.senderId) {
-        setMessageIsland({
-          type: 'message',
-          senderId: msg.senderId,
-          senderName: msg._senderName || '好友',
-        });
-      }
-    };
-    window.addEventListener('ws:new_message', handler);
-    return () => window.removeEventListener('ws:new_message', handler);
-  }, [chatUserId, setMessageIsland]);
 
   const totalFriendUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
@@ -328,7 +284,7 @@ export default function App() {
             <AnnouncementPanel
               key="announcements"
               isOpen={showAnnouncements}
-              onClose={() => { closeAnnouncements(); setAnnounceHasUnread(false); }}
+              onClose={() => { closeAnnouncements(); clearAnnounceUnread(); }}
               isAsen={user?.name === '阿森'}
               onToast={(msg) => useUIStore.getState().addToast({ type: 'announcement', content: msg })}
             />

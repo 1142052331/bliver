@@ -4,3 +4,4 @@ node_modules
 dist
 LING.env
 .mcp.json
+.codex/

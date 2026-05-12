@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { apiClient } from '../api';
+import useUIStore from '../store/useUIStore';
 
 /**
  * 好友系统 hook — 数据拉取 + Socket 实时状态 + 好友操作
@@ -61,8 +62,15 @@ export default function useFriends({ user, socketRef }) {
         ...prev,
         [message.senderId]: (prev[message.senderId] || 0) + 1,
       }));
-      // Dispatch for global Toast (App.jsx will decide whether to show)
-      window.dispatchEvent(new CustomEvent('ws:new_message', { detail: message }));
+      // Show MessageIsland if chat window is not focused on this sender
+      const s = useUIStore.getState();
+      if (message?.senderId && s.chatUserId !== message.senderId) {
+        s.setMessageIsland({
+          type: 'message',
+          senderId: message.senderId,
+          senderName: message._senderName || '好友',
+        });
+      }
     };
 
     socket.on('friend:online', onFriendOnline);

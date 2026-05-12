@@ -5,6 +5,7 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { getReadMap, isUnread, seedReadMap } from '../readStatus';
+import useUIStore from '../store/useUIStore';
 
 // ── Icon cache ────────────────────────────────────────────
 
@@ -25,7 +26,7 @@ function createMoodIcon(mood) {
     </div>`,
     className: '',
     iconSize: [44, 64],   // larger hit area for mobile taps
-    iconAnchor: [22, 32],
+    iconAnchor: [22, 52], // pin tip near bottom of visual content
   });
 }
 
@@ -39,7 +40,7 @@ function getDefaultIcon() {
       </div>`,
       className: '',
       iconSize: [44, 64],   // larger hit area for mobile taps
-      iconAnchor: [22, 32],
+      iconAnchor: [22, 52], // pin tip near bottom of visual content
     });
   }
   return defaultIcon;
@@ -91,7 +92,7 @@ function createStreakIcon(mood, streak) {
     </div>`,
     className: '',
     iconSize: [44, 64],   // larger hit area for mobile taps
-    iconAnchor: [22, 32],
+    iconAnchor: [22, 52], // pin tip near bottom of visual content
   });
 }
 
@@ -172,14 +173,16 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
   footprintsRef.current = footprints;
   const [readVersion, setReadVersion] = useState(0);
 
-  // Listen for external mark-read triggers (e.g. from detail panel)
+  // Listen for external mark-read triggers via store (e.g. from detail panel)
   useEffect(() => {
-    const handler = () => {
-      console.log('[ClusterMarkers] footprint:markRead received, incrementing readVersion');
-      setReadVersion((v) => v + 1);
-    };
-    window.addEventListener('footprint:markRead', handler);
-    return () => window.removeEventListener('footprint:markRead', handler);
+    const unsub = useUIStore.subscribe(
+      (s) => s.markReadVersion,
+      (version) => {
+        console.log('[ClusterMarkers] markReadVersion changed:', version);
+        setReadVersion((v) => v + 1);
+      }
+    );
+    return unsub;
   }, []);
 
   // Inject CSS once
@@ -265,9 +268,7 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       const clusterMarkers = e.layer.getAllChildMarkers();
       const ids = clusterMarkers.map((m) => m._footprintId);
       const latest = footprintsRef.current.filter((fp) => ids.includes(fp._id));
-      window.dispatchEvent(new CustomEvent('cluster:click', {
-        detail: { footprints: latest },
-      }));
+      useUIStore.getState().setClusterData({ footprints: latest });
     });
 
     clusterGroup.current = cg;
@@ -313,9 +314,7 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
       marker.on('click', () => {
         // 不在此处 markRead — 让详情面板在用户真正阅读后触发
         const list = [fp];
-        window.dispatchEvent(new CustomEvent('cluster:click', {
-          detail: { footprints: list },
-        }));
+        useUIStore.getState().setClusterData({ footprints: list });
       });
 
       cg.addLayer(marker);

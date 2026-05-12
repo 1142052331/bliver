@@ -94,7 +94,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
         {user ? (
           <>
             <span className="cursor-pointer"
-              onClick={() => window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }))}>
+              onClick={() => useUIStore.getState().openProfile(user._id)}>
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl}
                   className="w-8 h-8 rounded-full object-cover ring-2 ring-teal-400/30

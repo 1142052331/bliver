@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useUIStore from '../store/useUIStore';
 import { X, MapPin, Layers, Radio, Database, Shield, Cloud, Smartphone, Globe, Zap, Heart } from 'lucide-react';
 
 const techStack = [
@@ -33,7 +34,7 @@ export default function AboutModal({ isOpen, onClose, user }) {
   const handleViewProfile = () => {
     // 只有阿森本人点击时打开主页（其他人看到的是创作者署名，不可点击）
     if (user?.name === '阿森') {
-      window.dispatchEvent(new CustomEvent('profile:view', { detail: { userId: user._id } }));
+      useUIStore.getState().openProfile(user._id);
       onClose();
     }
   };

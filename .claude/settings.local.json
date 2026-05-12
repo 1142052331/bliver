@@ -57,10 +57,41 @@
       "Bash(dir \"c:\\\\Users\\\\1\\\\Desktop\\\\BliverApp\\\\frontend\\\\src\" /B)",
       "Bash(Get-ChildItem \"c:\\\\Users\\\\1\\\\Desktop\\\\BliverApp\\\\frontend\\\\src\" -Name)",
       "PowerShell(Get-ChildItem \"c:\\\\Users\\\\1\\\\Desktop\\\\BliverApp\\\\frontend\\\\src\" -Directory | ForEach-Object { $_.Name })",
-      "PowerShell($files = @\\(\"frontend/src/components/AdminPanel.jsx\", \"frontend/src/components/FootprintCardList.jsx\", \"frontend/src/components/ProfileDrawer.jsx\", \"frontend/src/components/FootprintDetailModal.jsx\", \"frontend/src/components/ClusterDetailPanel.jsx\", \"frontend/src/App.jsx\", \"frontend/index.html\"\\); foreach \\($f in $files\\) { $a = \\(Get-ChildItem \"c:/Users/1/Desktop/BliverApp/$f\"\\).Length; $b = \\(Get-ChildItem \"c:/Users/1/Desktop/Bliver/$f\"\\).Length; Write-Output \"$f | BliverApp: $a | Bliver: $b\" })"
+      "PowerShell($files = @\\(\"frontend/src/components/AdminPanel.jsx\", \"frontend/src/components/FootprintCardList.jsx\", \"frontend/src/components/ProfileDrawer.jsx\", \"frontend/src/components/FootprintDetailModal.jsx\", \"frontend/src/components/ClusterDetailPanel.jsx\", \"frontend/src/App.jsx\", \"frontend/index.html\"\\); foreach \\($f in $files\\) { $a = \\(Get-ChildItem \"c:/Users/1/Desktop/BliverApp/$f\"\\).Length; $b = \\(Get-ChildItem \"c:/Users/1/Desktop/Bliver/$f\"\\).Length; Write-Output \"$f | BliverApp: $a | Bliver: $b\" })",
+      "Bash(Get-Content \"C:\\\\Users\\\\1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-1-Desktop-Bliver\\\\tasks\\\\bwp60kiua.output\" -Tail 20)",
+      "Bash(taskkill *)",
+      "Bash(npx jest *)",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)",
+      "mcp__render-logs__fetch_render_logs",
+      "Bash(npx husky *)",
+      "Bash(claude *)",
+      "Bash(npm view *)",
+      "Bash(npx skills@latest *)",
+      "Bash(Get-ChildItem -Recurse -File -Name \"backend\")",
+      "Bash(Select-Object -First 80)",
+      "PowerShell(Get-ChildItem -Recurse -File -Path \"backend\" -Exclude \"node_modules\" | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"C:\\\\Users\\\\1\\\\Desktop\\\\Bliver\\\\\"\\), \"\" })",
+      "Bash(npm test *)",
+      "WebFetch(domain:sentry.io)",
+      "Bash(npx sentry-cli *)",
+      "Bash(Select-Object -First 20、)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\1\\\\Desktop\\\\Bliver\" -Directory | Where-Object { $_.Name -notin @\\(\"node_modules\", \"dist\", \".git\", \"uploads\"\\) } | ForEach-Object { $_.Name })",
+      "Bash(wc *)",
+      "PowerShell(npm search *)",
+      "Bash(npm search *)",
+      "Bash(codex --version)",
+      "Bash(npx @openai/codex --version)",
+      "Bash(where codex *)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(codex app *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\1\\Desktop\\bliver-mcp-server"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "bliver-db",
+    "render-logs"
+  ]
 }
