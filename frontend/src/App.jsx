@@ -11,7 +11,6 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     environment: import.meta.env.MODE,
   });
 }
-import { apiClient } from './api';
 import { broadcastLogin } from './authSync';
 import useAuth from './hooks/useAuth';
 import { refetchNotifications } from './hooks/useNotifications';
@@ -47,6 +46,8 @@ import useFootprintActions from './hooks/useFootprintActions';
 import useFootprints from './hooks/useFootprints';
 import useNotifications from './hooks/useNotifications';
 import useAnnounceUnread from './hooks/useAnnounceUnread';
+import useVisibilityRefresh from './hooks/useVisibilityRefresh';
+import useChatFriendMeta from './hooks/useChatFriendMeta';
 import { subscribeToPush } from './push';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -124,39 +125,7 @@ export default function App() {
   }, []);
 
   // ── Visibility change + focus: refresh data + wake zombie socket ──
-  const visibilityAbortRef = useRef(null);
-  useEffect(() => {
-    const wakeSocket = () => {
-      if (!user) return;
-      if (socketRef.current && !socketRef.current.connected) {
-        socketRef.current.connect();
-        socketRef.current.emit('user:online');
-      }
-    };
-
-    const refreshData = () => {
-      if (!user) return;
-      if (visibilityAbortRef.current) visibilityAbortRef.current.abort();
-      const controller = new AbortController();
-      visibilityAbortRef.current = controller;
-      const signal = controller.signal;
-
-      refetchFootprints();
-      refetchNotifications(setNotifications, { signal });
-    };
-
-    const handleWake = () => {
-      if (document.visibilityState !== 'visible') return;
-      wakeSocket();
-      refreshData();
-    };
-
-    document.addEventListener('visibilitychange', handleWake);
-    return () => {
-      document.removeEventListener('visibilitychange', handleWake);
-      if (visibilityAbortRef.current) visibilityAbortRef.current.abort();
-    };
-  }, [user, footprintPeriod]);
+  useVisibilityRefresh({ user, socketRef, refetchFootprints, setNotifications });
 
   // ── Keep flyArrivedFp synced with latest footprints ────
   useEffect(() => {
@@ -190,24 +159,7 @@ export default function App() {
   }, [clusterData, footprints]);
 
   // Derived: friend info for ChatWindow (async fallback for non-friend admin chats)
-  const [chatFriendMeta, setChatFriendMeta] = useState(null);
-  useEffect(() => {
-    if (!chatUserId) { setChatFriendMeta(null); return; }
-    let cancelled = false;
-    const existing = friends.find(f => f._id === chatUserId);
-    if (existing) {
-      setChatFriendMeta(existing);
-    } else {
-      apiClient.users.profile(chatUserId).then(res => {
-        if (!cancelled && res?.data?.user) {
-          setChatFriendMeta({ _id: chatUserId, name: res.data.user.name, avatarUrl: res.data.user.avatarUrl });
-        }
-      }).catch(() => {
-        if (!cancelled) setChatFriendMeta({ _id: chatUserId, name: '用户', avatarUrl: null });
-      });
-    }
-    return () => { cancelled = true; };
-  }, [chatUserId, friends]);
+  const chatFriendMeta = useChatFriendMeta(chatUserId, friends);
 
   const totalFriendUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 

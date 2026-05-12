@@ -2,8 +2,7 @@ const express = require('express');
 const Notification = require('../models/Notification');
 const { auth } = require('../middleware/auth');
 
-module.exports = () => {
-  const router = express.Router();
+const router = express.Router();
 
   // GET /api/notifications
   router.get('/notifications', auth, async (req, res, next) => {
@@ -30,5 +29,4 @@ module.exports = () => {
     }
   });
 
-  return router;
-};
+module.exports = router;

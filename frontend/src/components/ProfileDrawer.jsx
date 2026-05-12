@@ -1,170 +1,30 @@
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { X, MapPin, Camera, Loader2, Pencil, Check, MessageCircle, Clock, UserPlus } from 'lucide-react';
-import imageCompression from 'browser-image-compression';
-import api from '../api';
-import { getUser } from '../auth';
-import useUIStore from '../store/useUIStore';
+import { X, Camera, Loader2, Pencil, Check, MessageCircle, Clock, UserPlus, MapPin } from 'lucide-react';
+import useProfileData from '../hooks/useProfileData';
 import ProfileSkeleton from './ProfileSkeleton';
 import ProfileStats from './ProfileStats';
 import ProfileVisitors from './ProfileVisitors';
 import FootprintCardList from './FootprintCardList';
 
 export default function ProfileDrawer({ userId, onClose, onLogout, friendshipStatus, pendingRequestId, onSendFriendRequest, onAcceptRequest, onRejectRequest, onOpenChat, onSelectFootprint }) {
-  const [profile, setProfile] = useState(null);
-  const [footprints, setFootprints] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [bannerMsg, setBannerMsg] = useState('');
-  const [editingName, setEditingName] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [savingProfile, setSavingProfile] = useState(false);
+  const {
+    profile,
+    footprints,
+    loading,
+    uploadingBanner, bannerMsg,
+    editingName, setEditingName,
+    newName, setNewName,
+    savingProfile,
+    isOwnProfile,
+    totalReactions, activeDays,
+    handleBannerUpload,
+    handleUpdateProfile,
+    handleSaveName,
+  } = useProfileData(userId);
+
   const bannerFileRef = useRef(null);
   const avatarFileRef = useRef(null);
-  const bannerTimerRef = useRef(null);
-
-  const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
-
-  const currentUser = getUser();
-  const isOwnProfile = currentUser?._id === userId;
-
-  /** 安全显示 banner 消息，n 秒后自动清除 */
-  const showBannerMsg = useCallback((msg, ms = 3000) => {
-    setBannerMsg(msg);
-    clearTimeout(bannerTimerRef.current);
-    bannerTimerRef.current = setTimeout(() => setBannerMsg(''), ms);
-  }, []);
-
-  const handleBannerUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingBanner(true);
-    setBannerMsg('');
-    try {
-      const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
-      const form = new FormData();
-      form.append('banner', compressed);
-      const { data } = await api.post('/api/users/profile/banner', form);
-      if (mountedRef.current) setProfile(data.user);
-      showBannerMsg('背景更换成功！');
-    } catch (err) {
-      showBannerMsg(err.response?.data?.error || '上传失败');
-    }
-    if (mountedRef.current) setUploadingBanner(false);
-  };
-
-  const handleUpdateProfile = async (updates) => {
-    setSavingProfile(true);
-    try {
-      const form = new FormData();
-      if (updates.name) form.append('name', updates.name);
-      if (updates.avatar) {
-        const compressed = await imageCompression(updates.avatar, { maxSizeMB: 0.5, maxWidthOrHeight: 300 });
-        form.append('avatar', compressed);
-      }
-      const { data } = await api.put('/api/users/profile', form);
-      if (mountedRef.current) setProfile(data.user);
-      showBannerMsg('更新成功！');
-    } catch (err) {
-      showBannerMsg(err.response?.data?.error || '更新失败');
-    }
-    if (mountedRef.current) setSavingProfile(false);
-  };
-
-  const handleSaveName = () => {
-    const name = newName.trim();
-    if (!name || name === profile?.name) {
-      setEditingName(false);
-      return;
-    }
-    handleUpdateProfile({ name });
-    setEditingName(false);
-  };
-
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await handleUpdateProfile({ avatar: file });
-  };
-
-  // ── Data fetching ──────────────────────────────────────
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api.get(`/api/users/${userId}/profile`).then(({ data }) => {
-      if (cancelled) return;
-      setProfile(data.user);
-      setFootprints(data.footprints);
-    }).catch((err) => {
-      if (!cancelled) console.error(err);
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [userId]);
-
-  // Lock body scroll when open
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = '';
-      clearTimeout(bannerTimerRef.current);
-    };
-  }, []);
-
-  // ── Real-time updates via Zustand store ─────────────────
-
-  useEffect(() => {
-    const unsubFp = useUIStore.subscribe(
-      (s) => s.footprintEventId,
-      () => {
-        const evt = useUIStore.getState().footprintEvent;
-        if (!evt) return;
-        if (evt.type === 'new') {
-          const fp = evt.footprint;
-          if (fp && (fp.userId?._id === userId || fp.userId === userId)) {
-            setFootprints((prev) => [fp, ...prev]);
-          }
-        } else if (evt.type === 'updated') {
-          const fp = evt.footprint;
-          if (fp) {
-            setFootprints((prev) =>
-              prev.map((f) => (f._id === fp._id
-                ? { ...f, reactions: fp.reactions, comments: fp.comments }
-                : f))
-            );
-          }
-        } else if (evt.type === 'deleted') {
-          const fid = evt.footprintId;
-          if (fid) setFootprints((prev) => prev.filter((f) => f._id !== fid));
-        }
-      }
-    );
-
-    const unsubProfile = useUIStore.subscribe(
-      (s) => s.profileEventId,
-      () => {
-        const evt = useUIStore.getState().profileEvent;
-        if (evt?.userId === userId) setProfile(evt.user);
-      }
-    );
-
-    return () => { unsubFp(); unsubProfile(); };
-  }, [userId]);
-
-  // ── Derived values (memoized) ──────────────────────────
-
-  const totalReactions = useMemo(
-    () => footprints.reduce((sum, fp) => sum + (fp.reactions?.length || 0), 0),
-    [footprints]
-  );
-  const activeDays = useMemo(() => {
-    const days = new Set();
-    footprints.forEach((fp) => days.add(new Date(fp.createdAt).toDateString()));
-    return days.size;
-  }, [footprints]);
 
   // ── Render ─────────────────────────────────────────────
 
@@ -200,9 +60,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
             <div className="relative flex-shrink-0">
               <div
                 className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-500 bg-cover bg-center"
-                style={profile.profileBannerUrl ? {
-                  backgroundImage: `url(${profile.profileBannerUrl})`,
-                } : undefined}
+                style={profile.profileBannerUrl ? { backgroundImage: `url(${profile.profileBannerUrl})` } : undefined}
               />
               <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/80" />
 
@@ -212,7 +70,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                   <div className="absolute top-3 right-3 flex items-center gap-2">
                     {isOwnProfile && (
                       <>
-                        <input type="file" accept="image/*" ref={bannerFileRef} onChange={handleBannerUpload} className="hidden" />
+                        <input type="file" accept="image/*" ref={bannerFileRef} onChange={(e) => handleBannerUpload(e.target.files?.[0])} className="hidden" />
                         <button
                           onClick={() => bannerFileRef.current?.click()}
                           disabled={uploadingBanner}
@@ -246,7 +104,10 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                     )}
                     {isOwnProfile && (
                       <>
-                        <input type="file" accept="image/*" ref={avatarFileRef} onChange={handleAvatarChange} className="hidden" />
+                        <input type="file" accept="image/*" ref={avatarFileRef} onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleUpdateProfile({ avatar: file });
+                        }} className="hidden" />
                         <button
                           onClick={() => avatarFileRef.current?.click()}
                           disabled={savingProfile}
@@ -305,7 +166,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                 {/* Visitors */}
                 <ProfileVisitors visitors={profile.profileVisitors} />
 
-                {/* ── Friend action button (only on others' profiles) ── */}
+                {/* Friend action button (only on others' profiles) */}
                 {!isOwnProfile && (() => {
                   const status = friendshipStatus ? friendshipStatus(userId) : 'none';
                   const isAsen = profile?.name === '阿森';
@@ -339,9 +200,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                         {hasIncoming && pendingRequestId ? (
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={async () => {
-                                await onAcceptRequest?.(pendingRequestId);
-                              }}
+                              onClick={() => onAcceptRequest?.(pendingRequestId)}
                               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl
                                 bg-cyan-600/20 text-cyan-400 border border-cyan-500/30
                                 hover:bg-cyan-600/40 backdrop-blur-md
@@ -352,9 +211,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                               同意申请
                             </button>
                             <button
-                              onClick={async () => {
-                                await onRejectRequest?.(pendingRequestId);
-                              }}
+                              onClick={() => onRejectRequest?.(pendingRequestId)}
                               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl
                                 bg-white/5 text-white/40 border border-white/[0.06]
                                 hover:bg-white/10 hover:text-white/60 backdrop-blur-md
@@ -383,9 +240,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                     return (
                       <div className="px-5 pt-2 pb-1">
                         <button
-                          onClick={async () => {
-                            await onSendFriendRequest?.(userId);
-                          }}
+                          onClick={() => onSendFriendRequest?.(userId)}
                           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
                             bg-white/10 hover:bg-white/20 backdrop-blur-md
                             border border-white/10
@@ -406,23 +261,31 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
               </div>
             </div>
 
-            {/* Footprints */}
-            <FootprintCardList
-              footprints={footprints}
-              isOwnProfile={isOwnProfile}
-              onLogout={onLogout}
-              onSelectFootprint={onSelectFootprint}
-            />
+            {/* ── Footprint List ──────────────────────────── */}
+            <div className="flex-1 overflow-y-auto">
+              <FootprintCardList
+                footprints={footprints}
+                userId={userId}
+                isAdmin={false}
+                onSelect={onSelectFootprint}
+              />
+              {footprints.length === 0 && (
+                <p className="text-center text-white/20 text-sm py-8">还没有足迹</p>
+              )}
+            </div>
+
+            {/* ── Action footer ──────────────────────────── */}
+            <div className="flex-shrink-0 px-5 py-3 space-y-2">
+              {isOwnProfile && (
+                <button onClick={onLogout} className="w-full py-3 rounded-xl text-sm font-medium text-red-300 hover:text-red-200 hover:bg-white/5 transition-colors"
+                  style={{ fontFamily: 'var(--font-body)' }}>
+                  退出登录
+                </button>
+              )}
+            </div>
           </>
         )}
       </motion.div>
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
-        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
-      `}</style>
     </div>
   );
 }

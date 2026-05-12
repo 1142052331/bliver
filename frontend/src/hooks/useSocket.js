@@ -3,7 +3,17 @@ import { io } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { refetchNotifications } from './useNotifications';
 import { clearAuth, getToken } from '../auth';
-import useUIStore from '../store/useUIStore';
+import {
+  footprintNew,
+  footprintUpdated,
+  footprintDeleted,
+  onlineCount,
+  profileUpdated,
+  newNotification,
+  userOnline,
+  userOffline,
+  forceLogout,
+} from './socketHandlers';
 
 function getSocketURL() {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
@@ -14,8 +24,9 @@ function getSocketURL() {
 }
 
 /**
- * 管理 Socket.IO 连接生命周期和所有实时事件监听。
- * 仅在 user 存在时连接，logout / 踢出时自动断开。
+ * Manages Socket.IO connection lifecycle.
+ * Event handlers are defined in socketHandlers.js — this hook
+ * only handles connect/disconnect and wires up the handler registry.
  */
 export default function useSocket({
   user,
@@ -41,10 +52,9 @@ export default function useSocket({
       return;
     }
 
-    // ── Fetch notifications BEFORE socket connects (avoid race) ──
-    const socketUrl = getSocketURL();
     refetchNotifications(setNotifications);
 
+    const socketUrl = getSocketURL();
     const socket = io(socketUrl, { auth: { token } });
     socketRef.current = socket;
     console.log('[Socket] Connecting:', socketUrl);
@@ -56,60 +66,16 @@ export default function useSocket({
     socket.on('connect_error', (e) => console.error('[Socket] Connect error:', e.message));
     socket.on('disconnect', (reason) => console.log('[Socket] Disconnected:', reason));
 
-    socket.on('online:count', (data) => {
-      setOnlineCount(data.count);
-    });
-
-    socket.on('footprint:new', (data) => {
-      setFootprints((prev) => [data.footprint, ...prev]);
-      useUIStore.getState().emitFootprintEvent({ type: 'new', footprint: data.footprint });
-    });
-
-    socket.on('footprint:updated', (data) => {
-      setFootprints((prev) =>
-        prev.map((fp) => (fp._id === data.footprint._id
-          ? { ...fp, reactions: data.footprint.reactions, comments: data.footprint.comments }
-          : fp))
-      );
-      useUIStore.getState().emitFootprintEvent({ type: 'updated', footprint: data.footprint });
-    });
-
-    socket.on('footprint:deleted', (data) => {
-      setFootprints((prev) => prev.filter((fp) => fp._id !== data.footprintId));
-      useUIStore.getState().emitFootprintEvent({ type: 'deleted', footprintId: data.footprintId });
-    });
-
-    socket.on('profile:updated', (data) => {
-      useUIStore.getState().emitProfileEvent({ userId: data.userId, user: data.user });
-    });
-
-    const setMsg = useUIStore.getState().setMessageIsland;
-
-    socket.on('new_notification', (data) => {
-      setNotifications((prev) => [data.notification, ...prev]);
-      const n = data.notification;
-      const type = n.type === 'profile_view' ? 'profile_view' : n.type === 'reaction' ? 'reaction' : 'comment';
-      setMsg({
-        type,
-        senderName: n.senderName,
-        footprintId: n.footprintId,
-        content: n.content,
-      });
-    });
-
-    socket.on('user_online', (data) => {
-      useUIStore.getState().addToast({ type: 'online', content: `${data.name} 上线了`, duration: 3000 });
-    });
-
-    socket.on('user_offline', (data) => {
-      useUIStore.getState().addToast({ type: 'offline', content: `${data.name} 下线了`, duration: 3000 });
-    });
-
-    socket.on('force_logout', (data) => {
-      clearAuth();
-      queryClient.clear();
-      setUser(null);
-    });
+    // ── Domain event handlers ──
+    socket.on('online:count', onlineCount(setOnlineCount));
+    socket.on('footprint:new', footprintNew(setFootprints));
+    socket.on('footprint:updated', footprintUpdated(setFootprints));
+    socket.on('footprint:deleted', footprintDeleted(setFootprints));
+    socket.on('profile:updated', profileUpdated());
+    socket.on('new_notification', newNotification(setNotifications));
+    socket.on('user_online', userOnline());
+    socket.on('user_offline', userOffline());
+    socket.on('force_logout', forceLogout(queryClient, setUser));
 
     return () => {
       socket.disconnect();

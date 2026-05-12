@@ -6,8 +6,7 @@ const validate = require('../middleware/validate');
 const { announcement: announcementSchema } = require('../validators/schemas');
 const { SUPERUSER_NAME, isSuperuserName } = require('../services/superuser');
 
-module.exports = () => {
-  const router = express.Router();
+const router = express.Router();
 
   // GET /api/announcements — public
   router.get('/announcements', async (req, res, next) => {
@@ -40,5 +39,4 @@ module.exports = () => {
     }
   });
 
-  return router;
-};
+module.exports = router;

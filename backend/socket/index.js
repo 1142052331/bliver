@@ -1,13 +1,11 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Friendship = require('../models/Friendship');
-const Message = require('../models/Message');
 const { JWT_SECRET } = require('../middleware/auth');
-const { sendPushToUser } = require('../routes/push');
-const { areFriends } = require('../services/friendship');
+const { areFriends } = require('../services/FriendsService');
+const messageService = require('../services/MessageService');
 const { SUPERUSER_NAME, isSuperuserName } = require('../services/superuser');
-const socketEvents = require('./events');
-const socketRegistry = require('./registry');
+const bus = require('../events/bus');
 
 const onlineCount = async () => {
   const count = await User.countDocuments({ isOnline: true });
@@ -31,10 +29,16 @@ async function getFriendIds(userId) {
   return ids;
 }
 
-const setupSocket = (io) => {
-  socketEvents.init(io);
-  socketRegistry.init(io);
-  socketEvents.setupSocketEvents();
+function _setupSocket(io) {
+  // ── Broadcast events: relay domain events to all connected sockets ──
+  const broadcast = ['footprint:new', 'footprint:updated', 'footprint:deleted', 'profile:updated', 'admin:audit'];
+  for (const event of broadcast) {
+    bus.on(event, (data) => {
+      io.emit(event, data);
+    });
+  }
+  // Notification delivery is handled directly by NotificationService.notify()
+  // (injecting io at init time). No bus hop needed for point-to-point delivery.
 
   const pendingOffline = new Map();
 
@@ -142,43 +146,10 @@ const setupSocket = (io) => {
     // ── send_message ──────────────────────────────────────
     socket.on('send_message', async ({ receiverId, content, tempId }) => {
       try {
-        const senderId = socket.userId;
         if (!content || !receiverId) return;
-
-        // Friendship gate
-        const ok = await areFriends(senderId, receiverId);
-        if (!ok) {
-          socket.emit('message:error', { tempId, error: '不是好友，无法发送消息' });
-          return;
-        }
-
-        // Persist to DB (isRead defaults to false)
-        const msg = await Message.create({
-          senderId,
-          receiverId,
-          content: content.slice(0, 1000),
-        });
-
-        const sender = await User.findById(senderId).select('name').lean();
-        const msgWithSender = { ...msg.toObject(), _senderName: sender?.name };
-
-        // Confirm back to sender with real _id
-        socket.emit('message:sent', { tempId, message: msgWithSender });
-
-        // Deliver to receiver if online, otherwise stays isRead:false in DB
-        io.to(receiverId).emit('receive_message', { message: msgWithSender });
-
-        // Send push notification if receiver is offline
-        const allSockets = await io.fetchSockets();
-        const receiverOnline = allSockets.some(s => s.userId === receiverId);
-        if (!receiverOnline) {
-          sendPushToUser(receiverId, {
-            title: sender?.name || '新私信',
-            body: content.slice(0, 100),
-            icon: '/favicon.svg',
-            data: { url: '/' },
-          });
-        }
+        const result = await messageService.socketSend(socket.userId, receiverId, content, io);
+        socket.emit('message:sent', { tempId, message: result.msgWithSender });
+        io.to(receiverId).emit('receive_message', { message: result.msgWithSender });
       } catch (err) {
         console.error('send_message error:', err.message);
         socket.emit('message:error', { tempId, error: '发送失败，请重试' });
@@ -188,11 +159,9 @@ const setupSocket = (io) => {
     // ── typing / stop_typing ──────────────────────────────
     socket.on('typing', async ({ receiverId }) => {
       try {
-        const senderId = socket.userId;
-        const ok = await areFriends(senderId, receiverId);
-        if (!ok) return;
-        const sender = await User.findById(senderId).select('name').lean();
-        io.to(receiverId).emit('typing', { senderId, senderName: sender?.name || 'Unknown' });
+        const sender = await messageService.getTypingSender(socket.userId, receiverId);
+        if (!sender) return;
+        io.to(receiverId).emit('typing', { senderId: socket.userId, senderName: sender.name || 'Unknown' });
       } catch (err) {
         console.error('typing error:', err.message);
       }
@@ -200,10 +169,9 @@ const setupSocket = (io) => {
 
     socket.on('stop_typing', async ({ receiverId }) => {
       try {
-        const senderId = socket.userId;
-        const ok = await areFriends(senderId, receiverId);
+        const ok = await areFriends(socket.userId, receiverId);
         if (!ok) return;
-        io.to(receiverId).emit('stop_typing', { senderId });
+        io.to(receiverId).emit('stop_typing', { senderId: socket.userId });
       } catch (err) {
         console.error('stop_typing error:', err.message);
       }
@@ -260,4 +228,40 @@ const setupSocket = (io) => {
   });
 };
 
-module.exports = setupSocket;
+// ── Online user registry (used by admin routes) ──
+
+async function getOnlineUsers() {
+  const sockets = await global.__socketIO.fetchSockets();
+  return sockets.map((s) => {
+    const ip = s.handshake.headers['x-forwarded-for']?.split(',')[0]?.trim()
+      || s.handshake.address
+      || 'unknown';
+    return {
+      userId: s.userId,
+      socketId: s.id,
+      ip,
+      connectedAt: s.handshake.time || new Date().toISOString(),
+    };
+  });
+}
+
+async function disconnectUser(userId, reason) {
+  const sockets = await global.__socketIO.fetchSockets();
+  for (const s of sockets) {
+    if (s.userId === userId) {
+      s.emit('force_logout', { reason });
+      setTimeout(() => s.disconnect(true), 200);
+      return true;
+    }
+  }
+  return false;
+}
+
+// Store io reference globally so getOnlineUsers/disconnectUser can access it
+// (they're called from route handlers outside the setupSocket scope)
+function setupSocket(io) {
+  global.__socketIO = io;
+  _setupSocket(io);
+}
+
+module.exports = { setupSocket, getOnlineUsers, disconnectUser };
