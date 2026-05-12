@@ -18,7 +18,7 @@ export default function AdminPanel({ onClose, socketRef }) {
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditPaused, setAuditPaused] = useState(false);
   const auditEndRef = useRef(null);
-  const auditBufferRef = useRef([]);
+  const auditBufferRef = useRef(null);
 
   // Edit state
   const [editingId, setEditingId] = useState(null);
@@ -69,12 +69,12 @@ export default function AdminPanel({ onClose, socketRef }) {
     return () => { sock.off('admin:audit', handler); };
   }, [socketRef]);
 
-  // Flush buffered audit logs when not paused
+  // Flush buffered audit logs when resuming from pause
   useEffect(() => {
-    if (!auditPaused && auditBufferRef.current.length > 0) {
+    if (!auditPaused && auditBufferRef.current && auditBufferRef.current.length > 0) {
       setAuditLogs((prev) => {
         const next = [...auditBufferRef.current, ...prev];
-        auditBufferRef.current = [];
+        auditBufferRef.current = null;
         return next.slice(0, MAX_AUDIT_LOGS);
       });
     }
@@ -260,7 +260,6 @@ export default function AdminPanel({ onClose, socketRef }) {
                   onKick={handleKick}
                   onDelete={handleDelete}
                   onViewProfile={viewProfile}
-                  onGhostMode={(userId, userName) => { useUIStore.getState().enterGhostMode(userId, userName); onClose(); }}
                 />
               )}
 
@@ -273,7 +272,7 @@ export default function AdminPanel({ onClose, socketRef }) {
                 <AdminAuditTab
                   auditLogs={auditLogs}
                   auditPaused={auditPaused}
-                  onTogglePause={() => setAuditPaused((p) => !p)}
+                  onTogglePause={() => setAuditPaused((p) => { if (!p) auditBufferRef.current = []; return !p; })}
                   auditEndRef={auditEndRef}
                 />
               )}

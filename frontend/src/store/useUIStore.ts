@@ -2,11 +2,6 @@ import { create } from 'zustand';
 
 // ── Types ───────────────────────────────────────────
 
-export interface GhostMode {
-  userId: string;
-  userName: string;
-}
-
 export interface PendingLocation {
   lat: number;
   lng: number;
@@ -71,9 +66,6 @@ interface UIStore {
   // Dynamic Island
   messageIsland: MessageIslandData | null;
 
-  // Ghost Mode
-  ghostMode: GhostMode | null;
-
   // Admin Teleport
   pendingCheckInLocation: PendingLocation | null;
 
@@ -118,8 +110,6 @@ interface UIStore {
   setMessageIsland: (data: MessageIslandData | null) => void;
   clearMessageIsland: () => void;
 
-  enterGhostMode: (userId: string, userName: string) => void;
-  exitGhostMode: () => void;
   setPendingCheckInLocation: (loc: PendingLocation | null) => void;
 }
 
@@ -151,7 +141,6 @@ const useUIStore = create<UIStore>()((set) => ({
 
   messageIsland: null,
 
-  ghostMode: null,
   pendingCheckInLocation: null,
 
   // ── Actions ─────────────────────────────────────
@@ -205,9 +194,6 @@ const useUIStore = create<UIStore>()((set) => ({
 
   setMessageIsland: (data) => set({ messageIsland: data }),
   clearMessageIsland: () => set({ messageIsland: null }),
-
-  enterGhostMode: (userId, userName) => set({ ghostMode: { userId, userName } }),
-  exitGhostMode: () => set({ ghostMode: null }),
 
   setPendingCheckInLocation: (loc) => set({ pendingCheckInLocation: loc }),
 }));

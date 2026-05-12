@@ -1,4 +1,4 @@
-import { Eye, PencilLine, Zap, Trash2, Check, X } from 'lucide-react';
+import { PencilLine, Zap, Trash2, Check, X } from 'lucide-react';
 
 function UserAvatar({ user }) {
   if (user.avatarUrl) {
@@ -16,7 +16,7 @@ export default function AdminUsersTab({
   editingId, editName, editPassword, saving,
   onEditNameChange, onEditPasswordChange,
   onEdit, onCancelEdit, onSaveEdit,
-  onKick, onDelete, onViewProfile, onGhostMode,
+  onKick, onDelete, onViewProfile,
 }) {
   return (
     <div className="overflow-x-auto">
@@ -110,13 +110,6 @@ export default function AdminUsersTab({
                 ) : u.role !== 'admin' ? (
                   <div className="flex items-center gap-1 justify-end">
                     <button
-                      onClick={() => onGhostMode(u._id, u.name)}
-                      className="p-1.5 hover:bg-amber-500/10 text-amber-400 rounded-lg transition-colors"
-                      title="切换视角"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                    <button
                       onClick={() => onEdit(u)}
                       className="p-1.5 hover:bg-blue-500/10 text-blue-400 rounded-lg transition-colors"
                       title="编辑"
@@ -138,17 +131,7 @@ export default function AdminUsersTab({
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-1 justify-end">
-                    <button
-                      onClick={() => onGhostMode(u._id, u.name)}
-                      className="p-1.5 hover:bg-amber-500/10 text-amber-400 rounded-lg transition-colors"
-                      title="切换视角"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+                ) : null}
               </td>
             </tr>
           ))}

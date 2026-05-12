@@ -70,14 +70,11 @@ export default function App() {
   const queryClient = useQueryClient();
   const periodRef = useRef(footprintPeriod);
   periodRef.current = footprintPeriod;
-  const ghostUserId = useUIStore((s) => s.ghostMode?.userId) || null;
-  const ghostUserIdRef = useRef(ghostUserId);
-  ghostUserIdRef.current = ghostUserId;
-  const { data: footprints = [], isLoading: footprintsLoading, refetch: refetchFootprints } = useFootprints(footprintPeriod, ghostUserId);
+  const { data: footprints = [], isLoading: footprintsLoading, refetch: refetchFootprints } = useFootprints(footprintPeriod, null);
 
   // Stable cache updater for socket/mutations (uses refs to avoid stale closures)
   const setFootprints = useCallback((updater) => {
-    queryClient.setQueryData(['footprints', periodRef.current, ghostUserIdRef.current], (old) => {
+    queryClient.setQueryData(['footprints', periodRef.current, null], (old) => {
       if (typeof updater === 'function') return updater(old || []);
       return updater;
     });
@@ -100,7 +97,6 @@ export default function App() {
     openChat, closeChat, openProfile, closeProfile,
     setAuthTab, setAuthMessage,
     messageIsland, setMessageIsland, clearMessageIsland,
-    ghostMode, enterGhostMode, exitGhostMode,
     pendingCheckInLocation, setPendingCheckInLocation,
   } = useUIStore();
 
@@ -317,21 +313,6 @@ export default function App() {
             openCheckIn();
           }}
         />
-
-        {/* Ghost Mode Banner */}
-        {ghostMode && (
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 z-[1100] mt-2 px-4 py-2 bg-amber-500/90 backdrop-blur border border-amber-400/50 rounded-full shadow-2xl flex items-center gap-3">
-            <span className="text-sm font-bold text-gray-900">
-              👁️ 正在以 <span className="underline">{ghostMode.userName}</span> 的视角浏览
-            </span>
-            <button
-              onClick={exitGhostMode}
-              className="text-xs font-bold text-gray-900/70 hover:text-gray-900 bg-gray-900/10 hover:bg-gray-900/20 px-2 py-0.5 rounded-full transition-colors"
-            >
-              退出幻影模式
-            </button>
-          </div>
-        )}
 
         {showNotifs && (
           <NotificationPanel
