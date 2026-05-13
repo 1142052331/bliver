@@ -50,6 +50,7 @@ import useVisibilityRefresh from './hooks/useVisibilityRefresh';
 import useChatFriendMeta from './hooks/useChatFriendMeta';
 import { subscribeToPush } from './push';
 
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
@@ -58,6 +59,27 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function App() {
+  // ── Proactive permissions (location + notification) on launch ──
+  const permRequested = useRef(false);
+  useEffect(() => {
+    if (permRequested.current) return;
+    permRequested.current = true;
+
+    // Location permission: trigger native dialog proactively
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        () => { console.log('[Perm] Location granted'); },
+        (err) => { console.log('[Perm] Location:', err.code === 1 ? 'denied' : err.message); },
+        { timeout: 8000, enableHighAccuracy: false, maximumAge: 300_000 },
+      );
+    }
+
+    // Notification permission: trigger dialog if undecided
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then((p) => console.log('[Perm] Notification:', p));
+    }
+  }, []);
+
   // ── Auth ───────────────────────────────────────────────
   const { user, setUser, isAdmin, isAsen, requireLogin, logout, pendingActionRef } = useAuth();
 

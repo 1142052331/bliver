@@ -2,8 +2,9 @@ const Footprint = require('../models/Footprint');
 const User = require('../models/User');
 const { reverseGeocode } = require('./nominatim');
 const { getWeather } = require('./weather');
-const { blurCoordinate } = require('./location');
+const { blurCoordinate, sanitizeLocation } = require('./location');
 const { notify } = require('./notification');
+const { populateFootprint } = require('./footprint');
 const { isSuperuserName } = require('./superuser');
 const bus = require('../events/bus');
 
@@ -37,21 +38,21 @@ class FootprintService {
       filter.userId = filterUserId;
     }
 
-    const docs = await this._populate(
+    const docs = await populateFootprint(
       Footprint.find(filter).sort({ createdAt: -1 })
     );
 
     return {
-      footprints: docs.map((fp) => this._sanitize(fp, isAdmin)),
+      footprints: docs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin)),
       period,
       start,
     };
   }
 
   async getById(footprintId, { isAdmin = false } = {}) {
-    const fp = await this._populate(Footprint.findById(footprintId));
+    const fp = await populateFootprint(Footprint.findById(footprintId));
     if (!fp) return null;
-    return this._sanitize(fp, isAdmin);
+    return sanitizeLocation(fp.toObject(), isAdmin);
   }
 
   // ═══════════════════════════════════════════════════════
@@ -88,8 +89,8 @@ class FootprintService {
     const footprint = await Footprint.create(footprintData);
     await this._updateStreak(userId);
 
-    const populated = await this._populate(Footprint.findById(footprint._id));
-    const fpObj = this._sanitize(populated, isAdmin);
+    const populated = await populateFootprint(Footprint.findById(footprint._id));
+    const fpObj = sanitizeLocation(populated.toObject(), isAdmin);
 
     bus.emit('footprint:new', { footprint: fpObj });
     bus.emit('admin:audit', {
@@ -121,8 +122,8 @@ class FootprintService {
       });
     }
 
-    const populated = await this._populate(Footprint.findById(footprintId));
-    const fpObj = this._sanitize(populated, isAdmin);
+    const populated = await populateFootprint(Footprint.findById(footprintId));
+    const fpObj = sanitizeLocation(populated.toObject(), isAdmin);
     const footprintOwnerId = (populated.userId?._id || populated.userId).toString();
 
     bus.emit('footprint:updated', { footprint: fpObj });
@@ -154,8 +155,8 @@ class FootprintService {
     fp.comments.push({ userId, username, content, ipAddress: ip });
     await fp.save();
 
-    const populated = await this._populate(Footprint.findById(fp._id));
-    const fpObj = this._sanitize(populated, isAdmin);
+    const populated = await populateFootprint(Footprint.findById(fp._id));
+    const fpObj = sanitizeLocation(populated.toObject(), isAdmin);
     const footprintOwnerId = fp.userId.toString();
 
     bus.emit('footprint:updated', { footprint: fpObj });
@@ -213,8 +214,8 @@ class FootprintService {
     fp.comments.pull({ _id: commentId });
     await fp.save();
 
-    const populated = await this._populate(Footprint.findById(fp._id));
-    const fpObj = this._sanitize(populated, false);
+    const populated = await populateFootprint(Footprint.findById(fp._id));
+    const fpObj = sanitizeLocation(populated.toObject(), false);
 
     bus.emit('footprint:updated', { footprint: fpObj });
 
@@ -224,19 +225,6 @@ class FootprintService {
   // ═══════════════════════════════════════════════════════
   //  Private
   // ═══════════════════════════════════════════════════════
-
-  _populate(query) {
-    return query.populate('userId', 'name avatarUrl isOnline role checkinStreak');
-  }
-
-  _sanitize(populated, isAdmin) {
-    const obj = populated.toObject();
-    const { realLocation, ...rest } = obj;
-    if (isAdmin && realLocation) {
-      return { ...rest, location: realLocation };
-    }
-    return rest;
-  }
 
   async _updateStreak(userId) {
     const today = new Date();

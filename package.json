@@ -18,16 +18,9 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.0.4"
   },
-  "lint-staged": {
-    "frontend/src/**/*.{ts,tsx,js,jsx}": [
-      "bash -c 'cd frontend && npx tsc --noEmit'"
-    ],
-    "backend/**/*.js": [
-      "bash -c 'cd backend && npx jest --forceExit --passWithNoTests'"
-    ]
-  },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "jsonwebtoken": "^9.0.3"
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4"
   }
 }

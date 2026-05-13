@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bliver</string>
+    <string name="title_activity_main">Bliver</string>
+    <string name="package_name">com.bliver.app</string>
+    <string name="custom_url_scheme">com.bliver.app</string>
+</resources>

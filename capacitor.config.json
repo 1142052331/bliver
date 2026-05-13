@@ -1,0 +1,5 @@
+{
+  "appId": "com.bliver.app",
+  "appName": "Bliver",
+  "webDir": "frontend/dist"
+}
