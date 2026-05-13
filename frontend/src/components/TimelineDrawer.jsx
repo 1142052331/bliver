@@ -27,66 +27,66 @@ function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare
           onClick={() => user?._id && useUIStore.getState().openProfile(user._id)}
         >
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover hover:ring-2 hover:ring-blue-300 transition-all" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
+            <img src={user.avatarUrl} className="w-8 h-8 rounded-full object-cover ring-1 ring-white/18 hover:ring-sky-300/55 transition-all" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
           ) : (
-            <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-blue-300 transition-all">
+            <div className="w-8 h-8 rounded-full ios-primary flex items-center justify-center text-xs font-bold hover:ring-2 hover:ring-sky-300/55 transition-all">
               {(user?.name || '?')[0]}
             </div>
           )}
         </span>
         <span
-          className="cursor-pointer font-semibold text-sm text-gray-800 hover:text-blue-600"
+          className="cursor-pointer font-semibold text-sm text-white/88 hover:text-sky-200"
           onClick={() => user?._id && useUIStore.getState().openProfile(user._id)}
         >
           {user?.name || 'Unknown'}
         </span>
       </div>
 
-      <div className="relative border-l-2 border-blue-200 ml-[13px] pl-5 space-y-4">
+      <div className="relative border-l border-white/12 ml-[15px] pl-5 space-y-4">
         {items.map((fp) => {
           const copied = copiedId === fp._id;
 
           return (
             <div key={fp._id} className="relative">
-              <div className="absolute -left-[calc(1.25rem+7px)] top-1 w-2.5 h-2.5 bg-blue-500 rounded-full ring-4 ring-white" />
-              <div className="flex items-center gap-1 text-xs text-gray-400 mb-1">
+              <div className="absolute -left-[calc(1.25rem+5px)] top-1 w-2.5 h-2.5 bg-sky-300 rounded-full ring-4 ring-[#10141c]/90" />
+              <div className="flex items-center gap-1 text-xs text-white/38 mb-1">
                 <Clock className="w-3 h-3" />
                 {timeStr(fp.createdAt)}
               </div>
               <div
-                className="bg-gray-50 rounded-xl p-3 cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all"
+                className="ios-card p-3 cursor-pointer hover:border-sky-300/25 transition-all"
                 onClick={() => onSelectFootprint && onSelectFootprint(fp._id)}
               >
                 <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-sm font-medium text-gray-700">
+                  <p className="text-sm font-semibold text-white/88">
                     📍 {fp.placeName || 'Unknown'}
                   </p>
                   {fp.mood && (
                     <span className="text-lg leading-none">{fp.mood}</span>
                   )}
                 </div>
-                <p className="text-sm text-gray-600">{fp.message}</p>
+                <p className="text-sm text-white/62">{fp.message}</p>
                 {fp.photoUrl && (
                   <img src={fp.photoUrl} className="mt-2 w-full max-h-[160px] object-cover rounded-lg" />
                 )}
 
                 {/* Actions */}
-                <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200"
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/10"
                   onClick={(e) => e.stopPropagation()}>
                   <ReactionPicker fp={fp} userId={userId} onReact={onReact} />
 
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleCopy(fp._id)}
-                      className="p-1 hover:bg-gray-100 rounded"
+                      className="p-1.5 hover:bg-white/10 rounded-full"
                       title="Copy link"
                     >
-                      {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Share2 className="w-3.5 h-3.5 text-gray-400" />}
+                      {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Share2 className="w-3.5 h-3.5 text-white/45" />}
                     </button>
                     {isAdmin && (
                       <button
                         onClick={() => onDelete(fp._id)}
-                        className="p-1 hover:bg-red-50 rounded"
+                        className="p-1.5 hover:bg-red-400/10 rounded-full"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5 text-red-400" />
@@ -116,7 +116,7 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm transition-opacity ${
+        className={`ios-backdrop fixed inset-0 z-[1500] transition-opacity ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
@@ -124,28 +124,27 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
 
       <div
         style={{ right: `max(0px, env(safe-area-inset-right))` }}
-        className={`fixed top-0 h-dvh w-[360px] max-w-[85vw] z-[1600]
-          bg-white/95 backdrop-blur-xl shadow-2xl shadow-black/10
+        className={`ios-panel fixed top-0 h-dvh w-[380px] max-w-[88vw] z-[1600]
           transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
           flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}
       >
-        <div className="px-5 py-4 border-b border-gray-100/80">
+        <div className="px-5 py-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-lg text-gray-800">足迹记录</h2>
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
-              <X className="w-4 h-4 text-gray-400" />
+            <h2 className="font-extrabold text-lg text-white/92">足迹记录</h2>
+            <button onClick={onClose} className="ios-icon-button w-8 h-8 min-w-8">
+              <X className="w-4 h-4 text-white/55" />
             </button>
           </div>
           {/* Period pills */}
-          <div className="flex bg-gray-100/80 rounded-xl p-1">
+          <div className="ios-segment flex rounded-full p-1">
             {PERIODS.map((p) => (
               <button
                 key={p.key}
                 onClick={() => onChangePeriod && onChangePeriod(p.key)}
                 className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200
                   ${period === p.key
-                    ? 'bg-white text-gray-800 shadow-sm shadow-black/5'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'ios-segment-active'
+                    : 'text-white/45 hover:text-white/72'
                   }`}
               >
                 {p.label}
@@ -154,21 +153,21 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-5 aurora-scroll">
           {loading ? (
             <div className="animate-pulse space-y-5">
               {[1,2,3].map(i => (
                 <div key={i}>
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-7 h-7 rounded-full bg-gray-200" />
-                    <div className="h-4 w-20 bg-gray-200 rounded" />
+                    <div className="w-8 h-8 rounded-full bg-white/10" />
+                    <div className="h-4 w-20 bg-white/10 rounded" />
                   </div>
-                  <div className="ml-4 pl-5 space-y-3 border-l-2 border-gray-100">
+                  <div className="ml-4 pl-5 space-y-3 border-l border-white/10">
                     {[1,2].map(j => (
-                      <div key={j} className="bg-gray-50 rounded-xl p-3 space-y-2">
-                        <div className="h-3 w-12 bg-gray-200 rounded" />
-                        <div className="h-4 w-32 bg-gray-200 rounded" />
-                        <div className="h-4 w-full bg-gray-100 rounded" />
+                      <div key={j} className="ios-card p-3 space-y-2">
+                        <div className="h-3 w-12 bg-white/10 rounded" />
+                        <div className="h-4 w-32 bg-white/10 rounded" />
+                        <div className="h-4 w-full bg-white/8 rounded" />
                       </div>
                     ))}
                   </div>
@@ -176,7 +175,7 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
               ))}
             </div>
           ) : grouped.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center mt-12">暂无足迹记录</p>
+            <p className="text-white/38 text-sm text-center mt-12">暂无足迹记录</p>
           ) : (
             grouped.map(({ user, items }) => (
               <UserTimeline

@@ -41,8 +41,7 @@ export default function MessageIsland({ type, senderName, footprintId, senderId,
             transition={{ type: 'spring', stiffness: 420, damping: 28, mass: 0.85 }}
             className="hidden md:flex fixed z-[1950] top-6 left-1/2
               items-center gap-3 px-4 py-3
-              bg-black/55 backdrop-blur-xl border border-white/15
-              rounded-full shadow-2xl shadow-black/40
+              ios-glass rounded-full
               pointer-events-auto cursor-default"
             style={{ transform: 'translateX(-50%)' }}
           >
@@ -58,7 +57,7 @@ export default function MessageIsland({ type, senderName, footprintId, senderId,
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate leading-tight">{senderName}</p>
-                <p className="text-[11px] text-gray-400 leading-tight">{label}</p>
+                <p className="text-[11px] text-aurora-muted leading-tight">{label}</p>
               </div>
             </div>
 
@@ -90,9 +89,7 @@ export default function MessageIsland({ type, senderName, footprintId, senderId,
             <div
               onClick={onView}
               className="flex items-center gap-3 px-4 py-3.5 rounded-2xl
-                bg-[#1c1c1e]/90 backdrop-blur-2xl
-                border border-white/[0.06]
-                shadow-2xl shadow-black/50
+                ios-panel
                 active:scale-[0.98] transition-transform duration-150"
               style={{ boxShadow: `0 0 0 0.5px rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.06)` }}
             >
@@ -108,11 +105,11 @@ export default function MessageIsland({ type, senderName, footprintId, senderId,
                   <p className="text-[15px] font-semibold text-white leading-snug truncate">
                     {senderName}
                   </p>
-                  <span className="text-[11px] text-gray-500 font-medium flex-shrink-0">
+                  <span className="text-[11px] text-aurora-muted font-medium flex-shrink-0">
                     现在
                   </span>
                 </div>
-                <p className="text-[13px] text-gray-400 leading-snug truncate mt-0.5">
+                <p className="text-[13px] text-aurora-muted leading-snug truncate mt-0.5">
                   {label}
                 </p>
               </div>
@@ -123,7 +120,7 @@ export default function MessageIsland({ type, senderName, footprintId, senderId,
                 className="flex-shrink-0 w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center
                   hover:bg-white/[0.12] transition-colors"
               >
-                <X className="w-3.5 h-3.5 text-gray-500" />
+                <X className="w-3.5 h-3.5 text-aurora-faint" />
               </button>
             </div>
           </motion.div>

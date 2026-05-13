@@ -189,21 +189,19 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="fixed inset-0 overflow-hidden"
-        style={{ background: 'var(--aurora-deep)', touchAction: 'none' }}>
+      <div className="ios-app-shell ios-map-overlay fixed inset-0 overflow-hidden"
+        style={{ touchAction: 'none' }}>
         {/* ── Mobile top bar: Bliver (left) ‖ 公告 + 好友 + 菜单 (right) ── */}
         <div className="md:hidden fixed z-[1000] pointer-events-none inset-x-0 flex items-start justify-between transform-gpu will-change-transform"
-          style={{ top: `max(14px, env(safe-area-inset-top))`, paddingLeft: `max(14px, env(safe-area-inset-left))`, paddingRight: `max(12px, env(safe-area-inset-right))` }}>
+          style={{ top: `max(12px, env(safe-area-inset-top))`, paddingLeft: `max(12px, env(safe-area-inset-left))`, paddingRight: `max(12px, env(safe-area-inset-right))` }}>
 
           {/* Left column */}
           <div className="pointer-events-auto flex flex-col items-start gap-2.5">
             <button
               type="button"
               onClick={() => openAbout()}
-              className="px-3.5 py-2 rounded-xl
-                bg-[#121212]/50 backdrop-blur-xl
-                border border-white/10
-                text-white text-sm font-bold shadow-lg
+              className="ios-island px-4 py-2.5
+                text-white text-sm font-extrabold
                 active:scale-95 transition-transform duration-150"
               style={{ fontFamily: 'var(--font-body)' }}
             >
@@ -214,14 +212,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => openAnnouncements()}
-                className="relative w-11 h-11 rounded-lg flex items-center justify-center
-                  bg-[#121212]/50 backdrop-blur-xl
-                  border border-white/[0.08]
-                  shadow-lg active:scale-90 transition-all duration-150"
+                className="ios-icon-button relative active:scale-90"
               >
-                <Megaphone className="w-4 h-4 text-white/50" />
+                <Megaphone className="w-4 h-4" />
                 {announceHasUnread && (
-                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-300
                     shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
                 )}
               </button>
@@ -306,18 +301,18 @@ export default function App() {
         />
 
         {/* Desktop side buttons */}
-        <div className="hidden md:flex absolute z-[1000] flex-col gap-2 transform-gpu will-change-transform"
+        <div className="hidden md:flex absolute z-[1000] flex-col gap-2.5 transform-gpu will-change-transform"
           style={{ top: `max(88px, calc(env(safe-area-inset-top) + 64px))`, right: `max(12px, env(safe-area-inset-right))` }}>
           <button
             onClick={() => openTimeline()}
-            className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium flex items-center gap-2"
+            className="aurora-btn-glass px-4 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2"
           >
             <Clock className="w-4 h-4 text-teal-400" />
             <span className="text-white/80">足迹记录</span>
           </button>
           <button
             onClick={() => openPhotoWall()}
-            className="aurora-btn-glass px-4 py-2.5 rounded-2xl text-sm font-medium flex items-center gap-2"
+            className="aurora-btn-glass px-4 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2"
           >
             <Image className="w-4 h-4 text-purple-400" />
             <span className="text-white/80">照片墙</span>
@@ -337,13 +332,10 @@ export default function App() {
               setPendingCheckInLocation(null);
               openCheckIn();
             }}
-            className="pointer-events-auto flex items-center gap-2 px-5 py-3 rounded-full
-              bg-[#121212]/60 backdrop-blur-xl
-              border border-white/[0.08]
-              shadow-lg shadow-black/20
+            className="ios-fab pointer-events-auto flex items-center gap-2 px-5 py-3.5
               active:scale-95 transition-all duration-200"
           >
-            <MapPin className="w-4 h-4 text-blue-400" />
+            <MapPin className="w-4 h-4 text-sky-300" />
             <span className="text-sm font-medium text-white/80">打卡</span>
           </button>
         </div>

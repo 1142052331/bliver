@@ -64,7 +64,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
+        className="absolute inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto"
         onClick={onClose}
       />
 
@@ -75,7 +75,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ type: 'spring', damping: 26, stiffness: 320, mass: 0.9 }}
         className="relative w-full max-w-md max-h-[90vh] overflow-y-auto z-10 pointer-events-auto
-          bg-black/40 backdrop-blur-lg border border-white/10 shadow-2xl rounded-2xl"
+          ios-panel rounded-2xl"
       >
         {/* Photo */}
         {fp.photoUrl ? (
@@ -92,8 +92,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-2 bg-black/50 hover:bg-black/70
-            backdrop-blur-md rounded-full text-white/80 hover:text-white transition-colors z-10"
+          className="ios-icon-button absolute top-3 right-3 z-10"
         >
           <X className="w-4 h-4" />
         </button>
@@ -119,7 +118,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
                 onClick={() => useUIStore.getState().openProfile(user._id)}>
                 {user.name || 'Unknown'}
               </span>
-              <div className="flex items-center gap-1 text-xs text-gray-400">
+              <div className="flex items-center gap-1 text-xs text-aurora-muted">
                 <Clock className="w-3 h-3" />
                 {new Date(fp.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
@@ -128,7 +127,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
 
           {/* Location + Mood */}
           <div className="flex items-center gap-2 mb-2">
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-aurora-muted">
               <MapPin className="w-3.5 h-3.5 inline mr-1" />
               {fp.placeName || 'Unknown location'}
             </p>
@@ -136,7 +135,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onRe
           </div>
 
           {/* Message */}
-          <p className="text-white/90 font-medium whitespace-pre-wrap text-[15px] leading-relaxed mb-4"
+          <p className="text-aurora-text font-medium whitespace-pre-wrap text-[15px] leading-relaxed mb-4"
             style={{ fontFamily: 'var(--font-body)' }}>
             {fp.message}
           </p>

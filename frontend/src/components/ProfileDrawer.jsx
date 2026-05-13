@@ -36,7 +36,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto"
+        className="absolute inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto"
         onClick={onClose}
       />
 
@@ -46,7 +46,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
         exit={{ x: '100%' }}
         transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
         style={{ right: `max(0px, env(safe-area-inset-right))` }}
-        className="absolute top-0 h-full w-full md:w-96 bg-black/40 backdrop-blur-lg border-l border-white/10 shadow-xl
+        className="absolute top-0 h-full w-full md:w-96 ios-panel border-l-0
           flex flex-col pointer-events-auto"
       >
         {loading ? (
@@ -82,7 +82,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                         </button>
                       </>
                     )}
-                    <button onClick={onClose} className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-colors">
+                    <button onClick={onClose} className="ios-icon-button">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -278,7 +278,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
             {/* ── Action footer ──────────────────────────── */}
             <div className="flex-shrink-0 px-5 py-3 space-y-2">
               {isOwnProfile && (
-                <button onClick={onLogout} className="w-full py-3 rounded-xl text-sm font-medium text-red-300 hover:text-red-200 hover:bg-white/5 transition-colors"
+                <button onClick={onLogout} className="w-full py-3 rounded-xl text-sm font-medium text-aurora-danger/80 hover:text-aurora-danger hover:bg-white/[0.06] transition-colors"
                   style={{ fontFamily: 'var(--font-body)' }}>
                   退出登录
                 </button>

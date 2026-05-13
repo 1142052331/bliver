@@ -160,14 +160,12 @@ export default function ChatWindow({
       ${isMinimized ? 'md:bottom-4 md:right-4 md:inset-auto' : ''}
       ${isMax ? 'inset-0 md:inset-4' : 'inset-0 md:inset-auto'}`}
     >
-      <div className="md:hidden absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
+      <div className="md:hidden absolute inset-0 bg-black/55 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
 
       <div className={`${isMinimized ? 'hidden md:flex' : 'flex'} flex-col pointer-events-auto
         absolute inset-0 md:inset-auto
         md:fixed md:bottom-4 md:right-4
-        bg-[#0f0f14]/95 backdrop-blur-2xl
-        border border-white/[0.08] md:rounded-2xl
-        shadow-[0_0_60px_rgba(0,0,0,0.6)] overflow-hidden
+        ios-panel md:rounded-2xl overflow-hidden
         ${isMax ? 'md:inset-4' : ''}`}
         style={{
           ...(isMax ? {} : { width: `${winSize.w}px`, height: `${winSize.h}px` }),
@@ -229,12 +227,12 @@ export default function ChatWindow({
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 text-white/20 animate-spin" />
+              <Loader2 className="w-5 h-5 text-aurora-faint animate-spin" />
             </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-white/15">
               <Send className="w-8 h-8 mb-2 opacity-30" />
-              <p className="text-sm" style={{ fontFamily: 'var(--font-body)' }}>发送第一条消息</p>
+              <p className="text-sm text-aurora-faint" style={{ fontFamily: 'var(--font-body)' }}>发送第一条消息</p>
             </div>
           ) : (
             messages.map((msg) => (
@@ -253,7 +251,7 @@ export default function ChatWindow({
         <div className="flex-shrink-0 px-3 py-3 border-t border-white/[0.06]"
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
         >
-          <div className="flex items-center gap-2 bg-white/[0.04] rounded-xl px-3 py-2 border border-white/[0.06] focus-within:border-white/20 transition-colors">
+          <div className="flex items-center gap-2 ios-input px-3 py-2">
             <input
               ref={inputRef}
               value={input}

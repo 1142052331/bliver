@@ -23,7 +23,7 @@ export default function FriendsPanel({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
+        className="ios-backdrop absolute inset-0 pointer-events-auto"
         onClick={onClose}
       />
 
@@ -33,18 +33,17 @@ export default function FriendsPanel({
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
-        className="absolute top-0 right-0 h-full w-full md:w-96
-          bg-black/40 backdrop-blur-lg border-l border-white/10 shadow-xl
+        className="ios-panel absolute top-0 right-0 h-full w-full md:w-[390px]
           flex flex-col pointer-events-auto"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 flex-shrink-0
-          border-b border-white/[0.06]"
+          border-b border-white/10"
           style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}
         >
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-400/10 flex items-center justify-center">
-              <Users className="w-4 h-4 text-indigo-400" />
+            <div className="w-9 h-9 rounded-full bg-white/10 border border-white/10 flex items-center justify-center">
+              <Users className="w-4 h-4 text-sky-300" />
             </div>
             <span className="text-white/90 font-semibold text-sm"
               style={{ fontFamily: 'var(--font-body)' }}>
@@ -54,8 +53,7 @@ export default function FriendsPanel({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center
-              hover:bg-white/[0.06] active:bg-white/[0.10] transition-colors"
+            className="ios-icon-button w-8 h-8 min-w-8"
           >
             <X className="w-4 h-4 text-white/40" />
           </button>
@@ -83,19 +81,19 @@ export default function FriendsPanel({
                 <button
                   key={f._id}
                   onClick={() => onOpenProfile(f._id)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-                    hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors group"
+                  className="ios-list-row w-full flex items-center gap-3 px-3 py-2.5 rounded-[18px]
+                    transition-colors group"
                 >
                   {/* Avatar + online dot */}
                   <div className="relative flex-shrink-0">
                     {f.avatarUrl ? (
                       <img src={f.avatarUrl}
-                        className="w-10 h-10 rounded-full object-cover ring-1 ring-white/10"
+                        className="w-10 h-10 rounded-full object-cover ring-1 ring-white/18"
                         onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
                     ) : (
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center
                         text-white text-sm font-bold ring-1 ring-white/10
-                        ${isAsen ? 'bg-amber-500/60' : 'bg-white/10'}`}>
+                        ${isAsen ? 'bg-amber-500/70' : 'bg-white/12'}`}>
                         {(f.name || '?')[0].toUpperCase()}
                       </div>
                     )}
@@ -109,7 +107,7 @@ export default function FriendsPanel({
                   {/* Name + meta */}
                   <div className="flex-1 text-left min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-white/80 truncate"
+                      <span className="text-sm text-white/86 truncate"
                         style={{ fontFamily: 'var(--font-body)' }}>
                         {f.name}
                       </span>
@@ -136,9 +134,9 @@ export default function FriendsPanel({
                     )}
                     <span
                       onClick={(e) => { e.stopPropagation(); onOpenChat(f._id); }}
-                      className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-cyan-600/20
-                        text-white/40 hover:text-cyan-400
-                        border border-white/[0.04] hover:border-cyan-500/30
+                      className="p-1.5 rounded-full bg-white/[0.08] hover:bg-sky-400/16
+                        text-white/48 hover:text-sky-300
+                        border border-white/[0.08] hover:border-sky-300/25
                         transition-all duration-200 opacity-0 group-hover:opacity-100"
                       title="发消息"
                     >

@@ -21,7 +21,7 @@ export default function MobileActionDrawer({
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [handlePointerDown]);
 
-  const itemClass = "w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all active:scale-[0.97]";
+  const itemClass = "ios-list-row w-full flex items-center gap-3.5 px-4 py-3.5 rounded-[18px] text-sm font-semibold transition-all active:scale-[0.97]";
 
   const closeAnd = (fn) => () => { setOpen(false); fn(); };
 
@@ -34,10 +34,7 @@ export default function MobileActionDrawer({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-11 h-11 rounded-full flex items-center justify-center
-            bg-[#121212]/50 backdrop-blur-xl
-            border border-white/10
-            shadow-xl
+          className="ios-island w-11 h-11 flex items-center justify-center
             active:scale-90 transition-transform duration-200"
         >
           <Menu className="w-4 h-4 text-white" />
@@ -48,10 +45,7 @@ export default function MobileActionDrawer({
       <div
         ref={panelRef}
         className={`absolute top-12 right-0 w-56 max-h-[60vh]
-          rounded-2xl
-          bg-[#121212]/70 backdrop-blur-2xl
-          border border-white/10
-          shadow-[0_8px_40px_rgba(0,0,0,0.5)]
+          ios-panel
           flex flex-col
           transition-all duration-300 ease-[cubic-bezier(0.22,0.61,0.36,1)]
           ${open
@@ -65,14 +59,13 @@ export default function MobileActionDrawer({
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="w-8 h-8 rounded-full flex items-center justify-center
-              hover:bg-white/[0.06] active:bg-white/[0.10] transition-colors"
+            className="ios-icon-button w-8 h-8 min-w-8"
           >
             <X className="w-4 h-4 text-white/40" />
           </button>
         </div>
 
-        <div className="h-px bg-white/[0.06] mx-4 mb-2 flex-shrink-0" />
+        <div className="h-px bg-white/[0.08] mx-4 mb-2 flex-shrink-0" />
 
         {/* Scrollable menu items */}
         <div className="flex-1 overflow-y-auto px-3 pb-6 space-y-1"
@@ -82,8 +75,8 @@ export default function MobileActionDrawer({
           <button
             type="button"
             onClick={closeAnd(onCheckIn)}
-            className={`${itemClass} text-blue-300`}
-            style={{ background: 'rgba(59,130,246,0.10)' }}
+            className={`${itemClass} text-sky-200`}
+            style={{ background: 'rgba(100,210,255,0.14)' }}
           >
             <MapPin className="w-5 h-5 text-blue-400" />
             打卡
@@ -93,7 +86,7 @@ export default function MobileActionDrawer({
           <button
             type="button"
             onClick={closeAnd(openTimeline)}
-            className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06]`}
+            className={`${itemClass} text-white/78`}
           >
             <Clock className="w-5 h-5 text-teal-400" />
             足迹记录
@@ -103,7 +96,7 @@ export default function MobileActionDrawer({
           <button
             type="button"
             onClick={closeAnd(openPhotoWall)}
-            className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06]`}
+            className={`${itemClass} text-white/78`}
           >
             <Image className="w-5 h-5 text-purple-400" />
             照片墙
@@ -114,7 +107,7 @@ export default function MobileActionDrawer({
             <button
               type="button"
               onClick={closeAnd(openFriends)}
-              className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06] relative`}
+              className={`${itemClass} text-white/78 relative`}
             >
               <Users className="w-5 h-5 text-indigo-400" />
               我的好友
@@ -132,7 +125,7 @@ export default function MobileActionDrawer({
             <button
               type="button"
               onClick={closeAnd(toggleNotifs)}
-              className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06] relative`}
+              className={`${itemClass} text-white/78 relative`}
             >
               <Bell className="w-5 h-5 text-amber-400" />
               通知
@@ -150,7 +143,7 @@ export default function MobileActionDrawer({
             <button
               type="button"
               onClick={closeAnd(() => openProfile(user._id))}
-              className={`${itemClass} text-white/70 hover:bg-white/[0.03] active:bg-white/[0.06]`}
+              className={`${itemClass} text-white/78`}
             >
               {user.avatarUrl ? (
                 <img src={user.avatarUrl} className="w-5 h-5 rounded-full object-cover ring-1 ring-white/20" alt="" />
@@ -166,8 +159,8 @@ export default function MobileActionDrawer({
               <button
                 type="button"
                 onClick={closeAnd(() => openAuth('login', ''))}
-                className={`${itemClass} text-white/80`}
-                style={{ background: 'rgba(255,255,255,0.04)' }}
+                className={`${itemClass} text-white/88`}
+                style={{ background: 'rgba(255,255,255,0.12)' }}
               >
                 <User className="w-5 h-5 text-white/60" />
                 登录
@@ -175,7 +168,7 @@ export default function MobileActionDrawer({
               <button
                 type="button"
                 onClick={closeAnd(() => openAuth('register', ''))}
-                className={`${itemClass} text-white/50 hover:bg-white/[0.03] active:bg-white/[0.06]`}
+                className={`${itemClass} text-white/58`}
               >
                 注册
               </button>
@@ -187,8 +180,8 @@ export default function MobileActionDrawer({
             <button
               type="button"
               onClick={closeAnd(openAdmin)}
-              className={`${itemClass} text-amber-200`}
-              style={{ background: 'rgba(245,158,11,0.10)' }}
+              className={`${itemClass} text-amber-100`}
+              style={{ background: 'rgba(255,214,10,0.14)' }}
             >
               <Shield className="w-5 h-5 text-amber-400" />
               后台管理

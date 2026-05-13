@@ -30,12 +30,11 @@ export default function GlobalToaster() {
               transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.8 }}
               onClick={() => dismissToast(n.id)}
               className="pointer-events-auto cursor-pointer
-                px-4 py-2.5 bg-gray-900/85 backdrop-blur-xl
-                text-white text-sm font-medium
-                rounded-2xl shadow-2xl shadow-black/20
+                px-4 py-2.5 ios-glass
+                text-aurora-text text-sm font-medium
                 flex items-center gap-2.5
-                active:scale-[0.97] hover:bg-gray-900/95
-                transition-colors duration-200"
+                active:scale-[0.97]
+                transition-transform duration-200"
             >
               <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${cfg.dot} flex-shrink-0`} />
               <span className="leading-snug">{n.content}</span>

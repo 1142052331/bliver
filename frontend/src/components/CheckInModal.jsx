@@ -118,21 +118,20 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center pointer-events-none">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto" onClick={handleClose} />
+      <div className="ios-backdrop absolute inset-0 pointer-events-auto" onClick={handleClose} />
       <div className="relative w-full sm:max-w-md mx-0 sm:mx-auto pointer-events-auto
-        aurora-glass rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 animate-slide-up
+        ios-panel rounded-t-[28px] sm:rounded-[28px] p-6 animate-slide-up
         max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-white/90 flex items-center gap-2"
             style={{ fontFamily: 'var(--font-body)' }}>
-            <div className="w-8 h-8 rounded-xl aurora-btn flex items-center justify-center"
-              style={{ boxShadow: '0 0 20px var(--aurora-glow-teal)' }}>
-              <MapPin className="w-4 h-4 text-white" />
+            <div className="w-9 h-9 rounded-full ios-primary flex items-center justify-center">
+              <MapPin className="w-4 h-4" />
             </div>
             Check In Here
           </h2>
-          <button onClick={handleClose} className="p-1.5 hover:bg-white/[0.04] rounded-xl transition-colors">
+          <button onClick={handleClose} className="ios-icon-button w-8 h-8 min-w-8">
             <X className="w-4 h-4 text-white/40" />
           </button>
         </div>
@@ -140,8 +139,8 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
         {/* Location status */}
         <div className={`mb-4 p-3 rounded-xl text-sm flex items-start gap-2
           ${locDenied
-            ? 'bg-amber-400/5 border border-amber-400/10 text-amber-300'
-            : 'bg-teal-400/5 border border-teal-400/10 text-teal-300'}`}>
+            ? 'bg-amber-400/10 border border-amber-300/18 text-amber-200'
+            : 'bg-sky-400/10 border border-sky-300/18 text-sky-200'}`}>
           {locating ? (
             <Loader2 className="w-4 h-4 animate-spin mt-0.5" />
           ) : location?.lat ? (
@@ -169,14 +168,14 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
           {/* Privacy toggle */}
           <div className="mb-4">
             <p className="text-xs text-white/30 mb-2" style={{ fontFamily: 'var(--font-body)' }}>定位精度</p>
-            <div className="flex gap-1 p-1 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+            <div className="ios-segment flex gap-1 p-1 rounded-full">
               <button
                 type="button"
                 onClick={() => setPrecise(false)}
                 className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all duration-300
                   ${!precise
-                    ? 'bg-teal-400/10 border border-teal-400/40 text-teal-300 shadow-[0_0_15px_rgba(45,212,191,0.1)]'
-                    : 'text-white/30 hover:text-white/50'
+                    ? 'ios-segment-active'
+                    : 'text-white/42 hover:text-white/68'
                   }`}
               >
                 模糊定位
@@ -186,8 +185,8 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
                 onClick={() => setPrecise(true)}
                 className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all duration-300
                   ${precise
-                    ? 'bg-teal-400/10 border border-teal-400/40 text-teal-300 shadow-[0_0_15px_rgba(45,212,191,0.1)]'
-                    : 'text-white/30 hover:text-white/50'
+                    ? 'ios-segment-active'
+                    : 'text-white/42 hover:text-white/68'
                   }`}
               >
                 精确定位
@@ -214,8 +213,8 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
                   onClick={() => setMood(mood === emoji ? '' : emoji)}
                   className={`w-11 h-11 text-xl rounded-xl flex items-center justify-center transition-all duration-300
                     ${mood === emoji
-                      ? 'bg-teal-400/10 border border-teal-400/40 scale-110 shadow-[0_0_15px_rgba(45,212,191,0.15)]'
-                      : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] hover:scale-105'
+                      ? 'bg-white/18 border border-sky-300/28 scale-110 shadow-[0_10px_28px_rgba(100,210,255,0.14)]'
+                      : 'bg-white/[0.06] border border-white/[0.08] hover:bg-white/[0.10] hover:scale-105'
                     }`}
                 >
                   {emoji}
@@ -230,14 +229,13 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-xl text-sm text-gray-600
-                hover:bg-gray-200 transition-colors"
+              className="aurora-btn-glass flex items-center gap-2 px-4 py-2 rounded-full text-sm text-white/78"
             >
               <Camera className="w-4 h-4" />
               {photo ? 'Change photo' : 'Add photo'}
             </button>
             {preview && (
-              <img src={preview} className="w-12 h-12 rounded-lg object-cover border" />
+              <img src={preview} className="w-12 h-12 rounded-2xl object-cover border border-white/18" />
             )}
           </div>
 
@@ -245,9 +243,7 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
           <button
             type="submit"
             disabled={loading || locating || !location?.lat}
-            className="w-full py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500
-              text-white rounded-2xl font-semibold
-              hover:shadow-lg hover:shadow-purple-500/25
+            className="ios-primary w-full py-3.5 rounded-full font-extrabold
               disabled:opacity-40 disabled:cursor-not-allowed
               transition-all duration-300 flex items-center justify-center gap-2"
           >

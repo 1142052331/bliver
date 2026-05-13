@@ -47,17 +47,16 @@ export default function AboutModal({ isOpen, onClose, user }) {
       style={{ fontFamily: 'var(--font-body)' }}>
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-500 ${visible ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-black/55 backdrop-blur-sm transition-opacity duration-500 ${visible ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
       />
 
       {/* Modal container — split into fixed header + scrollable body */}
       <div
-        className={`relative w-full max-w-lg max-h-[85dvh] rounded-3xl flex flex-col
+        className={`relative w-full max-w-lg max-h-[85dvh] rounded-3xl ios-panel flex flex-col
           transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
           ${visible ? 'scale-100 translate-y-0 opacity-100' : 'scale-95 translate-y-4 opacity-0'}`}
         style={{
-          background: 'linear-gradient(160deg, rgba(15,15,30,0.98), rgba(10,10,25,0.98))',
           boxShadow: '0 0 80px rgba(45,212,191,0.08), 0 0 40px rgba(139,92,246,0.06), 0 20px 60px rgba(0,0,0,0.5)',
         }}
       >

@@ -83,41 +83,43 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
 
   return (
     <div className={`fixed inset-0 z-[3000] flex items-center justify-center
-      ${isOverlay ? 'bg-black/50 backdrop-blur-sm pointer-events-auto' : 'bg-gradient-to-br from-blue-500 to-indigo-600'}`}>
-      <div className="bg-black/40 backdrop-blur-lg border border-white/10 shadow-xl rounded-2xl p-6 w-[360px] max-w-[90vw] relative pointer-events-auto">
+      ${isOverlay ? 'ios-backdrop pointer-events-auto' : 'ios-app-shell'}`}>
+      <div className="ios-panel p-6 w-[380px] max-w-[92vw] relative pointer-events-auto">
         {isOverlay && (
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 p-1 hover:bg-white/10 rounded-full transition-colors"
+            className="ios-icon-button absolute top-3 right-3 w-8 h-8 min-w-8"
           >
             <X className="w-4 h-4 text-gray-300" />
           </button>
         )}
 
         <div className="flex items-center justify-center mb-5">
-          <MapPin className="w-9 h-9 text-teal-400" />
+          <div className="ios-primary w-12 h-12 rounded-full">
+            <MapPin className="w-5 h-5" />
+          </div>
         </div>
-        <h1 className="text-xl font-bold text-white text-center mb-1">Bliver</h1>
-        <p className="text-sm text-gray-300 text-center mb-5">Location sharing with friends</p>
+        <h1 className="text-xl font-extrabold text-white/92 text-center mb-1">Bliver</h1>
+        <p className="text-sm text-white/46 text-center mb-5">Location sharing with friends</p>
 
         {message && (
-          <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-sm text-blue-300 text-center">
+          <div className="mb-4 p-3 bg-sky-400/12 border border-sky-300/20 rounded-[18px] text-sm text-sky-200 text-center">
             {message}
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex bg-white/5 rounded-xl p-1 mb-5">
+        <div className="ios-segment flex rounded-full p-1 mb-5">
           <button
             onClick={() => { setTab('login'); setError(''); }}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'login' ? 'bg-white/10 shadow text-white' : 'text-gray-400'
+              tab === 'login' ? 'ios-segment-active' : 'text-white/45'
             }`}
           >Login</button>
           <button
             onClick={() => { setTab('register'); setError(''); }}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'register' ? 'bg-white/10 shadow text-white' : 'text-gray-400'
+              tab === 'register' ? 'ios-segment-active' : 'text-white/45'
             }`}
           >Register</button>
         </div>
@@ -125,16 +127,14 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
         <form onSubmit={handleSubmit}>
           <input
             autoFocus
-            className="w-full p-3 border border-white/10 bg-white/5 text-white rounded-xl text-sm mb-3
-              focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none placeholder:text-gray-500"
+            className="w-full p-3 aurora-input text-sm mb-3"
             placeholder="Username"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
           <input
             type="password"
-            className="w-full p-3 border border-white/10 bg-white/5 text-white rounded-xl text-sm mb-3
-              focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none placeholder:text-gray-500"
+            className="w-full p-3 aurora-input text-sm mb-3"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -147,13 +147,12 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-sm text-gray-300
-                  hover:bg-white/10 transition-colors"
+                className="aurora-btn-glass flex items-center gap-2 px-4 py-2 rounded-full text-sm text-white/78"
               >
                 <Camera className="w-4 h-4" />
                 {avatar ? 'Change' : 'Avatar'}
               </button>
-              {preview && <img src={preview} className="w-10 h-10 rounded-full object-cover border" />}
+              {preview && <img src={preview} className="w-10 h-10 rounded-full object-cover border border-white/18" />}
             </div>
           )}
 
@@ -186,9 +185,8 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
           <button
             type="submit"
             disabled={loading || !name.trim() || !password}
-            className="w-full py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500
-              text-white rounded-2xl font-semibold
-              hover:shadow-lg hover:shadow-purple-500/25
+            className="ios-primary w-full py-3.5
+              rounded-full font-extrabold
               disabled:opacity-40 disabled:cursor-not-allowed
               transition-all duration-300 flex items-center justify-center gap-2"
           >
