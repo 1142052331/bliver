@@ -6,6 +6,7 @@ import ProfileSkeleton from './ProfileSkeleton';
 import ProfileStats from './ProfileStats';
 import ProfileVisitors from './ProfileVisitors';
 import FootprintCardList from './FootprintCardList';
+import { isSuperuser } from '../domain/superuser';
 
 export default function ProfileDrawer({ userId, onClose, onLogout, friendshipStatus, pendingRequestId, onSendFriendRequest, onAcceptRequest, onRejectRequest, onOpenChat, onSelectFootprint }) {
   const {
@@ -169,7 +170,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                 {/* Friend action button (only on others' profiles) */}
                 {!isOwnProfile && (() => {
                   const status = friendshipStatus ? friendshipStatus(userId) : 'none';
-                  const isAsen = profile?.name === '阿森';
+                  const isAsen = isSuperuser(profile);
                   const showChat = status === 'accepted' || isAsen;
                   const showPending = status === 'pending_out' || status === 'pending_in';
                   const hasIncoming = status === 'pending_in';

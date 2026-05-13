@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { X, Users, MessageCircle } from 'lucide-react';
+import { isSuperuser } from '../domain/superuser';
 
 export default function FriendsPanel({
   isOpen, onClose,
@@ -76,7 +77,7 @@ export default function FriendsPanel({
             onlineFirst.map((f) => {
               const isOnline = onlineStatus[f._id] || false;
               const unread = unreadCounts[f._id] || 0;
-              const isAsen = f.name === '阿森';
+              const isAsen = isSuperuser(f);
 
               return (
                 <button

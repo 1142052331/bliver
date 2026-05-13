@@ -9,34 +9,26 @@ const { SUPERUSER_NAME, isSuperuserName } = require('../services/superuser');
 const router = express.Router();
 
   // GET /api/announcements — public
-  router.get('/announcements', async (req, res, next) => {
-    try {
-      const docs = await Announcement.find().sort({ createdAt: -1 }).lean();
-      res.json({ announcements: docs });
-    } catch (err) {
-      next(err);
-    }
+  router.get('/announcements', async (req, res) => {
+    const docs = await Announcement.find().sort({ createdAt: -1 }).lean();
+    res.json({ announcements: docs });
   });
 
   // POST /api/announcements — superuser only
-  router.post('/announcements', auth, contentLimiter, validate(announcementSchema), async (req, res, next) => {
-    try {
-      if (!isSuperuserName(req.user.name)) {
-        return res.status(403).json({ error: '仅管理员可发布公告' });
-      }
-
-      const { title, content } = req.body;
-
-      const ann = await Announcement.create({
-        title: title || '',
-        content,
-        author: SUPERUSER_NAME,
-      });
-
-      res.status(201).json({ announcement: ann });
-    } catch (err) {
-      next(err);
+  router.post('/announcements', auth, contentLimiter, validate(announcementSchema), async (req, res) => {
+    if (!isSuperuserName(req.user.name)) {
+      return res.status(403).json({ error: '仅管理员可发布公告' });
     }
+
+    const { title, content } = req.body;
+
+    const ann = await Announcement.create({
+      title: title || '',
+      content,
+      author: SUPERUSER_NAME,
+    });
+
+    res.status(201).json({ announcement: ann });
   });
 
 module.exports = router;

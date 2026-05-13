@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send, Loader2, Minus, Maximize2, GripHorizontal } from 'lucide-react';
-import api from '../api';
+import { apiClient } from '../api';
 import useChatInput from '../hooks/useChatInput';
 import MessageBubble from './MessageBubble';
 
@@ -33,9 +33,7 @@ export default function ChatWindow({
   // ── Fetch messages ─────────────────────────────────────
   const fetchMessages = useCallback(async (beforeId) => {
     try {
-      let url = `/api/messages/${chatUserId}`;
-      if (beforeId) url += `?before=${beforeId}`;
-      const { data } = await api.get(url);
+      const { data } = await apiClient.messages.history(chatUserId, beforeId);
       if (!mountedRef.current) return;
 
       if (beforeId) {
@@ -102,7 +100,7 @@ export default function ChatWindow({
         if (mountedRef.current) {
           setMessages(prev => [...prev, { ...data.message, _delivered: true }]);
         }
-        api.get(`/api/messages/${chatUserId}`).catch(() => {});
+        apiClient.messages.history(chatUserId).catch(() => {});
       }
     };
 

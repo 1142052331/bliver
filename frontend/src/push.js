@@ -1,4 +1,4 @@
-import api from './api';
+import { apiClient } from './api';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -44,7 +44,7 @@ export async function subscribeToPush() {
   console.log('[Push] Service worker registered:', reg.scope);
 
   // Get VAPID public key
-  const { data: { publicKey } } = await api.get('/api/push/vapid-public-key');
+  const { data: { publicKey } } = await apiClient.push.vapidKey();
   console.log('[Push] Got VAPID public key');
 
   let subscription = await reg.pushManager.getSubscription();
@@ -57,7 +57,7 @@ export async function subscribeToPush() {
   }
 
   // Send subscription to backend
-  await api.post('/api/push/subscribe', subscription.toJSON());
+  await apiClient.push.subscribe(subscription.toJSON());
   console.log('[Push] Subscription saved to backend');
 
   return { success: true };
@@ -68,7 +68,7 @@ export async function unsubscribeFromPush() {
   if (!reg) return;
   const subscription = await reg.pushManager.getSubscription();
   if (subscription) {
-    await api.post('/api/push/unsubscribe', { endpoint: subscription.endpoint });
+    await apiClient.push.unsubscribe({ endpoint: subscription.endpoint });
     await subscription.unsubscribe();
   }
 }

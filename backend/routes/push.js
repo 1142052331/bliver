@@ -11,35 +11,27 @@ const router = express.Router();
   });
 
   // POST /api/push/subscribe (protected)
-  router.post('/push/subscribe', auth, async (req, res, next) => {
-    try {
-      const { endpoint, keys } = req.body;
-      if (!endpoint || !keys?.p256dh || !keys?.auth) {
-        return res.status(400).json({ error: 'Invalid subscription' });
-      }
-
-      const sub = await PushSubscription.findOneAndUpdate(
-        { endpoint },
-        { userId: req.user.id, endpoint, keys },
-        { upsert: true, returnDocument: 'after' }
-      );
-      const total = await PushSubscription.countDocuments({ userId: req.user.id });
-      console.log(`[Push] Sub saved for user ${req.user.id.slice(-6)} (${req.user.name}), total subs: ${total}`);
-
-      res.json({ ok: true });
-    } catch (err) {
-      next(err);
+  router.post('/push/subscribe', auth, async (req, res) => {
+    const { endpoint, keys } = req.body;
+    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+      return res.status(400).json({ error: 'Invalid subscription' });
     }
+
+    await PushSubscription.findOneAndUpdate(
+      { endpoint },
+      { userId: req.user.id, endpoint, keys },
+      { upsert: true, returnDocument: 'after' }
+    );
+    const total = await PushSubscription.countDocuments({ userId: req.user.id });
+    console.log(`[Push] Sub saved for user ${req.user.id.slice(-6)} (${req.user.name}), total subs: ${total}`);
+
+    res.json({ ok: true });
   });
 
   // POST /api/push/unsubscribe (protected)
-  router.post('/push/unsubscribe', auth, async (req, res, next) => {
-    try {
-      await PushSubscription.deleteOne({ endpoint: req.body.endpoint });
-      res.json({ ok: true });
-    } catch (err) {
-      next(err);
-    }
+  router.post('/push/unsubscribe', auth, async (req, res) => {
+    await PushSubscription.deleteOne({ endpoint: req.body.endpoint });
+    res.json({ ok: true });
   });
 
 module.exports = router;

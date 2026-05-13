@@ -101,7 +101,7 @@ describe('AdminPanel', () => {
     await waitFor(() => screen.getByText(/审计日志/));
     await user.click(screen.getByText(/审计日志/));
     await waitFor(() => {
-      expect(screen.getByText(/AWAITING EVENTS/)).toBeInTheDocument();
+      expect(screen.getByText(/暂无审计记录/)).toBeInTheDocument();
     });
   });
 

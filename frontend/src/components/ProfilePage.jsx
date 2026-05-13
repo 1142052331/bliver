@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, MapPin, Clock, Image, MessageCircle, Heart, Send } from 'lucide-react';
-import api from '../api';
+import { apiClient } from '../api';
 import { getUser } from '../auth';
 import useUIStore from '../store/useUIStore';
 
@@ -36,7 +36,7 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const { data } = await api.get(`/api/users/${userId}/profile`);
+      const { data } = await apiClient.users.profile(userId);
       setProfile(data.user);
       setFootprints(data.footprints);
       setRecentReactions(data.recentReactions);
@@ -96,7 +96,7 @@ export default function ProfilePage() {
     if (!commentText.trim()) return;
     setSendingComment(true);
     try {
-      const { data } = await api.post(`/api/users/${userId}/profile/comment`, { content: commentText.trim() });
+      const { data } = await apiClient.users.comment(userId, commentText.trim());
       setProfile(data.user);
       setCommentText('');
     } catch (err) {
@@ -112,7 +112,7 @@ export default function ProfilePage() {
     }
     setReacting(true);
     try {
-      const { data } = await api.post(`/api/users/${userId}/profile/react`, { emoji });
+      const { data } = await apiClient.users.react(userId, emoji);
       setProfile(data.user);
     } catch (err) {
       console.error(err);

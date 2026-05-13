@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import api from '../api';
+import { apiClient } from '../api';
 import { getUser } from '../auth';
 import useUIStore from '../store/useUIStore';
 
@@ -36,7 +36,7 @@ export default function useProfileData(userId) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    api.get(`/api/users/${userId}/profile`).then(({ data }) => {
+    apiClient.users.profile(userId).then(({ data }) => {
       if (cancelled) return;
       setProfile(data.user);
       setFootprints(data.footprints);
@@ -122,7 +122,7 @@ export default function useProfileData(userId) {
       const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
       const form = new FormData();
       form.append('banner', compressed);
-      const { data } = await api.post('/api/users/profile/banner', form);
+      const { data } = await apiClient.users.updateBanner(form);
       if (mountedRef.current) setProfile(data.user);
       showBannerMsg('背景更换成功！');
     } catch (err) {
@@ -141,7 +141,7 @@ export default function useProfileData(userId) {
         const compressed = await imageCompression(updates.avatar, { maxSizeMB: 0.5, maxWidthOrHeight: 300 });
         form.append('avatar', compressed);
       }
-      const { data } = await api.put('/api/users/profile', form);
+      const { data } = await apiClient.users.updateProfile(form);
       if (mountedRef.current) setProfile(data.user);
       showBannerMsg('更新成功！');
     } catch (err) {

@@ -4,6 +4,7 @@ import { getUser, getToken, clearAuth, isAutoLogin } from '../auth';
 import { broadcastLogout, listenAuthSync } from '../authSync';
 import { subscribeToPush } from '../push';
 import useUIStore from '../store/useUIStore';
+import { isAdminUser, isSuperuser } from '../domain/superuser';
 
 interface AppUser {
   _id: string;
@@ -93,8 +94,8 @@ export default function useAuth() {
     setUser(null);
   }, [user]);
 
-  const isAdmin = user?.role === 'admin';
-  const isAsen = user?.name === '阿森';
+  const isAdmin = isAdminUser(user);
+  const isAsen = isSuperuser(user);
 
   return {
     user,

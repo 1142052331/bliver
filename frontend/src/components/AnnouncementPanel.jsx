@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { X, Megaphone, Send, Loader2 } from 'lucide-react';
-import api from '../api';
+import { apiClient } from '../api';
 
 const READ_KEY = 'bliver_announce_read_last';
 
@@ -48,7 +48,7 @@ export default function AnnouncementPanel({ isOpen, onClose, isAsen, onToast }) 
 
   const fetchAnnouncements = useCallback(async () => {
     try {
-      const { data } = await api.get('/api/announcements');
+      const { data } = await apiClient.announcements.list();
       setAnnouncements(data.announcements || []);
     } catch (err) {
       console.error('[Announcements] Fetch failed:', err);
@@ -77,7 +77,7 @@ export default function AnnouncementPanel({ isOpen, onClose, isAsen, onToast }) 
     if (!content.trim()) return;
     setPosting(true);
     try {
-      const { data } = await api.post('/api/announcements', { title: title.trim(), content: content.trim() });
+      const { data } = await apiClient.announcements.create({ title: title.trim(), content: content.trim() });
       setAnnouncements((prev) => [data.announcement, ...prev]);
       setTitle('');
       setContent('');

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import imageCompression from 'browser-image-compression';
-import api from '../api';
+import { apiClient } from '../api';
 import { saveAuth, saveCredentials, getCredentials, setAutoLogin } from '../auth';
 import { MapPin, Camera, Loader2, X } from 'lucide-react';
 
@@ -60,13 +60,13 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
         form.append('name', name.trim());
         form.append('password', password);
         if (avatar) form.append('avatar', avatar);
-        const { data } = await api.post('/api/auth/register', form);
+        const { data } = await apiClient.auth.register(form);
         saveAuth(data.user, data.token);
         if (rememberMe) saveCredentials(name.trim(), password);
         setAutoLogin(autoLoginCheck);
         onDone(data.user);
       } else {
-        const { data } = await api.post('/api/auth/login', { name: name.trim(), password });
+        const { data } = await apiClient.auth.login({ name: name.trim(), password });
         saveAuth(data.user, data.token);
         if (rememberMe) saveCredentials(name.trim(), password);
         setAutoLogin(autoLoginCheck);

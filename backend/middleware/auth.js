@@ -46,8 +46,8 @@ const admin = async (req, res, next) => {
       return res.status(403).json({ error: 'Admin only' });
     }
     next();
-  } catch {
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (err) {
+    next(err);
   }
 };
 

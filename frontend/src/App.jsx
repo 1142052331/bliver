@@ -259,7 +259,7 @@ export default function App() {
               key="announcements"
               isOpen={showAnnouncements}
               onClose={() => { closeAnnouncements(); clearAnnounceUnread(); }}
-              isAsen={user?.name === '阿森'}
+              isAsen={isAsen}
               onToast={(msg) => useUIStore.getState().addToast({ type: 'announcement', content: msg })}
             />
           )}

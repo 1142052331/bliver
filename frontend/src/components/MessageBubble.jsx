@@ -1,3 +1,5 @@
+import { isSuperuserName } from '../domain/superuser';
+
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
@@ -10,9 +12,9 @@ function timeStr(date) {
  */
 export default function MessageBubble({ msg, userId, friendName, chatUserId }) {
   const isMine = msg.senderId === userId;
-  const isFromAsen = !isMine && friendName === '阿森' && msg.senderId === chatUserId;
+  const isFromAsen = !isMine && isSuperuserName(friendName) && msg.senderId === chatUserId;
   const isPending = msg.pending;
-  const isAsenSenderBubble = isMine && userId && friendName === '阿森';
+  const isAsenSenderBubble = isMine && userId && isSuperuserName(friendName);
 
   return (
     <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>

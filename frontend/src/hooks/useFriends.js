@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
+import { canBypassFriendship } from '../domain/superuser';
 
 /**
  * 好友系统 hook — 数据拉取 + Socket 实时状态 + 好友操作
@@ -89,7 +90,7 @@ export default function useFriends({ user, socketRef }) {
     if (!targetId || !user) return 'self';
     if (user._id === targetId) return 'self';
     // 管理员（阿森）对所有人都是强制好友
-    if (user.role === 'admin' || user.name === '阿森') return 'accepted';
+    if (canBypassFriendship(user)) return 'accepted';
     if (friends.some(f => f._id === targetId)) return 'accepted';
     if (outgoingRef.current.has(targetId)) return 'pending_out';
     if (pendingRequests.some(r => r.requester?._id === targetId)) return 'pending_in';

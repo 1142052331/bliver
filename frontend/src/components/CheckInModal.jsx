@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import api from '../api';
+import { apiClient } from '../api';
 import imageCompression from 'browser-image-compression';
 import { X, MapPin, Camera, Loader2 } from 'lucide-react';
 
@@ -87,7 +87,7 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
     form.append('precise', precise);
 
     try {
-      await api.post('/api/checkin', form);
+      await apiClient.footprints.checkin(form);
       setMessage('');
       setMood('');
       setPhoto(null);
