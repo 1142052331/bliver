@@ -1,5 +1,9 @@
 {
   "appId": "com.bliver.app",
   "appName": "Bliver",
-  "webDir": "frontend/dist"
+  "webDir": "frontend/dist",
+  "server": {
+    "url": "https://bliver.onrender.com",
+    "cleartext": false
+  }
 }
