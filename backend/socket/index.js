@@ -1,33 +1,15 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const Friendship = require('../models/Friendship');
 const { JWT_SECRET } = require('../middleware/auth');
 const { areFriends } = require('../services/FriendsService');
 const messageService = require('../services/MessageService');
-const { SUPERUSER_NAME, isSuperuserName } = require('../services/superuser');
+const { getBroadcastTargets, getFriendIds } = require('../services/SuperuserPolicy');
 const bus = require('../events/bus');
 
 const onlineCount = async () => {
   const count = await User.countDocuments({ isOnline: true });
   return count;
 };
-
-/** Get all accepted friend IDs for a user (DB friends only, superuser handled separately) */
-async function getFriendIds(userId) {
-  const friendships = await Friendship.find({
-    status: 'accepted',
-    $or: [{ requester: userId }, { recipient: userId }],
-  }).lean();
-
-  const ids = new Set();
-  for (const f of friendships) {
-    const fid = f.requester.toString() === userId.toString()
-      ? f.recipient.toString()
-      : f.requester.toString();
-    ids.add(fid);
-  }
-  return ids;
-}
 
 function _setupSocket(io) {
   // ── Broadcast events: relay domain events to all connected sockets ──
@@ -117,22 +99,16 @@ function _setupSocket(io) {
         // ── 好友精准广播（仅第一端连接时触发）──
         if (!isFirstConnection) return;
 
-        if (isSuperuserName(user.name)) {
-          socket.broadcast.emit('friend:online', {
-            userId, name: user.name, avatarUrl: user.avatarUrl,
-          });
+        const payload = { userId, name: user.name, avatarUrl: user.avatarUrl };
+        const targets = await getBroadcastTargets(userId, user.name);
+        if (targets.mode === 'all') {
+          socket.broadcast.emit('friend:online', payload);
         } else {
-          const friendIds = await getFriendIds(userId);
-          for (const fid of friendIds) {
-            io.to(fid).emit('friend:online', {
-              userId, name: user.name, avatarUrl: user.avatarUrl,
-            });
+          for (const fid of targets.friendIds) {
+            io.to(fid).emit('friend:online', payload);
           }
-          const asen = await User.findOne({ name: SUPERUSER_NAME, isOnline: true }).select('_id').lean();
-          if (asen && !friendIds.has(asen._id.toString())) {
-            io.to(asen._id.toString()).emit('friend:online', {
-              userId, name: user.name, avatarUrl: user.avatarUrl,
-            });
+          if (targets.superuserId && !targets.friendIds.has(targets.superuserId.toString())) {
+            io.to(targets.superuserId.toString()).emit('friend:online', payload);
           }
         }
       } catch (err) {
@@ -199,17 +175,16 @@ function _setupSocket(io) {
         io.emit('user_offline', { userId: socket.userId, name: user.name });
 
         // ── 好友离线广播 ──────────────────────────
-        if (isSuperuserName(user.name)) {
-          io.emit('friend:offline', { userId: socket.userId, name: user.name });
+        const offlinePayload = { userId: socket.userId, name: user.name };
+        const offlineTargets = await getBroadcastTargets(socket.userId, user.name);
+        if (offlineTargets.mode === 'all') {
+          io.emit('friend:offline', offlinePayload);
         } else {
-          const friendIds = await getFriendIds(socket.userId);
-          for (const fid of friendIds) {
-            io.to(fid).emit('friend:offline', { userId: socket.userId, name: user.name });
+          for (const fid of offlineTargets.friendIds) {
+            io.to(fid).emit('friend:offline', offlinePayload);
           }
-          // Force-notify superuser
-          const asen = await User.findOne({ name: SUPERUSER_NAME, isOnline: true }).select('_id').lean();
-          if (asen && !friendIds.has(asen._id.toString())) {
-            io.to(asen._id.toString()).emit('friend:offline', { userId: socket.userId, name: user.name });
+          if (offlineTargets.superuserId && !offlineTargets.friendIds.has(offlineTargets.superuserId.toString())) {
+            io.to(offlineTargets.superuserId.toString()).emit('friend:offline', offlinePayload);
           }
         }
       }, 5000);

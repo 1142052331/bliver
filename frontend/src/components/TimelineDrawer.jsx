@@ -3,8 +3,10 @@ import useUIStore from '../store/useUIStore';
 import { groupFootprintsByUser } from '../utils/groupFootprints';
 import { X, Clock, Trash2, Share2, Check } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
+import { useFootprintActionsContext } from '../contexts/FootprintActionsContext';
 
-function UserTimeline({ user, items, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint }) {
+function UserTimeline({ user, items, userId, isAdmin, onSelectFootprint }) {
+  const { handleReact: onReact, handleDelete: onDelete, handleShare: onShare } = useFootprintActionsContext();
   const timeStr = (date) =>
     new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
@@ -109,7 +111,7 @@ const PERIODS = [
   { key: 'year', label: '本年' },
 ];
 
-export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onReact, onDelete, onShare, onSelectFootprint, period, onChangePeriod, loading }) {
+export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onSelectFootprint, period, onChangePeriod, loading }) {
   const grouped = groupFootprintsByUser(footprints);
 
   return (
@@ -184,9 +186,6 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
                 items={items}
                 userId={userId}
                 isAdmin={isAdmin}
-                onReact={onReact}
-                onDelete={onDelete}
-                onShare={onShare}
                 onSelectFootprint={onSelectFootprint}
               />
             ))

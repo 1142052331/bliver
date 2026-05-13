@@ -5,12 +5,13 @@ import { AnimatePresence } from 'framer-motion';
 import { X, MapPin, Clock, MessageCircle, Bell } from 'lucide-react';
 import FootprintDetailModal from './FootprintDetailModal';
 import { getReadMap, isUnread } from '../readStatus';
+import { useFootprintActionsContext } from '../contexts/FootprintActionsContext';
 
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReact, onDelete, onShare, onComment, onDeleteComment, onClose, autoOpenId }) {
+export default function ClusterDetailPanel({ footprints, userId, isAdmin, onClose, autoOpenId }) {
   const [detailFpId, setDetailFpId] = useState(null);
   const detailFp = detailFpId ? footprints.find(f => f._id === detailFpId) : null;
 
@@ -200,11 +201,6 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onReac
             allFootprints={footprints}
             userId={userId}
             isAdmin={isAdmin}
-            onReact={onReact}
-            onDelete={onDelete}
-            onShare={onShare}
-            onComment={onComment}
-            onDeleteComment={onDeleteComment}
             onClose={() => {
               if (isSingle) onClose();
               else setDetailFpId(null);

@@ -42,7 +42,7 @@ import MobileActionDrawer from './components/MobileActionDrawer';
 import useUIStore from './store/useUIStore';
 import useSocket from './hooks/useSocket';
 import useFriends from './hooks/useFriends';
-import useFootprintActions from './hooks/useFootprintActions';
+import { FootprintActionsProvider } from './contexts/FootprintActionsContext';
 import useFootprints from './hooks/useFootprints';
 import useNotifications from './hooks/useNotifications';
 import useAnnounceUnread from './hooks/useAnnounceUnread';
@@ -161,10 +161,7 @@ export default function App() {
     }
   }, [footprints, flyArrivedFp]);
 
-  // ── Footprint actions ──────────────────────────────────
-
-  const { handleReact, handleDelete, handleDeleteComment, handleShare, handleComment } =
-    useFootprintActions({ user, requireLogin, setFootprints });
+  // ── Footprint actions are provided by FootprintActionsProvider below ──
 
   const handleLogout = () => {
     logout();
@@ -346,20 +343,43 @@ export default function App() {
           presetLocation={pendingCheckInLocation}
         />
 
-        <TimelineDrawer
-          isOpen={showTimeline}
-          onClose={() => closeTimeline()}
-          footprints={footprints}
-          userId={user?._id}
-          isAdmin={isAdmin}
-          onReact={handleReact}
-          onDelete={handleDelete}
-          onShare={handleShare}
-          onSelectFootprint={(fpId) => { closeTimeline(); setTimelineTargetFpId(fpId); }}
-          period={footprintPeriod}
-          onChangePeriod={setFootprintPeriod}
-          loading={footprintsLoading}
-        />
+        <FootprintActionsProvider user={user} requireLogin={requireLogin} setFootprints={setFootprints}>
+          <TimelineDrawer
+            isOpen={showTimeline}
+            onClose={() => closeTimeline()}
+            footprints={footprints}
+            userId={user?._id}
+            isAdmin={isAdmin}
+            onSelectFootprint={(fpId) => { closeTimeline(); setTimelineTargetFpId(fpId); }}
+            period={footprintPeriod}
+            onChangePeriod={setFootprintPeriod}
+            loading={footprintsLoading}
+          />
+
+          <AnimatePresence>
+            {flyArrivedFp && (
+              <FootprintDetailModal
+                key={flyArrivedFp._id}
+                fp={flyArrivedFp}
+                allFootprints={footprints}
+                userId={user?._id}
+                isAdmin={isAdmin}
+                onClose={() => { setFlyArrivedFp(null); setActiveFootprintId(null); }}
+              />
+            )}
+          </AnimatePresence>
+
+          {clusterFootprints && (
+            <ErrorBoundary>
+              <ClusterDetailPanel
+                footprints={clusterFootprints}
+                userId={user?._id}
+                isAdmin={isAdmin}
+                onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
+              />
+            </ErrorBoundary>
+          )}
+        </FootprintActionsProvider>
 
         <MobileActionDrawer
           user={user}
@@ -371,40 +391,6 @@ export default function App() {
             openCheckIn();
           }}
         />
-
-        <AnimatePresence>
-          {flyArrivedFp && (
-            <FootprintDetailModal
-              key={flyArrivedFp._id}
-              fp={flyArrivedFp}
-              allFootprints={footprints}
-              userId={user?._id}
-              isAdmin={isAdmin}
-              onReact={handleReact}
-              onDelete={handleDelete}
-              onShare={handleShare}
-              onComment={handleComment}
-              onDeleteComment={handleDeleteComment}
-              onClose={() => { setFlyArrivedFp(null); setActiveFootprintId(null); }}
-            />
-          )}
-        </AnimatePresence>
-
-        {clusterFootprints && (
-          <ErrorBoundary>
-            <ClusterDetailPanel
-              footprints={clusterFootprints}
-              userId={user?._id}
-              isAdmin={isAdmin}
-              onReact={handleReact}
-              onDelete={handleDelete}
-              onShare={handleShare}
-              onComment={handleComment}
-              onDeleteComment={handleDeleteComment}
-              onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
-            />
-          </ErrorBoundary>
-        )}
 
         {showAdmin && <ErrorBoundary><AdminPanel onClose={() => closeAdmin()} socketRef={socketRef} /></ErrorBoundary>}
 

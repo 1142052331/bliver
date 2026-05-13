@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
 import { canBypassFriendship } from '../domain/superuser';
+import { on, off } from './socketRegistry';
 
 /**
  * 好友系统 hook — 数据拉取 + Socket 实时状态 + 好友操作
@@ -45,11 +46,8 @@ export default function useFriends({ user, socketRef }) {
     }
   }, [user, fetchFriends]);
 
-  // ── Socket event listeners ────────────────────────────
+  // ── Socket event listeners via registry ─────────────────
   useEffect(() => {
-    const socket = socketRef?.current;
-    if (!socket) return;
-
     const onFriendOnline = (data) => {
       setOnlineStatus(prev => ({ ...prev, [data.userId]: true }));
     };
@@ -74,16 +72,16 @@ export default function useFriends({ user, socketRef }) {
       }
     };
 
-    socket.on('friend:online', onFriendOnline);
-    socket.on('friend:offline', onFriendOffline);
-    socket.on('receive_message', onReceiveMessage);
+    on('friend:online', onFriendOnline);
+    on('friend:offline', onFriendOffline);
+    on('receive_message', onReceiveMessage);
 
     return () => {
-      socket.off('friend:online', onFriendOnline);
-      socket.off('friend:offline', onFriendOffline);
-      socket.off('receive_message', onReceiveMessage);
+      off('friend:online', onFriendOnline);
+      off('friend:offline', onFriendOffline);
+      off('receive_message', onReceiveMessage);
     };
-  }, [socketRef?.current]);
+  }, []);
 
   // ── Friendship status for a target user ───────────────
   const friendshipStatus = useCallback((targetId) => {

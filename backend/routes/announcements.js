@@ -4,7 +4,8 @@ const { auth } = require('../middleware/auth');
 const { contentLimiter } = require('../middleware/rateLimiter');
 const validate = require('../middleware/validate');
 const { announcement: announcementSchema } = require('../validators/schemas');
-const { SUPERUSER_NAME, isSuperuserName } = require('../services/superuser');
+const { SUPERUSER_NAME } = require('../services/superuser');
+const { isSuperuserName } = require('../services/authorization');
 
 const router = express.Router();
 

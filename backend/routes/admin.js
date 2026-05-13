@@ -23,7 +23,6 @@ router.get('/admin/users', async (req, res) => {
 // PUT /api/admin/users/:id
 router.put('/admin/users/:id', async (req, res) => {
   const result = await adminService.updateUser(req.params.id, req.body);
-  if (result.error) return res.status(result.status).json({ error: result.error });
   res.json({ user: result.user });
   auditService.log({ type: 'user_edit', actor: req.user.name, target: result.user.name });
 });
@@ -31,7 +30,6 @@ router.put('/admin/users/:id', async (req, res) => {
 // DELETE /api/admin/users/:id
 router.delete('/admin/users/:id', async (req, res) => {
   const result = await adminService.deleteUser(req.params.id, req.user.name);
-  if (result.error) return res.status(result.status).json({ error: result.error });
   res.json({ ok: true, message: result.message });
 });
 
@@ -51,7 +49,6 @@ router.get('/admin/audit', async (req, res) => {
 // POST /api/admin/kick/:userId
 router.post('/admin/kick/:userId', async (req, res) => {
   const result = await adminService.kickUser(req.params.userId, req.user.name);
-  if (result.error) return res.status(result.status).json({ error: result.error });
   res.json({ ok: true, message: result.message });
 });
 

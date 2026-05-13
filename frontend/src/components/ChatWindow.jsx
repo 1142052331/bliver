@@ -3,6 +3,7 @@ import { X, Send, Loader2, Minus, Maximize2, GripHorizontal } from 'lucide-react
 import { apiClient } from '../api';
 import useChatInput from '../hooks/useChatInput';
 import MessageBubble from './MessageBubble';
+import { on, off } from '../hooks/socketRegistry';
 
 export default function ChatWindow({
   chatUserId, friendName, friendAvatar, isOnline,
@@ -90,11 +91,8 @@ export default function ChatWindow({
     }
   }, [messages.length]);
 
-  // ── Socket events ──────────────────────────────────────
+  // ── Socket events via registry ─────────────────────────
   useEffect(() => {
-    const socket = socketRef?.current;
-    if (!socket) return;
-
     const onReceive = (data) => {
       if (data.message?.senderId === chatUserId) {
         if (mountedRef.current) {
@@ -124,18 +122,18 @@ export default function ChatWindow({
       if (data.senderId === chatUserId && mountedRef.current) setTypingUser(null);
     };
 
-    socket.on('receive_message', onReceive);
-    socket.on('message:sent', onSent);
-    socket.on('typing', onTyping);
-    socket.on('stop_typing', onStopTyping);
+    on('receive_message', onReceive);
+    on('message:sent', onSent);
+    on('typing', onTyping);
+    on('stop_typing', onStopTyping);
 
     return () => {
-      socket.off('receive_message', onReceive);
-      socket.off('message:sent', onSent);
-      socket.off('typing', onTyping);
-      socket.off('stop_typing', onStopTyping);
+      off('receive_message', onReceive);
+      off('message:sent', onSent);
+      off('typing', onTyping);
+      off('stop_typing', onStopTyping);
     };
-  }, [socketRef?.current, chatUserId]);
+  }, [chatUserId]);
 
   // ── Resize handler (desktop) ──────────────────────────
   const resizeRef = useRef({ startX: 0, startY: 0, startW: 0, startH: 0 });

@@ -5,9 +5,10 @@ const { getWeather } = require('./weather');
 const { blurCoordinate, sanitizeLocation } = require('./location');
 const { notify } = require('./notification');
 const { populateFootprint } = require('./footprint');
-const { isSuperuserName } = require('./superuser');
+const { isSuperuserName } = require('./authorization');
 const bus = require('../events/bus');
 const auditService = require('./AuditService');
+const AppError = require('../middleware/AppError');
 
 class FootprintService {
   // ═══════════════════════════════════════════════════════
@@ -40,7 +41,7 @@ class FootprintService {
     }
 
     const docs = await populateFootprint(
-      Footprint.find(filter).sort({ createdAt: -1 })
+      Footprint.findSafe(filter, { isAdmin }).sort({ createdAt: -1 })
     );
 
     return {
@@ -51,7 +52,7 @@ class FootprintService {
   }
 
   async getById(footprintId, { isAdmin = false } = {}) {
-    const fp = await populateFootprint(Footprint.findById(footprintId));
+    const fp = await populateFootprint(Footprint.findByIdSafe(footprintId, { isAdmin }));
     if (!fp) return null;
     return sanitizeLocation(fp.toObject(), isAdmin);
   }
@@ -125,6 +126,7 @@ class FootprintService {
     if (footprintOwnerId !== userId && !isToggleOff) {
       await notify({
         recipientId: footprintOwnerId,
+        senderId: userId,
         senderName: username,
         type: 'reaction',
         footprintId,
@@ -151,6 +153,7 @@ class FootprintService {
     if (footprintOwnerId !== userId) {
       await notify({
         recipientId: footprintOwnerId,
+        senderId: userId,
         senderName: username,
         type: 'comment',
         footprintId,
@@ -175,15 +178,15 @@ class FootprintService {
 
   async deleteComment(footprintId, commentId, userId, userName) {
     const fp = await Footprint.findById(footprintId);
-    if (!fp) return { error: 'Footprint not found', status: 404 };
+    if (!fp) throw new AppError(404, 'Footprint not found');
 
     const comment = fp.comments.id(commentId);
-    if (!comment) return { error: 'Comment not found', status: 404 };
+    if (!comment) throw new AppError(404, 'Comment not found');
 
     const isAuthor = comment.userId?.toString() === userId;
     const isAsen = isSuperuserName(userName);
     if (!isAuthor && !isAsen) {
-      return { error: '无权删除此评论', status: 403 };
+      throw new AppError(403, '无权删除此评论');
     }
 
     fp.comments.pull({ _id: commentId });

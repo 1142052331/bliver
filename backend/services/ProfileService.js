@@ -4,6 +4,7 @@ const { sanitizeLocation } = require('./location');
 const { populateFootprint } = require('./footprint');
 const { notify } = require('./notification');
 const bus = require('../events/bus');
+const AppError = require('../middleware/AppError');
 
 class ProfileService {
   // ── Get profile page data (visit tracking + footprints + reactions + comments) ──
@@ -22,7 +23,7 @@ class ProfileService {
     }
 
     const docs = await populateFootprint(
-      Footprint.find({ userId }).sort({ createdAt: -1 }).limit(30)
+      Footprint.findSafe({ userId }, { isAdmin }).sort({ createdAt: -1 }).limit(30)
     );
     const footprints = docs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
 
@@ -40,11 +41,11 @@ class ProfileService {
   // ── Add comment to someone's profile ──
 
   async addComment(targetUserId, senderName, content) {
-    if (!content) return { error: 'content is required', status: 400 };
-    if (content.length > 500) return { error: '留言不能超过500字', status: 400 };
+    if (!content) throw new AppError(400, 'content is required');
+    if (content.length > 500) throw new AppError(400, '留言不能超过500字');
 
     const user = await User.findById(targetUserId);
-    if (!user) return { error: 'User not found', status: 404 };
+    if (!user) throw new AppError(404, 'User not found');
 
     user.profileComments.push({ senderName, content });
     await user.save();
@@ -60,7 +61,7 @@ class ProfileService {
   // ── Toggle reaction emoji on profile ──
 
   async toggleReaction(targetUserId, senderId, emoji) {
-    if (!emoji) return { error: 'emoji is required', status: 400 };
+    if (!emoji) throw new AppError(400, 'emoji is required');
 
     const before = await User.findOneAndUpdate(
       { _id: targetUserId },
@@ -68,7 +69,7 @@ class ProfileService {
       { new: false }
     );
 
-    if (!before) return { error: 'User not found', status: 404 };
+    if (!before) throw new AppError(404, 'User not found');
 
     const oldReaction = before.profileReactions.find(r => r.senderId?.toString() === senderId);
     const isToggleOff = oldReaction && oldReaction.emoji === emoji;
@@ -90,7 +91,7 @@ class ProfileService {
   // ── Update current user's banner image ──
 
   async updateBanner(userId, cloudinaryUrl) {
-    if (!cloudinaryUrl) return { error: 'No banner image uploaded', status: 400 };
+    if (!cloudinaryUrl) throw new AppError(400, 'No banner image uploaded');
 
     const user = await User.findByIdAndUpdate(
       userId,
@@ -111,7 +112,7 @@ class ProfileService {
     if (name && name.trim()) {
       const trimmed = name.trim();
       const exists = await User.findOne({ name: trimmed, _id: { $ne: userId } });
-      if (exists) return { error: 'Name already taken', status: 400 };
+      if (exists) throw new AppError(400, 'Name already taken');
       updates.name = trimmed;
     }
 
@@ -120,7 +121,7 @@ class ProfileService {
     }
 
     if (Object.keys(updates).length === 0) {
-      return { error: 'Nothing to update', status: 400 };
+      throw new AppError(400, 'Nothing to update');
     }
 
     const user = await User.findByIdAndUpdate(userId, updates, { returnDocument: 'after' }).select('-password');
@@ -148,6 +149,7 @@ class ProfileService {
 
       await notify({
         recipientId: targetUserId,
+        senderId: viewer.id,
         senderName: viewer.name,
         type: 'profile_view',
         footprintId: null,

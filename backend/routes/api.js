@@ -79,7 +79,6 @@ const router = express.Router();
     const result = await footprintService.deleteComment(
       req.params.footprintId, req.params.commentId, req.user.id, req.user.name
     );
-    if (result.error) return res.status(result.status).json({ error: result.error });
     res.json({ footprint: result.footprint });
   });
 
@@ -96,7 +95,6 @@ const router = express.Router();
   router.post('/admin/setup', auth, async (req, res) => {
     const adminService = require('../services/AdminService');
     const result = await adminService.setupAdmin(req.user.id, req.body.secret);
-    if (result.error) return res.status(result.status).json({ error: result.error });
     res.json({ ok: true, message: result.message });
   });
 

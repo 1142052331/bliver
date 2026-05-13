@@ -5,12 +5,14 @@ import { X, Trash2, Share2, Check, MapPin, Clock, Image } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
 import { UnreadNotice, CommentSection } from './CommentSection';
 import { getReadMap, seedReadMap, markRead, getUnreadComments, isNewFootprint } from '../readStatus';
+import { useFootprintActionsContext } from '../contexts/FootprintActionsContext';
 
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onReact, onDelete, onShare, onComment, onDeleteComment, onClose, allFootprints }) {
+export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onClose, allFootprints }) {
+  const { handleReact: onReact, handleDelete: onDelete, handleShare: onShare, handleComment: onComment, handleDeleteComment: onDeleteComment } = useFootprintActionsContext();
   const fp = allFootprints && fpProp ? allFootprints.find(f => f._id === fpProp._id) || fpProp : fpProp;
   if (!fp) return null;
 

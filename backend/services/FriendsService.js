@@ -2,7 +2,10 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Friendship = require('../models/Friendship');
 const Message = require('../models/Message');
-const { SUPERUSER_NAME, isSuperuserName } = require('./superuser');
+const { SUPERUSER_NAME } = require('./superuser');
+const { isSuperuserName } = require('./authorization');
+const AppError = require('../middleware/AppError');
+const { getEffectiveFriends, areFriends: policyAreFriends } = require('./SuperuserPolicy');
 
 // ═══════════════════════════════════════════════════════════
 //  Read
@@ -29,31 +32,7 @@ async function getFriends(userId, userName) {
     .select('name avatarUrl isOnline role')
     .lean();
 
-  if (!isSuperuserName(userName)) {
-    // Inject superuser as forced friend for everyone
-    const asen = await User.findOne({ name: SUPERUSER_NAME }).select('name avatarUrl isOnline role').lean();
-    if (asen) {
-      const asenId = asen._id.toString();
-      if (!friends.some(f => f._id.toString() === asenId)) {
-        friends.unshift(asen);
-      }
-    }
-  } else {
-    // Superuser: inject users with chat history
-    const sentIds = await Message.distinct('receiverId', { senderId: userId });
-    const recvIds = await Message.distinct('senderId', { receiverId: userId });
-    const chatterIdSet = new Set([...sentIds.map(String), ...recvIds.map(String)]);
-    friends.forEach(f => chatterIdSet.delete(f._id.toString()));
-
-    if (chatterIdSet.size > 0) {
-      const chatterIds = [...chatterIdSet].map(id => new mongoose.Types.ObjectId(id));
-      const chatters = await User.find({ _id: { $in: chatterIds } })
-        .select('name avatarUrl isOnline role').lean();
-      friends.unshift(...chatters);
-    }
-  }
-
-  return friends;
+  return getEffectiveFriends(userId, userName, friends);
 }
 
 /**
@@ -76,14 +55,14 @@ async function getPendingRequests(userId) {
  */
 async function sendRequest(requesterId, recipientId) {
   if (requesterId === recipientId) {
-    return { error: '不能加自己为好友', status: 400 };
+    throw new AppError(400, '不能加自己为好友');
   }
 
   const recipient = await User.findById(recipientId).lean();
-  if (!recipient) return { error: '用户不存在', status: 404 };
+  if (!recipient) throw new AppError(404, '用户不存在');
 
   if (isSuperuserName(recipient.name)) {
-    return { error: '管理员已是您的好友，无需申请', status: 400 };
+    throw new AppError(400, '管理员已是您的好友，无需申请');
   }
 
   const existing = await Friendship.findOne({
@@ -94,11 +73,11 @@ async function sendRequest(requesterId, recipientId) {
   }).lean();
 
   if (existing) {
-    if (existing.status === 'accepted') return { error: '已经是好友', status: 400 };
+    if (existing.status === 'accepted') throw new AppError(400, '已经是好友');
     if (existing.requester.toString() === requesterId) {
-      return { error: '你已发送过好友申请，请等待对方通过', status: 400 };
+      throw new AppError(400, '你已发送过好友申请，请等待对方通过');
     }
-    return { error: '对方已向你发送好友申请，请去同意', status: 400 };
+    throw new AppError(400, '对方已向你发送好友申请，请去同意');
   }
 
   const friendship = await Friendship.create({ requester: requesterId, recipient: recipientId, status: 'pending' });
@@ -110,9 +89,9 @@ async function sendRequest(requesterId, recipientId) {
  */
 async function acceptRequest(friendshipId, userId) {
   const friendship = await Friendship.findById(friendshipId);
-  if (!friendship) return { error: '申请不存在', status: 404 };
-  if (friendship.recipient.toString() !== userId) return { error: '无权操作', status: 403 };
-  if (friendship.status !== 'pending') return { error: '该申请已处理', status: 400 };
+  if (!friendship) throw new AppError(404, '申请不存在');
+  if (friendship.recipient.toString() !== userId) throw new AppError(403, '无权操作');
+  if (friendship.status !== 'pending') throw new AppError(400, '该申请已处理');
 
   friendship.status = 'accepted';
   await friendship.save();
@@ -124,9 +103,9 @@ async function acceptRequest(friendshipId, userId) {
  */
 async function rejectRequest(friendshipId, userId) {
   const friendship = await Friendship.findById(friendshipId);
-  if (!friendship) return { error: '申请不存在', status: 404 };
-  if (friendship.recipient.toString() !== userId) return { error: '无权操作', status: 403 };
-  if (friendship.status !== 'pending') return { error: '该申请已处理', status: 400 };
+  if (!friendship) throw new AppError(404, '申请不存在');
+  if (friendship.recipient.toString() !== userId) throw new AppError(403, '无权操作');
+  if (friendship.status !== 'pending') throw new AppError(400, '该申请已处理');
 
   await friendship.deleteOne();
   return {};
@@ -137,8 +116,8 @@ async function rejectRequest(friendshipId, userId) {
  */
 async function removeFriend(userId, targetUserId) {
   const targetUser = await User.findById(targetUserId).lean();
-  if (!targetUser) return { error: '用户不存在', status: 404 };
-  if (isSuperuserName(targetUser.name)) return { error: '不能删除管理员好友', status: 403 };
+  if (!targetUser) throw new AppError(404, '用户不存在');
+  if (isSuperuserName(targetUser.name)) throw new AppError(403, '不能删除管理员好友');
 
   const result = await Friendship.deleteMany({
     $or: [
@@ -147,7 +126,7 @@ async function removeFriend(userId, targetUserId) {
     ],
   });
 
-  if (result.deletedCount === 0) return { error: '好友关系不存在', status: 404 };
+  if (result.deletedCount === 0) throw new AppError(404, '好友关系不存在');
   return {};
 }
 
@@ -155,28 +134,4 @@ async function removeFriend(userId, targetUserId) {
 //  Legacy — used by messages.js and socket/index.js
 // ═══════════════════════════════════════════════════════════
 
-/**
- * Check if two users are friends (respects superuser forced-friend rule).
- */
-async function areFriends(userId, targetId) {
-  if (userId.toString() === targetId.toString()) return false;
-
-  const target = await User.findById(targetId).select('name').lean();
-  if (!target) return false;
-  if (isSuperuserName(target.name)) return true;
-
-  const sender = await User.findById(userId).select('name role').lean();
-  if (sender && (sender.role === 'admin' || isSuperuserName(sender.name))) return true;
-
-  const friendship = await Friendship.findOne({
-    status: 'accepted',
-    $or: [
-      { requester: userId, recipient: targetId },
-      { requester: targetId, recipient: userId },
-    ],
-  }).lean();
-
-  return !!friendship;
-}
-
-module.exports = { getFriends, getPendingRequests, sendRequest, acceptRequest, rejectRequest, removeFriend, areFriends };
+module.exports = { getFriends, getPendingRequests, sendRequest, acceptRequest, rejectRequest, removeFriend, areFriends: policyAreFriends };

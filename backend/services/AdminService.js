@@ -5,6 +5,7 @@ const Notification = require('../models/Notification');
 const { getOnlineUsers, disconnectUser } = require('../socket');
 const bus = require('../events/bus');
 const auditService = require('./AuditService');
+const AppError = require('../middleware/AppError');
 
 /**
  * Enrich raw socket online data with user names/avatars.
@@ -46,10 +47,10 @@ async function updateUser(userId, { name, password }) {
   const update = {};
   if (name) update.name = name;
   if (password) update.password = await bcrypt.hash(password, 10);
-  if (Object.keys(update).length === 0) return { error: 'Nothing to update', status: 400 };
+  if (Object.keys(update).length === 0) throw new AppError(400, 'Nothing to update');
 
   const user = await User.findByIdAndUpdate(userId, update, { returnDocument: 'after', runValidators: true }).select('-password');
-  if (!user) return { error: 'User not found', status: 404 };
+  if (!user) throw new AppError(404, 'User not found');
   // Audit emitted separately by the route handler (needs actorName from req)
   return { user };
 }
@@ -59,8 +60,8 @@ async function updateUser(userId, { name, password }) {
  */
 async function deleteUser(userId, actorName) {
   const user = await User.findById(userId);
-  if (!user) return { error: 'User not found', status: 404 };
-  if (user.role === 'admin') return { error: 'Cannot delete another admin', status: 403 };
+  if (!user) throw new AppError(404, 'User not found');
+  if (user.role === 'admin') throw new AppError(403, 'Cannot delete another admin');
 
   await Promise.all([
     User.findByIdAndDelete(userId),
@@ -114,8 +115,8 @@ async function detectClones() {
  */
 async function kickUser(userId, actorName) {
   const user = await User.findById(userId);
-  if (!user) return { error: 'User not found', status: 404 };
-  if (user.role === 'admin') return { error: 'Cannot kick another admin', status: 403 };
+  if (!user) throw new AppError(404, 'User not found');
+  if (user.role === 'admin') throw new AppError(403, 'Cannot kick another admin');
 
   await User.findByIdAndUpdate(userId, { isOnline: false });
   const disconnected = await disconnectUser(userId, '您已被管理员踢出');
@@ -129,8 +130,8 @@ async function kickUser(userId, actorName) {
 
 async function setupAdmin(userId, secret) {
   const adminSecret = process.env.ADMIN_SETUP_SECRET;
-  if (!adminSecret) return { error: 'Not configured', status: 500 };
-  if (secret !== adminSecret) return { error: 'Wrong secret', status: 403 };
+  if (!adminSecret) throw new AppError(500, 'Not configured');
+  if (secret !== adminSecret) throw new AppError(403, 'Wrong secret');
 
   await User.findByIdAndUpdate(userId, { role: 'admin' });
   return { message: 'Admin role granted' };

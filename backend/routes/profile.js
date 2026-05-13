@@ -17,21 +17,18 @@ router.get('/users/:id/profile', optionalAuth, async (req, res) => {
 // POST /api/users/:id/profile/comment
 router.post('/users/:id/profile/comment', auth, contentLimiter, async (req, res) => {
   const result = await profileService.addComment(req.params.id, req.user.name, req.body.content);
-  if (result.error) return res.status(result.status).json({ error: result.error });
   res.status(201).json({ user: result.user });
 });
 
 // POST /api/users/:id/profile/react
 router.post('/users/:id/profile/react', auth, contentLimiter, async (req, res) => {
   const result = await profileService.toggleReaction(req.params.id, req.user.id, req.body.emoji);
-  if (result.error) return res.status(result.status).json({ error: result.error });
   res.json({ user: result.user });
 });
 
 // POST /api/users/profile/banner
 router.post('/users/profile/banner', auth, upload.single('banner'), uploadToCloudinary, async (req, res) => {
   const result = await profileService.updateBanner(req.user.id, req.cloudinaryUrl);
-  if (result.error) return res.status(result.status).json({ error: result.error });
   res.json({ user: result.user });
 });
 
@@ -41,7 +38,6 @@ router.put('/users/profile', auth, upload.single('avatar'), uploadToCloudinary, 
     name: req.body.name,
     cloudinaryUrl: req.cloudinaryUrl,
   });
-  if (result.error) return res.status(result.status).json({ error: result.error });
   res.json({ user: result.user });
 });
 

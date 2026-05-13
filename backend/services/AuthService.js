@@ -2,8 +2,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { JWT_SECRET } = require('../middleware/auth');
-const { isSuperuserName } = require('./superuser');
+const { isSuperuserName } = require('./authorization');
 const bus = require('../events/bus');
+const AppError = require('../middleware/AppError');
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -13,7 +14,7 @@ function getClientIp(req) {
 
 async function register({ name, password, avatarUrl, ip }) {
   const exists = await User.findOne({ name });
-  if (exists) return { error: 'Name already taken', status: 400 };
+  if (exists) throw new AppError(400, 'Name already taken');
 
   const hash = await bcrypt.hash(password, 10);
   const now = new Date();
@@ -36,7 +37,7 @@ async function login(name, password, ip) {
   const hash = user?.password || '$2a$10$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
   const match = await bcrypt.compare(password || '', hash);
 
-  if (!user || !match) return { error: 'Invalid credentials', status: 400 };
+  if (!user || !match) throw new AppError(400, 'Invalid credentials');
 
   const now = new Date();
   if (isSuperuserName(user.name) && user.role !== 'admin') {

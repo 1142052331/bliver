@@ -10,6 +10,9 @@
     "render-build": "cd backend && npm install && cd ../frontend && npm install && npm run build",
     "prepare": "husky"
   },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": "node -e \"process.exit(0)\""
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

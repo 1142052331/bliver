@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { refetchNotifications } from './useNotifications';
 import { clearAuth, getToken } from '../auth';
+import { setSocket, clearSocket, on, off } from './socketRegistry';
 import {
   footprintNew,
   footprintUpdated,
@@ -57,6 +58,7 @@ export default function useSocket({
     const socketUrl = getSocketURL();
     const socket = io(socketUrl, { auth: { token } });
     socketRef.current = socket;
+    setSocket(socket);
     console.log('[Socket] Connecting:', socketUrl);
 
     socket.on('connect', () => {
@@ -66,18 +68,27 @@ export default function useSocket({
     socket.on('connect_error', (e) => console.error('[Socket] Connect error:', e.message));
     socket.on('disconnect', (reason) => console.log('[Socket] Disconnected:', reason));
 
-    // ── Domain event handlers ──
-    socket.on('online:count', onlineCount(setOnlineCount));
-    socket.on('footprint:new', footprintNew(setFootprints));
-    socket.on('footprint:updated', footprintUpdated(setFootprints));
-    socket.on('footprint:deleted', footprintDeleted(setFootprints));
-    socket.on('profile:updated', profileUpdated());
-    socket.on('new_notification', newNotification(setNotifications));
-    socket.on('user_online', userOnline());
-    socket.on('user_offline', userOffline());
-    socket.on('force_logout', forceLogout(queryClient, setUser));
+    // ── Domain event handlers via registry ──
+    const domainHandlers = {
+      'online:count': onlineCount(setOnlineCount),
+      'footprint:new': footprintNew(setFootprints),
+      'footprint:updated': footprintUpdated(setFootprints),
+      'footprint:deleted': footprintDeleted(setFootprints),
+      'profile:updated': profileUpdated(),
+      'new_notification': newNotification(setNotifications),
+      'user_online': userOnline(),
+      'user_offline': userOffline(),
+      'force_logout': forceLogout(queryClient, setUser),
+    };
+    for (const [event, handler] of Object.entries(domainHandlers)) {
+      on(event, handler);
+    }
 
     return () => {
+      for (const [event, handler] of Object.entries(domainHandlers)) {
+        off(event, handler);
+      }
+      clearSocket();
       socket.disconnect();
       socketRef.current = null;
     };

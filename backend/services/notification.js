@@ -11,8 +11,9 @@ function init(io) {
  * 创建通知：写入数据库 + Socket 直达目标用户 room + Web Push 离线推送。
  * 由 FootprintService 和 api.js 直接调用。
  */
-async function notify({ recipientId, senderName, type, footprintId, content }) {
+async function notify({ recipientId, senderId, senderName, type, footprintId, content }) {
   const notifData = { recipientId, senderName, type, content };
+  if (senderId) notifData.senderId = senderId;
   if (footprintId) notifData.footprintId = footprintId;
   const notif = await Notification.create(notifData);
 
