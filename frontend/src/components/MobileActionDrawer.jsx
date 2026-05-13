@@ -44,7 +44,7 @@ export default function MobileActionDrawer({
       {/* ── Dropdown panel — floats below FAB, map stays visible */}
       <div
         ref={panelRef}
-        className={`fixed top-14 right-0 w-56 max-h-[calc(100dvh-80px)]
+        className={`fixed top-14 right-0 w-56 max-h-[calc(100dvh-90px)]
           ios-panel
           flex flex-col
           transition-all duration-300 ease-[cubic-bezier(0.22,0.61,0.36,1)]
@@ -188,6 +188,10 @@ export default function MobileActionDrawer({
             </button>
           )}
         </div>
+
+        {/* 底部渐变收口 */}
+        <div className="flex-shrink-0 h-8 pointer-events-none rounded-b-[24px]"
+          style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(16,19,26,0.94) 100%)' }} />
       </div>
     </div>
   );

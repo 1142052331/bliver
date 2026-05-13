@@ -148,6 +148,10 @@ export default function FriendsPanel({
             })
           )}
         </div>
+
+        {/* 底部渐变收口 */}
+        <div className="flex-shrink-0 h-8 pointer-events-none rounded-b-[24px]"
+          style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(16,19,26,0.94) 100%)' }} />
       </motion.div>
     </div>
   );
