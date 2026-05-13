@@ -14,7 +14,7 @@ export default function NotificationPanel({ notifications, onClose, onNavigate }
   return (
     <>
       <div className="ios-backdrop fixed inset-0 z-[1700] pointer-events-none" style={{opacity: 1, pointerEvents: 'auto'}} onClick={onClose} />
-      <div className="ios-panel absolute top-14 z-[1800] w-[370px] max-w-[92vw] overflow-hidden pointer-events-auto"
+      <div className="ios-panel fixed top-14 z-[1800] w-[370px] max-w-[92vw] overflow-hidden pointer-events-auto"
         style={{ right: `max(16px, env(safe-area-inset-right))` }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10">
@@ -25,7 +25,7 @@ export default function NotificationPanel({ notifications, onClose, onNavigate }
         </div>
 
         {/* List */}
-        <div className="max-h-[min(480px,70vh)] overflow-y-auto aurora-scroll p-2">
+        <div className="max-h-[calc(100dvh-120px)] overflow-y-auto aurora-scroll p-2">
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-white/28">
               <Bell className="w-10 h-10" />
