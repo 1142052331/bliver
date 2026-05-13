@@ -87,6 +87,13 @@ export const apiClient = {
     kick(userId) { return api.post(`/api/admin/kick/${userId}`); },
     deleteUser(userId) { return api.delete(`/api/admin/users/${userId}`); },
     updateUser(userId, data) { return api.put(`/api/admin/users/${userId}`, data); },
+    audit({ limit, before } = {}, opts) {
+      const params = new URLSearchParams();
+      if (limit) params.set('limit', String(limit));
+      if (before) params.set('before', before);
+      const qs = params.toString();
+      return api.get(`/api/admin/audit${qs ? '?' + qs : ''}`, opts);
+    },
   },
 
   push: {

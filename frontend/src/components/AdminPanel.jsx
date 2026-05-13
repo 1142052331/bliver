@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { X, Users, Shield, Trash2, Zap, RefreshCw, Wifi, WifiOff, Check, PencilLine, Crosshair, AlertTriangle, Radio, UserX, Eye, Activity, Pause, Play, LogIn, UserPlus, MapPin, MessageCircle, Heart, UserX as UserXIcon, Trash2 as TrashIcon, Edit3, ZapOff, Wifi as WifiIcon, WifiOff as WifiOffIcon } from 'lucide-react';
 import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
@@ -7,18 +7,12 @@ import AdminUsersTab from './AdminUsersTab';
 import AdminClonesTab from './AdminClonesTab';
 import AdminAuditTab from './AdminAuditTab';
 
-const MAX_AUDIT_LOGS = 200;
-
 export default function AdminPanel({ onClose, socketRef }) {
-  const [tab, setTab] = useState('users'); // 'online' | 'users' | 'clones' | 'audit'
+  const [tab, setTab] = useState('users');
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionMsg, setActionMsg] = useState('');
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [auditPaused, setAuditPaused] = useState(false);
-  const auditEndRef = useRef(null);
-  const auditBufferRef = useRef(null);
 
   // Edit state
   const [editingId, setEditingId] = useState(null);
@@ -48,44 +42,6 @@ export default function AdminPanel({ onClose, socketRef }) {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  // ── Audit socket listener ──
-  useEffect(() => {
-    const sock = socketRef?.current;
-    if (!sock) return;
-
-    const handler = (event) => {
-      if (auditBufferRef.current) {
-        auditBufferRef.current.push({ ...event, id: Date.now() + '_' + Math.random().toString(36).slice(2, 7) });
-      } else {
-        setAuditLogs((prev) => {
-          const next = [{ ...event, id: Date.now() + '_' + Math.random().toString(36).slice(2, 7) }, ...prev];
-          return next.slice(0, MAX_AUDIT_LOGS);
-        });
-      }
-    };
-
-    sock.on('admin:audit', handler);
-    return () => { sock.off('admin:audit', handler); };
-  }, [socketRef]);
-
-  // Flush buffered audit logs when resuming from pause
-  useEffect(() => {
-    if (!auditPaused && auditBufferRef.current && auditBufferRef.current.length > 0) {
-      setAuditLogs((prev) => {
-        const next = [...auditBufferRef.current, ...prev];
-        auditBufferRef.current = null;
-        return next.slice(0, MAX_AUDIT_LOGS);
-      });
-    }
-  }, [auditPaused]);
-
-  // Auto-scroll to bottom of audit log
-  useEffect(() => {
-    if (!auditPaused && tab === 'audit') {
-      auditEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [auditLogs.length, auditPaused, tab]);
 
   const showMsg = (msg) => {
     setActionMsg(msg);
@@ -229,7 +185,7 @@ export default function AdminPanel({ onClose, socketRef }) {
           )}
           <button onClick={() => setTab('audit')} className={tabClass('audit')}>
             <Activity className="w-3.5 h-3.5 inline mr-1.5" />
-            审计日志 ({auditLogs.length})
+            审计日志
           </button>
         </div>
 
@@ -269,12 +225,7 @@ export default function AdminPanel({ onClose, socketRef }) {
               )}
               {/* ── AUDIT LOG TAB ── */}
               {tab === 'audit' && (
-                <AdminAuditTab
-                  auditLogs={auditLogs}
-                  auditPaused={auditPaused}
-                  onTogglePause={() => setAuditPaused((p) => { if (!p) auditBufferRef.current = []; return !p; })}
-                  auditEndRef={auditEndRef}
-                />
+                <AdminAuditTab />
               )}
             </>
           )}

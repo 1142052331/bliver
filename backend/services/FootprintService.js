@@ -7,6 +7,7 @@ const { notify } = require('./notification');
 const { populateFootprint } = require('./footprint');
 const { isSuperuserName } = require('./superuser');
 const bus = require('../events/bus');
+const auditService = require('./AuditService');
 
 class FootprintService {
   // ═══════════════════════════════════════════════════════
@@ -93,13 +94,6 @@ class FootprintService {
     const fpObj = sanitizeLocation(populated.toObject(), isAdmin);
 
     bus.emit('footprint:new', { footprint: fpObj });
-    bus.emit('admin:audit', {
-      type: 'checkin',
-      user: (populated.userId?.name || populated.userId?.toString()) || 'unknown',
-      mood: mood || '📍',
-      placeName: fpObj.placeName,
-      timestamp: new Date().toISOString(),
-    });
 
     return fpObj;
   }
@@ -127,13 +121,6 @@ class FootprintService {
     const footprintOwnerId = (populated.userId?._id || populated.userId).toString();
 
     bus.emit('footprint:updated', { footprint: fpObj });
-    bus.emit('admin:audit', {
-      type: 'reaction',
-      user: username,
-      emoji: isToggleOff ? '取消' : emoji,
-      footprintId,
-      timestamp: new Date().toISOString(),
-    });
 
     if (footprintOwnerId !== userId && !isToggleOff) {
       await notify({
@@ -160,13 +147,6 @@ class FootprintService {
     const footprintOwnerId = fp.userId.toString();
 
     bus.emit('footprint:updated', { footprint: fpObj });
-    bus.emit('admin:audit', {
-      type: 'comment',
-      user: username,
-      content: content.slice(0, 80),
-      footprintId,
-      timestamp: new Date().toISOString(),
-    });
 
     if (footprintOwnerId !== userId) {
       await notify({
@@ -186,12 +166,7 @@ class FootprintService {
     if (!fp) return null;
 
     bus.emit('footprint:deleted', { footprintId });
-    bus.emit('admin:audit', {
-      type: 'footprint_delete',
-      actor: actorName,
-      footprintId,
-      timestamp: new Date().toISOString(),
-    });
+    auditService.log({ type: 'footprint_delete', actor: actorName, detail: footprintId });
 
     return fp;
   }

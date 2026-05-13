@@ -31,7 +31,7 @@ async function getFriendIds(userId) {
 
 function _setupSocket(io) {
   // ── Broadcast events: relay domain events to all connected sockets ──
-  const broadcast = ['footprint:new', 'footprint:updated', 'footprint:deleted', 'profile:updated', 'admin:audit'];
+  const broadcast = ['footprint:new', 'footprint:updated', 'footprint:deleted', 'profile:updated'];
   for (const event of broadcast) {
     bus.on(event, (data) => {
       io.emit(event, data);
@@ -68,9 +68,6 @@ function _setupSocket(io) {
           || socket.handshake.address
           || 'unknown';
         const user = await User.findByIdAndUpdate(socket.userId, { lastLoginIp: ip, lastLoginAt: new Date() }, { returnDocument: 'after' }).select('name').lean();
-        if (user) {
-          io.emit('admin:audit', { type: 'connect', user: user.name, ip, timestamp: new Date().toISOString() });
-        }
       } catch (err) {
         console.error('IP capture on connect error:', err.message);
       }
@@ -181,12 +178,6 @@ function _setupSocket(io) {
     socket.on('disconnect', async () => {
       console.log('User disconnected:', socket.id);
       if (!socket.userId) return;
-
-      // Emit audit event immediately (before delayed offline logic)
-      try {
-        const u = await User.findById(socket.userId).select('name').lean();
-        if (u) io.emit('admin:audit', { type: 'disconnect', user: u.name, timestamp: new Date().toISOString() });
-      } catch (err) { console.error('audit disconnect error:', err.message); }
 
       const uid = socket.userId.toString();
       const timer = setTimeout(async () => {

@@ -4,6 +4,7 @@ const Footprint = require('../models/Footprint');
 const Notification = require('../models/Notification');
 const { getOnlineUsers, disconnectUser } = require('../socket');
 const bus = require('../events/bus');
+const auditService = require('./AuditService');
 
 /**
  * Enrich raw socket online data with user names/avatars.
@@ -70,7 +71,7 @@ async function deleteUser(userId, actorName) {
 
   await disconnectUser(userId, '您的账户已被管理员删除');
 
-  bus.emit('admin:audit', { type: 'delete', actor: actorName, target: user.name, timestamp: new Date().toISOString() });
+  auditService.log({ type: 'delete', actor: actorName, target: user.name });
 
   return { message: 'User and all associated data deleted', userName: user.name };
 }
@@ -119,7 +120,7 @@ async function kickUser(userId, actorName) {
   await User.findByIdAndUpdate(userId, { isOnline: false });
   const disconnected = await disconnectUser(userId, '您已被管理员踢出');
 
-  bus.emit('admin:audit', { type: 'kick', actor: actorName, target: user.name, timestamp: new Date().toISOString() });
+  auditService.log({ type: 'kick', actor: actorName, target: user.name });
 
   return { message: disconnected
     ? `User ${user.name} has been kicked`

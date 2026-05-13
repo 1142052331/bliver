@@ -1,6 +1,7 @@
 const express = require('express');
 const { auth, admin } = require('../middleware/auth');
 const adminService = require('../services/AdminService');
+const auditService = require('../services/AuditService');
 
 const router = express.Router();
 
@@ -33,8 +34,7 @@ router.put('/admin/users/:id', async (req, res) => {
     const result = await adminService.updateUser(req.params.id, req.body);
     if (result.error) return res.status(result.status).json({ error: result.error });
     res.json({ user: result.user });
-    const bus = require('../events/bus');
-    bus.emit('admin:audit', { type: 'user_edit', actor: req.user.name, target: result.user.name, timestamp: new Date().toISOString() });
+    auditService.log({ type: 'user_edit', actor: req.user.name, target: result.user.name });
   } catch (err) {
     console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
   }
@@ -59,6 +59,17 @@ router.get('/admin/clones', async (req, res) => {
   } catch (err) {
     console.error('[admin]', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/admin/audit — persisted audit log (most recent first)
+router.get('/admin/audit', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+    const docs = await auditService.query({ limit, before: req.query.before || null });
+    res.json({ logs: docs });
+  } catch (err) {
+    console.error('[admin]', err); res.status(500).json({ error: 'Internal server error' });
   }
 });
 

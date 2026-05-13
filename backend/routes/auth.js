@@ -1,10 +1,10 @@
 const express = require('express');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
 const { auth } = require('../middleware/auth');
-const bus = require('../events/bus');
 const validate = require('../middleware/validate');
 const { register: registerSchema, login: loginSchema } = require('../validators/schemas');
 const authService = require('../services/AuthService');
+const auditService = require('../services/AuditService');
 
 const router = express.Router();
 
@@ -15,8 +15,7 @@ router.post('/auth/register', upload.single('avatar'), uploadToCloudinary, valid
     const ip = authService.getClientIp(req);
     const result = await authService.register({ name, password, avatarUrl: req.cloudinaryUrl || '', ip });
     if (result.error) return res.status(result.status).json({ error: result.error });
-    const now = new Date().toISOString();
-    bus.emit('admin:audit', { type: 'register', user: name, ip, timestamp: now });
+    auditService.log({ type: 'register', actor: name, ip });
     res.status(201).json({ user: result.user, token: result.token });
   } catch (err) {
     next(err);
@@ -31,7 +30,7 @@ router.post('/auth/login', validate(loginSchema), async (req, res, next) => {
     const result = await authService.login(name, password, ip);
     if (result.error) return res.status(result.status).json({ error: result.error });
 
-    bus.emit('admin:audit', { type: 'login', user: name, ip, timestamp: new Date().toISOString() });
+    auditService.log({ type: 'login', actor: name, ip });
     res.json({ user: result.user, token: result.token });
   } catch (err) {
     next(err);
