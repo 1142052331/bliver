@@ -25,7 +25,7 @@ export default function NotificationPanel({ notifications, onClose, onNavigate }
         </div>
 
         {/* List */}
-        <div className="max-h-[420px] overflow-y-auto aurora-scroll p-2">
+        <div className="max-h-[min(480px,70vh)] overflow-y-auto aurora-scroll p-2">
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-white/28">
               <Bell className="w-10 h-10" />

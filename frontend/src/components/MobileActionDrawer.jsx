@@ -44,7 +44,7 @@ export default function MobileActionDrawer({
       {/* ── Dropdown panel — floats below FAB, map stays visible */}
       <div
         ref={panelRef}
-        className={`absolute top-12 right-0 w-56 max-h-[60vh]
+        className={`absolute top-12 right-0 w-56 max-h-[85vh]
           ios-panel
           flex flex-col
           transition-all duration-300 ease-[cubic-bezier(0.22,0.61,0.36,1)]
