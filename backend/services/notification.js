@@ -1,16 +1,24 @@
 const Notification = require('../models/Notification');
 const { sendPushToUser } = require('./push');
-const bus = require('../events/bus');
+
+let _io = null;
+
+function init(io) {
+  _io = io;
+}
 
 /**
- * 创建通知：写入数据库 + Socket 实时推送 + Web Push 离线推送。
+ * 创建通知：写入数据库 + Socket 直达目标用户 room + Web Push 离线推送。
  * 由 FootprintService 和 api.js 直接调用。
  */
 async function notify({ recipientId, senderName, type, footprintId, content }) {
   const notifData = { recipientId, senderName, type, content };
   if (footprintId) notifData.footprintId = footprintId;
   const notif = await Notification.create(notifData);
-  bus.emit('new_notification', { recipientId, notification: notif });
+
+  if (_io) {
+    _io.to(recipientId.toString()).emit('new_notification', { notification: notif });
+  }
 
   let pushTitle;
   if (type === 'reaction') {
@@ -28,4 +36,4 @@ async function notify({ recipientId, senderName, type, footprintId, content }) {
   });
 }
 
-module.exports = { notify };
+module.exports = { init, notify };
