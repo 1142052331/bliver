@@ -6,9 +6,21 @@ LING.env
 .mcp.json
 .codex/
 .reasonix/
+
+# Claude Code / AI tools
+.agents/
+.claude/
+.superpowers/
+
+# IDE
+.idea/
+*.iml
+
 # Android / Capacitor build outputs
 android/.gradle/
 android/build/
 android/app/build/
+android/.idea/
+android/local.properties
 android/capacitor-cordova-android-plugins/build/
 nul
