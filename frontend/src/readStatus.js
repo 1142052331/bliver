@@ -5,6 +5,24 @@ function getReadKey(userId) {
   return userId ? `bliver_read_${userId}` : 'bliver_read_guest';
 }
 
+function getFirstVisitKey(userId) {
+  return userId ? `bliver_first_visit_${userId}` : 'bliver_first_visit_guest';
+}
+
+/**
+ * 获取用户首次访问时间戳。
+ * 首次访问时自动记录，之后保持不变。
+ */
+export function getFirstVisitTime(userId) {
+  const key = getFirstVisitKey(userId);
+  let time = localStorage.getItem(key);
+  if (!time) {
+    time = Date.now();
+    localStorage.setItem(key, time);
+  }
+  return Number(time);
+}
+
 export function getReadMap(userId) {
   try {
     return JSON.parse(localStorage.getItem(getReadKey(userId))) || {};
@@ -20,20 +38,20 @@ export function markRead(fpId, userId) {
 }
 
 /**
- * 首次出现时，只对超过7天的旧足迹标记已读。
- * 7天内的新足迹默认显示"新消息"，直到用户主动打开。
+ * 首次出现时，对首次访问之前的足迹标记已读。
+ * 只有首次访问之后创建的足迹才显示"新消息"。
  */
 export function seedReadMap(fpIds, footprints, userId) {
   const existing = getReadMap(userId);
+  const firstVisit = getFirstVisitTime(userId);
   let changed = false;
-  const now = Date.now();
   fpIds.forEach((id, i) => {
     if (!(id in existing)) {
       const fp = footprints[i];
       const fpTime = fp ? new Date(fp.createdAt).getTime() : 0;
-      // 旧足迹（>7天）直接标记已读；新足迹不标记，等用户打开
-      if (fpTime && (now - fpTime) > SEVEN_DAYS_MS) {
-        existing[id] = now;
+      // 首次访问之前的足迹标记为已读
+      if (fpTime && fpTime < firstVisit) {
+        existing[id] = firstVisit;
         changed = true;
       }
     }
