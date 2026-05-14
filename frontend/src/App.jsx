@@ -74,8 +74,9 @@ export default function App() {
       );
     }
 
-    // Notification permission: trigger dialog if undecided
-    if ('Notification' in window && Notification.permission === 'default') {
+    // Notification permission: always try to request (even if previously denied)
+    // Capacitor WebView may re-show native dialog; browsers won't but no harm in trying
+    if ('Notification' in window && Notification.permission !== 'granted') {
       Notification.requestPermission().then((p) => console.log('[Perm] Notification:', p));
     }
   }, []);

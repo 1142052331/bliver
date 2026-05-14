@@ -22,13 +22,11 @@ export async function subscribeToPush() {
     return { success: false, reason: 'unsupported' };
   }
 
-  // Only prompt if the user hasn't decided yet. If already denied, skip.
+  // Always try to request — even if previously denied.
+  // In Capacitor WebView, the native layer may re-show the dialog.
+  // In browsers, denied state won't re-prompt (user must reset in settings).
   let permission = Notification.permission;
-  if (permission === 'denied') {
-    console.log('[Push] Notification permission previously denied, skipping');
-    return { success: false, reason: 'denied' };
-  }
-  if (permission === 'default') {
+  if (permission !== 'granted') {
     permission = await Notification.requestPermission();
     console.log('[Push] Notification permission:', permission);
   }
