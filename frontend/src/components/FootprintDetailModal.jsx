@@ -121,7 +121,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onCl
                 onClick={() => useUIStore.getState().openProfile(user._id)}>
                 {user.name || 'Unknown'}
               </span>
-              <div className="flex items-center gap-1 text-xs text-aurora-muted">
+              <div className="flex items-center gap-1 text-xs text-white/60">
                 <Clock className="w-3 h-3" />
                 {new Date(fp.createdAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
@@ -130,7 +130,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onCl
 
           {/* Location + Mood */}
           <div className="flex items-center gap-2 mb-2">
-            <p className="text-sm text-aurora-muted">
+            <p className="text-sm text-white/70">
               <MapPin className="w-3.5 h-3.5 inline mr-1" />
               {fp.placeName || 'Unknown location'}
             </p>
@@ -138,7 +138,7 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onCl
           </div>
 
           {/* Message */}
-          <p className="text-aurora-text font-medium whitespace-pre-wrap text-[15px] leading-relaxed mb-4"
+          <p className="text-white font-medium whitespace-pre-wrap text-[15px] leading-relaxed mb-4"
             style={{ fontFamily: 'var(--font-body)' }}>
             {fp.message}
           </p>
