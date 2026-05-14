@@ -63,7 +63,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                 className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-500 bg-cover bg-center"
                 style={profile.profileBannerUrl ? { backgroundImage: `url(${profile.profileBannerUrl})` } : undefined}
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/80" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-[#10131a]" />
 
               <div className="relative z-10">
                 {/* Banner top bar */}
@@ -268,7 +268,7 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
                 footprints={footprints}
                 userId={userId}
                 isAdmin={false}
-                onSelect={onSelectFootprint}
+                onSelectFootprint={onSelectFootprint}
               />
               {footprints.length === 0 && (
                 <p className="text-center text-white/20 text-sm py-8">还没有足迹</p>
