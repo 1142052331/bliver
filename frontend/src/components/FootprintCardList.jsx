@@ -1,3 +1,4 @@
+// @feature 足迹卡片列表 | Footprint Card List | FootprintCardList
 import { MapPin, Clock, MessageCircle, Heart, LogOut } from 'lucide-react';
 
 function timeAgo(date) {

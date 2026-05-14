@@ -1,3 +1,4 @@
+// @feature 消息浮岛 | Message Island | MessageIsland
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, Eye, ArrowRight, X } from 'lucide-react';

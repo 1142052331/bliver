@@ -1,3 +1,4 @@
+// @feature 通知面板 | Notification Panel | NotificationPanel
 import { X, Bell } from 'lucide-react';
 
 function timeAgo(date) {

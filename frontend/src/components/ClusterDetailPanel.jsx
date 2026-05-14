@@ -1,3 +1,4 @@
+// @feature 集群详情面板 | Cluster Detail Panel | ClusterDetailPanel
 import { useMemo, useState, useEffect } from 'react';
 import useUIStore from '../store/useUIStore';
 import { groupFootprintsByUser } from '../utils/groupFootprints';

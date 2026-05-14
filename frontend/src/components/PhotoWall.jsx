@@ -1,3 +1,4 @@
+// @feature 照片墙 | Photo Wall | PhotoWall
 import { useMemo, useEffect, useState } from 'react';
 import { X, MapPin, Heart, MessageCircle, Sparkles } from 'lucide-react';
 

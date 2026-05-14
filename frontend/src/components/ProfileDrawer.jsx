@@ -1,3 +1,4 @@
+// @feature 个人主页抽屉 | Profile Drawer | ProfileDrawer
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { X, Camera, Loader2, Pencil, Check, MessageCircle, Clock, UserPlus, MapPin } from 'lucide-react';

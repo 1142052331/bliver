@@ -51,3 +51,7 @@ MONGODB_URI, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, O
 - 查找符号/函数优先用 Grep，定位到行号后再 Read 相关区间
 - 路由表、数据模型等细节通过读取源文件获取，不需要记忆
 - 独立功能完成后建议 /clear 开启新对话
+
+## 定位功能文件
+
+修改功能时，先用 Grep 搜索 `@feature.*关键词` 定位目标文件，不要逐文件阅读。每个组件文件顶部有 `// @feature 中文功能名 | English Name | ComponentName` 注释。

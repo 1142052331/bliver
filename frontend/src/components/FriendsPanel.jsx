@@ -1,3 +1,4 @@
+// @feature 好友面板 | Friends Panel | FriendsPanel
 import { motion } from 'framer-motion';
 import { X, Users, MessageCircle } from 'lucide-react';
 import { isSuperuser } from '../domain/superuser';

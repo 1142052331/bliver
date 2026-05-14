@@ -1,3 +1,4 @@
+// @feature 地图视图 | Map View | MapView
 import { MapContainer, TileLayer } from 'react-leaflet';
 import MapResizeHandler from './MapResizeHandler';
 import ClusterMarkers from './ClusterMarkers';

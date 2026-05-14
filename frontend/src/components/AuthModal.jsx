@@ -1,3 +1,4 @@
+// @feature 登录注册弹窗 | Auth Modal | AuthModal
 import { useState, useRef, useEffect } from 'react';
 import imageCompression from 'browser-image-compression';
 import { apiClient } from '../api';

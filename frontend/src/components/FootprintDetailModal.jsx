@@ -1,3 +1,4 @@
+// @feature 打卡详情卡片 | Footprint Detail Modal | FootprintDetailModal
 import { useState, useMemo, useEffect, useRef } from 'react';
 import useUIStore from '../store/useUIStore';
 import { motion } from 'framer-motion';

@@ -1,3 +1,4 @@
+// @feature 打卡弹窗 | Check-in Modal | CheckInModal
 import { useState, useRef, useEffect } from 'react';
 import { apiClient } from '../api';
 import imageCompression from 'browser-image-compression';

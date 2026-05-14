@@ -1,3 +1,4 @@
+// @feature 管理员面板 | Admin Panel | AdminPanel
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { X, Users, Shield, Trash2, Zap, RefreshCw, Wifi, WifiOff, Check, PencilLine, Crosshair, AlertTriangle, Radio, UserX, Eye, Activity, Pause, Play, LogIn, UserPlus, MapPin, MessageCircle, Heart, UserX as UserXIcon, Trash2 as TrashIcon, Edit3, ZapOff, Wifi as WifiIcon, WifiOff as WifiOffIcon } from 'lucide-react';
 import { apiClient } from '../api';

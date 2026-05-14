@@ -1,3 +1,4 @@
+// @feature 关于弹窗 | About Modal | AboutModal
 import { useState, useEffect } from 'react';
 import useUIStore from '../store/useUIStore';
 import { SUPERUSER_NAME, isSuperuser } from '../domain/superuser';

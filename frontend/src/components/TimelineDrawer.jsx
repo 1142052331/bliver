@@ -1,3 +1,4 @@
+// @feature 足迹时间线 | Timeline Drawer | TimelineDrawer
 import { useState, useRef, useEffect } from 'react';
 import useUIStore from '../store/useUIStore';
 import { groupFootprintsByUser } from '../utils/groupFootprints';

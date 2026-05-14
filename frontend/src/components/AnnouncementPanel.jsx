@@ -1,3 +1,4 @@
+// @feature 公告面板 | Announcement Panel | AnnouncementPanel
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { X, Megaphone, Send, Loader2 } from 'lucide-react';

@@ -1,3 +1,4 @@
+// @feature 菜单面板 | Mobile Menu | MobileActionDrawer
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, Clock, Image, Bell, Users, User, Shield, Menu, X } from 'lucide-react';
 import useUIStore from '../store/useUIStore';

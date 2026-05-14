@@ -1,3 +1,4 @@
+// @feature 顶部导航栏 | Top Navigation Bar | NavBar
 import { MapPin, LogOut, Bell, Megaphone, Users, Shield, LogIn, UserPlus } from 'lucide-react';
 import useUIStore from '../store/useUIStore';
 

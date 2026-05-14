@@ -1,3 +1,4 @@
+// @feature 聊天窗口 | Chat Window | ChatWindow
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send, Loader2, Minus, Maximize2, GripHorizontal } from 'lucide-react';
 import { apiClient } from '../api';
