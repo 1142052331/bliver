@@ -291,9 +291,9 @@ export default function ClusterMarkers({ footprints, userId, isAdmin }) {
 
     cg.clearLayers();
 
-    // 首次访问初始化：避免所有带评论的足迹同时显示「新消息」
+    // 首次访问初始化：只对旧足迹（>7天）标记已读
     const fpIds = footprints.map((f) => f._id);
-    const readMap = seedReadMap(fpIds);
+    const readMap = seedReadMap(fpIds, footprints, userId);
     const unreadCount = footprints.filter((fp) => isUnread(fp, readMap)).length;
     console.log('[ClusterMarkers] markers update: footprints=', footprints.length,
       'readMapKeys=', Object.keys(readMap).length,

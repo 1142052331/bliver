@@ -34,23 +34,23 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onCl
   const [unreadDismissed, setUnreadDismissed] = useState(false);
   useEffect(() => {
     setUnreadDismissed(false);
-    seedReadMap([fp._id]);
-  }, [fp._id]);
+    seedReadMap([fp._id], [fp], userId);
+  }, [fp._id, userId]);
 
   const { unreadComments, footprintIsNew } = useMemo(() => {
     if (unreadDismissed) return { unreadComments: [], footprintIsNew: false };
     try {
-      const readMap = getReadMap();
+      const readMap = getReadMap(userId);
       const comments = getUnreadComments(fp, readMap);
       const isNew = isNewFootprint(fp, readMap);
       return { unreadComments: comments, footprintIsNew: isNew };
     } catch { return { unreadComments: [], footprintIsNew: false }; }
-  }, [fp, unreadDismissed]);
+  }, [fp, unreadDismissed, userId]);
 
   const showUnreadSection = unreadComments.length > 0 || footprintIsNew;
 
   const handleDismissUnread = () => {
-    markRead(fp._id);
+    markRead(fp._id, userId);
     setUnreadDismissed(true);
     useUIStore.getState().incrementMarkReadVersion();
   };

@@ -1,42 +1,45 @@
-export const READ_KEY = 'bliver_read_comments';
-
-/** 页面加载时刻，晚于此时间的足迹/留言才算"新" */
-const PAGE_LOAD_TIME = Date.now();
 /** 7天时间锁：超过7天的足迹不再标记为"新打卡" */
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-export function getReadMap() {
+function getReadKey(userId) {
+  return userId ? `bliver_read_${userId}` : 'bliver_read_guest';
+}
+
+export function getReadMap(userId) {
   try {
-    return JSON.parse(localStorage.getItem(READ_KEY)) || {};
+    return JSON.parse(localStorage.getItem(getReadKey(userId))) || {};
   } catch {
     return {};
   }
 }
 
-export function markRead(fpId) {
-  const map = getReadMap();
+export function markRead(fpId, userId) {
+  const map = getReadMap(userId);
   map[fpId] = Date.now();
-  localStorage.setItem(READ_KEY, JSON.stringify(map));
+  localStorage.setItem(getReadKey(userId), JSON.stringify(map));
 }
 
 /**
- * 首次出现时用页面加载时间作为已读基准：
- * - 页面前的足迹/留言 → 不提示
- * - 页面后的足迹/留言 → 提示"新"
- *
- * 防御：不覆盖已存在的 readTime（防止 seed 反复调用冲掉真实已读时间）
+ * 首次出现时，只对超过7天的旧足迹标记已读。
+ * 7天内的新足迹默认显示"新消息"，直到用户主动打开。
  */
-export function seedReadMap(fpIds) {
-  const existing = getReadMap();
+export function seedReadMap(fpIds, footprints, userId) {
+  const existing = getReadMap(userId);
   let changed = false;
-  fpIds.forEach((id) => {
+  const now = Date.now();
+  fpIds.forEach((id, i) => {
     if (!(id in existing)) {
-      existing[id] = PAGE_LOAD_TIME;
-      changed = true;
+      const fp = footprints[i];
+      const fpTime = fp ? new Date(fp.createdAt).getTime() : 0;
+      // 旧足迹（>7天）直接标记已读；新足迹不标记，等用户打开
+      if (fpTime && (now - fpTime) > SEVEN_DAYS_MS) {
+        existing[id] = now;
+        changed = true;
+      }
     }
   });
   if (changed) {
-    localStorage.setItem(READ_KEY, JSON.stringify(existing));
+    localStorage.setItem(getReadKey(userId), JSON.stringify(existing));
   }
   return existing;
 }

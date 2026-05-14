@@ -30,7 +30,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onClos
   const grouped = groupFootprintsByUser(footprints);
 
   // Read once for all cards — check which footprints are unread
-  const readMap = useMemo(() => getReadMap(), [footprints]);
+  const readMap = useMemo(() => getReadMap(userId), [footprints, userId]);
   const unreadSet = useMemo(() => {
     const s = new Set();
     footprints.forEach((fp) => {
