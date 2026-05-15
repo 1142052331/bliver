@@ -181,7 +181,8 @@
 }
 
 .leaflet-tile {
-  filter: saturate(0.82) contrast(1.02) brightness(0.92);
+  /* Some browsers fail to render tiles with CSS filter. Disabled for cross-browser safety.
+  filter: saturate(0.82) contrast(1.02) brightness(0.92); */
 }
 
 .ios-glass,
