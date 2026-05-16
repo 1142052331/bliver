@@ -70,6 +70,10 @@ interface UIStore {
   // Admin Teleport
   pendingCheckInLocation: PendingLocation | null;
 
+  // Locate-me / auto-center trigger
+  centerOnLocation: PendingLocation | null;
+  centerOnLocationId: number;
+
   // Real-time event bus (replaces window CustomEvent)
   markReadVersion: number;
   footprintEvent: {
@@ -124,6 +128,7 @@ interface UIStore {
   clearMessageIsland: () => void;
 
   setPendingCheckInLocation: (loc: PendingLocation | null) => void;
+  setCenterOnLocation: (loc: PendingLocation | null) => void;
 
   incrementMarkReadVersion: () => void;
   emitFootprintEvent: (event: {
@@ -165,6 +170,9 @@ const useUIStore = create<UIStore>()(
   messageIsland: null,
 
   pendingCheckInLocation: null,
+
+  centerOnLocation: null,
+  centerOnLocationId: 0,
 
   markReadVersion: 0,
   footprintEvent: null,
@@ -226,6 +234,9 @@ const useUIStore = create<UIStore>()(
   clearMessageIsland: () => set({ messageIsland: null }),
 
   setPendingCheckInLocation: (loc) => set({ pendingCheckInLocation: loc }),
+
+  setCenterOnLocation: (loc) =>
+    set((s) => ({ centerOnLocation: loc, centerOnLocationId: s.centerOnLocationId + 1 })),
 
   incrementMarkReadVersion: () => set((s) => ({ markReadVersion: s.markReadVersion + 1 })),
   emitFootprintEvent: (event) =>

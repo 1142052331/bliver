@@ -1,6 +1,7 @@
 // @feature 打卡弹窗 | Check-in Modal | CheckInModal
 import { useState, useRef, useEffect } from 'react';
 import { apiClient } from '../api';
+import useUIStore from '../store/useUIStore';
 import imageCompression from 'browser-image-compression';
 import { X, MapPin, Camera, Loader2 } from 'lucide-react';
 
@@ -89,6 +90,7 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
 
     try {
       await apiClient.footprints.checkin(form);
+      if (location?.lat) useUIStore.getState().setCenterOnLocation({ lat: location.lat, lng: location.lng });
       setMessage('');
       setMood('');
       setPhoto(null);

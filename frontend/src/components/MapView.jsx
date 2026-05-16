@@ -6,6 +6,8 @@ import FlyToFootprint from './FlyToFootprint';
 import RecenterOnLoad from './RecenterOnLoad';
 import PanToTarget from './PanToTarget';
 import MapContextMenu from './MapContextMenu';
+import LocateMeButton from './LocateMeButton';
+import CenterOnLocation from './CenterOnLocation';
 
 const CENTER = [33.5597, 133.5311];
 
@@ -44,6 +46,8 @@ export default function MapView({
         isAdmin={isAdmin}
       />
       {isAdmin && <MapContextMenu />}
+      <LocateMeButton />
+      <CenterOnLocation />
     </MapContainer>
   );
 }
