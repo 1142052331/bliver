@@ -12,6 +12,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   });
 }
 import { broadcastLogin } from './authSync';
+import { getPeriod, setPeriod } from './auth';
 import useAuth from './hooks/useAuth';
 import { refetchNotifications } from './hooks/useNotifications';
 import L from 'leaflet';
@@ -90,7 +91,8 @@ export default function App() {
   // ── Core state ────────────────────────────────────────
   const [onlineCount, setOnlineCount] = useState(0);
   const [announceHasUnread, clearAnnounceUnread] = useAnnounceUnread(user);
-  const [footprintPeriod, setFootprintPeriod] = useState('week');
+  const [footprintPeriod, setFootprintPeriod] = useState(getPeriod);
+  const handlePeriodChange = useCallback((p) => { setPeriod(p); setFootprintPeriod(p); }, []);
 
   // ── React Query: footprints ────────────────────────────
   const queryClient = useQueryClient();
@@ -353,7 +355,7 @@ export default function App() {
             isAdmin={isAdmin}
             onSelectFootprint={(fpId) => { closeTimeline(); setTimelineTargetFpId(fpId); }}
             period={footprintPeriod}
-            onChangePeriod={setFootprintPeriod}
+            onChangePeriod={handlePeriodChange}
             loading={footprintsLoading}
           />
 

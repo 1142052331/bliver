@@ -43,3 +43,11 @@ export const setAutoLogin = (enabled) => {
 };
 
 export const isAutoLogin = () => localStorage.getItem(AUTOLOGIN_KEY) === '1';
+
+// Timeline period preference
+const PERIOD_KEY = 'bliver_period';
+export const getPeriod = () => {
+  const v = localStorage.getItem(PERIOD_KEY);
+  return (v === 'today' || v === 'week' || v === 'year') ? v : 'year';
+};
+export const setPeriod = (period) => localStorage.setItem(PERIOD_KEY, period);
