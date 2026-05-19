@@ -43,6 +43,7 @@ interface UIStore {
   showAuth: boolean;
   showPhotoWall: boolean;
   showAbout: boolean;
+  showFeedback: boolean;
   showAnnouncements: boolean;
   showFriends: boolean;
 
@@ -97,6 +98,8 @@ interface UIStore {
   closePhotoWall: () => void;
   openAbout: () => void;
   closeAbout: () => void;
+  openFeedback: () => void;
+  closeFeedback: () => void;
   openAnnouncements: () => void;
   closeAnnouncements: () => void;
   openFriends: () => void;
@@ -145,6 +148,7 @@ const useUIStore = create<UIStore>()(
   showAuth: false,
   showPhotoWall: false,
   showAbout: false,
+  showFeedback: false,
   showAnnouncements: false,
   showFriends: false,
 
@@ -189,6 +193,8 @@ const useUIStore = create<UIStore>()(
   closePhotoWall: () => set({ showPhotoWall: false }),
   openAbout: () => set({ showAbout: true }),
   closeAbout: () => set({ showAbout: false }),
+  openFeedback: () => set({ showFeedback: true }),
+  closeFeedback: () => set({ showFeedback: false }),
   openAnnouncements: () => set({ showAnnouncements: true }),
   closeAnnouncements: () => set({ showAnnouncements: false }),
   openFriends: () => set({ showFriends: true }),

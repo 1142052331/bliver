@@ -98,4 +98,20 @@ const router = express.Router();
     res.json({ ok: true, message: result.message });
   });
 
+  // ── Feedback ──────────────────────────────────────────
+
+  router.post('/feedback', auth, async (req, res) => {
+    const Feedback = require('../models/Feedback');
+    const { rating, content } = req.body;
+    if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating 1-5 required' });
+    const fb = await Feedback.create({ userId: req.user.id, rating, content: content || '' });
+    res.json({ ok: true, feedback: fb });
+  });
+
+  router.get('/admin/feedback', auth, admin, async (req, res) => {
+    const Feedback = require('../models/Feedback');
+    const list = await Feedback.find().populate('userId', 'name avatarUrl').sort({ createdAt: -1 }).lean();
+    res.json({ feedback: list });
+  });
+
 module.exports = router;

@@ -1,9 +1,9 @@
 // @feature 顶部导航栏 | Top Navigation Bar | NavBar
-import { MapPin, LogOut, Bell, Megaphone, Users, Shield, LogIn, UserPlus } from 'lucide-react';
+import { MapPin, LogOut, Bell, Megaphone, Users, Shield, LogIn, UserPlus, MessageSquare } from 'lucide-react';
 import useUIStore from '../store/useUIStore';
 
 export default function NavBar({ onlineCount, user, onLogout, unreadCount, announceHasUnread, friendUnreadCount, isAdmin, onCheckIn }) {
-  const { toggleNotifs, openAnnouncements, openFriends, openAdmin, openAuth, openAbout } = useUIStore();
+  const { toggleNotifs, openAnnouncements, openFriends, openAdmin, openAuth, openAbout, openFeedback } = useUIStore();
   return (
     <nav className="ios-glass absolute z-[1000] hidden md:flex items-center justify-between
       px-3.5 py-2.5 rounded-[28px] transform-gpu will-change-transform"
@@ -82,6 +82,15 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
+          </button>
+        )}
+
+        {/* Feedback */}
+        {user && (
+          <button onClick={openFeedback}
+            className="ios-icon-button"
+            title="反馈建议">
+            <MessageSquare className="w-4 h-4" />
           </button>
         )}
 

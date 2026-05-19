@@ -1,12 +1,12 @@
 // @feature 菜单面板 | Mobile Menu | MobileActionDrawer
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, Clock, Image, Bell, Users, User, Shield, Menu, X } from 'lucide-react';
+import { MapPin, Clock, Image, Bell, Users, User, Shield, Menu, X, MessageSquare } from 'lucide-react';
 import useUIStore from '../store/useUIStore';
 
 export default function MobileActionDrawer({
   user, isAdmin, unreadCount, friendUnreadCount, onCheckIn,
 }) {
-  const { openTimeline, openPhotoWall, toggleNotifs, openFriends, openAdmin, openAuth, openProfile } = useUIStore();
+  const { openTimeline, openPhotoWall, toggleNotifs, openFriends, openAdmin, openAuth, openProfile, openFeedback } = useUIStore();
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
 
@@ -136,6 +136,18 @@ export default function MobileActionDrawer({
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
+            </button>
+          )}
+
+          {/* Feedback */}
+          {user && (
+            <button
+              type="button"
+              onClick={closeAnd(openFeedback)}
+              className={`${itemClass} text-white/78`}
+            >
+              <MessageSquare className="w-5 h-5 text-green-400" />
+              反馈建议
             </button>
           )}
 

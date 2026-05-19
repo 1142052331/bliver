@@ -1,6 +1,7 @@
 // @feature 打卡弹窗 | Check-in Modal | CheckInModal
 import { useState, useRef, useEffect } from 'react';
 import { apiClient } from '../api';
+import useUIStore from '../store/useUIStore';
 import imageCompression from 'browser-image-compression';
 import { X, MapPin, Camera, Loader2 } from 'lucide-react';
 
@@ -96,6 +97,10 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
       setPreview('');
       setLocation(null);
       onClose();
+      // Trigger feedback popup for first-time users
+      if (!localStorage.getItem('feedback_submitted')) {
+        setTimeout(() => useUIStore.getState().openFeedback(), 600);
+      }
     } catch (err) {
       console.error(err);
     } finally {

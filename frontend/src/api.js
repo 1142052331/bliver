@@ -80,6 +80,10 @@ export const apiClient = {
     create(data) { return api.post('/api/announcements', data); },
   },
 
+  feedback: {
+    submit(data) { return api.post('/api/feedback', data); },
+  },
+
   admin: {
     online(opts) { return api.get('/api/admin/online', opts); },
     users(opts) { return api.get('/api/admin/users', opts); },
@@ -94,6 +98,7 @@ export const apiClient = {
       const qs = params.toString();
       return api.get(`/api/admin/audit${qs ? '?' + qs : ''}`, opts);
     },
+    feedback(opts) { return api.get('/api/admin/feedback', opts); },
   },
 
   push: {

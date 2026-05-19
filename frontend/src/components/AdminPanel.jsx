@@ -1,12 +1,13 @@
 // @feature 管理员面板 | Admin Panel | AdminPanel
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { X, Users, Shield, Trash2, Zap, RefreshCw, Wifi, WifiOff, Check, PencilLine, Crosshair, AlertTriangle, Radio, UserX, Eye, Activity, Pause, Play, LogIn, UserPlus, MapPin, MessageCircle, Heart, UserX as UserXIcon, Trash2 as TrashIcon, Edit3, ZapOff, Wifi as WifiIcon, WifiOff as WifiOffIcon } from 'lucide-react';
+import { X, Users, Shield, Trash2, Zap, RefreshCw, Wifi, WifiOff, Check, PencilLine, Crosshair, AlertTriangle, Radio, UserX, Eye, Activity, Pause, Play, LogIn, UserPlus, MapPin, MessageCircle, Heart, UserX as UserXIcon, Trash2 as TrashIcon, Edit3, ZapOff, Wifi as WifiIcon, WifiOff as WifiOffIcon, MessageSquare } from 'lucide-react';
 import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
 import AdminOnlineTab from './AdminOnlineTab';
 import AdminUsersTab from './AdminUsersTab';
 import AdminClonesTab from './AdminClonesTab';
 import AdminAuditTab from './AdminAuditTab';
+import AdminFeedbackTab from './AdminFeedbackTab';
 
 export default function AdminPanel({ onClose, socketRef }) {
   const [tab, setTab] = useState('users');
@@ -188,6 +189,10 @@ export default function AdminPanel({ onClose, socketRef }) {
             <Activity className="w-3.5 h-3.5 inline mr-1.5" />
             审计日志
           </button>
+          <button onClick={() => setTab('feedback')} className={tabClass('feedback')}>
+            <MessageSquare className="w-3.5 h-3.5 inline mr-1.5" />
+            反馈
+          </button>
         </div>
 
         {/* Content */}
@@ -227,6 +232,10 @@ export default function AdminPanel({ onClose, socketRef }) {
               {/* ── AUDIT LOG TAB ── */}
               {tab === 'audit' && (
                 <AdminAuditTab />
+              )}
+              {/* ── FEEDBACK TAB ── */}
+              {tab === 'feedback' && (
+                <AdminFeedbackTab />
               )}
             </>
           )}

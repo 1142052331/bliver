@@ -31,6 +31,7 @@ import NotificationPanel from './components/NotificationPanel';
 import AdminPanel from './components/AdminPanel';
 import GlobalToaster from './components/GlobalToaster';
 import AboutModal from './components/AboutModal';
+import FeedbackModal from './components/FeedbackModal';
 import ProfileDrawer from './components/ProfileDrawer';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -100,6 +101,15 @@ export default function App() {
   periodRef.current = footprintPeriod;
   const { data: footprints = [], isLoading: footprintsLoading, refetch: refetchFootprints } = useFootprints(footprintPeriod, null);
 
+  // ── Feedback trigger for returning users ───────────────
+  const feedbackChecked = useRef(false);
+  useEffect(() => {
+    if (user && footprints.length > 0 && !feedbackChecked.current && !localStorage.getItem('feedback_submitted')) {
+      feedbackChecked.current = true;
+      setTimeout(() => openFeedback(), 800);
+    }
+  }, [user, footprints]);
+
   // Stable cache updater for socket/mutations (uses refs to avoid stale closures)
   const setFootprints = useCallback((updater) => {
     queryClient.setQueryData(['footprints', periodRef.current, null], (old) => {
@@ -111,14 +121,14 @@ export default function App() {
   // ── UI state (Zustand) ────────────────────────────────
   const {
     showCheckIn, showTimeline, showNotifs, showAdmin, showAuth,
-    showPhotoWall, showAbout, showAnnouncements, showFriends,
+    showPhotoWall, showAbout, showFeedback, showAnnouncements, showFriends,
     chatUserId, viewingProfileId,
     authTab, authMessage,
     shareTarget, clusterData, activeFootprintId, flyArrivedFp, timelineTargetFpId,
     openCheckIn, closeCheckIn, openTimeline, closeTimeline,
     toggleNotifs, closeNotifs, openAdmin, closeAdmin,
     openAuth, closeAuth, openPhotoWall, closePhotoWall,
-    openAbout, closeAbout, openAnnouncements, closeAnnouncements,
+    openAbout, closeAbout, openFeedback, closeFeedback, openAnnouncements, closeAnnouncements,
     openFriends, closeFriends,
     setActiveFootprintId, setFlyArrivedFp, setTimelineTargetFpId,
     setClusterData, setShareTarget,
@@ -406,6 +416,7 @@ export default function App() {
         )}
 
         <AboutModal isOpen={showAbout} onClose={() => closeAbout()} user={user} />
+        <FeedbackModal isOpen={showFeedback} onClose={closeFeedback} />
 
         {showAuth && (
           <AuthModal
