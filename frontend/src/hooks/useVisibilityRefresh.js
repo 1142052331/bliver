@@ -9,7 +9,7 @@ export default function useVisibilityRefresh({
   user,
   socketRef,
   refetchFootprints,
-  setNotifications,
+  applyServerNotifications,
 }) {
   const abortRef = useRef(null);
 
@@ -29,7 +29,7 @@ export default function useVisibilityRefresh({
       abortRef.current = controller;
 
       refetchFootprints();
-      refetchNotifications(setNotifications, { signal: controller.signal });
+      refetchNotifications(applyServerNotifications, { signal: controller.signal });
     };
 
     const handleWake = () => {
@@ -43,5 +43,5 @@ export default function useVisibilityRefresh({
       document.removeEventListener('visibilitychange', handleWake);
       if (abortRef.current) abortRef.current.abort();
     };
-  }, [user, socketRef, refetchFootprints, setNotifications]);
+  }, [user, socketRef, refetchFootprints, applyServerNotifications]);
 }

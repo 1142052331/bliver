@@ -99,6 +99,8 @@ vi.mock('../hooks/useNotifications', () => ({
   default: () => ({
     notifications: [],
     setNotifications: vi.fn(),
+    appendNotification: vi.fn(),
+    applyServerNotifications: vi.fn(),
     clearNotifications: mocks.clearNotifications,
     unreadCount: 3,
     markFootprintRead: vi.fn(),

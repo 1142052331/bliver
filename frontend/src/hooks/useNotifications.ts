@@ -16,8 +16,7 @@ const READ_COUNT_KEY = 'bliver_unread_v1';
 
 export default function useNotifications() {
   const [notifications, setNotificationsState] = useState<ServerNotification[]>([]);
-  const [hasSyncedNotifications, setHasSyncedNotifications] = useState(false);
-  const hasSyncedNotificationsRef = useRef(false);
+  const notificationIdsRef = useRef(new Set<string>());
   const [unreadCount, setUnreadCount] = useState<number>(() => {
     try { return parseInt(localStorage.getItem(READ_COUNT_KEY) || '0', 10) || 0; }
     catch { return 0; }
@@ -26,32 +25,43 @@ export default function useNotifications() {
   const closeNotifs = useUIStore((s) => s.closeNotifs);
   const setActiveFootprintId = useUIStore((s) => s.setActiveFootprintId);
 
-  const markNotificationsSynced = useCallback(() => {
-    hasSyncedNotificationsRef.current = true;
-    setHasSyncedNotifications(true);
+  const persistUnreadCount = useCallback((count: number) => {
+    setUnreadCount(count);
+    try { localStorage.setItem(READ_COUNT_KEY, String(count)); } catch {}
   }, []);
 
   const setNotifications = useCallback<React.Dispatch<React.SetStateAction<ServerNotification[]>>>((updater) => {
-    if (typeof updater === 'function' || updater.length > 0 || hasSyncedNotificationsRef.current) {
-      markNotificationsSynced();
-    }
-    setNotificationsState(updater);
-  }, [markNotificationsSynced]);
+    setNotificationsState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      notificationIdsRef.current = new Set(next.map((notification) => notification._id));
+      return next;
+    });
+  }, []);
 
-  // Preserve the cached badge until the first real notification sync.
-  useEffect(() => {
-    if (!hasSyncedNotifications) return;
-    const count = notifications.filter((n) => !n.isRead).length;
-    setUnreadCount(count);
-    try { localStorage.setItem(READ_COUNT_KEY, String(count)); } catch {}
-  }, [hasSyncedNotifications, notifications]);
+  const appendNotification = useCallback((notification: ServerNotification) => {
+    if (notificationIdsRef.current.has(notification._id)) return;
+    notificationIdsRef.current.add(notification._id);
+    setNotificationsState((prev) => [notification, ...prev]);
+    if (!notification.isRead) {
+      setUnreadCount((count) => {
+        const next = count + 1;
+        try { localStorage.setItem(READ_COUNT_KEY, String(next)); } catch {}
+        return next;
+      });
+    }
+  }, []);
+
+  const applyServerNotifications = useCallback((nextNotifications: ServerNotification[]) => {
+    notificationIdsRef.current = new Set(nextNotifications.map((notification) => notification._id));
+    setNotificationsState(nextNotifications);
+    persistUnreadCount(nextNotifications.filter((notification) => !notification.isRead).length);
+  }, [persistUnreadCount]);
 
   const clearNotifications = useCallback(() => {
-    markNotificationsSynced();
+    notificationIdsRef.current.clear();
     setNotificationsState([]);
-    setUnreadCount(0);
-    try { localStorage.setItem(READ_COUNT_KEY, '0'); } catch {}
-  }, [markNotificationsSynced]);
+    persistUnreadCount(0);
+  }, [persistUnreadCount]);
 
   const markAsRead = useCallback(async (notifId: string) => {
     setUnreadCount((prev) => {
@@ -108,6 +118,8 @@ export default function useNotifications() {
   return {
     notifications,
     setNotifications,
+    appendNotification,
+    applyServerNotifications,
     clearNotifications,
     unreadCount,
     setUnreadCount,
@@ -118,19 +130,15 @@ export default function useNotifications() {
 }
 
 /**
- * Fetch notifications from server and merge with socket-delivered ones.
+ * Fetch the authoritative notification snapshot from the server.
  * Call this on socket connect and tab visibility change.
  */
 export async function refetchNotifications(
-  setNotifications: (updater: (prev: ServerNotification[]) => ServerNotification[]) => void,
+  applyServerNotifications: (notifications: ServerNotification[]) => void,
   opts?: Record<string, unknown>
 ) {
   try {
     const res = await apiClient.notifications.list(opts);
-    setNotifications((prev) => {
-      const apiIds = new Set(res.data.notifications.map((n: ServerNotification) => n._id));
-      const socketOnly = prev.filter((n) => !apiIds.has(n._id));
-      return [...socketOnly, ...res.data.notifications];
-    });
+    applyServerNotifications(res.data.notifications);
   } catch { /* silently ignore network errors */ }
 }

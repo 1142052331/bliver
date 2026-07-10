@@ -92,7 +92,7 @@ export default function App() {
   const { user, setUser, isAdmin, isAsen, requireLogin, logout, pendingActionRef } = useAuth();
 
   // ── Notifications ─────────────────────────────────────
-  const { notifications, setNotifications, clearNotifications, unreadCount, markFootprintRead, handleNotifNavigate } = useNotifications();
+  const { notifications, setNotifications, appendNotification, applyServerNotifications, clearNotifications, unreadCount, markFootprintRead, handleNotifNavigate } = useNotifications();
 
   // ── Core state ────────────────────────────────────────
   const [onlineCount, setOnlineCount] = useState(0);
@@ -145,7 +145,7 @@ export default function App() {
 
   // ── Refs ──────────────────────────────────────────────
   const { socketRef } = useSocket({
-    user, setUser, setFootprints, setNotifications, setOnlineCount,
+    user, setUser, setFootprints, setNotifications, appendNotification, applyServerNotifications, setOnlineCount,
   });
 
   const {
@@ -165,7 +165,7 @@ export default function App() {
   }, []);
 
   // ── Visibility change + focus: refresh data + wake zombie socket ──
-  useVisibilityRefresh({ user, socketRef, refetchFootprints, setNotifications });
+  useVisibilityRefresh({ user, socketRef, refetchFootprints, applyServerNotifications });
 
   // ── Keep flyArrivedFp synced with latest footprints ────
   useEffect(() => {
