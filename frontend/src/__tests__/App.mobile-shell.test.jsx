@@ -252,12 +252,24 @@ describe('App mobile shell integration', () => {
     expect(mocks.clearNotifications).toHaveBeenCalledTimes(1);
   });
 
-  it('opens notifications through the existing UI action', async () => {
+  it('shows no stale badge and requests login when a guest presses notifications', async () => {
     const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '通知' }));
+
+    expect(mocks.openAuth).toHaveBeenCalledWith('login', '登录后查看通知');
+    expect(mocks.toggleNotifs).not.toHaveBeenCalled();
+  });
+
+  it('opens notifications through the existing UI action for authenticated users', async () => {
+    const user = userEvent.setup();
+    mocks.user = { _id: 'user-1' };
     render(<App />);
 
     await user.click(screen.getByRole('button', { name: '通知，3 条未读' }));
 
     expect(mocks.toggleNotifs).toHaveBeenCalledTimes(1);
+    expect(mocks.openAuth).not.toHaveBeenCalled();
   });
 });

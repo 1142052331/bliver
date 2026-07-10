@@ -14,7 +14,6 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 import { broadcastLogin } from './authSync';
 import { getPeriod, setPeriod } from './auth';
 import useAuth from './hooks/useAuth';
-import { refetchNotifications } from './hooks/useNotifications';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -92,7 +91,17 @@ export default function App() {
   const { user, setUser, isAdmin, isAsen, requireLogin, logout, pendingActionRef } = useAuth();
 
   // ── Notifications ─────────────────────────────────────
-  const { notifications, setNotifications, appendNotification, applyServerNotifications, clearNotifications, unreadCount, markFootprintRead, handleNotifNavigate } = useNotifications();
+  const {
+    notifications,
+    setNotifications,
+    appendNotification,
+    applyServerNotifications,
+    captureNotificationRequest,
+    clearNotifications,
+    unreadCount,
+    markFootprintRead,
+    handleNotifNavigate,
+  } = useNotifications(user?._id);
 
   // ── Core state ────────────────────────────────────────
   const [onlineCount, setOnlineCount] = useState(0);
@@ -145,7 +154,14 @@ export default function App() {
 
   // ── Refs ──────────────────────────────────────────────
   const { socketRef } = useSocket({
-    user, setUser, setFootprints, setNotifications, appendNotification, applyServerNotifications, setOnlineCount,
+    user,
+    setUser,
+    setFootprints,
+    setNotifications,
+    appendNotification,
+    applyServerNotifications,
+    captureNotificationRequest,
+    setOnlineCount,
   });
 
   const {
@@ -165,7 +181,13 @@ export default function App() {
   }, []);
 
   // ── Visibility change + focus: refresh data + wake zombie socket ──
-  useVisibilityRefresh({ user, socketRef, refetchFootprints, applyServerNotifications });
+  useVisibilityRefresh({
+    user,
+    socketRef,
+    refetchFootprints,
+    applyServerNotifications,
+    captureNotificationRequest,
+  });
 
   // ── Keep flyArrivedFp synced with latest footprints ────
   useEffect(() => {
@@ -208,6 +230,14 @@ export default function App() {
     openCheckIn();
   };
 
+  const handleNotificationsPress = () => {
+    if (!user) {
+      openAuth('login', '登录后查看通知');
+      return;
+    }
+    toggleNotifs();
+  };
+
   // ── Render ─────────────────────────────────────────────
 
   return (
@@ -216,9 +246,9 @@ export default function App() {
         topBar={
           <MobileTopBar
             locationLabel="地图"
-            unreadNotifications={unreadCount}
+            unreadNotifications={user ? unreadCount : 0}
             onBrandPress={openAbout}
-            onNotificationsPress={toggleNotifs}
+            onNotificationsPress={handleNotificationsPress}
           />
         }
         bottomNavigation={
@@ -244,7 +274,7 @@ export default function App() {
             />
           </div>
 
-        {showNotifs && (
+        {user && showNotifs && (
           <NotificationPanel
             notifications={notifications}
             onClose={() => closeNotifs()}

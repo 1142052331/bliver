@@ -36,6 +36,7 @@ export default function useSocket({
   setNotifications,
   appendNotification,
   applyServerNotifications,
+  captureNotificationRequest,
   setOnlineCount,
 }) {
   const socketRef = useRef(null);
@@ -55,7 +56,12 @@ export default function useSocket({
       return;
     }
 
-    refetchNotifications(applyServerNotifications);
+    const notificationController = new AbortController();
+    refetchNotifications(
+      applyServerNotifications,
+      { signal: notificationController.signal },
+      captureNotificationRequest,
+    );
 
     const socketUrl = getSocketURL();
     const socket = io(socketUrl, { auth: { token } });
@@ -87,6 +93,7 @@ export default function useSocket({
     }
 
     return () => {
+      notificationController.abort();
       for (const [event, handler] of Object.entries(domainHandlers)) {
         off(event, handler);
       }
