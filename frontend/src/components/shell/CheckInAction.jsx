@@ -12,7 +12,7 @@ export default function CheckInAction({ disabled = false, onPress }) {
       onClick={onPress}
     >
       <MapPinPlus size={22} strokeWidth={2.25} aria-hidden="true" />
-      <span>打卡</span>
+      <span>发布足迹</span>
     </button>
   );
 }

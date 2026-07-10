@@ -7,8 +7,8 @@
   --bliver-surface: #ffffff;
   --bliver-ink: #1e2925;
   --bliver-muted: #5d7068;
-  --bliver-coral: #f26a4b;
-  --bliver-coral-active: #d9563a;
+  --bliver-coral: #c54b36;
+  --bliver-coral-active: #ad3d2d;
   --bliver-border: #d7e1dc;
   --bliver-danger: #b83b3b;
   --bliver-shadow-card: 0 16px 40px rgba(23, 59, 49, 0.14);
@@ -197,7 +197,16 @@
 
 .bliver-mobile-top-bar__notifications {
   position: relative;
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
   justify-self: end;
+}
+
+.bliver-mobile-top-bar__notifications--static {
+  color: var(--bliver-forest);
 }
 
 .bliver-mobile-top-bar__badge {
@@ -236,7 +245,7 @@
   box-shadow: var(--bliver-shadow-float);
   color: var(--bliver-surface);
   font: inherit;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   cursor: pointer;
   transition: background-color var(--bliver-motion-fast) ease, transform var(--bliver-motion-fast) ease;

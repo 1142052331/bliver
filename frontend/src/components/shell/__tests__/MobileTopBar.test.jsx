@@ -103,3 +103,57 @@ it('removes shell active transforms when reduced motion is requested', () => {
   expect(reducedMotionBlock).toMatch(/\.bliver-mobile-top-bar__control:active\s*{[^}]*transform:\s*none;/s);
   expect(reducedMotionBlock).toMatch(/\.bliver-check-in-action:active(?::not\(:disabled\))?\s*{[^}]*transform:\s*none;/s);
 });
+
+
+it('renders notifications as non-interactive when no callback exists', () => {
+  const { container } = render(
+    <MobileTopBar locationLabel="当前位置" unreadNotifications={3} />,
+  );
+
+  expect(screen.queryByRole('button', { name: /通知/ })).not.toBeInTheDocument();
+  expect(container.querySelector('.bliver-mobile-top-bar__notifications--static')).not.toHaveAttribute('tabindex');
+  expect(container.querySelectorAll('[data-shell-control]')).toHaveLength(0);
+  expect(screen.getByText('3')).toBeInTheDocument();
+});
+
+it.each([null, '', '   '])(
+  'normalizes locationLabel=%j for interactive and static output',
+  (locationLabel) => {
+    const { rerender } = render(
+      <MobileTopBar locationLabel={locationLabel} onLocationPress={() => {}} />,
+    );
+
+    expect(screen.getByRole('button', { name: '当前位置' })).toBeInTheDocument();
+
+    rerender(<MobileTopBar locationLabel={locationLabel} />);
+    expect(screen.getByText('当前位置')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '当前位置' })).not.toBeInTheDocument();
+  },
+);
+
+it('trims a valid location label for interactive and static output', () => {
+  const { rerender } = render(
+    <MobileTopBar locationLabel="  朋友范围  " onLocationPress={() => {}} />,
+  );
+
+  expect(screen.getByRole('button', { name: '朋友范围' })).toBeInTheDocument();
+
+  rerender(<MobileTopBar locationLabel="  朋友范围  " />);
+  expect(screen.getByText('朋友范围')).toBeInTheDocument();
+});
+
+it.each([true, '3', Symbol('unread'), {}, null])(
+  'safely ignores unsupported unreadNotifications values',
+  (unreadNotifications) => {
+    render(
+      <MobileTopBar
+        locationLabel="当前位置"
+        unreadNotifications={unreadNotifications}
+        onNotificationsPress={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '通知' })).toBeInTheDocument();
+    expect(document.querySelector('.bliver-mobile-top-bar__badge')).not.toBeInTheDocument();
+  },
+);
