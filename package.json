@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Location sharing full-stack application",
   "scripts": {
+    "check:node": "node -e \"const major=Number(process.versions.node.split('.')[0]); if(major!==20){console.error('Bliver requires Node.js 20.x; found '+process.version); process.exit(1)}\"",
     "dev": "concurrently -n frontend,backend -c blue,green \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
