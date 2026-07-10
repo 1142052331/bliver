@@ -53,7 +53,10 @@ function writeUnreadCount(userId: string | null, count: number) {
 export default function useNotifications(userId?: string | null) {
   const activeUserId = typeof userId === 'string' && userId ? userId : null;
   const sessionGeneration = useMemo(() => Symbol('notification-session'), [activeUserId]);
+  const notificationsRef = useRef<ServerNotification[]>([]);
   const notificationIdsRef = useRef(new Set<string>());
+  const unreadCountRef = useRef(readUnreadCount(activeUserId));
+  const localReadOverridesRef = useRef(new Set<string>());
   const socketArrivalsRef = useRef(new Map<string, SocketArrival>());
   const socketSequenceRef = useRef(0);
   const requestSequenceRef = useRef(0);
@@ -78,13 +81,17 @@ export default function useNotifications(userId?: string | null) {
 
   useLayoutEffect(() => {
     committedSessionRef.current = { userId: activeUserId, generation: sessionGeneration };
-    notificationIdsRef.current.clear();
-    socketArrivalsRef.current.clear();
+    notificationsRef.current = [];
+    notificationIdsRef.current = new Set();
+    localReadOverridesRef.current = new Set();
+    socketArrivalsRef.current = new Map();
     socketSequenceRef.current = 0;
     requestSequenceRef.current = 0;
     latestAppliedRequestRef.current = 0;
+    const nextUnreadCount = readUnreadCount(activeUserId);
+    unreadCountRef.current = nextUnreadCount;
     setNotificationsState({ sessionGeneration, items: [] });
-    setUnreadState({ sessionGeneration, count: readUnreadCount(activeUserId) });
+    setUnreadState({ sessionGeneration, count: nextUnreadCount });
   }, [activeUserId, sessionGeneration]);
 
   const isActiveSession = useCallback(() => {
@@ -94,15 +101,11 @@ export default function useNotifications(userId?: string | null) {
 
   const setUnreadCount = useCallback<React.Dispatch<React.SetStateAction<number>>>((updater) => {
     if (!isActiveSession()) return;
-    setUnreadState((previousState) => {
-      const previousCount = previousState.sessionGeneration === sessionGeneration
-        ? previousState.count
-        : readUnreadCount(activeUserId);
-      const nextCount = typeof updater === 'function' ? updater(previousCount) : updater;
-      const scopedCount = activeUserId ? Math.max(0, nextCount) : 0;
-      writeUnreadCount(activeUserId, scopedCount);
-      return { sessionGeneration, count: scopedCount };
-    });
+    const nextCount = typeof updater === 'function' ? updater(unreadCountRef.current) : updater;
+    const scopedCount = activeUserId ? Math.max(0, nextCount) : 0;
+    unreadCountRef.current = scopedCount;
+    writeUnreadCount(activeUserId, scopedCount);
+    setUnreadState({ sessionGeneration, count: scopedCount });
   }, [activeUserId, isActiveSession, sessionGeneration]);
 
   const updateSocketArrival = useCallback((notification: ServerNotification) => {
@@ -116,21 +119,17 @@ export default function useNotifications(userId?: string | null) {
 
   const setNotifications = useCallback<React.Dispatch<React.SetStateAction<ServerNotification[]>>>((updater) => {
     if (!isActiveSession()) return;
-    setNotificationsState((previousState) => {
-      const previousNotifications = previousState.sessionGeneration === sessionGeneration
-        ? previousState.items
-        : [];
-      const nextNotifications = typeof updater === 'function'
-        ? updater(previousNotifications)
-        : updater;
-      notificationIdsRef.current = new Set(
-        nextNotifications.map((notification) => notification._id),
-      );
-      socketArrivalsRef.current = new Map(
-        [...socketArrivalsRef.current].filter(([id]) => notificationIdsRef.current.has(id)),
-      );
-      return { sessionGeneration, items: nextNotifications };
-    });
+    const nextNotifications = typeof updater === 'function'
+      ? updater(notificationsRef.current)
+      : updater;
+    notificationsRef.current = nextNotifications;
+    notificationIdsRef.current = new Set(
+      nextNotifications.map((notification) => notification._id),
+    );
+    socketArrivalsRef.current = new Map(
+      [...socketArrivalsRef.current].filter(([id]) => notificationIdsRef.current.has(id)),
+    );
+    setNotificationsState({ sessionGeneration, items: nextNotifications });
   }, [isActiveSession, sessionGeneration]);
 
   const appendNotification = useCallback((notification: ServerNotification) => {
@@ -141,13 +140,15 @@ export default function useNotifications(userId?: string | null) {
       notification,
       sequence: ++socketSequenceRef.current,
     });
-    setNotificationsState((previousState) => ({
+    const nextNotifications = [
+      notification,
+      ...notificationsRef.current,
+    ];
+    notificationsRef.current = nextNotifications;
+    setNotificationsState({
       sessionGeneration,
-      items: [
-        notification,
-        ...(previousState.sessionGeneration === sessionGeneration ? previousState.items : []),
-      ],
-    }));
+      items: nextNotifications,
+    });
     if (!notification.isRead) setUnreadCount((count) => count + 1);
   }, [activeUserId, isActiveSession, sessionGeneration, setUnreadCount]);
 
@@ -176,8 +177,17 @@ export default function useNotifications(userId?: string | null) {
     }
     latestAppliedRequestRef.current = context.requestSequence;
 
+    const localReadOverrides = localReadOverridesRef.current;
+    nextNotifications.forEach((notification) => {
+      if (notification.isRead) localReadOverrides.delete(notification._id);
+    });
+    const reconciledServerNotifications = nextNotifications.map((notification) => (
+      localReadOverrides.has(notification._id) && !notification.isRead
+        ? { ...notification, isRead: true }
+        : notification
+    ));
     const serverById = new Map(
-      nextNotifications.map((notification) => [notification._id, notification]),
+      reconciledServerNotifications.map((notification) => [notification._id, notification]),
     );
     const retainedArrivals = [...socketArrivalsRef.current.values()]
       .filter(({ sequence }) => sequence > context.socketSequence)
@@ -190,9 +200,10 @@ export default function useNotifications(userId?: string | null) {
       .sort((left, right) => right.sequence - left.sequence);
     const mergedNotifications = [
       ...preservedArrivals.map(({ notification }) => notification),
-      ...nextNotifications,
+      ...reconciledServerNotifications,
     ];
 
+    notificationsRef.current = mergedNotifications;
     notificationIdsRef.current = new Set(
       mergedNotifications.map((notification) => notification._id),
     );
@@ -210,52 +221,64 @@ export default function useNotifications(userId?: string | null) {
 
   const clearNotifications = useCallback(() => {
     if (!isActiveSession()) return;
-    notificationIdsRef.current.clear();
-    socketArrivalsRef.current.clear();
+    notificationsRef.current = [];
+    notificationIdsRef.current = new Set();
+    localReadOverridesRef.current = new Set();
+    socketArrivalsRef.current = new Map();
     setNotificationsState({ sessionGeneration, items: [] });
     setUnreadCount(0);
   }, [isActiveSession, sessionGeneration, setUnreadCount]);
 
   const markAsRead = useCallback(async (notifId: string) => {
     if (!isActiveSession()) return;
+    const notificationToMark = notificationsRef.current.find(
+      (notification) => notification._id === notifId && !notification.isRead,
+    );
+    if (!notificationToMark) return;
+    const readNotification = { ...notificationToMark, isRead: true };
+    const nextNotifications = notificationsRef.current.map((notification) => (
+      notification._id === notifId ? readNotification : notification
+    ));
+    const localReadOverrides = localReadOverridesRef.current;
+    localReadOverrides.add(notifId);
+    notificationsRef.current = nextNotifications;
+    updateSocketArrival(readNotification);
     setUnreadCount((count) => Math.max(0, count - 1));
-    setNotificationsState((previousState) => ({
+    setNotificationsState({
       sessionGeneration,
-      items: previousState.items.map((notification) => {
-        if (notification._id !== notifId) return notification;
-        const readNotification = { ...notification, isRead: true };
-        updateSocketArrival(readNotification);
-        return readNotification;
-      }),
-    }));
-    await apiClient.notifications.markRead(notifId).catch(() => {});
+      items: nextNotifications,
+    });
+    await apiClient.notifications.markRead(notifId).catch(() => {
+      localReadOverrides.delete(notifId);
+    });
   }, [isActiveSession, sessionGeneration, setUnreadCount, updateSocketArrival]);
 
   // Batch mark all notifications for a footprint as read (read-on-view)
   const markFootprintRead = useCallback((footprintId: string) => {
     if (!isActiveSession()) return;
-    setNotificationsState((previousState) => {
-      const previousNotifications = previousState.sessionGeneration === sessionGeneration
-        ? previousState.items
-        : [];
-      const toMark = previousNotifications.filter(
-        (notification) => !notification.isRead && notification.footprintId === footprintId,
-      );
-      if (toMark.length === 0) return previousState;
-      toMark.forEach((notification) => {
-        apiClient.notifications.markRead(notification._id).catch(() => {});
+    const toMark = notificationsRef.current.filter(
+      (notification) => !notification.isRead && notification.footprintId === footprintId,
+    );
+    if (toMark.length === 0) return;
+    const ids = new Set(toMark.map((notification) => notification._id));
+    const localReadOverrides = localReadOverridesRef.current;
+    ids.forEach((id) => localReadOverrides.add(id));
+    const nextNotifications = notificationsRef.current.map((notification) => (
+      ids.has(notification._id) ? { ...notification, isRead: true } : notification
+    ));
+    notificationsRef.current = nextNotifications;
+    nextNotifications
+      .filter((notification) => ids.has(notification._id))
+      .forEach(updateSocketArrival);
+    setUnreadCount((count) => Math.max(0, count - toMark.length));
+    setNotificationsState({
+      sessionGeneration,
+      items: nextNotifications,
+    });
+    toMark.forEach((notification) => {
+      apiClient.notifications.markRead(notification._id).catch(() => {
+        localReadOverrides.delete(notification._id);
       });
-      const ids = new Set(toMark.map((notification) => notification._id));
-      setUnreadCount((count) => Math.max(0, count - toMark.length));
-      return {
-        sessionGeneration,
-        items: previousNotifications.map((notification) => {
-          if (!ids.has(notification._id)) return notification;
-          const readNotification = { ...notification, isRead: true };
-          updateSocketArrival(readNotification);
-          return readNotification;
-        }),
-      };
     });
   }, [isActiveSession, sessionGeneration, setUnreadCount, updateSocketArrival]);
 

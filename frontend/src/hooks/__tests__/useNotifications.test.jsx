@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import useNotifications, { refetchNotifications } from '../useNotifications';
@@ -189,8 +190,35 @@ describe('useNotifications unread persistence', () => {
     expect(apiClient.notifications.markRead).toHaveBeenCalledWith(notification._id);
   });
 
-  it('marks every unread notification for a viewed footprint without changing other items', () => {
+  it('does not repeat a single notification read request', async () => {
     const { result } = renderHook(() => useNotifications(userId));
+    const notification = {
+      _id: 'mark-once',
+      isRead: false,
+      footprintId: 'footprint-1',
+      type: 'comment',
+      createdAt: '2026-07-11T00:00:00.000Z',
+    };
+    act(() => {
+      result.current.appendNotification(notification);
+    });
+
+    await act(async () => {
+      await Promise.all([
+        result.current.markAsRead(notification._id),
+        result.current.markAsRead(notification._id),
+      ]);
+    });
+
+    expect(result.current.notifications).toEqual([{ ...notification, isRead: true }]);
+    expect(result.current.unreadCount).toBe(0);
+    expect(localStorage.getItem(unreadKey(userId))).toBe('0');
+    expect(apiClient.notifications.markRead).toHaveBeenCalledTimes(1);
+    expect(apiClient.notifications.markRead).toHaveBeenCalledWith(notification._id);
+  });
+
+  it('marks each footprint notification once in StrictMode without changing other items', () => {
+    const { result } = renderHook(() => useNotifications(userId), { wrapper: StrictMode });
     const notifications = [
       { _id: 'fp-1-a', isRead: false, footprintId: 'footprint-1', type: 'comment', createdAt: '2026-07-11T00:00:02.000Z' },
       { _id: 'fp-1-b', isRead: false, footprintId: 'footprint-1', type: 'reaction', createdAt: '2026-07-11T00:00:01.000Z' },
@@ -207,6 +235,187 @@ describe('useNotifications unread persistence', () => {
     expect(result.current.unreadCount).toBe(1);
     expect(localStorage.getItem(unreadKey(userId))).toBe('1');
     expect(apiClient.notifications.markRead).toHaveBeenCalledTimes(2);
+    expect(apiClient.notifications.markRead.mock.calls.map(([id]) => id).sort()).toEqual([
+      'fp-1-a',
+      'fp-1-b',
+    ]);
+  });
+
+  it('keeps a locally read notification read when an older request resolves', async () => {
+    const pending = deferred();
+    apiClient.notifications.list.mockReturnValue(pending.promise);
+    const { result } = renderHook(() => useNotifications(userId));
+    const notification = {
+      _id: 'stale-single',
+      isRead: false,
+      footprintId: 'footprint-1',
+      type: 'comment',
+      createdAt: '2026-07-11T00:00:00.000Z',
+    };
+    act(() => {
+      result.current.applyServerNotifications([notification]);
+    });
+    const request = refetchNotifications(
+      result.current.applyServerNotifications,
+      undefined,
+      result.current.captureNotificationRequest,
+    );
+
+    await act(async () => {
+      await result.current.markAsRead(notification._id);
+    });
+    await act(async () => {
+      pending.resolve({ data: { notifications: [notification] } });
+      await request;
+    });
+
+    expect(result.current.notifications).toEqual([{ ...notification, isRead: true }]);
+    expect(result.current.unreadCount).toBe(0);
+    expect(localStorage.getItem(unreadKey(userId))).toBe('0');
+  });
+
+  it('keeps a locally read footprint read when an older request resolves', async () => {
+    const pending = deferred();
+    apiClient.notifications.list.mockReturnValue(pending.promise);
+    const { result } = renderHook(() => useNotifications(userId));
+    const notifications = [
+      { _id: 'stale-fp-a', isRead: false, footprintId: 'footprint-1', type: 'comment', createdAt: '2026-07-11T00:00:02.000Z' },
+      { _id: 'stale-fp-b', isRead: false, footprintId: 'footprint-1', type: 'reaction', createdAt: '2026-07-11T00:00:01.000Z' },
+      { _id: 'stale-other', isRead: false, footprintId: 'footprint-2', type: 'comment', createdAt: '2026-07-11T00:00:00.000Z' },
+    ];
+    act(() => {
+      result.current.applyServerNotifications(notifications);
+    });
+    const request = refetchNotifications(
+      result.current.applyServerNotifications,
+      undefined,
+      result.current.captureNotificationRequest,
+    );
+
+    act(() => {
+      result.current.markFootprintRead('footprint-1');
+    });
+    await act(async () => {
+      pending.resolve({ data: { notifications } });
+      await request;
+    });
+
+    expect(result.current.notifications).toEqual([
+      { ...notifications[0], isRead: true },
+      { ...notifications[1], isRead: true },
+      notifications[2],
+    ]);
+    expect(result.current.unreadCount).toBe(1);
+    expect(localStorage.getItem(unreadKey(userId))).toBe('1');
+  });
+
+  it('allows a later server refresh to restore unread after a read request fails', async () => {
+    apiClient.notifications.markRead.mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderHook(() => useNotifications(userId));
+    const notification = {
+      _id: 'failed-read',
+      isRead: false,
+      footprintId: 'footprint-1',
+      type: 'comment',
+      createdAt: '2026-07-11T00:00:00.000Z',
+    };
+    act(() => {
+      result.current.applyServerNotifications([notification]);
+    });
+
+    await act(async () => {
+      await result.current.markAsRead(notification._id);
+    });
+    act(() => {
+      result.current.applyServerNotifications([notification]);
+    });
+
+    expect(result.current.notifications).toEqual([notification]);
+    expect(result.current.unreadCount).toBe(1);
+    expect(localStorage.getItem(unreadKey(userId))).toBe('1');
+  });
+
+  it('removes only the failed footprint read override', async () => {
+    apiClient.notifications.markRead
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce();
+    const { result } = renderHook(() => useNotifications(userId));
+    const notifications = [
+      { _id: 'failed-footprint-read', isRead: false, footprintId: 'footprint-1', type: 'comment', createdAt: '2026-07-11T00:00:01.000Z' },
+      { _id: 'successful-footprint-read', isRead: false, footprintId: 'footprint-1', type: 'reaction', createdAt: '2026-07-11T00:00:00.000Z' },
+    ];
+    act(() => {
+      result.current.applyServerNotifications(notifications);
+    });
+
+    await act(async () => {
+      result.current.markFootprintRead('footprint-1');
+      await Promise.resolve();
+    });
+    act(() => {
+      result.current.applyServerNotifications(notifications);
+    });
+
+    expect(result.current.notifications).toEqual([
+      notifications[0],
+      { ...notifications[1], isRead: true },
+    ]);
+    expect(result.current.unreadCount).toBe(1);
+    expect(apiClient.notifications.markRead).toHaveBeenCalledTimes(2);
+  });
+
+  it('clears a local read override after the server confirms the notification is read', async () => {
+    const { result } = renderHook(() => useNotifications(userId));
+    const unreadNotification = {
+      _id: 'confirmed-read',
+      isRead: false,
+      footprintId: 'footprint-1',
+      type: 'comment',
+      createdAt: '2026-07-11T00:00:00.000Z',
+    };
+    act(() => {
+      result.current.applyServerNotifications([unreadNotification]);
+    });
+    await act(async () => {
+      await result.current.markAsRead(unreadNotification._id);
+    });
+
+    act(() => {
+      result.current.applyServerNotifications([{ ...unreadNotification, isRead: true }]);
+      result.current.applyServerNotifications([unreadNotification]);
+    });
+
+    expect(result.current.notifications).toEqual([unreadNotification]);
+    expect(result.current.unreadCount).toBe(1);
+  });
+
+  it('does not carry local read overrides into another user session', async () => {
+    const sharedNotificationId = 'same-id-different-user';
+    const notification = {
+      _id: sharedNotificationId,
+      isRead: false,
+      type: 'comment',
+      createdAt: '2026-07-11T00:00:00.000Z',
+    };
+    const { result, rerender } = renderHook(
+      ({ activeUserId }) => useNotifications(activeUserId),
+      { initialProps: { activeUserId: userId } },
+    );
+    act(() => {
+      result.current.applyServerNotifications([notification]);
+    });
+    await act(async () => {
+      await result.current.markAsRead(sharedNotificationId);
+    });
+
+    rerender({ activeUserId: 'user-2' });
+    act(() => {
+      result.current.applyServerNotifications([notification]);
+    });
+
+    expect(result.current.notifications).toEqual([notification]);
+    expect(result.current.unreadCount).toBe(1);
+    expect(localStorage.getItem(unreadKey('user-2'))).toBe('1');
   });
 
   it('preserves socket arrivals received after a request starts while preferring matching server items', async () => {
