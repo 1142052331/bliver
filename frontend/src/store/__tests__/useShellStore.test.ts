@@ -1,8 +1,10 @@
 import { beforeEach, expect, it } from 'vitest';
 import useShellStore from '../useShellStore';
 
+const initialState = useShellStore.getInitialState();
+
 beforeEach(() => {
-  useShellStore.setState({ activeDestination: 'map' });
+  useShellStore.setState(initialState, true);
 });
 
 it('starts on map', () => {
