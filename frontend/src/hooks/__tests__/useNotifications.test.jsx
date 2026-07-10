@@ -167,6 +167,32 @@ describe('useNotifications unread persistence', () => {
     expect(localStorage.getItem(unreadKey(userId))).toBe('0');
   });
 
+  it('clears local read overrides before applying a later server snapshot', async () => {
+    const { result } = renderHook(() => useNotifications(userId));
+    const notification = {
+      _id: 'clear-read-override',
+      isRead: false,
+      footprintId: 'footprint-1',
+      type: 'comment',
+      createdAt: '2026-07-11T00:00:00.000Z',
+    };
+    act(() => {
+      result.current.applyServerNotifications([notification]);
+    });
+    await act(async () => {
+      await result.current.markAsRead(notification._id);
+    });
+
+    act(() => {
+      result.current.clearNotifications();
+      result.current.applyServerNotifications([notification]);
+    });
+
+    expect(result.current.notifications).toEqual([notification]);
+    expect(result.current.unreadCount).toBe(1);
+    expect(localStorage.getItem(unreadKey(userId))).toBe('1');
+  });
+
   it('marks one notification read and persists the scoped unread count', async () => {
     const { result } = renderHook(() => useNotifications(userId));
     const notification = {
