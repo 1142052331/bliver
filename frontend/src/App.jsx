@@ -229,6 +229,17 @@ export default function App() {
     || (activeDestination === 'me' && Boolean(viewingProfileId))
   );
 
+  const handleDestinationChange = (nextDestination) => {
+    if (nextDestination === activeDestination) return;
+
+    if (showTimeline) closeTimeline();
+    if (showFriends) closeFriends();
+    if (viewingProfileId) closeProfile();
+    if (showAuth) closeAuth();
+
+    setActiveDestination(nextDestination);
+  };
+
   const handleCheckIn = () => {
     if (!requireLogin({ type: 'checkin' })) return;
     setPendingCheckInLocation(null);
@@ -260,7 +271,7 @@ export default function App() {
           <BottomNavigation
             activeDestination={activeDestination}
             unreadMessages={totalFriendUnread}
-            onDestinationChange={setActiveDestination}
+            onDestinationChange={handleDestinationChange}
           />
         }
         primaryAction={<CheckInAction onPress={handleCheckIn} />}

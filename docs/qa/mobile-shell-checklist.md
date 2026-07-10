@@ -46,7 +46,7 @@ Authenticated checks require a disposable non-production account and were not pe
 
 - Leaflet attribution initially overlapped the mobile bottom navigation at all three phone viewports.
 - The regression assertion was added before the fix, and the mobile attribution now keeps a visible 8px gap above the navigation.
-- While a legacy interface is open, its corresponding destination remains selected; closing it returns the selection to Map.
+- Switching destinations first closes the currently open destination-owned legacy interface; closing the selected destination interface returns the selection to Map.
 
 ## Current Commands
 

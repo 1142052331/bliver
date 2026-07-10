@@ -11,9 +11,13 @@ const mocks = vi.hoisted(() => ({
   clearNotifications: vi.fn(),
   openCheckIn: vi.fn(),
   openTimeline: vi.fn(),
+  closeTimeline: vi.fn(),
   openFriends: vi.fn(),
+  closeFriends: vi.fn(),
   openProfile: vi.fn(),
+  closeProfile: vi.fn(),
   openAuth: vi.fn(),
+  closeAuth: vi.fn(),
   openAbout: vi.fn(),
   toggleNotifs: vi.fn(),
 }));
@@ -41,13 +45,13 @@ const uiState = vi.hoisted(() => ({
   openCheckIn: mocks.openCheckIn,
   closeCheckIn: vi.fn(),
   openTimeline: mocks.openTimeline,
-  closeTimeline: vi.fn(),
+  closeTimeline: mocks.closeTimeline,
   toggleNotifs: mocks.toggleNotifs,
   closeNotifs: vi.fn(),
   openAdmin: vi.fn(),
   closeAdmin: vi.fn(),
   openAuth: mocks.openAuth,
-  closeAuth: vi.fn(),
+  closeAuth: mocks.closeAuth,
   openPhotoWall: vi.fn(),
   closePhotoWall: vi.fn(),
   openAbout: mocks.openAbout,
@@ -57,7 +61,7 @@ const uiState = vi.hoisted(() => ({
   openAnnouncements: vi.fn(),
   closeAnnouncements: vi.fn(),
   openFriends: mocks.openFriends,
-  closeFriends: vi.fn(),
+  closeFriends: mocks.closeFriends,
   setActiveFootprintId: vi.fn(),
   setFlyArrivedFp: vi.fn(),
   setTimelineTargetFpId: vi.fn(),
@@ -66,7 +70,7 @@ const uiState = vi.hoisted(() => ({
   openChat: vi.fn(),
   closeChat: vi.fn(),
   openProfile: mocks.openProfile,
-  closeProfile: vi.fn(),
+  closeProfile: mocks.closeProfile,
   setAuthTab: vi.fn(),
   setAuthMessage: vi.fn(),
   messageIsland: null,
@@ -228,6 +232,67 @@ describe('App mobile shell integration', () => {
 
     expect(mapDestination).toHaveAttribute('aria-current', 'page');
     expect(activityDestination).not.toHaveAttribute('aria-current');
+  });
+
+  it.each([
+    ['Timeline', 'activity', null, 'showTimeline', true, mocks.closeTimeline, '动态'],
+    ['Friends', 'messages', { _id: 'user-1' }, 'showFriends', true, mocks.closeFriends, /^消息/],
+    ['Profile', 'me', { _id: 'user-1' }, 'viewingProfileId', 'user-1', mocks.closeProfile, '我的'],
+    ['Auth', 'messages', null, 'showAuth', true, mocks.closeAuth, /^消息/],
+  ])(
+    'closes the open %s destination surface before returning to Map',
+    async (_surface, destination, currentUser, stateKey, stateValue, closeAction, destinationName) => {
+      const user = userEvent.setup();
+      mocks.user = currentUser;
+      uiState[stateKey] = stateValue;
+      useShellStore.setState({ activeDestination: destination });
+      render(<App />);
+
+      const mapDestination = screen.getByRole('button', { name: '地图' });
+      const currentDestination = screen.getByRole('button', { name: destinationName });
+      expect(currentDestination).toHaveAttribute('aria-current', 'page');
+
+      await user.click(mapDestination);
+
+      expect(closeAction).toHaveBeenCalledTimes(1);
+      expect(mapDestination).toHaveAttribute('aria-current', 'page');
+      expect(currentDestination).not.toHaveAttribute('aria-current');
+    },
+  );
+
+  it('closes Timeline before opening Messages', async () => {
+    const user = userEvent.setup();
+    mocks.user = { _id: 'user-1' };
+    uiState.showTimeline = true;
+    useShellStore.setState({ activeDestination: 'activity' });
+    render(<App />);
+
+    await waitFor(() => expect(mocks.openTimeline).toHaveBeenCalledTimes(1));
+    const messagesDestination = screen.getByRole('button', { name: /^消息/ });
+
+    await user.click(messagesDestination);
+
+    await waitFor(() => expect(mocks.openFriends).toHaveBeenCalledTimes(1));
+    expect(mocks.closeTimeline).toHaveBeenCalledTimes(1);
+    expect(mocks.closeTimeline.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.openFriends.mock.invocationCallOrder[0]);
+    expect(messagesDestination).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('does not close or reopen Activity when its selected destination is pressed again', async () => {
+    const user = userEvent.setup();
+    uiState.showTimeline = true;
+    useShellStore.setState({ activeDestination: 'activity' });
+    render(<App />);
+
+    const activityDestination = screen.getByRole('button', { name: '动态' });
+    await waitFor(() => expect(mocks.openTimeline).toHaveBeenCalledTimes(1));
+
+    await user.click(activityDestination);
+
+    expect(mocks.closeTimeline).not.toHaveBeenCalled();
+    expect(mocks.openTimeline).toHaveBeenCalledTimes(1);
+    expect(activityDestination).toHaveAttribute('aria-current', 'page');
   });
 
   it('guards guest check-in without opening the form', async () => {
