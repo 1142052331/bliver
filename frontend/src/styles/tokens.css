@@ -1,5 +1,4 @@
 :root {
-  color-scheme: light;
   --bliver-forest: #173b31;
   --bliver-forest-soft: #2d594d;
   --bliver-sage: #a9c9bf;
@@ -31,12 +30,14 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-:focus-visible {
+.bliver-shell :focus-visible {
+  outline: 3px solid #6f9588;
   outline: 3px solid color-mix(in srgb, var(--bliver-forest) 45%, white);
   outline-offset: 3px;
 }
 
 .bliver-shell {
+  color-scheme: light;
   position: fixed;
   inset: 0;
   overflow: hidden;
@@ -56,7 +57,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  .bliver-shell,
+  .bliver-shell::before,
+  .bliver-shell::after,
+  .bliver-shell *,
+  .bliver-shell *::before,
+  .bliver-shell *::after {
     scroll-behavior: auto !important;
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
