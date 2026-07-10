@@ -50,4 +50,5 @@ it('keeps accessible coral action tokens synchronized with DESIGN.md', () => {
   expect(tokensCss).toMatch(/--bliver-coral-active:\s*#ad3d2d;/i);
   expect(designDoc).toMatch(/^\s{2}coral: "#C54B36"\r?$/m);
   expect(designDoc).toMatch(/^\s{2}coral-active: "#AD3D2D"\r?$/m);
+  expect(designDoc).toMatch(/white text[^.\r\n]*WCAG AA/i);
 });

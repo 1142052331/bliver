@@ -109,7 +109,7 @@ Bliver uses the **Natural City** system: a quiet, warm interface layered over a 
 
 **The Functional Accent Rule.** Forest indicates selection and primary navigation. Coral indicates creation and publication. Semantic colors remain independent and always include icon or text support.
 
-Coral and coral-active are the white-label AA primary-action tokens.
+Coral and coral-active are the primary-action tokens for white text at WCAG AA contrast.
 
 Map tiles should be visually softened enough for markers and cards to lead, but place labels and geographic boundaries must remain readable. Relationship and scope markers may use restrained supporting hues, but never rely on hue alone.
 
