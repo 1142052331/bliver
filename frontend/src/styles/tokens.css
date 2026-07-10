@@ -265,6 +265,10 @@
   .bliver-shell__content {
     padding-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom));
   }
+
+  .bliver-shell .leaflet-container .leaflet-control-attribution {
+    margin-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom));
+  }
 }
 
 @media (min-width: 768px) {
