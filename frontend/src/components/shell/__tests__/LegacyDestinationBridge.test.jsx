@@ -120,24 +120,48 @@ describe('LegacyDestinationBridge', () => {
     expect(actions.onHandled).toHaveBeenCalledTimes(2);
   });
 
-  it('stays safe while reporting a missing required action callback', () => {
+  it('preserves a failed destination until its required action becomes available', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const onHandled = vi.fn();
-
-    expect(() => {
-      render(
-        <LegacyDestinationBridge
-          destination="activity"
-          user={{ _id: 'u1' }}
-          onHandled={onHandled}
-        />,
-      );
-    }).not.toThrow();
+    const openTimeline = vi.fn();
+    const { rerender } = render(
+      <LegacyDestinationBridge
+        destination="activity"
+        user={{ _id: 'u1' }}
+        onHandled={onHandled}
+      />,
+    );
 
     expect(consoleError).toHaveBeenCalledWith(
       'LegacyDestinationBridge requires an openTimeline callback for the activity destination.',
     );
+    expect(onHandled).not.toHaveBeenCalled();
+
+    rerender(
+      <LegacyDestinationBridge
+        destination="activity"
+        user={{ _id: 'u1' }}
+        openTimeline={openTimeline}
+        onHandled={onHandled}
+      />,
+    );
+
+    expect(openTimeline).toHaveBeenCalledTimes(1);
     expect(onHandled).toHaveBeenCalledWith('map');
+  });
+
+  it('reports an unknown destination without marking it handled', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const actions = createActions();
+
+    render(
+      <LegacyDestinationBridge destination="nearby" user={{ _id: 'u1' }} {...actions} />,
+    );
+
+    expect(consoleError).toHaveBeenCalledWith(
+      'LegacyDestinationBridge received an unknown destination: nearby.',
+    );
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('stays safe when onHandled is omitted', () => {

@@ -5,12 +5,13 @@ const noop = () => {};
 function callRequiredAction(action, actionName, destination, ...args) {
   if (typeof action === 'function') {
     action(...args);
-    return;
+    return true;
   }
 
   console.error(
     `LegacyDestinationBridge requires an ${actionName} callback for the ${destination} destination.`,
   );
+  return false;
 }
 
 export default function LegacyDestinationBridge({
@@ -31,24 +32,26 @@ export default function LegacyDestinationBridge({
     }
 
     if (handledDestinationRef.current === destination) return;
-    handledDestinationRef.current = destination;
+
+    let handled = false;
 
     if (destination === 'activity') {
-      callRequiredAction(openTimeline, 'openTimeline', destination);
+      handled = callRequiredAction(openTimeline, 'openTimeline', destination);
     } else if (destination === 'messages') {
-      if (user) {
-        callRequiredAction(openFriends, 'openFriends', destination);
-      } else {
-        callRequiredAction(openAuth, 'openAuth', destination, 'login', '登录后查看消息');
-      }
+      handled = user
+        ? callRequiredAction(openFriends, 'openFriends', destination)
+        : callRequiredAction(openAuth, 'openAuth', destination, 'login', '登录后查看消息');
     } else if (destination === 'me') {
-      if (user?._id) {
-        callRequiredAction(openProfile, 'openProfile', destination, user._id);
-      } else {
-        callRequiredAction(openAuth, 'openAuth', destination, 'login', '登录后查看个人主页');
-      }
+      handled = user?._id
+        ? callRequiredAction(openProfile, 'openProfile', destination, user._id)
+        : callRequiredAction(openAuth, 'openAuth', destination, 'login', '登录后查看个人主页');
+    } else {
+      console.error(`LegacyDestinationBridge received an unknown destination: ${destination}.`);
     }
 
+    if (!handled) return;
+
+    handledDestinationRef.current = destination;
     if (typeof onHandled === 'function') onHandled('map');
   }, [destination, onHandled, openAuth, openFriends, openProfile, openTimeline, user]);
 
