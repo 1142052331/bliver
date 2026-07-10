@@ -209,7 +209,7 @@
   padding: 0 5px;
   border: 2px solid var(--bliver-paper);
   border-radius: 999px;
-  background: var(--bliver-coral);
+  background: var(--bliver-danger);
   color: var(--bliver-surface);
   font-size: 10px;
   font-weight: 700;
@@ -277,5 +277,13 @@
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
+  }
+
+  .bliver-mobile-top-bar__control:active {
+    transform: none;
+  }
+
+  .bliver-check-in-action:active:not(:disabled) {
+    transform: none;
   }
 }

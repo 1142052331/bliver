@@ -87,3 +87,19 @@ it('uses mobile-only controls above the map and below modal layers', () => {
   expect(tokensCss).not.toMatch(/\.bliver-mobile-top-bar[^}]*backdrop-filter:/s);
   expect(tokensCss).not.toMatch(/\.bliver-mobile-top-bar[^}]*filter:\s*blur/s);
 });
+
+it('uses the semantic danger color for notification badges', () => {
+  const tokensCss = readFileSync(resolve(cwd(), 'src/styles/tokens.css'), 'utf8');
+  const badgeBlock = tokensCss.match(/\.bliver-mobile-top-bar__badge\s*{([^}]*)}/s)?.[1] ?? '';
+
+  expect(badgeBlock).toMatch(/background:\s*var\(--bliver-danger\);/);
+  expect(badgeBlock).not.toMatch(/var\(--bliver-coral(?:-active)?\)/);
+});
+
+it('removes shell active transforms when reduced motion is requested', () => {
+  const tokensCss = readFileSync(resolve(cwd(), 'src/styles/tokens.css'), 'utf8');
+  const reducedMotionBlock = tokensCss.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*{([\s\S]*)}\s*$/)?.[1] ?? '';
+
+  expect(reducedMotionBlock).toMatch(/\.bliver-mobile-top-bar__control:active\s*{[^}]*transform:\s*none;/s);
+  expect(reducedMotionBlock).toMatch(/\.bliver-check-in-action:active(?::not\(:disabled\))?\s*{[^}]*transform:\s*none;/s);
+});
