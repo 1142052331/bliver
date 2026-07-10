@@ -30,9 +30,10 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-.bliver-shell :focus-visible {
-  outline: 3px solid #6f9588;
-  outline: 3px solid color-mix(in srgb, var(--bliver-forest) 45%, white);
+.bliver-shell :focus-visible,
+.bliver-shell .aurora-input:focus-visible {
+  outline: 3px solid #173b31;
+  outline: 3px solid var(--bliver-forest);
   outline-offset: 3px;
 }
 

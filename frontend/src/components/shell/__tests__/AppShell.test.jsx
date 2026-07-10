@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { expect, it } from 'vitest';
 import AppShell from '../AppShell';
 
 it('uses the Natural City shell contract', () => {
