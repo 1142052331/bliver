@@ -19,7 +19,7 @@ import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { MapPin, Image, Clock, Megaphone } from 'lucide-react';
+import { Image, Clock } from 'lucide-react';
 
 import NavBar from './components/NavBar';
 import AuthModal from './components/AuthModal';
@@ -40,8 +40,13 @@ import AnnouncementPanel from './components/AnnouncementPanel';
 import FriendsPanel from './components/FriendsPanel';
 import ChatWindow from './components/ChatWindow';
 import MessageIsland from './components/MessageIsland';
-import MobileActionDrawer from './components/MobileActionDrawer';
+import AppShell from './components/shell/AppShell';
+import MobileTopBar from './components/shell/MobileTopBar';
+import BottomNavigation from './components/shell/BottomNavigation';
+import CheckInAction from './components/shell/CheckInAction';
+import LegacyDestinationBridge from './components/shell/LegacyDestinationBridge';
 import useUIStore from './store/useUIStore';
+import useShellStore from './store/useShellStore';
 import useSocket from './hooks/useSocket';
 import useFriends from './hooks/useFriends';
 import { FootprintActionsProvider } from './contexts/FootprintActionsContext';
@@ -194,61 +199,50 @@ export default function App() {
   const chatFriendMeta = useChatFriendMeta(chatUserId, friends);
 
   const totalFriendUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+  const activeDestination = useShellStore((state) => state.activeDestination);
+  const setActiveDestination = useShellStore((state) => state.setActiveDestination);
+
+  const handleCheckIn = () => {
+    if (!requireLogin({ type: 'checkin' })) return;
+    setPendingCheckInLocation(null);
+    openCheckIn();
+  };
 
   // ── Render ─────────────────────────────────────────────
 
   return (
     <ErrorBoundary>
-      <div className="ios-app-shell ios-map-overlay fixed inset-0 overflow-hidden"
-        style={{ touchAction: 'none' }}>
-        {/* ── Mobile top bar: Bliver (left) ‖ 公告 + 好友 + 菜单 (right) ── */}
-        <div className="md:hidden fixed z-[1000] pointer-events-none inset-x-0 flex items-start justify-between transform-gpu will-change-transform"
-          style={{ top: `max(12px, env(safe-area-inset-top))`, paddingLeft: `max(12px, env(safe-area-inset-left))`, paddingRight: `max(12px, env(safe-area-inset-right))` }}>
-
-          {/* Left column */}
-          <div className="pointer-events-auto flex flex-col items-start gap-2.5">
-            <button
-              type="button"
-              onClick={() => openAbout()}
-              className="ios-island px-4 py-2.5
-                text-white text-sm font-extrabold
-                active:scale-95 transition-transform duration-150"
-              style={{ fontFamily: 'var(--font-body)' }}
-            >
-              Bliver
-            </button>
-
-            {user && (
-              <button
-                type="button"
-                onClick={() => openAnnouncements()}
-                className="ios-icon-button relative active:scale-90"
-              >
-                <Megaphone className="w-4 h-4" />
-                {announceHasUnread && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-300
-                    shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
-                )}
-              </button>
-            )}
+      <AppShell
+        topBar={
+          <MobileTopBar
+            locationLabel="地图"
+            unreadNotifications={unreadCount}
+            onBrandPress={openAbout}
+            onNotificationsPress={toggleNotifs}
+          />
+        }
+        bottomNavigation={
+          <BottomNavigation
+            activeDestination={activeDestination}
+            unreadMessages={totalFriendUnread}
+            onDestinationChange={setActiveDestination}
+          />
+        }
+        primaryAction={<CheckInAction onPress={handleCheckIn} />}
+      >
+        <div className="ios-app-shell ios-map-overlay fixed inset-0 overflow-hidden">
+          <div className="hidden md:block">
+            <NavBar
+              onlineCount={onlineCount}
+              user={user}
+              onLogout={handleLogout}
+              unreadCount={unreadCount}
+              announceHasUnread={announceHasUnread}
+              friendUnreadCount={totalFriendUnread}
+              isAdmin={isAdmin}
+              onCheckIn={handleCheckIn}
+            />
           </div>
-
-          {/* Right: handled by MobileActionDrawer (unchanged) */}
-        </div>
-
-        <NavBar
-          onlineCount={onlineCount}
-          user={user}
-          onLogout={handleLogout}
-          unreadCount={unreadCount}
-          announceHasUnread={announceHasUnread}
-          friendUnreadCount={totalFriendUnread}
-          isAdmin={isAdmin}
-          onCheckIn={() => {
-            if (!requireLogin({ type: 'checkin' })) return;
-            openCheckIn();
-          }}
-        />
 
         {showNotifs && (
           <NotificationPanel
@@ -329,26 +323,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Mobile check-in FAB — iOS glass style, bottom center */}
-        <div className="md:hidden fixed z-[1000] pointer-events-none transform-gpu will-change-transform"
-          style={{
-            bottom: `max(20px, env(safe-area-inset-bottom))`,
-            left: '50%',
-            transform: 'translateX(-50%)',
-          }}>
-          <button
-            onClick={() => {
-              if (!requireLogin({ type: 'checkin' })) return;
-              setPendingCheckInLocation(null);
-              openCheckIn();
-            }}
-            className="ios-fab pointer-events-auto flex items-center gap-2 px-5 py-3.5
-              active:scale-95 transition-all duration-200"
-          >
-            <MapPin className="w-4 h-4 text-sky-300" />
-            <span className="text-sm font-medium text-white/80">打卡</span>
-          </button>
-        </div>
 
         <CheckInModal
           isOpen={showCheckIn}
@@ -394,15 +368,14 @@ export default function App() {
           )}
         </FootprintActionsProvider>
 
-        <MobileActionDrawer
+        <LegacyDestinationBridge
+          destination={activeDestination}
           user={user}
-          isAdmin={isAdmin}
-          unreadCount={unreadCount}
-          friendUnreadCount={totalFriendUnread}
-          onCheckIn={() => {
-            if (!requireLogin({ type: 'checkin' })) return;
-            openCheckIn();
-          }}
+          openTimeline={openTimeline}
+          openFriends={openFriends}
+          openProfile={openProfile}
+          openAuth={openAuth}
+          onHandled={setActiveDestination}
         />
 
         {showAdmin && <ErrorBoundary><AdminPanel onClose={() => closeAdmin()} socketRef={socketRef} /></ErrorBoundary>}
@@ -476,7 +449,8 @@ export default function App() {
           }
           .animate-slide-down { animation: slideDown 0.4s cubic-bezier(0.2,0.8,0.2,1); }
         `}</style>
-      </div>
+        </div>
+      </AppShell>
     </ErrorBoundary>
   );
 }
