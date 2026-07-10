@@ -148,20 +148,35 @@ vi.mock('../components/NavBar', () => ({
 vi.mock('../components/MobileActionDrawer', () => ({
   default: () => <button type="button" aria-label="菜单">菜单</button>,
 }));
-vi.mock('../components/AuthModal', () => ({ default: () => null }));
+vi.mock('../components/AuthModal', () => ({
+  default: ({ onClose, onDone }) => (
+    <div>
+      <button type="button" onClick={onClose}>Close auth surface</button>
+      <button type="button" onClick={() => onDone({ _id: 'signed-in-user' })}>Complete auth</button>
+    </div>
+  ),
+}));
 vi.mock('../components/CheckInModal', () => ({ default: () => null }));
-vi.mock('../components/TimelineDrawer', () => ({ default: () => null }));
+vi.mock('../components/TimelineDrawer', () => ({
+  default: ({ isOpen, onClose }) => (
+    isOpen ? <button type="button" onClick={onClose}>Close timeline surface</button> : null
+  ),
+}));
 vi.mock('../components/ClusterDetailPanel', () => ({ default: () => null }));
 vi.mock('../components/NotificationPanel', () => ({ default: () => null }));
 vi.mock('../components/AdminPanel', () => ({ default: () => null }));
 vi.mock('../components/GlobalToaster', () => ({ default: () => null }));
 vi.mock('../components/AboutModal', () => ({ default: () => null }));
 vi.mock('../components/FeedbackModal', () => ({ default: () => null }));
-vi.mock('../components/ProfileDrawer', () => ({ default: () => null }));
+vi.mock('../components/ProfileDrawer', () => ({
+  default: ({ onClose }) => <button type="button" onClick={onClose}>Close profile surface</button>,
+}));
 vi.mock('../components/FootprintDetailModal', () => ({ default: () => null }));
 vi.mock('../components/PhotoWall', () => ({ default: () => null }));
 vi.mock('../components/AnnouncementPanel', () => ({ default: () => null }));
-vi.mock('../components/FriendsPanel', () => ({ default: () => null }));
+vi.mock('../components/FriendsPanel', () => ({
+  default: ({ onClose }) => <button type="button" onClick={onClose}>Close friends surface</button>,
+}));
 vi.mock('../components/ChatWindow', () => ({ default: () => null }));
 vi.mock('../components/MessageIsland', () => ({ default: () => null }));
 vi.mock('../components/ErrorBoundary', () => ({ default: ({ children }) => children }));
@@ -174,6 +189,10 @@ describe('App mobile shell integration', () => {
     vi.clearAllMocks();
     mocks.user = null;
     mocks.requireLogin.mockReturnValue(false);
+    uiState.showAuth = false;
+    uiState.showFriends = false;
+    uiState.showTimeline = false;
+    uiState.viewingProfileId = null;
     useShellStore.setState(useShellStore.getInitialState(), true);
   });
 
@@ -186,16 +205,29 @@ describe('App mobile shell integration', () => {
     expect(screen.getByTestId('map-view')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: '主要导航' }).closest('main')).toBeNull();
     expect(screen.getByRole('button', { name: '发布足迹' }).closest('main')).toBeNull();
-    expect(container.querySelector('.ios-app-shell')).not.toHaveStyle({ touchAction: 'none' });
+    const mapLayer = container.querySelector('.ios-map-overlay');
+    expect(mapLayer).toHaveClass('absolute', 'inset-0');
+    expect(mapLayer).not.toHaveClass('fixed', 'overflow-hidden');
+    expect(mapLayer).not.toHaveStyle({ touchAction: 'none' });
   });
 
-  it('opens the existing Timeline action from activity', async () => {
+  it('keeps Activity current until the Timeline surface closes', async () => {
     const user = userEvent.setup();
+    uiState.showTimeline = true;
     render(<App />);
 
-    await user.click(screen.getByRole('button', { name: '动态' }));
+    const mapDestination = screen.getByRole('button', { name: '地图' });
+    const activityDestination = screen.getByRole('button', { name: '动态' });
+    await user.click(activityDestination);
 
     await waitFor(() => expect(mocks.openTimeline).toHaveBeenCalledTimes(1));
+    expect(activityDestination).toHaveAttribute('aria-current', 'page');
+    expect(mapDestination).not.toHaveAttribute('aria-current');
+
+    await user.click(screen.getByRole('button', { name: 'Close timeline surface' }));
+
+    expect(mapDestination).toHaveAttribute('aria-current', 'page');
+    expect(activityDestination).not.toHaveAttribute('aria-current');
   });
 
   it('guards guest check-in without opening the form', async () => {
@@ -220,17 +252,94 @@ describe('App mobile shell integration', () => {
     await waitFor(() => expect(mocks.openAuth).toHaveBeenCalledWith('login', message));
   });
 
-  it('routes authenticated messages and me through existing surfaces', async () => {
+  it('keeps Messages current until the Friends surface closes', async () => {
     const user = userEvent.setup();
     mocks.user = { _id: 'user-1' };
+    uiState.showFriends = true;
     render(<App />);
 
-    await user.click(screen.getByRole('button', { name: /^消息/ }));
+    const mapDestination = screen.getByRole('button', { name: '地图' });
+    const messagesDestination = screen.getByRole('button', { name: /^消息/ });
+    await user.click(messagesDestination);
     await waitFor(() => expect(mocks.openFriends).toHaveBeenCalledTimes(1));
+    expect(messagesDestination).toHaveAttribute('aria-current', 'page');
 
-    await user.click(screen.getByRole('button', { name: '我的' }));
-    await waitFor(() => expect(mocks.openProfile).toHaveBeenCalledWith('user-1'));
+    await user.click(screen.getByRole('button', { name: 'Close friends surface' }));
+
+    expect(mapDestination).toHaveAttribute('aria-current', 'page');
   });
+
+  it('keeps Me current until the Profile surface closes', async () => {
+    const user = userEvent.setup();
+    mocks.user = { _id: 'user-1' };
+    uiState.viewingProfileId = 'user-1';
+    render(<App />);
+
+    const mapDestination = screen.getByRole('button', { name: '地图' });
+    const meDestination = screen.getByRole('button', { name: '我的' });
+    await user.click(meDestination);
+    await waitFor(() => expect(mocks.openProfile).toHaveBeenCalledWith('user-1'));
+    expect(meDestination).toHaveAttribute('aria-current', 'page');
+
+    await user.click(screen.getByRole('button', { name: 'Close profile surface' }));
+
+    expect(mapDestination).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('keeps a guest destination current until Auth closes', async () => {
+    const user = userEvent.setup();
+    uiState.showAuth = true;
+    render(<App />);
+
+    const mapDestination = screen.getByRole('button', { name: '地图' });
+    const messagesDestination = screen.getByRole('button', { name: /^消息/ });
+    await user.click(messagesDestination);
+    await waitFor(() => expect(mocks.openAuth).toHaveBeenCalled());
+    expect(messagesDestination).toHaveAttribute('aria-current', 'page');
+
+    await user.click(screen.getByRole('button', { name: 'Close auth surface' }));
+
+    expect(mapDestination).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('returns a guest destination to Map after Auth succeeds', async () => {
+    const user = userEvent.setup();
+    uiState.showAuth = true;
+    render(<App />);
+
+    const mapDestination = screen.getByRole('button', { name: '地图' });
+    const meDestination = screen.getByRole('button', { name: '我的' });
+    await user.click(meDestination);
+    await waitFor(() => expect(mocks.openAuth).toHaveBeenCalled());
+    expect(meDestination).toHaveAttribute('aria-current', 'page');
+
+    await user.click(screen.getByRole('button', { name: 'Complete auth' }));
+
+    expect(mapDestination).toHaveAttribute('aria-current', 'page');
+  });
+
+  it.each(['Close auth surface', 'Complete auth'])(
+    'keeps Activity current when secondary Auth exits through %s',
+    async (authAction) => {
+      const user = userEvent.setup();
+      uiState.showTimeline = true;
+      uiState.showAuth = true;
+      useShellStore.setState({ activeDestination: 'activity' });
+      render(<App />);
+
+      const mapDestination = screen.getByRole('button', { name: '地图' });
+      const activityDestination = screen.getByRole('button', { name: '动态' });
+      expect(activityDestination).toHaveAttribute('aria-current', 'page');
+
+      await user.click(screen.getByRole('button', { name: authAction }));
+
+      expect(activityDestination).toHaveAttribute('aria-current', 'page');
+      expect(mapDestination).not.toHaveAttribute('aria-current');
+
+      await user.click(screen.getByRole('button', { name: 'Close timeline surface' }));
+      expect(mapDestination).toHaveAttribute('aria-current', 'page');
+    },
+  );
 
   it('opens About from the brand control', async () => {
     const user = userEvent.setup();

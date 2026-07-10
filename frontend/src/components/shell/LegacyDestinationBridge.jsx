@@ -1,7 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-const noop = () => {};
-
 function callRequiredAction(action, actionName, destination, ...args) {
   if (typeof action === 'function') {
     action(...args);
@@ -21,7 +19,6 @@ export default function LegacyDestinationBridge({
   openFriends,
   openProfile,
   openAuth,
-  onHandled = noop,
 }) {
   const handledDestinationRef = useRef('map');
 
@@ -52,8 +49,7 @@ export default function LegacyDestinationBridge({
     if (!handled) return;
 
     handledDestinationRef.current = destination;
-    if (typeof onHandled === 'function') onHandled('map');
-  }, [destination, onHandled, openAuth, openFriends, openProfile, openTimeline, user]);
+  }, [destination, openAuth, openFriends, openProfile, openTimeline, user]);
 
   return null;
 }

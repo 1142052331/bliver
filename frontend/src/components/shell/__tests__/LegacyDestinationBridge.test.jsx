@@ -30,11 +30,11 @@ describe('LegacyDestinationBridge', () => {
     expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
-  it('opens the existing timeline for Activity and returns to Map', () => {
+  it('opens the existing timeline for Activity without prematurely returning to Map', () => {
     const actions = createActions();
     render(<LegacyDestinationBridge destination="activity" user={{ _id: 'u1' }} {...actions} />);
     expect(actions.openTimeline).toHaveBeenCalledTimes(1);
-    expect(actions.onHandled).toHaveBeenCalledWith('map');
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('opens the existing friends surface for logged-in Messages', () => {
@@ -42,7 +42,7 @@ describe('LegacyDestinationBridge', () => {
     render(<LegacyDestinationBridge destination="messages" user={{ _id: 'u1' }} {...actions} />);
     expect(actions.openFriends).toHaveBeenCalledTimes(1);
     expect(actions.openAuth).not.toHaveBeenCalled();
-    expect(actions.onHandled).toHaveBeenCalledWith('map');
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('requests login for guest Messages', () => {
@@ -50,7 +50,7 @@ describe('LegacyDestinationBridge', () => {
     render(<LegacyDestinationBridge destination="messages" user={null} {...actions} />);
     expect(actions.openAuth).toHaveBeenCalledWith('login', '登录后查看消息');
     expect(actions.openFriends).not.toHaveBeenCalled();
-    expect(actions.onHandled).toHaveBeenCalledWith('map');
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('opens the current user profile for logged-in Me', () => {
@@ -58,7 +58,7 @@ describe('LegacyDestinationBridge', () => {
     render(<LegacyDestinationBridge destination="me" user={{ _id: 'u1' }} {...actions} />);
     expect(actions.openProfile).toHaveBeenCalledWith('u1');
     expect(actions.openAuth).not.toHaveBeenCalled();
-    expect(actions.onHandled).toHaveBeenCalledWith('map');
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('requests login for guest Me', () => {
@@ -66,7 +66,7 @@ describe('LegacyDestinationBridge', () => {
     render(<LegacyDestinationBridge destination="me" user={null} {...actions} />);
     expect(actions.openAuth).toHaveBeenCalledWith('login', '登录后查看个人主页');
     expect(actions.openProfile).not.toHaveBeenCalled();
-    expect(actions.onHandled).toHaveBeenCalledWith('map');
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('does not repeat handling when rerendered with the same destination', () => {
@@ -78,7 +78,7 @@ describe('LegacyDestinationBridge', () => {
     rerender(<LegacyDestinationBridge destination="activity" user={{ _id: 'u1' }} {...actions} />);
 
     expect(actions.openTimeline).toHaveBeenCalledTimes(1);
-    expect(actions.onHandled).toHaveBeenCalledTimes(1);
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('does not duplicate side effects under React StrictMode', () => {
@@ -91,7 +91,7 @@ describe('LegacyDestinationBridge', () => {
     );
 
     expect(actions.openTimeline).toHaveBeenCalledTimes(1);
-    expect(actions.onHandled).toHaveBeenCalledTimes(1);
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('handles a different destination after a direct destination change', () => {
@@ -104,7 +104,7 @@ describe('LegacyDestinationBridge', () => {
 
     expect(actions.openTimeline).toHaveBeenCalledTimes(1);
     expect(actions.openFriends).toHaveBeenCalledTimes(1);
-    expect(actions.onHandled).toHaveBeenCalledTimes(2);
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('handles a destination again after switching through Map', () => {
@@ -117,7 +117,7 @@ describe('LegacyDestinationBridge', () => {
     rerender(<LegacyDestinationBridge destination="activity" user={{ _id: 'u1' }} {...actions} />);
 
     expect(actions.openTimeline).toHaveBeenCalledTimes(2);
-    expect(actions.onHandled).toHaveBeenCalledTimes(2);
+    expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('preserves a failed destination until its required action becomes available', () => {
@@ -147,7 +147,7 @@ describe('LegacyDestinationBridge', () => {
     );
 
     expect(openTimeline).toHaveBeenCalledTimes(1);
-    expect(onHandled).toHaveBeenCalledWith('map');
+    expect(onHandled).not.toHaveBeenCalled();
   });
 
   it('reports an unknown destination without marking it handled', () => {

@@ -223,6 +223,11 @@ export default function App() {
   const totalFriendUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
   const activeDestination = useShellStore((state) => state.activeDestination);
   const setActiveDestination = useShellStore((state) => state.setActiveDestination);
+  const destinationSurfaceBehindAuthIsOpen = (
+    (activeDestination === 'activity' && showTimeline)
+    || (activeDestination === 'messages' && showFriends)
+    || (activeDestination === 'me' && Boolean(viewingProfileId))
+  );
 
   const handleCheckIn = () => {
     if (!requireLogin({ type: 'checkin' })) return;
@@ -260,7 +265,7 @@ export default function App() {
         }
         primaryAction={<CheckInAction onPress={handleCheckIn} />}
       >
-        <div className="ios-app-shell ios-map-overlay fixed inset-0 overflow-hidden">
+        <div className="ios-app-shell ios-map-overlay absolute inset-0">
           <div className="hidden md:block">
             <NavBar
               onlineCount={onlineCount}
@@ -299,12 +304,12 @@ export default function App() {
             <FriendsPanel
               key="friends"
               isOpen={showFriends}
-              onClose={() => closeFriends()}
+              onClose={() => { closeFriends(); setActiveDestination('map'); }}
               friends={friends}
               onlineStatus={onlineStatus}
               unreadCounts={unreadCounts}
-              onOpenProfile={(uid) => { closeFriends(); openProfile(uid); }}
-              onOpenChat={(uid) => { closeFriends(); openChat(uid); }}
+              onOpenProfile={(uid) => { closeFriends(); setActiveDestination('map'); openProfile(uid); }}
+              onOpenChat={(uid) => { closeFriends(); setActiveDestination('map'); openChat(uid); }}
             />
           )}
         </AnimatePresence>
@@ -363,11 +368,11 @@ export default function App() {
         <FootprintActionsProvider user={user} requireLogin={requireLogin} setFootprints={setFootprints}>
           <TimelineDrawer
             isOpen={showTimeline}
-            onClose={() => closeTimeline()}
+            onClose={() => { closeTimeline(); setActiveDestination('map'); }}
             footprints={footprints}
             userId={user?._id}
             isAdmin={isAdmin}
-            onSelectFootprint={(fpId) => { closeTimeline(); setTimelineTargetFpId(fpId); }}
+            onSelectFootprint={(fpId) => { closeTimeline(); setActiveDestination('map'); setTimelineTargetFpId(fpId); }}
             period={footprintPeriod}
             onChangePeriod={handlePeriodChange}
             loading={footprintsLoading}
@@ -405,7 +410,6 @@ export default function App() {
           openFriends={openFriends}
           openProfile={openProfile}
           openAuth={openAuth}
-          onHandled={setActiveDestination}
         />
 
         {showAdmin && <ErrorBoundary><AdminPanel onClose={() => closeAdmin()} socketRef={socketRef} /></ErrorBoundary>}
@@ -425,8 +429,8 @@ export default function App() {
           <AuthModal
             initialTab={authTab}
             message={authMessage}
-            onDone={(u) => { setUser(u); closeAuth(); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
-            onClose={() => closeAuth()}
+            onDone={(u) => { setUser(u); closeAuth(); if (!destinationSurfaceBehindAuthIsOpen) setActiveDestination('map'); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
+            onClose={() => { closeAuth(); if (!destinationSurfaceBehindAuthIsOpen) setActiveDestination('map'); }}
           />
         )}
 
@@ -435,15 +439,15 @@ export default function App() {
             <ErrorBoundary key={viewingProfileId}>
               <ProfileDrawer
                 userId={viewingProfileId}
-                onClose={() => closeProfile()}
-                onLogout={() => { closeProfile(); handleLogout(); }}
-                onSelectFootprint={(fpId) => { closeProfile(); setActiveFootprintId(fpId); }}
+                onClose={() => { closeProfile(); setActiveDestination('map'); }}
+                onLogout={() => { closeProfile(); setActiveDestination('map'); handleLogout(); }}
+                onSelectFootprint={(fpId) => { closeProfile(); setActiveDestination('map'); setActiveFootprintId(fpId); }}
                 friendshipStatus={friendshipStatus}
                 pendingRequestId={getPendingRequestId(viewingProfileId)}
                 onSendFriendRequest={sendFriendRequest}
                 onAcceptRequest={acceptRequest}
                 onRejectRequest={rejectRequest}
-                onOpenChat={(uid) => { closeProfile(); openChat(uid); }}
+                onOpenChat={(uid) => { closeProfile(); setActiveDestination('map'); openChat(uid); }}
               />
             </ErrorBoundary>
           )}
