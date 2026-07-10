@@ -1,10 +1,13 @@
 import { Compass, Map, MessageCircle, UserRound } from 'lucide-react';
 
-const destinations = [
+/** @typedef {import('../../store/useShellStore').MobileDestination} MobileDestination */
+
+/** @type {Array<{ id: MobileDestination, label: string, Icon: typeof Map }>} */
+const NAV_ITEMS = [
   { id: 'map', label: '地图', Icon: Map },
   { id: 'activity', label: '动态', Icon: Compass },
   { id: 'messages', label: '消息', Icon: MessageCircle },
-  { id: 'profile', label: '我的', Icon: UserRound },
+  { id: 'me', label: '我的', Icon: UserRound },
 ];
 
 export default function BottomNavigation({
@@ -12,11 +15,14 @@ export default function BottomNavigation({
   unreadMessages = 0,
   onDestinationChange,
 }) {
-  const normalizedUnreadMessages = Math.max(0, Number(unreadMessages) || 0);
+  const numericUnreadMessages = Number(unreadMessages);
+  const normalizedUnreadMessages = Number.isFinite(numericUnreadMessages)
+    ? Math.max(0, Math.floor(numericUnreadMessages))
+    : 0;
 
   return (
     <nav className="bliver-bottom-navigation" aria-label="主要导航">
-      {destinations.map(({ id, label, Icon }) => {
+      {NAV_ITEMS.map(({ id, label, Icon }) => {
         const isActive = activeDestination === id;
         const isMessages = id === 'messages';
         const accessibleLabel = isMessages && normalizedUnreadMessages > 0

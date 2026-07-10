@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { cwd } from 'node:process';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
@@ -14,36 +17,72 @@ it('renders exactly four top-level destinations', () => {
   expect(screen.getByRole('button', { name: '我的' })).toBeInTheDocument();
 });
 
-it('reports the selected destination', async () => {
+it('reports the exact destination contract for every item', async () => {
   const user = userEvent.setup();
   const onDestinationChange = vi.fn();
   render(<BottomNavigation activeDestination="map" onDestinationChange={onDestinationChange} />);
 
+  await user.click(screen.getByRole('button', { name: '地图' }));
   await user.click(screen.getByRole('button', { name: '动态' }));
+  await user.click(screen.getByRole('button', { name: '消息' }));
+  await user.click(screen.getByRole('button', { name: '我的' }));
 
-  expect(onDestinationChange).toHaveBeenCalledWith('activity');
+  expect(onDestinationChange.mock.calls).toEqual([
+    ['map'],
+    ['activity'],
+    ['messages'],
+    ['me'],
+  ]);
 });
 
-it('announces unread messages and caps the visible badge', () => {
-  render(
-    <BottomNavigation
-      activeDestination="messages"
-      unreadMessages={125}
-      onDestinationChange={() => {}}
-    />,
-  );
+it('selects the Me destination with the shared mobile contract', () => {
+  render(<BottomNavigation activeDestination="me" onDestinationChange={() => {}} />);
 
-  expect(screen.getByRole('button', { name: '消息，125 条未读' })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
-  expect(screen.getByText('99+')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '我的' })).toHaveAttribute('aria-current', 'page');
 });
+
+it.each([
+  { unreadMessages: 0, accessibleName: '消息', badge: null },
+  { unreadMessages: -1, accessibleName: '消息', badge: null },
+  { unreadMessages: Number.NaN, accessibleName: '消息', badge: null },
+  { unreadMessages: Number.POSITIVE_INFINITY, accessibleName: '消息', badge: null },
+  { unreadMessages: 1.5, accessibleName: '消息，1 条未读', badge: '1' },
+  { unreadMessages: 99, accessibleName: '消息，99 条未读', badge: '99' },
+  { unreadMessages: 100, accessibleName: '消息，100 条未读', badge: '99+' },
+])(
+  'normalizes unreadMessages=$unreadMessages for aria and badge output',
+  ({ unreadMessages, accessibleName, badge }) => {
+    render(
+      <BottomNavigation
+        activeDestination="messages"
+        unreadMessages={unreadMessages}
+        onDestinationChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: accessibleName })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+
+    if (badge === null) {
+      expect(document.querySelector('.bliver-bottom-navigation__badge')).not.toBeInTheDocument();
+    } else {
+      expect(screen.getByText(badge)).toBeInTheDocument();
+    }
+  },
+);
 
 it('marks every shell control for QA', () => {
   const { container } = render(
-    <BottomNavigation activeDestination="profile" onDestinationChange={() => {}} />,
+    <BottomNavigation activeDestination="me" onDestinationChange={() => {}} />,
   );
 
   expect(container.querySelectorAll('[data-shell-control]')).toHaveLength(4);
+});
+
+it('stays above map panes and controls but below full-screen modals', () => {
+  const tokensCss = readFileSync(resolve(cwd(), 'src/styles/tokens.css'), 'utf8');
+
+  expect(tokensCss).toMatch(/\.bliver-bottom-navigation\s*{[^}]*z-index:\s*1100;/s);
 });
