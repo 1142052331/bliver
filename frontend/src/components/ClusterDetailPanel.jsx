@@ -77,7 +77,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onClos
       {!(isSingle && detailFp) && (
         <>
           <div
-            className="fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm transition-opacity pointer-events-none"
+            className="fixed inset-0 z-[1500] bg-black/30 backdrop-blur-sm transition-opacity pointer-events-auto"
             onClick={onClose}
           />
 
@@ -85,6 +85,7 @@ export default function ClusterDetailPanel({ footprints, userId, isAdmin, onClos
             className="fixed bottom-0 left-0 right-0 z-[1600] bg-black/40 backdrop-blur-lg border border-white/10 border-b-0 shadow-xl rounded-t-2xl
               max-h-[85vh] flex flex-col animate-slide-up"
             style={{ animation: 'slideUp 0.3s ease-out', paddingBottom: 'env(safe-area-inset-bottom)' }}
+            onClick={(event) => event.stopPropagation()}
           >
         {/* Handle bar */}
         <div className="flex justify-center pt-2 pb-1">

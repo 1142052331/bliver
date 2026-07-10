@@ -92,7 +92,7 @@ export default function App() {
   const { user, setUser, isAdmin, isAsen, requireLogin, logout, pendingActionRef } = useAuth();
 
   // ── Notifications ─────────────────────────────────────
-  const { notifications, setNotifications, unreadCount, markFootprintRead, handleNotifNavigate } = useNotifications();
+  const { notifications, setNotifications, clearNotifications, unreadCount, markFootprintRead, handleNotifNavigate } = useNotifications();
 
   // ── Core state ────────────────────────────────────────
   const [onlineCount, setOnlineCount] = useState(0);
@@ -183,7 +183,7 @@ export default function App() {
 
   const handleLogout = () => {
     logout();
-    setNotifications([]);
+    clearNotifications();
     refetchFootprints();
   };
 

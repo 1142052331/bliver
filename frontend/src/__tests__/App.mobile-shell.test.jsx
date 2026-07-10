@@ -7,6 +7,8 @@ import useShellStore from '../store/useShellStore';
 const mocks = vi.hoisted(() => ({
   user: null,
   requireLogin: vi.fn(() => false),
+  logout: vi.fn(),
+  clearNotifications: vi.fn(),
   openCheckIn: vi.fn(),
   openTimeline: vi.fn(),
   openFriends: vi.fn(),
@@ -89,7 +91,7 @@ vi.mock('../hooks/useAuth', () => ({
     isAdmin: false,
     isAsen: false,
     requireLogin: mocks.requireLogin,
-    logout: vi.fn(),
+    logout: mocks.logout,
     pendingActionRef: { current: null },
   }),
 }));
@@ -97,6 +99,7 @@ vi.mock('../hooks/useNotifications', () => ({
   default: () => ({
     notifications: [],
     setNotifications: vi.fn(),
+    clearNotifications: mocks.clearNotifications,
     unreadCount: 3,
     markFootprintRead: vi.fn(),
     handleNotifNavigate: vi.fn(),
@@ -133,7 +136,13 @@ vi.mock('../store/useUIStore', () => {
 });
 
 vi.mock('../components/MapView', () => ({ default: () => <div data-testid="map-view" /> }));
-vi.mock('../components/NavBar', () => ({ default: () => <div data-testid="desktop-nav" /> }));
+vi.mock('../components/NavBar', () => ({
+  default: ({ onLogout }) => (
+    <div data-testid="desktop-nav">
+      <button type="button" onClick={onLogout}>Desktop logout</button>
+    </div>
+  ),
+}));
 vi.mock('../components/MobileActionDrawer', () => ({
   default: () => <button type="button" aria-label="菜单">菜单</button>,
 }));
@@ -228,6 +237,17 @@ describe('App mobile shell integration', () => {
     await user.click(screen.getByRole('button', { name: '关于 Bliver' }));
 
     expect(mocks.openAbout).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears notification state when logging out', async () => {
+    const user = userEvent.setup();
+    mocks.user = { _id: 'user-1' };
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Desktop logout' }));
+
+    expect(mocks.logout).toHaveBeenCalledTimes(1);
+    expect(mocks.clearNotifications).toHaveBeenCalledTimes(1);
   });
 
   it('opens notifications through the existing UI action', async () => {

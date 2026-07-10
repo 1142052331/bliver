@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
 
@@ -15,7 +15,9 @@ interface ServerNotification {
 const READ_COUNT_KEY = 'bliver_unread_v1';
 
 export default function useNotifications() {
-  const [notifications, setNotifications] = useState<ServerNotification[]>([]);
+  const [notifications, setNotificationsState] = useState<ServerNotification[]>([]);
+  const [hasSyncedNotifications, setHasSyncedNotifications] = useState(false);
+  const hasSyncedNotificationsRef = useRef(false);
   const [unreadCount, setUnreadCount] = useState<number>(() => {
     try { return parseInt(localStorage.getItem(READ_COUNT_KEY) || '0', 10) || 0; }
     catch { return 0; }
@@ -24,14 +26,32 @@ export default function useNotifications() {
   const closeNotifs = useUIStore((s) => s.closeNotifs);
   const setActiveFootprintId = useUIStore((s) => s.setActiveFootprintId);
 
-  // Sync unread counter from server notifications
-  useEffect(() => {
-    if (notifications.length > 0) {
-      const count = notifications.filter((n) => !n.isRead).length;
-      setUnreadCount(count);
-      try { localStorage.setItem(READ_COUNT_KEY, String(count)); } catch {}
+  const markNotificationsSynced = useCallback(() => {
+    hasSyncedNotificationsRef.current = true;
+    setHasSyncedNotifications(true);
+  }, []);
+
+  const setNotifications = useCallback<React.Dispatch<React.SetStateAction<ServerNotification[]>>>((updater) => {
+    if (typeof updater === 'function' || updater.length > 0 || hasSyncedNotificationsRef.current) {
+      markNotificationsSynced();
     }
-  }, [notifications]);
+    setNotificationsState(updater);
+  }, [markNotificationsSynced]);
+
+  // Preserve the cached badge until the first real notification sync.
+  useEffect(() => {
+    if (!hasSyncedNotifications) return;
+    const count = notifications.filter((n) => !n.isRead).length;
+    setUnreadCount(count);
+    try { localStorage.setItem(READ_COUNT_KEY, String(count)); } catch {}
+  }, [hasSyncedNotifications, notifications]);
+
+  const clearNotifications = useCallback(() => {
+    markNotificationsSynced();
+    setNotificationsState([]);
+    setUnreadCount(0);
+    try { localStorage.setItem(READ_COUNT_KEY, '0'); } catch {}
+  }, [markNotificationsSynced]);
 
   const markAsRead = useCallback(async (notifId: string) => {
     setUnreadCount((prev) => {
@@ -39,7 +59,7 @@ export default function useNotifications() {
       try { localStorage.setItem(READ_COUNT_KEY, String(next)); } catch {}
       return next;
     });
-    setNotifications((prev) =>
+    setNotificationsState((prev) =>
       prev.map((n) => (n._id === notifId ? { ...n, isRead: true } : n))
     );
     await apiClient.notifications.markRead(notifId).catch(() => {});
@@ -47,7 +67,7 @@ export default function useNotifications() {
 
   // Batch mark all notifications for a footprint as read (read-on-view)
   const markFootprintRead = useCallback((footprintId: string) => {
-    setNotifications((prev) => {
+    setNotificationsState((prev) => {
       const toMark = prev.filter(
         (n) => !n.isRead && n.footprintId === footprintId
       );
@@ -88,6 +108,7 @@ export default function useNotifications() {
   return {
     notifications,
     setNotifications,
+    clearNotifications,
     unreadCount,
     setUnreadCount,
     markAsRead,
