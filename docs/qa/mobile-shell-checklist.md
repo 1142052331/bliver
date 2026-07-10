@@ -45,8 +45,8 @@ Authenticated checks require a disposable non-production account and were not pe
 | 1440×1000 | 0 mobile controls | n/a | 0 px | Not required | 0 |
 
 - Leaflet attribution initially overlapped the mobile bottom navigation at all three phone viewports.
-- The regression assertion was added before the fix, and the mobile attribution now ends exactly at the navigation top edge.
-- Mobile Activity, Messages, Me, and Check-in currently return the bottom-navigation active state to Map after opening the legacy drawer or auth surface. Changing this requires a broader destination/surface state model, so it is deferred to the navigation redesign phase rather than patched in Phase 1.
+- The regression assertion was added before the fix, and the mobile attribution now keeps a visible 8px gap above the navigation.
+- While a legacy interface is open, its corresponding destination remains selected; closing it returns the selection to Map.
 
 ## Current Commands
 

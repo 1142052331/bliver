@@ -16,6 +16,7 @@
   --bliver-radius-sm: 10px;
   --bliver-radius-md: 16px;
   --bliver-radius-lg: 24px;
+  --bliver-space-sm: 8px;
   --bliver-safe-top: env(safe-area-inset-top, 0px);
   --bliver-safe-right: env(safe-area-inset-right, 0px);
   --bliver-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -157,9 +158,11 @@
   justify-self: start;
   padding: 0 10px;
   color: var(--bliver-forest);
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-family: Newsreader, "Noto Serif SC", Georgia, serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .bliver-mobile-top-bar__brand--static {
@@ -267,7 +270,7 @@
   }
 
   .bliver-shell .leaflet-container .leaflet-control-attribution {
-    margin-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom));
+    margin-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom) + var(--bliver-space-sm));
   }
 }
 

@@ -10,8 +10,8 @@ colors:
   warm-surface: "#FFFFFF"
   ink: "#1E2925"
   muted-ink: "#5D7068"
-  coral: "#F26A4B"
-  coral-active: "#D9563A"
+  coral: "#C54B36"
+  coral-active: "#AD3D2D"
   border: "#D7E1DC"
   success: "#27805E"
   warning: "#A96B17"
@@ -108,6 +108,8 @@ Bliver uses the **Natural City** system: a quiet, warm interface layered over a 
 **The Living Neutral Rule.** Backgrounds are warm paper and sage-tinted surfaces, never sterile blue-gray. Forest ink replaces pure black for primary text and navigation.
 
 **The Functional Accent Rule.** Forest indicates selection and primary navigation. Coral indicates creation and publication. Semantic colors remain independent and always include icon or text support.
+
+Coral and coral-active are the white-label AA primary-action tokens.
 
 Map tiles should be visually softened enough for markers and cards to lead, but place labels and geographic boundaries must remain readable. Relationship and scope markers may use restrained supporting hues, but never rely on hue alone.
 

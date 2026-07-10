@@ -88,6 +88,17 @@ it('uses mobile-only controls above the map and below modal layers', () => {
   expect(tokensCss).not.toMatch(/\.bliver-mobile-top-bar[^}]*filter:\s*blur/s);
 });
 
+it('matches the Natural City brand typography contract', () => {
+  const tokensCss = readFileSync(resolve(cwd(), 'src/styles/tokens.css'), 'utf8');
+  const brandBlock = tokensCss.match(/\.bliver-mobile-top-bar__brand\s*{([^}]*)}/s)?.[1] ?? '';
+
+  expect(brandBlock).toMatch(/font-family:\s*Newsreader,\s*"Noto Serif SC",\s*Georgia,\s*serif;/);
+  expect(brandBlock).toMatch(/font-size:\s*24px;/);
+  expect(brandBlock).toMatch(/font-weight:\s*700;/);
+  expect(brandBlock).toMatch(/line-height:\s*1;/);
+  expect(brandBlock).toMatch(/letter-spacing:\s*-0\.02em;/);
+});
+
 it('uses the semantic danger color for notification badges', () => {
   const tokensCss = readFileSync(resolve(cwd(), 'src/styles/tokens.css'), 'utf8');
   const badgeBlock = tokensCss.match(/\.bliver-mobile-top-bar__badge\s*{([^}]*)}/s)?.[1] ?? '';
