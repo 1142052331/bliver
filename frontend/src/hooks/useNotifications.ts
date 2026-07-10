@@ -178,9 +178,11 @@ export default function useNotifications(userId?: string | null) {
     latestAppliedRequestRef.current = context.requestSequence;
 
     const localReadOverrides = localReadOverridesRef.current;
-    nextNotifications.forEach((notification) => {
-      if (notification.isRead) localReadOverrides.delete(notification._id);
-    });
+    if (context.requestSequence === requestSequenceRef.current) {
+      nextNotifications.forEach((notification) => {
+        if (notification.isRead) localReadOverrides.delete(notification._id);
+      });
+    }
     const reconciledServerNotifications = nextNotifications.map((notification) => (
       localReadOverrides.has(notification._id) && !notification.isRead
         ? { ...notification, isRead: true }

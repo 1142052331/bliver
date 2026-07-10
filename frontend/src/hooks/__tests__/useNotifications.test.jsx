@@ -415,6 +415,60 @@ describe('useNotifications unread persistence', () => {
     expect(result.current.unreadCount).toBe(1);
   });
 
+  it('keeps a local read override when an older request confirms read first', async () => {
+    const firstRequest = deferred();
+    const secondRequest = deferred();
+    const markReadRequest = deferred();
+    apiClient.notifications.list
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockReturnValueOnce(secondRequest.promise);
+    apiClient.notifications.markRead.mockReturnValueOnce(markReadRequest.promise);
+    const { result } = renderHook(() => useNotifications(userId));
+    const unreadNotification = {
+      _id: 'out-of-order-read-confirmation',
+      isRead: false,
+      footprintId: 'footprint-1',
+      type: 'comment',
+      createdAt: '2026-07-11T00:00:00.000Z',
+    };
+    act(() => {
+      result.current.applyServerNotifications([unreadNotification]);
+    });
+    const firstRefetch = refetchNotifications(
+      result.current.applyServerNotifications,
+      undefined,
+      result.current.captureNotificationRequest,
+    );
+    let markRequest;
+    act(() => {
+      markRequest = result.current.markAsRead(unreadNotification._id);
+    });
+    const secondRefetch = refetchNotifications(
+      result.current.applyServerNotifications,
+      undefined,
+      result.current.captureNotificationRequest,
+    );
+
+    await act(async () => {
+      markReadRequest.resolve({ data: { ok: true } });
+      await markRequest;
+    });
+    await act(async () => {
+      firstRequest.resolve({
+        data: { notifications: [{ ...unreadNotification, isRead: true }] },
+      });
+      await firstRefetch;
+    });
+    await act(async () => {
+      secondRequest.resolve({ data: { notifications: [unreadNotification] } });
+      await secondRefetch;
+    });
+
+    expect(result.current.notifications).toEqual([{ ...unreadNotification, isRead: true }]);
+    expect(result.current.unreadCount).toBe(0);
+    expect(localStorage.getItem(unreadKey(userId))).toBe('0');
+  });
+
   it('does not carry local read overrides into another user session', async () => {
     const sharedNotificationId = 'same-id-different-user';
     const notification = {
