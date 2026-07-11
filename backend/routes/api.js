@@ -54,7 +54,7 @@ const router = express.Router();
   });
 
   // POST /api/checkin
-  router.post('/checkin', auth, contentLimiter, upload.single('photo'), uploadToCloudinary, validate(checkinSchema), async (req, res) => {
+  router.post('/checkin', auth, contentLimiter, upload.single('photo'), validate(checkinSchema), uploadToCloudinary, async (req, res) => {
     const { lat, lng, message, mood, precise } = req.body;
 
     const fp = await footprintService.create(req.user.id, {
