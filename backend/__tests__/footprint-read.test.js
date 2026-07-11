@@ -185,6 +185,29 @@ describe('FootprintReadService', () => {
     const state = await FootprintRead.findOne({ userId: viewer._id, footprintId: readable._id });
     expect(state.readAt).toEqual(NOW);
     expect(await FootprintRead.countDocuments()).toBe(1);
+    expect((await User.findById(viewer._id)).footprintReadBaselineAt).toEqual(NOW);
+  });
+
+  test('hidden-only and invalid-only imports do not initialize read state', async () => {
+    const author = await createUser('author');
+    const hidden = await createFootprint(author._id, { visibility: 'private' });
+    const hiddenViewer = await createUser('hidden-viewer');
+    const invalidViewer = await createUser('invalid-viewer');
+
+    await expect(importLegacy({
+      viewer: { id: hiddenViewer.id, role: 'user' },
+      entries: [{ footprintId: hidden.id, readAt: +NOW }],
+      now: NOW,
+    })).resolves.toEqual({ imported: 0, skipped: 1 });
+    await expect(importLegacy({
+      viewer: { id: invalidViewer.id, role: 'user' },
+      entries: [{ footprintId: 'invalid', readAt: +NOW }],
+      now: NOW,
+    })).resolves.toEqual({ imported: 0, skipped: 1 });
+
+    expect((await User.findById(hiddenViewer._id)).footprintReadBaselineAt).toBeNull();
+    expect((await User.findById(invalidViewer._id)).footprintReadBaselineAt).toBeNull();
+    expect(await FootprintRead.countDocuments()).toBe(0);
   });
 
   test('rejects legacy imports larger than 500 entries', async () => {

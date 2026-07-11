@@ -86,7 +86,6 @@ async function importLegacy({ viewer, entries, now = new Date() }) {
   if (!Array.isArray(entries) || entries.length > 500) {
     throw new AppError(400, 'Read-state import accepts at most 500 entries');
   }
-  await ensureReadBaseline(viewer.id, now);
 
   const normalized = new Map();
   for (const entry of entries) {
@@ -111,7 +110,10 @@ async function importLegacy({ viewer, entries, now = new Date() }) {
       },
     });
   }
-  if (operations.length > 0) await FootprintRead.bulkWrite(operations);
+  if (operations.length > 0) {
+    await ensureReadBaseline(viewer.id, now);
+    await FootprintRead.bulkWrite(operations);
+  }
   return { imported: operations.length, skipped: entries.length - operations.length };
 }
 

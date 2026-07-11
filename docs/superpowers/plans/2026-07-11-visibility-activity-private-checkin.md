@@ -70,6 +70,7 @@
 - [ ] Reuse `FootprintVisibilityPolicy` and accepted friend IDs through one access helper for every legacy read and interaction mutation.
 - [ ] Return privacy-safe 404 responses without leaking hidden footprint existence and sanitize operational location metadata.
 - [ ] Keep read-state mark/import on the shared access path and preserve authorized mutation notifications and admin deletion semantics.
+- [ ] Avoid initializing read baselines for imports with no authorized entries, and preserve latest-comment chronology in profile aggregates.
 - [ ] Run focused tests and commit the authorization enforcement.
 
 ### Task 4: Add Resumable Legacy Geography Backfill

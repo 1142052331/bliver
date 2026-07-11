@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Footprint = require('../models/Footprint');
 const { sanitizeLocation } = require('./location');
@@ -46,6 +47,56 @@ async function collectReadable({ filter, access, isAdmin, limit, now, populate }
   return result;
 }
 
+function aggregationAccess(access) {
+  const toObjectId = (value) => new mongoose.Types.ObjectId(value.toString());
+  return {
+    ...access,
+    viewerId: access.viewerId ? toObjectId(access.viewerId) : null,
+    friendIds: new Set([...access.friendIds].map(toObjectId)),
+  };
+}
+
+async function collectRecentComments({ user, access, isAdmin, now }) {
+  const matchingComment = {
+    $or: [
+      { $eq: ['$$comment.userId', user._id] },
+      { $eq: ['$$comment.username', user.name] },
+    ],
+  };
+  const rows = await Footprint.aggregate()
+    .match({
+      $and: [
+        {
+          $or: [
+            { 'comments.userId': user._id },
+            { 'comments.username': user.name },
+          ],
+        },
+        authorizationFilter({ ...aggregationAccess(access), now }),
+      ],
+    })
+    .addFields({
+      _profileLatestCommentAt: {
+        $max: {
+          $map: {
+            input: { $filter: { input: '$comments', as: 'comment', cond: matchingComment } },
+            as: 'comment',
+            in: '$$comment.createdAt',
+          },
+        },
+      },
+    })
+    .sort({ _profileLatestCommentAt: -1, _id: -1 })
+    .limit(5);
+
+  if (rows.length === 0) return [];
+  const docs = await Footprint.findSafe({ _id: { $in: rows.map((row) => row._id) } }, { isAdmin })
+    .populate('userId', 'name avatarUrl');
+  const readable = await filterReadableFootprints({ access, footprints: docs, now });
+  const byId = new Map(readable.map((doc) => [doc.id, doc]));
+  return rows.map((row) => byId.get(row._id.toString())).filter(Boolean);
+}
+
 class ProfileService {
   // ── Get profile page data (visit tracking + footprints + reactions + comments) ──
 
@@ -75,9 +126,7 @@ class ProfileService {
     const reactionDocs = await collectReadable({
       filter: { 'reactions.userId': userId }, access, isAdmin, limit: 5, now, populate: populateAuthor,
     });
-    const commentDocs = await collectReadable({
-      filter: { 'comments.username': user.name }, access, isAdmin, limit: 5, now, populate: populateAuthor,
-    });
+    const commentDocs = await collectRecentComments({ user, access, isAdmin, now });
     const recentReactions = reactionDocs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
     const recentComments = commentDocs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
 

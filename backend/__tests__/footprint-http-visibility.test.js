@@ -292,13 +292,64 @@ describe('legacy footprint HTTP visibility', () => {
   test('public profile history queries are bounded at the database', async () => {
     const target = await createUser('target');
     const limitSpy = jest.spyOn(mongoose.Query.prototype, 'limit');
+    const aggregateLimitSpy = jest.spyOn(mongoose.Aggregate.prototype, 'limit');
     try {
       const response = await request(app).get(`/api/users/${target.id}/profile`);
       expect(response.status).toBe(200);
-      expect(limitSpy.mock.calls.filter(([value]) => value === 50)).toHaveLength(3);
+      expect(limitSpy.mock.calls.filter(([value]) => value === 50)).toHaveLength(2);
+      expect(aggregateLimitSpy).toHaveBeenCalledWith(5);
     } finally {
       limitSpy.mockRestore();
+      aggregateLimitSpy.mockRestore();
     }
+  });
+
+  test('profile recent comments sort by the latest matching comment event', async () => {
+    const target = await createUser('target');
+    const author = await createUser('author');
+    const now = new Date();
+    const olderFootprintWithNewestComment = await createFootprint(author._id, {
+      message: 'older footprint, newest comment',
+      createdAt: new Date(+now - 2 * DAY),
+      discoveryExpiresAt: new Date(+now + DAY),
+      comments: [{
+        userId: target._id, username: target.name, content: 'newest', createdAt: now,
+      }],
+    });
+    const newerFootprintWithOldComment = await createFootprint(author._id, {
+      message: 'newer footprint, old comment',
+      createdAt: new Date(+now - DAY),
+      discoveryExpiresAt: new Date(+now + DAY),
+      comments: [{
+        userId: target._id, username: target.name, content: 'old',
+        createdAt: new Date(+now - 3 * DAY),
+      }],
+    });
+
+    const response = await request(app).get(`/api/users/${target.id}/profile`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.recentComments.map((item) => item._id)).toEqual([
+      olderFootprintWithNewestComment.id,
+      newerFootprintWithOldComment.id,
+    ]);
+  });
+
+  test('profile recent comments break equal event timestamps by descending footprint id', async () => {
+    const target = await createUser('target');
+    const author = await createUser('author');
+    const commentAt = new Date();
+    const first = await createFootprint(author._id, {
+      comments: [{ userId: target._id, username: target.name, content: 'first', createdAt: commentAt }],
+    });
+    const second = await createFootprint(author._id, {
+      comments: [{ userId: target._id, username: target.name, content: 'second', createdAt: commentAt }],
+    });
+
+    const response = await request(app).get(`/api/users/${target.id}/profile`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.recentComments.map((item) => item._id)).toEqual([second.id, first.id]);
   });
 
   test('profile batching continues past hidden candidates to find readable history', async () => {
@@ -316,11 +367,16 @@ describe('legacy footprint HTTP visibility', () => {
     })));
 
     const limitSpy = jest.spyOn(mongoose.Query.prototype, 'limit');
-    const response = await request(app).get(`/api/users/${target.id}/profile`);
-
-    expect(response.status).toBe(200);
-    expect(response.body.footprints.map((item) => item._id)).toEqual([olderActive.id]);
-    expect(limitSpy.mock.calls.filter(([value]) => value === 50)).toHaveLength(3);
-    limitSpy.mockRestore();
+    const aggregateLimitSpy = jest.spyOn(mongoose.Aggregate.prototype, 'limit');
+    try {
+      const response = await request(app).get(`/api/users/${target.id}/profile`);
+      expect(response.status).toBe(200);
+      expect(response.body.footprints.map((item) => item._id)).toEqual([olderActive.id]);
+      expect(limitSpy.mock.calls.filter(([value]) => value === 50)).toHaveLength(2);
+      expect(aggregateLimitSpy).toHaveBeenCalledWith(5);
+    } finally {
+      limitSpy.mockRestore();
+      aggregateLimitSpy.mockRestore();
+    }
   });
 });
