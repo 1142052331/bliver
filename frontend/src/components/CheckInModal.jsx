@@ -4,6 +4,7 @@ import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
 import imageCompression from 'browser-image-compression';
 import { X, MapPin, Camera, Loader2 } from 'lucide-react';
+import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
 
 export default function CheckInModal({ isOpen, onClose, presetLocation = null }) {
   const [message, setMessage] = useState('');
@@ -17,6 +18,7 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
   const [precise, setPrecise] = useState(false);
   const fileRef = useRef(null);
   const previewUrlRef = useRef(null);
+  const dialogRef = useRef(null);
 
   /** 安全释放上一个 Blob URL，防止内存泄漏 */
   const revokePreview = () => {
@@ -120,24 +122,39 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
     onClose();
   };
 
+  useDialogFocusTrap(dialogRef, isOpen, handleClose);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center pointer-events-none">
-      <div className="ios-backdrop absolute inset-0 pointer-events-auto" onClick={handleClose} />
-      <div className="relative w-full sm:max-w-md mx-0 sm:mx-auto pointer-events-auto
+      <div aria-hidden="true" className="ios-backdrop absolute inset-0 pointer-events-auto" onClick={handleClose} />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="check-in-modal-title"
+        tabIndex={-1}
+        className="relative w-full sm:max-w-md mx-0 sm:mx-auto pointer-events-auto
         ios-panel rounded-t-[28px] sm:rounded-[28px] p-6 animate-slide-up
-        max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto">
+        max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto"
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-white/90 flex items-center gap-2"
+          <h2 id="check-in-modal-title" className="text-lg font-bold text-white/90 flex items-center gap-2"
             style={{ fontFamily: 'var(--font-body)' }}>
             <div className="w-9 h-9 rounded-full ios-primary flex items-center justify-center">
               <MapPin className="w-4 h-4" />
             </div>
             Check In Here
           </h2>
-          <button onClick={handleClose} className="ios-icon-button w-8 h-8 min-w-8">
+          <button
+            type="button"
+            aria-label="Close check-in dialog"
+            data-dialog-initial-focus
+            onClick={handleClose}
+            className="ios-icon-button w-11 h-11 min-w-11 min-h-11"
+          >
             <X className="w-4 h-4 text-white/40" />
           </button>
         </div>

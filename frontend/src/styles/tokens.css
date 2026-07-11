@@ -2,6 +2,7 @@
   --bliver-forest: #173b31;
   --bliver-forest-soft: #2d594d;
   --bliver-sage: #a9c9bf;
+  --bliver-focus-ring-on-dark: #a9c9bf;
   --bliver-sage-soft: #e5eee9;
   --bliver-paper: #faf8f3;
   --bliver-surface: #ffffff;
@@ -36,6 +37,11 @@
   outline: 3px solid #173b31;
   outline: 3px solid var(--bliver-forest);
   outline-offset: 3px;
+}
+
+.bliver-shell .ios-panel:focus-visible,
+.bliver-shell .ios-panel :focus-visible {
+  outline-color: var(--bliver-focus-ring-on-dark);
 }
 
 .bliver-shell {
