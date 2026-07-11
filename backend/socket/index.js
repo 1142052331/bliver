@@ -3,8 +3,9 @@ const User = require('../models/User');
 const { JWT_SECRET } = require('../middleware/auth');
 const { areFriends } = require('../services/FriendsService');
 const messageService = require('../services/MessageService');
-const { getBroadcastTargets, getFriendIds } = require('../services/SuperuserPolicy');
+const { getBroadcastTargets } = require('../services/SuperuserPolicy');
 const bus = require('../events/bus');
+const { registerFootprintPublisher } = require('./footprintPublisher');
 
 const onlineCount = async () => {
   const count = await User.countDocuments({ isOnline: true });
@@ -13,12 +14,8 @@ const onlineCount = async () => {
 
 function _setupSocket(io) {
   // ── Broadcast events: relay domain events to all connected sockets ──
-  const broadcast = ['footprint:new', 'footprint:updated', 'footprint:deleted', 'profile:updated'];
-  for (const event of broadcast) {
-    bus.on(event, (data) => {
-      io.emit(event, data);
-    });
-  }
+  registerFootprintPublisher(io, bus);
+  bus.on('profile:updated', (data) => io.emit('profile:updated', data));
   // Notification delivery is handled directly by NotificationService.notify()
   // (injecting io at init time). No bus hop needed for point-to-point delivery.
 

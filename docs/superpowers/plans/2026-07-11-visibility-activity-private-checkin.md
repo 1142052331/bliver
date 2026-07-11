@@ -28,15 +28,27 @@
 **Files:**
 - Modify: `backend/services/FootprintService.js`
 - Modify: `backend/services/nominatim.js`
-- Modify: `backend/routes/checkin.js`
+- Modify: `backend/services/location.js`
+- Modify: `backend/routes/api.js`
+- Modify: `backend/routes/map.js`
+- Modify: `backend/socket/index.js`
+- Create: `backend/socket/footprintPublisher.js`
+- Modify: `backend/validators/schemas.js`
 - Test: `backend/__tests__/footprint-publication.test.js`
+- Test: `backend/__tests__/footprint-publication-service.test.js`
+- Test: `backend/__tests__/footprint-socket-publication.test.js`
+- Test: `backend/__tests__/location-sanitizer.test.js`
+- Test: `backend/__tests__/map-query.test.js`
 - Test: `backend/__tests__/nominatim.test.js`
 
-- [ ] Write failing tests for first-public default, remembered audience, 24-hour expiry, approximate/precise coordinates, structured geography, and geocoder failure fallback.
+- [ ] Write failing tests for first-public default, remembered audience, 24-hour expiry, approximate/precise coordinates, structured geography, geocoder failure fallback, and coordinate bounds.
+- [ ] Write failing Socket tests proving public global delivery, friends/owner/admin targeting, private owner/admin targeting, de-duplicated rooms, ID-only deletion, and contained async listener failures.
 - [ ] Run the tests and verify the failure is in publication behavior.
 - [ ] Derive display coordinates, geography, precision, and expiry in `FootprintService`; update the user preference only after creation succeeds.
-- [ ] Preserve publication when reverse geocoding fails and mark metadata for retry.
-- [ ] Run the focused tests and commit the publication service.
+- [ ] Preserve durable publication when reverse geocoding or post-create preference/streak maintenance fails, while marking stable retry metadata and diagnostics.
+- [ ] Relay footprint events through recipient-aware Socket rooms using accepted friendships and explicit admin roles; never globally emit non-public payloads.
+- [ ] Strip operational geocoder/backfill metadata from public HTTP and Socket payloads.
+- [ ] Run the focused tests and commit the publication and Socket privacy infrastructure.
 
 ### Task 3: Enforce Visibility on Interactions
 

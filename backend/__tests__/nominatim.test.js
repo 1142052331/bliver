@@ -44,8 +44,54 @@ describe('structured Nominatim reverse geocoding', () => {
       countryName: '',
       regionCode: '',
       regionName: '',
-      error: 'network',
+      failureCode: 'reverse_geocode_failed',
     });
+
+    consoleError.mockRestore();
+  });
+
+  test('treats a provider error response as a failure and does not cache it', async () => {
+    axios.get
+      .mockResolvedValueOnce({ data: { error: 'Unable to geocode' } })
+      .mockResolvedValueOnce({
+        data: {
+          display_name: 'Recovered place',
+          address: { country_code: 'jp', country: 'Japan' },
+        },
+      });
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(reverseGeocodeStructured(35, 139)).resolves.toMatchObject({
+      displayName: 'Unknown location',
+      failureCode: 'reverse_geocode_failed',
+    });
+    await expect(reverseGeocodeStructured(35, 139)).resolves.toMatchObject({
+      displayName: 'Recovered place',
+      countryCode: 'JP',
+    });
+    expect(axios.get).toHaveBeenCalledTimes(2);
+
+    consoleError.mockRestore();
+  });
+
+  test('treats a malformed success response as a failure without caching it', async () => {
+    axios.get
+      .mockResolvedValueOnce({ data: {} })
+      .mockResolvedValueOnce({
+        data: {
+          display_name: 'Recovered place',
+          address: { country_code: 'cn', country: 'China' },
+        },
+      });
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(reverseGeocodeStructured(30, 120)).resolves.toMatchObject({
+      failureCode: 'reverse_geocode_failed',
+    });
+    await expect(reverseGeocodeStructured(30, 120)).resolves.toMatchObject({
+      displayName: 'Recovered place',
+    });
+    expect(axios.get).toHaveBeenCalledTimes(2);
 
     consoleError.mockRestore();
   });

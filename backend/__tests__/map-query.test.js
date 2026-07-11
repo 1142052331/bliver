@@ -271,6 +271,32 @@ describe('FootprintQueryService.listMap', () => {
     expect(response.body.error).toBe('Invalid coordinates');
   });
 
+  test('POST /api/map/location-context never exposes geocoder failure metadata', async () => {
+    const { reverseGeocodeStructured } = require('../services/nominatim');
+    reverseGeocodeStructured.mockResolvedValueOnce({
+      displayName: 'Unknown location',
+      countryCode: '',
+      countryName: '',
+      regionCode: '',
+      regionName: '',
+      failureCode: 'reverse_geocode_failed',
+      error: 'raw upstream details',
+    });
+
+    const response = await request(app)
+      .post('/api/map/location-context')
+      .send({ lat: 31.23, lng: 121.47 });
+
+    expect(response.status).toBe(200);
+    expect(response.body.location).toEqual({
+      displayName: 'Unknown location',
+      countryCode: '',
+      countryName: '',
+      regionCode: '',
+      regionName: '',
+    });
+  });
+
   test('GET /api/map/search combines places with authorized author search', async () => {
     const activeAuthor = await createUser('高知旅人');
     const hiddenAuthor = await createUser('高知隐藏');

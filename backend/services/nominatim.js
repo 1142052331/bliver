@@ -21,7 +21,13 @@ const reverseGeocodeStructured = async (lat, lng) => {
       headers: { 'User-Agent': 'BliverApp/1.0' },
       timeout: 5000,
     });
+    if (!data || typeof data !== 'object' || Array.isArray(data) || data.error) {
+      throw new Error('Invalid provider response');
+    }
     const address = data.address || {};
+    if (!data.display_name && !data.name && Object.keys(address).length === 0) {
+      throw new Error('Invalid provider response');
+    }
     const result = {
       displayName: data.display_name || data.name || EMPTY_LOCATION.displayName,
       countryCode: (address.country_code || '').toUpperCase(),
@@ -40,7 +46,7 @@ const reverseGeocodeStructured = async (lat, lng) => {
     console.error('[Nominatim] Reverse geocode failed:', err.message);
     return {
       ...EMPTY_LOCATION,
-      error: String(err.message || 'Reverse geocode failed').slice(0, 240),
+      failureCode: 'reverse_geocode_failed',
     };
   }
 };

@@ -27,10 +27,11 @@ function blurCoordinate(lat, lng) {
  * realLocation is always stripped from the response.
  */
 function sanitizeLocation(fp, isAdmin) {
-  const { realLocation, ...rest } = fp;
+  const { realLocation, regionBackfill, ...rest } = fp;
   if (isAdmin && realLocation) {
-    return { ...rest, location: realLocation };
+    return { ...rest, location: realLocation, regionBackfill };
   }
+  if (isAdmin) return { ...rest, regionBackfill };
   return rest;
 }
 

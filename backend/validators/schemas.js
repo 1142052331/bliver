@@ -19,7 +19,14 @@ const checkin = z.object({
   precise: requestBoolean.optional(),
   visibility: z.enum(['public', 'friends', 'private']).optional(),
   locationPrecision: z.enum(['approximate', 'precise']).optional(),
-}).strict();
+}).strict().superRefine(({ lat, lng }, ctx) => {
+  if (lat < -90 || lat > 90) {
+    ctx.addIssue({ code: 'custom', path: ['lat'], message: 'Invalid latitude' });
+  }
+  if (lng < -180 || lng > 180) {
+    ctx.addIssue({ code: 'custom', path: ['lng'], message: 'Invalid longitude' });
+  }
+});
 
 const comment = z.object({
   content: z.string().trim().min(1, messageSchema.empty).max(500, messageSchema.tooLong(500)),

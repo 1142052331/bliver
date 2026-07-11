@@ -12,6 +12,7 @@ const Footprint = require('../models/Footprint');
 const User = require('../models/User');
 const { reverseGeocodeStructured } = require('../services/nominatim');
 const footprintService = require('../services/FootprintService');
+const bus = require('../events/bus');
 
 describe('FootprintService publication derivation', () => {
   const now = new Date('2026-07-12T03:04:05.000Z');
@@ -96,6 +97,8 @@ describe('FootprintService publication derivation', () => {
     });
     expect(saved.realLocation).toBeUndefined();
     expect(updatedUser.lastFootprintVisibility).toBe('public');
+    expect(saved.createdAt).toEqual(now);
+    expect(saved.discoveryExpiresAt.getTime() - saved.createdAt.getTime()).toBe(24 * 60 * 60 * 1000);
   });
 
   test('legacy precise true stores submitted coordinates without a realLocation copy', async () => {
@@ -122,7 +125,7 @@ describe('FootprintService publication derivation', () => {
       countryName: '',
       regionCode: '',
       regionName: '',
-      error: 'network '.repeat(80),
+      failureCode: 'reverse_geocode_failed',
     });
 
     await expect(footprintService.create(
@@ -138,6 +141,7 @@ describe('FootprintService publication derivation', () => {
       status: 'failed',
       attempts: 1,
       lastAttemptAt: now,
+      error: 'reverse_geocode_failed',
     });
     expect(saved.regionBackfill.error.length).toBeLessThanOrEqual(240);
   });
@@ -154,5 +158,52 @@ describe('FootprintService publication derivation', () => {
 
     const unchangedUser = await User.findById(user._id).lean();
     expect(unchangedUser.lastFootprintVisibility).toBe('private');
+  });
+
+  test('returns the durable footprint when the visibility preference update fails', async () => {
+    const user = await createUser('private');
+    jest.spyOn(User, 'findByIdAndUpdate').mockRejectedValueOnce(new Error('raw database details'));
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(footprintService.create(user._id, {
+      lat: 31.23,
+      lng: 121.47,
+      visibility: 'public',
+    }, { clock: () => now })).resolves.toMatchObject({ visibility: 'public' });
+
+    expect(await Footprint.countDocuments({ userId: user._id })).toBe(1);
+    expect(consoleError).toHaveBeenCalledWith('[FootprintService] Visibility preference update failed');
+  });
+
+  test('returns the durable footprint when streak maintenance fails', async () => {
+    const user = await createUser();
+    jest.spyOn(footprintService, '_updateStreak').mockRejectedValueOnce(new Error('raw streak details'));
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(footprintService.create(
+      user._id,
+      { lat: 31.23, lng: 121.47 },
+      { clock: () => now },
+    )).resolves.toMatchObject({ visibility: 'public' });
+
+    expect(await Footprint.countDocuments({ userId: user._id })).toBe(1);
+    expect(consoleError).toHaveBeenCalledWith('[FootprintService] Streak update failed');
+  });
+
+  test('emits an audience-safe footprint even when the publisher is an admin', async () => {
+    const user = await createUser();
+    const emit = jest.spyOn(bus, 'emit');
+
+    const response = await footprintService.create(
+      user._id,
+      { lat: 31.23, lng: 121.47 },
+      { isAdmin: true, clock: () => now },
+    );
+
+    const eventPayload = emit.mock.calls.find(([event]) => event === 'footprint:new')[1];
+    expect(response.location).toEqual({ lat: 31.23, lng: 121.47 });
+    expect(response.regionBackfill).toBeDefined();
+    expect(eventPayload.footprint.location).not.toEqual({ lat: 31.23, lng: 121.47 });
+    expect(eventPayload.footprint.regionBackfill).toBeUndefined();
   });
 });

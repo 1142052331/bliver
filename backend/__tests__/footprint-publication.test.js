@@ -183,4 +183,24 @@ describe('check-in request validation', () => {
 
     expect(response.status).toBe(400);
   });
+
+  test.each([
+    ['lat', -90, 200],
+    ['lat', 90, -200],
+    ['lng', -180, 181],
+    ['lng', 180, -181],
+  ])('accepts boundary %s %p and rejects out-of-range %p', async (field, boundary, invalid) => {
+    const valid = await request(app)
+      .post('/checkin')
+      .send({ lat: 0, lng: 0, [field]: boundary });
+    const rejected = await request(app)
+      .post('/checkin')
+      .send({ lat: 0, lng: 0, [field]: invalid });
+
+    expect(valid.status).toBe(200);
+    expect(rejected.status).toBe(400);
+    expect(rejected.body.details).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field }),
+    ]));
+  });
 });

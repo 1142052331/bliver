@@ -42,7 +42,10 @@ router.post('/map/location-context', optionalAuth, async (req, res) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     throw new AppError(400, 'Invalid coordinates');
   }
-  res.json({ location: await reverseGeocodeStructured(lat, lng) });
+  const {
+    displayName, countryCode, countryName, regionCode, regionName,
+  } = await reverseGeocodeStructured(lat, lng);
+  res.json({ location: { displayName, countryCode, countryName, regionCode, regionName } });
 });
 
 module.exports = router;

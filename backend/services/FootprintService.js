@@ -73,7 +73,6 @@ class FootprintService {
     const displayLocation = effectiveLocationPrecision === 'precise'
       ? submittedLocation
       : blurCoordinate(submittedLocation.lat, submittedLocation.lng);
-    const publicationTime = new Date(clock());
 
     const [geography, weatherData] = await Promise.all([
       reverseGeocodeStructured(displayLocation.lat, displayLocation.lng).catch((err) => ({
@@ -82,10 +81,11 @@ class FootprintService {
         countryName: '',
         regionCode: '',
         regionName: '',
-        error: err?.message || 'Reverse geocode failed',
+        failureCode: 'reverse_geocode_failed',
       })),
       getWeather(lat, lng),
     ]);
+    const publicationTime = new Date(clock());
 
     const weatherLine = weatherData.weather
       ? `🌤 ${weatherData.weather}  ${weatherData.temp !== null ? weatherData.temp + '°C' : ''}`
@@ -93,6 +93,7 @@ class FootprintService {
 
     const footprintData = {
       userId,
+      createdAt: publicationTime,
       location: displayLocation,
       placeName: geography.displayName || 'Unknown location',
       message: [weatherLine, message || ''].filter(Boolean).join('\n'),
@@ -108,10 +109,10 @@ class FootprintService {
         ? new Date(publicationTime.getTime() + 24 * 60 * 60 * 1000)
         : null,
       regionBackfill: {
-        status: geography.error ? 'failed' : 'complete',
+        status: geography.failureCode ? 'failed' : 'complete',
         attempts: 1,
         lastAttemptAt: publicationTime,
-        error: geography.error ? String(geography.error).slice(0, 240) : '',
+        error: geography.failureCode || '',
       },
     };
 
@@ -120,15 +121,24 @@ class FootprintService {
     }
 
     const footprint = await Footprint.create(footprintData);
-    await User.findByIdAndUpdate(userId, {
-      $set: { lastFootprintVisibility: effectiveVisibility },
-    });
-    await this._updateStreak(userId);
+    try {
+      await User.findByIdAndUpdate(userId, {
+        $set: { lastFootprintVisibility: effectiveVisibility },
+      });
+    } catch {
+      console.error('[FootprintService] Visibility preference update failed');
+    }
+    try {
+      await this._updateStreak(userId);
+    } catch {
+      console.error('[FootprintService] Streak update failed');
+    }
 
     const populated = await populateFootprint(Footprint.findById(footprint._id));
-    const fpObj = sanitizeLocation(populated.toObject(), isAdmin);
+    const plain = populated.toObject();
+    const fpObj = sanitizeLocation(plain, isAdmin);
 
-    bus.emit('footprint:new', { footprint: fpObj });
+    bus.emit('footprint:new', { footprint: sanitizeLocation(plain, false) });
 
     return fpObj;
   }
@@ -152,10 +162,11 @@ class FootprintService {
     }
 
     const populated = await populateFootprint(Footprint.findById(footprintId));
-    const fpObj = sanitizeLocation(populated.toObject(), isAdmin);
+    const plain = populated.toObject();
+    const fpObj = sanitizeLocation(plain, isAdmin);
     const footprintOwnerId = (populated.userId?._id || populated.userId).toString();
 
-    bus.emit('footprint:updated', { footprint: fpObj });
+    bus.emit('footprint:updated', { footprint: sanitizeLocation(plain, false) });
 
     if (footprintOwnerId !== userId && !isToggleOff) {
       await notify({
@@ -179,10 +190,11 @@ class FootprintService {
     await fp.save();
 
     const populated = await populateFootprint(Footprint.findById(fp._id));
-    const fpObj = sanitizeLocation(populated.toObject(), isAdmin);
+    const plain = populated.toObject();
+    const fpObj = sanitizeLocation(plain, isAdmin);
     const footprintOwnerId = fp.userId.toString();
 
-    bus.emit('footprint:updated', { footprint: fpObj });
+    bus.emit('footprint:updated', { footprint: sanitizeLocation(plain, false) });
 
     if (footprintOwnerId !== userId) {
       await notify({
