@@ -134,8 +134,15 @@ class FootprintService {
       console.error('[FootprintService] Streak update failed');
     }
 
-    const populated = await populateFootprint(Footprint.findById(footprint._id));
-    const plain = populated.toObject();
+    let plain;
+    try {
+      const populated = await populateFootprint(Footprint.findById(footprint._id));
+      if (!populated) throw new Error('Footprint readback unavailable');
+      plain = populated.toObject();
+    } catch {
+      console.error('[FootprintService] Post-create readback failed');
+      plain = footprint.toObject();
+    }
     const fpObj = sanitizeLocation(plain, isAdmin);
 
     bus.emit('footprint:new', { footprint: sanitizeLocation(plain, false) });

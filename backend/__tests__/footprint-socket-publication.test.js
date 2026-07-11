@@ -1,6 +1,7 @@
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key-for-jest';
 
 const EventEmitter = require('events');
+const mongoose = require('mongoose');
 
 const mockTestBus = new EventEmitter();
 const mockGetFriendIds = jest.fn();
@@ -13,7 +14,7 @@ jest.mock('../services/SuperuserPolicy', () => ({
 jest.mock('../models/User', () => ({
   find: jest.fn(() => ({
     select: jest.fn(() => ({
-      lean: jest.fn().mockResolvedValue([{ _id: 'admin' }, { _id: 'owner' }]),
+      lean: jest.fn().mockResolvedValue([{ _id: 'admin' }, { _id: 'admin' }]),
     })),
   })),
   countDocuments: jest.fn(),
@@ -78,14 +79,15 @@ describe('Socket footprint publication privacy', () => {
   });
 
   test('publishes private footprints only to owner and explicit admins', async () => {
+    const ownerId = new mongoose.Types.ObjectId();
     const payload = {
-      footprint: { _id: 'fp-private', userId: 'owner', visibility: 'private' },
+      footprint: { _id: 'fp-private', userId: ownerId, visibility: 'private' },
     };
 
     await emitAndFlush('footprint:updated', payload);
 
     expect(io.emit).not.toHaveBeenCalled();
-    expect(io.roomEmits.map(({ room }) => room).sort()).toEqual(['admin', 'owner']);
+    expect(io.roomEmits.map(({ room }) => room).sort()).toEqual(['admin', ownerId.toString()].sort());
     expect(mockGetFriendIds).not.toHaveBeenCalled();
   });
 

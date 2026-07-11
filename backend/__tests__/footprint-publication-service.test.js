@@ -206,4 +206,44 @@ describe('FootprintService publication derivation', () => {
     expect(eventPayload.footprint.location).not.toEqual({ lat: 31.23, lng: 121.47 });
     expect(eventPayload.footprint.regionBackfill).toBeUndefined();
   });
+
+  test.each([
+    ['rejects', () => Promise.reject(new Error('raw readback details'))],
+    ['returns no document', () => Promise.resolve(null)],
+  ])('returns and emits the durable footprint when post-create readback %s', async (_label, readback) => {
+    const user = await createUser();
+    jest.spyOn(Footprint, 'findById').mockReturnValueOnce({
+      populate: jest.fn(readback),
+    });
+    const emit = jest.spyOn(bus, 'emit');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const response = await footprintService.create(
+      user._id,
+      { lat: 31.23, lng: 121.47 },
+      { clock: () => now },
+    );
+
+    const saved = await Footprint.findOne({ userId: user._id }).lean();
+    const eventPayload = emit.mock.calls.find(([event]) => event === 'footprint:new')[1];
+    expect(await Footprint.countDocuments({ userId: user._id })).toBe(1);
+    expect(response._id.toString()).toBe(saved._id.toString());
+    expect(response.regionBackfill).toBeUndefined();
+    expect(eventPayload.footprint._id.toString()).toBe(saved._id.toString());
+    expect(eventPayload.footprint.realLocation).toBeUndefined();
+    expect(eventPayload.footprint.regionBackfill).toBeUndefined();
+    expect(consoleError).toHaveBeenCalledWith('[FootprintService] Post-create readback failed');
+  });
+
+  test('preserves the populated publication response on the normal path', async () => {
+    const user = await createUser();
+
+    const response = await footprintService.create(
+      user._id,
+      { lat: 31.23, lng: 121.47 },
+      { clock: () => now },
+    );
+
+    expect(response.userId).toMatchObject({ name: user.name });
+  });
 });

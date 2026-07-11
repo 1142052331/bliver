@@ -46,6 +46,8 @@
 - [ ] Run the tests and verify the failure is in publication behavior.
 - [ ] Derive display coordinates, geography, precision, and expiry in `FootprintService`; update the user preference only after creation succeeds.
 - [ ] Preserve durable publication when reverse geocoding or post-create preference/streak maintenance fails, while marking stable retry metadata and diagnostics.
+- [ ] Fall back to the created footprint when post-create populated readback is unavailable, while still returning and emitting a privacy-safe publication.
+- [ ] Blur approximate coordinates with bounded spherical destination math that remains finite at poles and normalizes dateline crossings.
 - [ ] Relay footprint events through recipient-aware Socket rooms using accepted friendships and explicit admin roles; never globally emit non-public payloads.
 - [ ] Strip operational geocoder/backfill metadata from public HTTP and Socket payloads.
 - [ ] Run the focused tests and commit the publication and Socket privacy infrastructure.

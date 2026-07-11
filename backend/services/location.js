@@ -7,18 +7,25 @@ function blurCoordinate(lat, lng) {
   const MAX_AREA_KM2 = 20;
   const MAX_RADIUS_KM = Math.sqrt(MAX_AREA_KM2 / Math.PI); // ≈ 2.52 km
 
-  // Random angle
-  const angle = Math.random() * 2 * Math.PI;
-  // Random distance (sqrt for uniform distribution within circle)
+  const bearing = Math.random() * 2 * Math.PI;
   const distance = Math.sqrt(Math.random()) * MAX_RADIUS_KM;
+  const angularDistance = distance / EARTH_RADIUS_KM;
+  const latitude = lat * Math.PI / 180;
+  const longitude = lng * Math.PI / 180;
 
-  // Convert distance to lat/lng offsets
-  const dLat = (distance * Math.cos(angle)) / 111.32;
-  const dLng = (distance * Math.sin(angle)) / (111.32 * Math.cos((lat * Math.PI) / 180));
+  const destinationLatitude = Math.asin(Math.max(-1, Math.min(1,
+    Math.sin(latitude) * Math.cos(angularDistance)
+      + Math.cos(latitude) * Math.sin(angularDistance) * Math.cos(bearing)
+  )));
+  const destinationLongitude = longitude + Math.atan2(
+    Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latitude),
+    Math.cos(angularDistance) - Math.sin(latitude) * Math.sin(destinationLatitude)
+  );
+  const longitudeDegrees = destinationLongitude * 180 / Math.PI;
 
   return {
-    lat: lat + dLat,
-    lng: lng + dLng,
+    lat: destinationLatitude * 180 / Math.PI,
+    lng: ((longitudeDegrees + 540) % 360) - 180,
   };
 }
 
