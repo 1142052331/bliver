@@ -37,6 +37,16 @@ export const apiClient = {
     deleteComment(footprintId, commentId) {
       return api.delete(`/api/footprints/${footprintId}/comments/${commentId}`);
     },
+    markRead(id) { return api.put(`/api/footprints/${id}/read`); },
+    importReadState(entries) {
+      return api.post('/api/footprints/read-state/import', { entries });
+    },
+  },
+
+  map: {
+    list(query, opts) { return api.get(qs('/api/map/footprints', query), opts); },
+    search(query, opts) { return api.get(qs('/api/map/search', query), opts); },
+    resolveLocation(data, opts) { return api.post('/api/map/location-context', data, opts); },
   },
 
   auth: {
