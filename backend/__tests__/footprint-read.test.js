@@ -210,6 +210,46 @@ describe('FootprintReadService', () => {
     expect(await FootprintRead.countDocuments()).toBe(0);
   });
 
+  test('canonicalizes mixed-case duplicate footprint ids before importing', async () => {
+    const viewer = await createUser('viewer');
+    const author = await createUser('author');
+    const footprint = await createFootprint(author._id);
+
+    const result = await importLegacy({
+      viewer: { id: viewer.id, role: 'user' },
+      entries: [
+        { footprintId: footprint.id.toUpperCase(), readAt: +NOW + DAY },
+        { footprintId: footprint.id, readAt: +NOW - DAY },
+      ],
+      now: NOW,
+    });
+
+    expect(result).toEqual({ imported: 1, skipped: 1 });
+    const states = await FootprintRead.find({ userId: viewer._id });
+    expect(states).toHaveLength(1);
+    expect(states[0].footprintId.toString()).toBe(footprint.id);
+    expect(states[0].readAt).toEqual(NOW);
+    expect((await User.findById(viewer._id)).footprintReadBaselineAt).toEqual(NOW);
+  });
+
+  test('invalid readAt does not create read state or initialize the baseline', async () => {
+    const viewer = await createUser('viewer');
+    const author = await createUser('author');
+    const footprint = await createFootprint(author._id);
+
+    await expect(importLegacy({
+      viewer: { id: viewer.id, role: 'user' },
+      entries: [
+        { footprintId: footprint.id, readAt: null },
+        { footprintId: footprint.id, readAt: Number.MAX_VALUE },
+      ],
+      now: NOW,
+    })).resolves.toEqual({ imported: 0, skipped: 2 });
+
+    expect(await FootprintRead.countDocuments()).toBe(0);
+    expect((await User.findById(viewer._id)).footprintReadBaselineAt).toBeNull();
+  });
+
   test('rejects legacy imports larger than 500 entries', async () => {
     const viewer = await createUser('viewer');
     const entries = Array.from({ length: 501 }, (_, index) => ({

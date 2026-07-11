@@ -90,11 +90,13 @@ async function importLegacy({ viewer, entries, now = new Date() }) {
   const normalized = new Map();
   for (const entry of entries) {
     if (!mongoose.Types.ObjectId.isValid(entry?.footprintId)) continue;
+    if (typeof entry.readAt !== 'number' || !Number.isFinite(entry.readAt) || entry.readAt <= 0) continue;
+    const footprintId = new mongoose.Types.ObjectId(entry.footprintId).toString();
     const value = new Date(entry.readAt);
     if (Number.isNaN(value.getTime())) continue;
     const readAt = value > now ? now : value;
-    const previous = normalized.get(entry.footprintId);
-    if (!previous || readAt > previous) normalized.set(entry.footprintId, readAt);
+    const previous = normalized.get(footprintId);
+    if (!previous || readAt > previous) normalized.set(footprintId, readAt);
   }
 
   const footprints = await Footprint.find({ _id: { $in: [...normalized.keys()] } });
