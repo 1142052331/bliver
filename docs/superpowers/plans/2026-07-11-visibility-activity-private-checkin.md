@@ -74,6 +74,7 @@
 - [ ] Keep read-state mark/import on the shared access path and preserve authorized mutation notifications and admin deletion semantics.
 - [ ] Avoid initializing read baselines for imports with no authorized entries, and preserve latest-comment chronology in profile aggregates.
 - [ ] Return an explicit public profile DTO, attribute comment/reaction activity by authoritative user IDs, and query both profile activity and legacy lists through bounded authorization-prefiltered paths.
+- [ ] Index both authoritative-ID and legacy-username profile activity lookups without parallel-array compound indexes.
 - [ ] Run focused tests and commit the authorization enforcement.
 
 ### Task 4: Add Resumable Legacy Geography Backfill

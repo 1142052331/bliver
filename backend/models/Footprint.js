@@ -54,6 +54,10 @@ footprintSchema.index({ countryCode: 1, regionCode: 1, visibility: 1, discoveryE
 footprintSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 footprintSchema.index({ 'reactions.userId': 1, 'reactions.createdAt': -1 });
 footprintSchema.index({ 'comments.userId': 1, 'comments.createdAt': -1 });
+footprintSchema.index(
+  { 'comments.username': 1, 'comments.createdAt': -1 },
+  { name: 'profile_comments_username_createdAt' },
+);
 
 // Post-find middleware: resolve denormalized usernames from userId
 async function resolveUsernames(docs) {

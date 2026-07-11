@@ -504,7 +504,55 @@ describe('legacy footprint HTTP visibility', () => {
     expect(indexes).toEqual(expect.arrayContaining([
       { 'reactions.userId': 1, 'reactions.createdAt': -1 },
       { 'comments.userId': 1, 'comments.createdAt': -1 },
+      { 'comments.username': 1, 'comments.createdAt': -1 },
     ]));
+  });
+
+  test('legacy comment lookup uses its named index and returns the latest five events', async () => {
+    const target = await createUser('target');
+    const author = await createUser('author');
+    const now = new Date();
+    const legacy = await Footprint.insertMany(Array.from({ length: 8 }, (_, index) => ({
+      userId: author._id,
+      location: { lat: 31.23, lng: 121.47 },
+      visibility: 'public',
+      discoveryExpiresAt: new Date(+now + DAY),
+      createdAt: new Date(+now - DAY),
+      comments: [{
+        username: target.name,
+        content: `legacy ${index}`,
+        createdAt: new Date(+now - (8 - index) * 1000),
+      }],
+    })));
+    await Footprint.insertMany(Array.from({ length: 200 }, (_, index) => ({
+      userId: author._id,
+      location: { lat: 31.23, lng: 121.47 },
+      visibility: 'public',
+      discoveryExpiresAt: new Date(+now + DAY),
+      comments: [{ username: `other-${index}`, content: 'other', createdAt: now }],
+    })));
+    await Footprint.syncIndexes();
+
+    const explanation = await Footprint.find({
+      comments: { $elemMatch: { userId: null, username: target.name } },
+    }).explain('queryPlanner');
+    const indexNames = new Set();
+    const collectIndexNames = (value) => {
+      if (!value || typeof value !== 'object') return;
+      if (value.indexName) indexNames.add(value.indexName);
+      for (const child of Object.values(value)) {
+        if (Array.isArray(child)) child.forEach(collectIndexNames);
+        else collectIndexNames(child);
+      }
+    };
+    collectIndexNames(explanation.queryPlanner?.winningPlan);
+    expect(indexNames).toContain('profile_comments_username_createdAt');
+
+    const response = await request(app).get(`/api/users/${target.id}/profile`);
+    expect(response.status).toBe(200);
+    expect(response.body.recentComments.map((item) => item._id)).toEqual(
+      legacy.slice(-5).reverse().map((item) => item.id),
+    );
   });
 
   test('profile history prefilters hidden rows in one bounded query', async () => {
