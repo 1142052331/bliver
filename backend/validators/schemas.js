@@ -12,7 +12,9 @@ const checkin = z.object({
   message: z.string().max(1000, messageSchema.tooLong(1000)).optional(),
   mood: z.string().max(10).optional(),
   precise: z.coerce.boolean().optional(),
-});
+  visibility: z.enum(['public', 'friends', 'private']).optional(),
+  locationPrecision: z.enum(['approximate', 'precise']).optional(),
+}).strict();
 
 const comment = z.object({
   content: z.string().trim().min(1, messageSchema.empty).max(500, messageSchema.tooLong(500)),

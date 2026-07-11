@@ -28,6 +28,11 @@ const userSchema = new mongoose.Schema({
   lastLoginIp: { type: String, default: '', index: true },
   lastLoginAt: { type: Date, default: null, index: true },
   footprintReadBaselineAt: { type: Date, default: null },
+  lastFootprintVisibility: {
+    type: String,
+    enum: ['public', 'friends', 'private'],
+    default: 'public',
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

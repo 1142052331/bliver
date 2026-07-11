@@ -14,7 +14,7 @@
 
 **Files:**
 - Modify: `backend/models/User.js`
-- Modify: `backend/validators/api.js`
+- Modify: `backend/validators/schemas.js`
 - Modify: `backend/__tests__/footprint-read.test.js`
 - Create: `backend/__tests__/footprint-publication.test.js`
 
