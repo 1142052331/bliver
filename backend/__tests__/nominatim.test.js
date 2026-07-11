@@ -44,6 +44,7 @@ describe('structured Nominatim reverse geocoding', () => {
       countryName: '',
       regionCode: '',
       regionName: '',
+      error: 'network',
     });
 
     consoleError.mockRestore();

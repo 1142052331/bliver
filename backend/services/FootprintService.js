@@ -1,6 +1,6 @@
 const Footprint = require('../models/Footprint');
 const User = require('../models/User');
-const { reverseGeocode } = require('./nominatim');
+const { reverseGeocodeStructured } = require('./nominatim');
 const { getWeather } = require('./weather');
 const { blurCoordinate, sanitizeLocation } = require('./location');
 const { notify } = require('./notification');
@@ -61,13 +61,29 @@ class FootprintService {
   //  Public: mutations
   // ═══════════════════════════════════════════════════════
 
-  async create(userId, { lat, lng, message, mood, precise, photoUrl }, { isAdmin = false } = {}) {
-    const displayLocation = precise
-      ? { lat: Number(lat), lng: Number(lng) }
-      : blurCoordinate(Number(lat), Number(lng));
+  async create(
+    userId,
+    { lat, lng, message, mood, precise, photoUrl, visibility, locationPrecision },
+    { isAdmin = false, clock = () => new Date() } = {}
+  ) {
+    const user = await User.findById(userId).select('lastFootprintVisibility').lean();
+    const effectiveVisibility = visibility || user?.lastFootprintVisibility || 'public';
+    const effectiveLocationPrecision = locationPrecision || (precise ? 'precise' : 'approximate');
+    const submittedLocation = { lat: Number(lat), lng: Number(lng) };
+    const displayLocation = effectiveLocationPrecision === 'precise'
+      ? submittedLocation
+      : blurCoordinate(submittedLocation.lat, submittedLocation.lng);
+    const publicationTime = new Date(clock());
 
-    const [placeName, weatherData] = await Promise.all([
-      reverseGeocode(displayLocation.lat, displayLocation.lng),
+    const [geography, weatherData] = await Promise.all([
+      reverseGeocodeStructured(displayLocation.lat, displayLocation.lng).catch((err) => ({
+        displayName: 'Unknown location',
+        countryCode: '',
+        countryName: '',
+        regionCode: '',
+        regionName: '',
+        error: err?.message || 'Reverse geocode failed',
+      })),
       getWeather(lat, lng),
     ]);
 
@@ -78,17 +94,35 @@ class FootprintService {
     const footprintData = {
       userId,
       location: displayLocation,
-      placeName,
+      placeName: geography.displayName || 'Unknown location',
       message: [weatherLine, message || ''].filter(Boolean).join('\n'),
       photoUrl: photoUrl || '',
       mood: mood || '',
+      visibility: effectiveVisibility,
+      locationPrecision: effectiveLocationPrecision,
+      countryCode: geography.countryCode || '',
+      countryName: geography.countryName || '',
+      regionCode: geography.regionCode || '',
+      regionName: geography.regionName || '',
+      discoveryExpiresAt: effectiveVisibility === 'public'
+        ? new Date(publicationTime.getTime() + 24 * 60 * 60 * 1000)
+        : null,
+      regionBackfill: {
+        status: geography.error ? 'failed' : 'complete',
+        attempts: 1,
+        lastAttemptAt: publicationTime,
+        error: geography.error ? String(geography.error).slice(0, 240) : '',
+      },
     };
 
-    if (!precise) {
-      footprintData.realLocation = { lat: Number(lat), lng: Number(lng) };
+    if (effectiveLocationPrecision === 'approximate') {
+      footprintData.realLocation = submittedLocation;
     }
 
     const footprint = await Footprint.create(footprintData);
+    await User.findByIdAndUpdate(userId, {
+      $set: { lastFootprintVisibility: effectiveVisibility },
+    });
     await this._updateStreak(userId);
 
     const populated = await populateFootprint(Footprint.findById(footprint._id));

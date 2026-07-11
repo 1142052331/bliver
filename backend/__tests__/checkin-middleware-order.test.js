@@ -78,7 +78,24 @@ describe('POST /api/checkin middleware order', () => {
       message: 'hello',
       mood: 'calm',
       precise: false,
+      visibility: undefined,
+      locationPrecision: undefined,
       photoUrl: 'https://cloudinary.test/checkin.jpg',
     }, { isAdmin: false });
+  });
+
+  test('forwards validated publication privacy fields to the service', async () => {
+    const response = await request(app)
+      .post('/api/checkin')
+      .field('lat', '31.23')
+      .field('lng', '121.47')
+      .field('visibility', 'private')
+      .field('locationPrecision', 'precise');
+
+    expect(response.status).toBe(201);
+    expect(footprintService.create).toHaveBeenCalledWith('user-id', expect.objectContaining({
+      visibility: 'private',
+      locationPrecision: 'precise',
+    }), { isAdmin: false });
   });
 });

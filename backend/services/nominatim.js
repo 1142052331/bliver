@@ -38,7 +38,10 @@ const reverseGeocodeStructured = async (lat, lng) => {
     return result;
   } catch (err) {
     console.error('[Nominatim] Reverse geocode failed:', err.message);
-    return { ...EMPTY_LOCATION };
+    return {
+      ...EMPTY_LOCATION,
+      error: String(err.message || 'Reverse geocode failed').slice(0, 240),
+    };
   }
 };
 
