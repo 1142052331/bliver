@@ -15,6 +15,23 @@ const footprintSchema = new mongoose.Schema({
   message:   { type: String, default: '' },
   mood:      { type: String, default: '' },
   photoUrl:  { type: String, default: '' },
+  visibility: { type: String, enum: ['public', 'friends', 'private'] },
+  locationPrecision: { type: String, enum: ['approximate', 'precise'], default: 'approximate' },
+  countryCode: { type: String, default: '' },
+  countryName: { type: String, default: '' },
+  regionCode: { type: String, default: '' },
+  regionName: { type: String, default: '' },
+  discoveryExpiresAt: { type: Date, default: null },
+  regionBackfill: {
+    status: {
+      type: String,
+      enum: ['pending', 'processing', 'complete', 'failed'],
+      default: 'pending',
+    },
+    attempts: { type: Number, default: 0 },
+    lastAttemptAt: { type: Date, default: null },
+    error: { type: String, default: '', maxlength: 240 },
+  },
   reactions: [{
     userId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     username: { type: String, required: true },
@@ -30,6 +47,10 @@ const footprintSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 footprintSchema.index({ createdAt: -1 });
+footprintSchema.index({ visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
+footprintSchema.index({ countryCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
+footprintSchema.index({ countryCode: 1, regionCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
+footprintSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 
 // Post-find middleware: resolve denormalized usernames from userId
 async function resolveUsernames(docs) {
