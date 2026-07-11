@@ -48,7 +48,7 @@ function missingTextField(field) {
     $or: [
       { [field]: { $exists: false } },
       { [field]: null },
-      { [field]: '' },
+      { [field]: { $regex: /^\s*$/ } },
     ],
   };
 }
@@ -62,8 +62,13 @@ function buildEligibilityQuery({ cursor, retryFailed }) {
     ],
   };
   const eligible = retryFailed
-    ? { $or: [incomplete, { 'regionBackfill.status': { $in: ['pending', 'failed'] } }] }
-    : { $and: [incomplete, { 'regionBackfill.status': { $ne: 'failed' } }] };
+    ? {
+      $and: [
+        { 'regionBackfill.status': { $ne: 'complete' } },
+        { $or: [incomplete, { 'regionBackfill.status': { $in: ['pending', 'failed'] } }] },
+      ],
+    }
+    : { $and: [incomplete, { 'regionBackfill.status': { $nin: ['failed', 'complete'] } }] };
 
   return cursor
     ? { $and: [{ _id: { $gt: new mongoose.Types.ObjectId(cursor) } }, eligible] }
@@ -76,6 +81,7 @@ function hasText(value) {
 
 function needsBackfill(doc, retryFailed) {
   const status = doc.regionBackfill?.status;
+  if (status === 'complete') return false;
   if (status === 'failed' && !retryFailed) return false;
   if (retryFailed && (status === 'failed' || status === 'pending')) return true;
   if (!VALID_VISIBILITIES.has(doc.visibility)) return true;
@@ -201,7 +207,9 @@ function createFootprintBackfillService({
               visibility,
               locationPrecision,
               ...classified.geography,
-              discoveryExpiresAt: new Date(completedAt.getTime() + DAY_MS),
+              discoveryExpiresAt: visibility === 'public'
+                ? new Date(completedAt.getTime() + DAY_MS)
+                : null,
               'regionBackfill.status': 'complete',
               'regionBackfill.lastAttemptAt': completedAt,
               'regionBackfill.error': '',

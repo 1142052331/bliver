@@ -105,6 +105,77 @@ describe('FootprintBackfillService', () => {
     expect(savedCompleted.discoveryExpiresAt).toEqual(completedExpiry);
   });
 
+  test('never revisits complete records with partial metadata in normal or retry runs', async () => {
+    const oldExpiry = new Date('2025-02-01T00:00:00.000Z');
+    const complete = rawFootprint({
+      visibility: 'public',
+      locationPrecision: 'precise',
+      placeName: geography.displayName,
+      countryCode: geography.countryCode,
+      countryName: '',
+      regionCode: geography.regionCode,
+      regionName: geography.regionName,
+      discoveryExpiresAt: oldExpiry,
+      regionBackfill: {
+        status: 'complete',
+        attempts: 7,
+        lastAttemptAt: new Date('2025-01-01T00:00:00.000Z'),
+        error: '',
+      },
+    });
+    await Footprint.collection.insertOne(complete);
+    const geocoder = jest.fn().mockResolvedValue(geography);
+    const service = serviceWith({ reverseGeocodeStructured: geocoder });
+
+    await expect(service.run({ limit: 10 })).resolves.toMatchObject({ processed: 0 });
+    await expect(service.run({ limit: 10, retryFailed: true })).resolves.toMatchObject({ processed: 0 });
+
+    const saved = await Footprint.collection.findOne({ _id: complete._id });
+    expect(geocoder).not.toHaveBeenCalled();
+    expect(saved.countryName).toBe('');
+    expect(saved.discoveryExpiresAt).toEqual(oldExpiry);
+    expect(saved.regionBackfill.attempts).toBe(7);
+  });
+
+  test('treats whitespace-only structured geography as missing database metadata', async () => {
+    const whitespace = rawFootprint({
+      visibility: 'public',
+      locationPrecision: 'precise',
+      placeName: geography.displayName,
+      countryCode: geography.countryCode,
+      countryName: '   ',
+      regionCode: geography.regionCode,
+      regionName: '\t',
+    });
+    await Footprint.collection.insertOne(whitespace);
+    const geocoder = jest.fn().mockResolvedValue(geography);
+
+    const result = await serviceWith({ reverseGeocodeStructured: geocoder }).run({ limit: 10 });
+
+    expect(result).toMatchObject({ processed: 1, succeeded: 1, failed: 0 });
+    expect(geocoder).toHaveBeenCalledWith(whitespace.location.lat, whitespace.location.lng);
+    expect(await Footprint.collection.findOne({ _id: whitespace._id })).toMatchObject({
+      countryName: geography.countryName,
+      regionName: geography.regionName,
+    });
+  });
+
+  test('clears discovery expiry when backfilling explicit friends and private records', async () => {
+    const strayExpiry = new Date('2025-04-01T00:00:00.000Z');
+    const friends = rawFootprint({ visibility: 'friends', discoveryExpiresAt: strayExpiry });
+    const privateFootprint = rawFootprint({ visibility: 'private', discoveryExpiresAt: strayExpiry });
+    await Footprint.collection.insertMany([friends, privateFootprint]);
+
+    const result = await serviceWith().run({ limit: 10 });
+
+    expect(result).toMatchObject({ processed: 2, succeeded: 2, failed: 0 });
+    const saved = await Footprint.collection.find({
+      _id: { $in: [friends._id, privateFootprint._id] },
+    }).sort({ _id: 1 }).toArray();
+    expect(saved.map((doc) => doc.visibility).sort()).toEqual(['friends', 'private']);
+    expect(saved.every((doc) => doc.discoveryExpiresAt === null)).toBe(true);
+  });
+
   test('uses last scanned id for bounded resume even when a record fails', async () => {
     const docs = [rawFootprint(), rawFootprint(), rawFootprint()].sort((a, b) => (
       a._id.toString().localeCompare(b._id.toString())
