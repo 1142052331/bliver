@@ -15,7 +15,9 @@ function renderSearch(props = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  return {
+    queryClient,
+    ...render(
     <QueryClientProvider client={queryClient}>
       <MapSearch
         query=""
@@ -26,7 +28,8 @@ function renderSearch(props = {}) {
         {...props}
       />
     </QueryClientProvider>,
-  );
+    ),
+  };
 }
 
 describe('MapSearch', () => {
@@ -58,6 +61,17 @@ describe('MapSearch', () => {
       { signal: expect.any(AbortSignal) },
     );
     expect(onQueryChange).toHaveBeenLastCalledWith('高知');
+  });
+
+  it('isolates authorized search cache entries by viewer', async () => {
+    mocks.search.mockResolvedValue({ data: { places: [], footprints: [], errors: {} } });
+    const { queryClient } = renderSearch({ query: 'Shanghai', viewerKey: 'viewer-1' });
+
+    await waitFor(() => expect(mocks.search).toHaveBeenCalled());
+    expect(queryClient.getQueryCache().getAll().map((entry) => entry.queryKey)).toContainEqual([
+      'footprints', 'map-search', 'viewer-1',
+      { ...DEFAULT_MAP_QUERY, query: 'Shanghai' },
+    ]);
   });
 
   it('groups results and supports arrow/enter place selection', async () => {

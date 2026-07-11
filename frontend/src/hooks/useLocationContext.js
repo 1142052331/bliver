@@ -42,7 +42,7 @@ export default function useLocationContext() {
       const location = response?.data?.location || null;
       setResolvedLocation(location);
       setPermissionState('granted');
-      return { status: 'granted', location };
+      return { status: 'granted', location, coords: { lat, lng } };
     } catch (error) {
       setResolvedLocation(null);
       const denied = error?.code === 1;

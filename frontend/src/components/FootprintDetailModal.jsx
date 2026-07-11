@@ -1,15 +1,36 @@
 // @feature 打卡详情卡片 | Footprint Detail Modal | FootprintDetailModal
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import useUIStore from '../store/useUIStore';
 import { motion } from 'framer-motion';
 import { X, Trash2, Share2, Check, MapPin, Clock, Image } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
-import { UnreadNotice, CommentSection } from './CommentSection';
-import { getReadMap, seedReadMap, markRead, getUnreadComments, isNewFootprint } from '../readStatus';
+import { CommentSection } from './CommentSection';
 import { useFootprintActionsContext } from '../contexts/FootprintActionsContext';
+import { apiClient } from '../api';
+import { invalidateFootprintLists } from '../hooks/socketHandlers';
 
 function timeStr(date) {
   return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function setCachedUnread(queryClient, footprintId, isUnread) {
+  const update = (data) => {
+    if (Array.isArray(data)) {
+      return data.map((item) => item._id === footprintId ? { ...item, isUnread } : item);
+    }
+    if (Array.isArray(data?.footprints)) {
+      return {
+        ...data,
+        footprints: data.footprints.map((item) => (
+          item._id === footprintId ? { ...item, isUnread } : item
+        )),
+      };
+    }
+    return data;
+  };
+  queryClient.setQueriesData({ queryKey: ['footprints', 'map'] }, update);
+  queryClient.setQueriesData({ queryKey: ['footprints', 'activity'] }, update);
 }
 
 export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onClose, allFootprints }) {
@@ -17,11 +38,21 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onCl
   const fp = allFootprints && fpProp ? allFootprints.find(f => f._id === fpProp._id) || fpProp : fpProp;
   if (!fp) return null;
 
+  const queryClient = useQueryClient();
   const mountedRef = useRef(true);
   const copyTimerRef = useRef(null);
-  useEffect(() => () => { mountedRef.current = false; clearTimeout(copyTimerRef.current); }, []);
+  const attemptedReadRef = useRef(null);
+  const activeReadIdRef = useRef(fp._id);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   const [copied, setCopied] = useState(false);
+  const [readState, setReadState] = useState('idle');
 
   // ── Auto-mark backend notifications as read on view ──
   useEffect(() => {
@@ -31,29 +62,31 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onCl
   }, [fp._id]);
 
   // ── New-message section ──────────────────────────────
-  const [unreadDismissed, setUnreadDismissed] = useState(false);
+  const submitRead = async () => {
+    const footprintId = fp._id;
+    activeReadIdRef.current = footprintId;
+    setReadState('saving');
+    setCachedUnread(queryClient, footprintId, false);
+    try {
+      await apiClient.footprints.markRead(footprintId);
+      if (mountedRef.current && activeReadIdRef.current === footprintId) setReadState('success');
+    } catch {
+      setCachedUnread(queryClient, footprintId, true);
+      if (mountedRef.current && activeReadIdRef.current === footprintId) setReadState('error');
+    } finally {
+      invalidateFootprintLists(queryClient);
+    }
+  };
+
   useEffect(() => {
-    setUnreadDismissed(false);
-    seedReadMap([fp._id], [fp], userId);
+    activeReadIdRef.current = fp._id;
+    setReadState('idle');
+    if (!userId || !fp.isUnread || attemptedReadRef.current === fp._id) return;
+    attemptedReadRef.current = fp._id;
+    void submitRead();
   }, [fp._id, userId]);
 
-  const { unreadComments, footprintIsNew } = useMemo(() => {
-    if (unreadDismissed) return { unreadComments: [], footprintIsNew: false };
-    try {
-      const readMap = getReadMap(userId);
-      const comments = getUnreadComments(fp, readMap);
-      const isNew = isNewFootprint(fp, readMap);
-      return { unreadComments: comments, footprintIsNew: isNew };
-    } catch { return { unreadComments: [], footprintIsNew: false }; }
-  }, [fp, unreadDismissed, userId]);
-
-  const showUnreadSection = unreadComments.length > 0 || footprintIsNew;
-
-  const handleDismissUnread = () => {
-    markRead(fp._id, userId);
-    setUnreadDismissed(true);
-    useUIStore.getState().incrementMarkReadVersion();
-  };
+  const showUnreadSection = readState === 'error';
   // ──────────────────────────────────────────────────────
 
   const user = fp.userId || {};
@@ -176,11 +209,19 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onCl
 
           {/* ── New-Message Section ────────────────────────── */}
           {showUnreadSection && (
-            <UnreadNotice
-              footprintIsNew={footprintIsNew}
-              unreadComments={unreadComments}
-              onDismiss={handleDismissUnread}
-            />
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-red-300/20 pt-4">
+              <p className="text-sm text-red-200">已读状态同步失败</p>
+              <button
+                type="button"
+                onClick={() => {
+                  attemptedReadRef.current = null;
+                  void submitRead();
+                }}
+                className="min-h-11 px-3 text-sm font-medium text-red-200 underline underline-offset-4"
+              >
+                重试标记已读
+              </button>
+            </div>
           )}
 
           {/* ── Comments Section ──────────────────────────── */}

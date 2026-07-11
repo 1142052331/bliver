@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api';
 import { mapQueryKey } from '../domain/mapQuery';
 
-export default function useMapFootprints(query) {
+export default function useMapFootprints(query, viewerKey = 'guest') {
   return useQuery({
-    queryKey: mapQueryKey(query),
+    queryKey: [...mapQueryKey(query), viewerKey],
     queryFn: async ({ signal }) => (
       await apiClient.map.list(query, { signal })
     ).data,

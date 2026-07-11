@@ -9,27 +9,28 @@ import useUIStore from '../store/useUIStore';
  * This keeps useSocket.js lean — just lifecycle + dispatch.
  */
 
-export function footprintNew(setFootprints) {
+export function invalidateFootprintLists(queryClient) {
+  queryClient.invalidateQueries({ queryKey: ['footprints', 'map'] });
+  queryClient.invalidateQueries({ queryKey: ['footprints', 'activity'] });
+}
+
+export function footprintNew(queryClient) {
   return (data) => {
-    setFootprints((prev) => [data.footprint, ...prev]);
+    invalidateFootprintLists(queryClient);
     useUIStore.getState().emitFootprintEvent({ type: 'new', footprint: data.footprint });
   };
 }
 
-export function footprintUpdated(setFootprints) {
+export function footprintUpdated(queryClient) {
   return (data) => {
-    setFootprints((prev) =>
-      prev.map((fp) => (fp._id === data.footprint._id
-        ? { ...fp, reactions: data.footprint.reactions, comments: data.footprint.comments }
-        : fp))
-    );
+    invalidateFootprintLists(queryClient);
     useUIStore.getState().emitFootprintEvent({ type: 'updated', footprint: data.footprint });
   };
 }
 
-export function footprintDeleted(setFootprints) {
+export function footprintDeleted(queryClient) {
   return (data) => {
-    setFootprints((prev) => prev.filter((fp) => fp._id !== data.footprintId));
+    invalidateFootprintLists(queryClient);
     useUIStore.getState().emitFootprintEvent({ type: 'deleted', footprintId: data.footprintId });
   };
 }

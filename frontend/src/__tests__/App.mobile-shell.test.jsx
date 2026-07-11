@@ -25,7 +25,17 @@ const mocks = vi.hoisted(() => ({
   friendsPanelProps: vi.fn(),
   profileDrawerProps: vi.fn(),
   mapPreviewProps: vi.fn(),
+  mapViewProps: vi.fn(),
+  mapQuery: vi.fn(),
+  mapViewerKey: vi.fn(),
+  requestLocation: vi.fn(),
+  legacyReadImport: vi.fn(),
+  refetchMap: vi.fn(),
   footprints: [],
+  scopeContext: {
+    scope: 'smart', reason: 'resolved-location',
+    countryCode: 'CN', regionCode: 'CN-SH',
+  },
 }));
 
 const uiState = vi.hoisted(() => ({
@@ -45,10 +55,13 @@ const uiState = vi.hoisted(() => ({
   authMessage: '',
   shareTarget: null,
   clusterData: null,
+  samePlaceIds: [],
   activeFootprintId: null,
   mapPreviewId: null,
   flyArrivedFp: null,
   timelineTargetFpId: null,
+  footprintEvent: null,
+  footprintEventId: 0,
   openCheckIn: mocks.openCheckIn,
   closeCheckIn: vi.fn(),
   openTimeline: mocks.openTimeline,
@@ -74,6 +87,7 @@ const uiState = vi.hoisted(() => ({
   setFlyArrivedFp: vi.fn(),
   setTimelineTargetFpId: vi.fn(),
   setClusterData: vi.fn(),
+  closeSamePlace: vi.fn(),
   setShareTarget: vi.fn(),
   openChat: vi.fn(),
   closeChat: vi.fn(),
@@ -91,7 +105,9 @@ const uiState = vi.hoisted(() => ({
 }));
 
 vi.mock('@sentry/react', () => ({ init: vi.fn(), browserTracingIntegration: vi.fn() }));
-vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ setQueryData: vi.fn() }) }));
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ setQueriesData: vi.fn() }),
+}));
 vi.mock('leaflet', () => ({
   default: { Icon: { Default: { prototype: {}, mergeOptions: vi.fn() } } },
 }));
@@ -123,6 +139,31 @@ vi.mock('../hooks/useNotifications', () => ({
 vi.mock('../hooks/useFootprints', () => ({
   default: () => ({ data: mocks.footprints, isLoading: false, error: null, refetch: vi.fn() }),
 }));
+vi.mock('../hooks/useMapFootprints', () => ({
+  default: (query, viewerKey) => {
+    mocks.mapQuery(query);
+    mocks.mapViewerKey(viewerKey);
+    return {
+      data: { footprints: mocks.footprints, query, scopesUsed: [] },
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      refetch: mocks.refetchMap,
+    };
+  },
+}));
+vi.mock('../hooks/useLocationContext', () => ({
+  default: () => ({
+    permissionState: 'granted',
+    scopeContext: mocks.scopeContext,
+    requestLocation: mocks.requestLocation,
+    setFixedScope: vi.fn(),
+    clearFixedScope: vi.fn(),
+  }),
+}));
+vi.mock('../hooks/useLegacyReadImport', () => ({
+  default: (userId) => mocks.legacyReadImport(userId),
+}));
 vi.mock('../hooks/useSocket', () => ({ default: () => ({ socketRef: { current: null } }) }));
 vi.mock('../hooks/useFriends', () => ({
   default: () => ({
@@ -149,7 +190,21 @@ vi.mock('../store/useUIStore', () => {
   return { default: useUIStore };
 });
 
-vi.mock('../components/MapView', () => ({ default: () => <div data-testid="map-view" /> }));
+vi.mock('../components/MapView', () => ({
+  default: (props) => {
+    mocks.mapViewProps(props);
+    return (
+      <div data-testid="map-view">
+        <button
+          type="button"
+          onClick={() => props.onQueryChange?.({ ...props.query, relationship: 'public' })}
+        >
+          Change map query
+        </button>
+      </div>
+    );
+  },
+}));
 vi.mock('../components/NavBar', () => ({
   default: ({ onLogout }) => (
     <div data-testid="desktop-nav">
@@ -226,8 +281,124 @@ describe('App mobile shell integration', () => {
     uiState.showTimeline = false;
     uiState.viewingProfileId = null;
     uiState.mapPreviewId = null;
+    uiState.samePlaceIds = [];
+    uiState.footprintEvent = null;
+    uiState.footprintEventId = 0;
     mocks.footprints = [];
+    mocks.scopeContext = {
+      scope: 'smart', reason: 'resolved-location',
+      countryCode: 'CN', regionCode: 'CN-SH',
+    };
+    mocks.requestLocation.mockResolvedValue({ status: 'granted' });
+    window.history.replaceState(null, '', '/');
     useShellStore.setState(useShellStore.getInitialState(), true);
+  });
+
+  it('loads canonical map state from the URL and preserves unrelated params on changes', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', '/?scope=country&country=jp&period=24h&fp=shared');
+
+    render(<App />);
+
+    expect(mocks.mapQuery).toHaveBeenLastCalledWith({
+      scope: 'country', countryCode: 'JP', relationship: 'all',
+      period: '24h', content: 'all', query: '',
+    });
+    await user.click(screen.getByRole('button', { name: 'Change map query' }));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('fp')).toBe('shared');
+    expect(params.get('scope')).toBe('country');
+    expect(params.get('country')).toBe('JP');
+    expect(params.get('relationship')).toBe('public');
+  });
+
+  it('adds resolved location codes only to the effective smart query', () => {
+    render(<App />);
+
+    expect(mocks.mapQuery).toHaveBeenLastCalledWith({
+      scope: 'smart', relationship: 'all', period: '7d', content: 'all', query: '',
+      countryCode: 'CN', regionCode: 'CN-SH',
+    });
+    expect(mocks.mapViewProps).toHaveBeenLastCalledWith(expect.objectContaining({
+      query: { scope: 'smart', relationship: 'all', period: '7d', content: 'all', query: '' },
+      queryContext: {
+        scope: 'smart', relationship: 'all', period: '7d', content: 'all', query: '',
+        countryCode: 'CN', regionCode: 'CN-SH',
+      },
+      locationContext: mocks.scopeContext,
+    }));
+    expect(mocks.mapViewerKey).toHaveBeenLastCalledWith('guest');
+  });
+
+  it('restores a persisted fixed scope as the visible canonical query', () => {
+    mocks.scopeContext = {
+      scope: 'region', reason: 'fixed', countryCode: 'CN', regionCode: 'CN-SH',
+    };
+
+    render(<App />);
+
+    expect(mocks.mapViewProps).toHaveBeenLastCalledWith(expect.objectContaining({
+      query: {
+        scope: 'region', relationship: 'all', period: '7d', content: 'all', query: '',
+        countryCode: 'CN', regionCode: 'CN-SH',
+      },
+    }));
+  });
+
+  it('removes the authenticated unread filter when the viewer logs out', async () => {
+    mocks.user = { _id: 'viewer-1' };
+    window.history.replaceState(null, '', '/?content=unread');
+    const { rerender } = render(<App />);
+    expect(mocks.mapQuery).toHaveBeenLastCalledWith(expect.objectContaining({ content: 'unread' }));
+
+    mocks.user = null;
+    rerender(<App />);
+
+    await waitFor(() => {
+      expect(mocks.mapQuery).toHaveBeenLastCalledWith(expect.objectContaining({ content: 'all' }));
+    });
+    expect(new URLSearchParams(window.location.search).has('content')).toBe(false);
+  });
+
+  it('closes selected surfaces when the authorized response loses their IDs', async () => {
+    uiState.mapPreviewId = 'missing-preview';
+    uiState.samePlaceIds = ['missing-sheet'];
+
+    render(<App />);
+
+    await waitFor(() => expect(uiState.setMapPreviewId).toHaveBeenCalledWith(null));
+    expect(uiState.closeSamePlace).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes an explicit new-footprint pulse through the map', async () => {
+    mocks.footprints = [{ _id: 'fp-new' }];
+    uiState.footprintEvent = { type: 'new', footprint: { _id: 'fp-new' } };
+    uiState.footprintEventId = 1;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(mocks.mapViewProps.mock.calls.at(-1)[0].pulseIds).toEqual(new Set(['fp-new']));
+    });
+  });
+
+  it('does not request location or notification permission on launch', async () => {
+    const getCurrentPosition = vi.fn();
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    });
+    const requestPermission = vi.fn(() => Promise.resolve('denied'));
+    Object.defineProperty(window, 'Notification', {
+      configurable: true,
+      value: { permission: 'default', requestPermission },
+    });
+
+    render(<App />);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(requestPermission).not.toHaveBeenCalled();
   });
 
   it('routes a selected map footprint through preview before detail', async () => {

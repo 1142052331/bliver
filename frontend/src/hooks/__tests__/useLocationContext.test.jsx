@@ -80,11 +80,18 @@ describe('useLocationContext', () => {
     });
     const { result } = renderHook(() => useLocationContext());
 
-    await act(() => result.current.requestLocation({ explicit: true, now: NOW }));
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.requestLocation({ explicit: true, now: NOW });
+    });
 
     expect(result.current.permissionState).toBe('granted');
     expect(result.current.scopeContext).toMatchObject({
       scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', reason: 'resolved-location',
+    });
+    expect(outcome).toMatchObject({
+      status: 'granted',
+      coords: { lat: 31.23, lng: 121.47 },
     });
     expect(mocks.resolveLocation).toHaveBeenCalledWith({ lat: 31.23, lng: 121.47 });
     expect(JSON.stringify(localStorage)).not.toContain('31.23');

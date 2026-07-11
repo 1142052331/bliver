@@ -32,7 +32,7 @@ describe('useMapFootprints', () => {
     };
     mocks.list.mockResolvedValueOnce({ data: response });
 
-    const { result } = renderHook(() => useMapFootprints(DEFAULT_MAP_QUERY), { wrapper });
+    const { result } = renderHook(() => useMapFootprints(DEFAULT_MAP_QUERY, 'viewer-1'), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(response);
@@ -40,6 +40,6 @@ describe('useMapFootprints', () => {
       DEFAULT_MAP_QUERY,
       { signal: expect.any(AbortSignal) },
     );
-    expect(queryClient.getQueryData(['footprints', 'map', DEFAULT_MAP_QUERY])).toEqual(response);
+    expect(queryClient.getQueryData(['footprints', 'map', DEFAULT_MAP_QUERY, 'viewer-1'])).toEqual(response);
   });
 });

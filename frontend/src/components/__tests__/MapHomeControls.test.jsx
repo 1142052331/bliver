@@ -71,6 +71,7 @@ describe('MapHomeControls', () => {
   it('composes scope and filters through one map query callback', async () => {
     const user = userEvent.setup();
     const onQueryChange = vi.fn();
+    const onSetFixedScope = vi.fn();
     renderControls({
       query: DEFAULT_MAP_QUERY,
       isAuthenticated: true,
@@ -80,17 +81,39 @@ describe('MapHomeControls', () => {
       },
       onQueryChange,
       onRequestLocation: vi.fn(),
+      onSetFixedScope,
     });
 
     await user.click(screen.getByRole('button', { name: '智能' }));
     expect(screen.getByRole('dialog', { name: '选择地图范围' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /全球/ }));
     expect(onQueryChange).toHaveBeenLastCalledWith({ ...DEFAULT_MAP_QUERY, scope: 'global' });
+    expect(onSetFixedScope).toHaveBeenCalledWith({ scope: 'global' });
 
     await user.click(screen.getByRole('button', { name: '筛选' }));
     expect(screen.queryByRole('dialog', { name: '选择地图范围' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: '好友' }));
     await user.click(screen.getByRole('button', { name: '应用筛选' }));
     expect(onQueryChange).toHaveBeenLastCalledWith({ ...DEFAULT_MAP_QUERY, relationship: 'friends' });
+  });
+
+  it('clears fixed geographic codes when returning to smart scope', async () => {
+    const user = userEvent.setup();
+    const onQueryChange = vi.fn();
+    const onClearFixedScope = vi.fn();
+    renderControls({
+      query: { ...DEFAULT_MAP_QUERY, scope: 'global' },
+      locationContext: {
+        scope: 'region', reason: 'fixed', countryCode: 'CN', regionCode: 'CN-SH',
+      },
+      onQueryChange,
+      onClearFixedScope,
+    });
+
+    await user.click(screen.getByRole('button', { name: '全球' }));
+    await user.click(screen.getByRole('button', { name: /智能/ }));
+
+    expect(onClearFixedScope).toHaveBeenCalledTimes(1);
+    expect(onQueryChange).toHaveBeenLastCalledWith(DEFAULT_MAP_QUERY);
   });
 });

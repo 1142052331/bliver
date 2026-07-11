@@ -5,6 +5,27 @@ function getReadKey(userId) {
   return userId ? `bliver_read_${userId}` : 'bliver_read_guest';
 }
 
+export function getLegacyReadEntries(userId) {
+  if (!userId) return [];
+  let readMap;
+  try {
+    readMap = JSON.parse(localStorage.getItem(getReadKey(userId)));
+  } catch {
+    return [];
+  }
+  if (!readMap || typeof readMap !== 'object' || Array.isArray(readMap)) return [];
+
+  return Object.entries(readMap)
+    .flatMap(([footprintId, value]) => {
+      const readAt = Number(value);
+      return footprintId && Number.isFinite(readAt) && readAt > 0
+        ? [{ footprintId, readAt }]
+        : [];
+    })
+    .sort((left, right) => right.readAt - left.readAt)
+    .slice(0, 500);
+}
+
 function getFirstVisitKey(userId) {
   return userId ? `bliver_first_visit_${userId}` : 'bliver_first_visit_guest';
 }

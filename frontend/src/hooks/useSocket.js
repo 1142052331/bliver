@@ -32,7 +32,6 @@ function getSocketURL() {
 export default function useSocket({
   user,
   setUser,
-  setFootprints,
   setNotifications,
   appendNotification,
   applyServerNotifications,
@@ -79,9 +78,9 @@ export default function useSocket({
     // ── Domain event handlers via registry ──
     const domainHandlers = {
       'online:count': onlineCount(setOnlineCount),
-      'footprint:new': footprintNew(setFootprints),
-      'footprint:updated': footprintUpdated(setFootprints),
-      'footprint:deleted': footprintDeleted(setFootprints),
+      'footprint:new': footprintNew(queryClient),
+      'footprint:updated': footprintUpdated(queryClient),
+      'footprint:deleted': footprintDeleted(queryClient),
       'profile:updated': profileUpdated(),
       'new_notification': newNotification(appendNotification),
       'user_online': userOnline(),

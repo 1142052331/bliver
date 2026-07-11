@@ -13,6 +13,7 @@ function resultLabel(item) {
 export default function MapSearch({
   query,
   queryContext = DEFAULT_MAP_QUERY,
+  viewerKey = 'guest',
   onQueryChange,
   onSelectPlace,
   onSelectFootprint,
@@ -37,7 +38,7 @@ export default function MapSearch({
   }, [onQueryChange, value]);
 
   const searchQuery = useQuery({
-    queryKey: ['footprints', 'map-search', { ...queryContext, query: debounced }],
+    queryKey: ['footprints', 'map-search', viewerKey, { ...queryContext, query: debounced }],
     queryFn: async ({ signal }) => (
       await apiClient.map.search({ ...queryContext, query: debounced }, { signal })
     ).data,

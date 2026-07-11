@@ -18,6 +18,9 @@ export default function MapView({
   setFlyArrivedFp, setTimelineTargetFpId,
   loading, fetching = false, error, onRetry,
   emptyReason = 'account', onClearFilters, onExpandScope,
+  query, queryContext, viewerKey, isAuthenticated, locationContext, onQueryChange,
+  onRequestLocation, onSetFixedScope, onClearFixedScope, onSelectFootprint,
+  pulseIds = new Set(), selectedId = null, onPulseComplete,
 }) {
   const [tileErrorCount, setTileErrorCount] = useState(0);
   const [tileFailed, setTileFailed] = useState(false);
@@ -89,10 +92,23 @@ export default function MapView({
       />
       <ClusterMarkers
         footprints={footprints}
-        userId={user?._id}
-        isAdmin={isAdmin}
+        pulseIds={pulseIds}
+        selectedId={selectedId}
+        onPulseComplete={onPulseComplete}
       />
-      <MapHomeControls footprints={footprints} />
+      <MapHomeControls
+        footprints={footprints}
+        query={query}
+        queryContext={queryContext}
+        viewerKey={viewerKey}
+        isAuthenticated={isAuthenticated}
+        locationContext={locationContext}
+        onQueryChange={onQueryChange}
+        onRequestLocation={onRequestLocation}
+        onSetFixedScope={onSetFixedScope}
+        onClearFixedScope={onClearFixedScope}
+        onSelectFootprint={onSelectFootprint}
+      />
       {isAdmin && <MapContextMenu />}
       <div className="bliver-map-notices" aria-live="polite">
         {tileFailed && (

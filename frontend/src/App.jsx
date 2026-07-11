@@ -50,12 +50,19 @@ import useShellStore from './store/useShellStore';
 import useSocket from './hooks/useSocket';
 import useFriends from './hooks/useFriends';
 import { FootprintActionsProvider } from './contexts/FootprintActionsContext';
-import useFootprints from './hooks/useFootprints';
+import useMapFootprints from './hooks/useMapFootprints';
+import useLocationContext from './hooks/useLocationContext';
+import useLegacyReadImport from './hooks/useLegacyReadImport';
 import useNotifications from './hooks/useNotifications';
 import useAnnounceUnread from './hooks/useAnnounceUnread';
 import useVisibilityRefresh from './hooks/useVisibilityRefresh';
 import useChatFriendMeta from './hooks/useChatFriendMeta';
 import { subscribeToPush } from './push';
+import {
+  DEFAULT_MAP_QUERY,
+  mergeCanonicalMapParams,
+  parseMapQuery,
+} from './domain/mapQuery';
 
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -66,28 +73,6 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function App() {
-  // ── Proactive permissions (location + notification) on launch ──
-  const permRequested = useRef(false);
-  useEffect(() => {
-    if (permRequested.current) return;
-    permRequested.current = true;
-
-    // Location permission: trigger native dialog proactively
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        () => { console.log('[Perm] Location granted'); },
-        (err) => { console.log('[Perm] Location:', err.code === 1 ? 'denied' : err.message); },
-        { timeout: 8000, enableHighAccuracy: false, maximumAge: 300_000 },
-      );
-    }
-
-    // Notification permission: always try to request (even if previously denied)
-    // Capacitor WebView may re-show native dialog; browsers won't but no harm in trying
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      Notification.requestPermission().then((p) => console.log('[Perm] Notification:', p));
-    }
-  }, []);
-
   // ── Auth ───────────────────────────────────────────────
   const { user, setUser, isAdmin, isAsen, requireLogin, logout, pendingActionRef } = useAuth();
 
@@ -112,9 +97,66 @@ export default function App() {
 
   // ── React Query: footprints ────────────────────────────
   const queryClient = useQueryClient();
-  const periodRef = useRef(footprintPeriod);
-  periodRef.current = footprintPeriod;
-  const { data: footprints = [], isLoading: footprintsLoading, error: footprintsError, refetch: refetchFootprints } = useFootprints(footprintPeriod, null);
+  const locationContext = useLocationContext();
+  const [mapQuery, setMapQuery] = useState(() => {
+    const parsed = parseMapQuery(
+      new URLSearchParams(window.location.search),
+      { isAuthenticated: Boolean(user) },
+    );
+    const fixed = locationContext.scopeContext;
+    if (parsed.scope !== 'smart' || fixed.reason !== 'fixed') return parsed;
+    return {
+      ...parsed,
+      scope: fixed.scope,
+      ...(fixed.countryCode ? { countryCode: fixed.countryCode } : {}),
+      ...(fixed.regionCode ? { regionCode: fixed.regionCode } : {}),
+    };
+  });
+  useLegacyReadImport(user?._id);
+  const effectiveMapQuery = useMemo(() => {
+    if (mapQuery.scope !== 'smart') return mapQuery;
+    const context = locationContext.scopeContext;
+    if (context.scope === 'global') return { ...mapQuery, scope: 'global' };
+    if (context.scope === 'region' || context.scope === 'country') {
+      return {
+        ...mapQuery,
+        scope: context.scope,
+        ...(context.countryCode ? { countryCode: context.countryCode } : {}),
+        ...(context.regionCode ? { regionCode: context.regionCode } : {}),
+      };
+    }
+    return {
+      ...mapQuery,
+      ...(context.countryCode ? { countryCode: context.countryCode } : {}),
+      ...(context.regionCode ? { regionCode: context.regionCode } : {}),
+    };
+  }, [locationContext.scopeContext, mapQuery]);
+  const viewerKey = user?._id || 'guest';
+  const mapFootprintsQuery = useMapFootprints(effectiveMapQuery, viewerKey);
+  const footprints = mapFootprintsQuery.data?.footprints || [];
+  const footprintsLoading = mapFootprintsQuery.isLoading;
+  const footprintsError = mapFootprintsQuery.error;
+  const refetchFootprints = mapFootprintsQuery.refetch;
+
+  const handleMapQueryChange = useCallback((nextQuery) => {
+    setMapQuery(nextQuery);
+  }, []);
+
+  useEffect(() => {
+    if (!user && mapQuery.content === 'unread') {
+      setMapQuery((current) => ({ ...current, content: 'all' }));
+    }
+  }, [mapQuery.content, user]);
+
+  useEffect(() => {
+    const params = mergeCanonicalMapParams(new URLSearchParams(window.location.search), mapQuery);
+    const search = params.toString();
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`,
+    );
+  }, [mapQuery]);
 
   // ── Feedback trigger for returning users ───────────────
   const feedbackChecked = useRef(false);
@@ -125,11 +167,14 @@ export default function App() {
     }
   }, [user, footprints]);
 
-  // Stable cache updater for socket/mutations (uses refs to avoid stale closures)
+  // Stable cache updater for footprint mutations.
   const setFootprints = useCallback((updater) => {
-    queryClient.setQueryData(['footprints', periodRef.current, null], (old) => {
-      if (typeof updater === 'function') return updater(old || []);
-      return updater;
+    queryClient.setQueriesData({ queryKey: ['footprints', 'map'] }, (old) => {
+      if (!old) return old;
+      const next = typeof updater === 'function'
+        ? updater(old.footprints || [])
+        : updater;
+      return { ...old, footprints: next };
     });
   }, [queryClient]);
 
@@ -140,6 +185,7 @@ export default function App() {
     chatUserId, viewingProfileId,
     authTab, authMessage,
     shareTarget, samePlaceIds, activeFootprintId, mapPreviewId, flyArrivedFp, timelineTargetFpId,
+    footprintEvent, footprintEventId,
     openCheckIn, closeCheckIn, openTimeline, closeTimeline,
     toggleNotifs, closeNotifs, openAdmin, closeAdmin,
     openAuth, closeAuth, openPhotoWall, closePhotoWall,
@@ -152,12 +198,31 @@ export default function App() {
     messageIsland, setMessageIsland, clearMessageIsland,
     pendingCheckInLocation, setPendingCheckInLocation,
   } = useUIStore();
+  const [pulseIds, setPulseIds] = useState(() => new Set());
+
+  const addPulseId = useCallback((footprintId) => {
+    if (!footprintId) return;
+    setPulseIds((current) => {
+      if (current.has(footprintId)) return current;
+      const next = new Set(current);
+      next.add(footprintId);
+      return next;
+    });
+  }, []);
+
+  const handlePulseComplete = useCallback((footprintId) => {
+    setPulseIds((current) => {
+      if (!current.has(footprintId)) return current;
+      const next = new Set(current);
+      next.delete(footprintId);
+      return next;
+    });
+  }, []);
 
   // ── Refs ──────────────────────────────────────────────
   const { socketRef } = useSocket({
     user,
     setUser,
-    setFootprints,
     setNotifications,
     appendNotification,
     applyServerNotifications,
@@ -177,9 +242,22 @@ export default function App() {
     const fpId = params.get('fp');
     if (fpId) {
       setShareTarget(fpId);
-      window.history.replaceState(null, '', window.location.pathname);
     }
   }, []);
+
+  useEffect(() => {
+    if (footprintEvent?.type === 'new') addPulseId(footprintEvent.footprint?._id);
+  }, [addPulseId, footprintEvent, footprintEventId]);
+
+  useEffect(() => {
+    if (activeFootprintId) addPulseId(activeFootprintId);
+  }, [activeFootprintId, addPulseId]);
+
+  useEffect(() => {
+    const visibleIds = new Set(footprints.map((footprint) => footprint._id));
+    if (mapPreviewId && !visibleIds.has(mapPreviewId)) setMapPreviewId(null);
+    if (samePlaceIds?.length && samePlaceIds.some((id) => !visibleIds.has(id))) closeSamePlace();
+  }, [closeSamePlace, footprints, mapPreviewId, samePlaceIds, setMapPreviewId]);
 
   // ── Visibility change + focus: refresh data + wake zombie socket ──
   useVisibilityRefresh({
@@ -216,6 +294,13 @@ export default function App() {
     () => footprints.find((footprint) => footprint._id === mapPreviewId) || null,
     [footprints, mapPreviewId],
   );
+  const hasActiveMapFilters = mapQuery.relationship !== DEFAULT_MAP_QUERY.relationship
+    || mapQuery.period !== DEFAULT_MAP_QUERY.period
+    || mapQuery.content !== DEFAULT_MAP_QUERY.content
+    || Boolean(mapQuery.query);
+  const emptyReason = hasActiveMapFilters
+    ? 'filters'
+    : mapQuery.scope !== 'global' ? 'scope' : 'account';
 
   // Derived: friend info for ChatWindow (async fallback for non-friend admin chats)
   const chatFriendMeta = useChatFriendMeta(chatUserId, friends);
@@ -356,8 +441,39 @@ export default function App() {
           setFlyArrivedFp={setFlyArrivedFp}
           setTimelineTargetFpId={setTimelineTargetFpId}
           loading={footprintsLoading}
+          fetching={mapFootprintsQuery.isFetching}
           error={footprintsError}
           onRetry={refetchFootprints}
+          query={mapQuery}
+          queryContext={effectiveMapQuery}
+          viewerKey={viewerKey}
+          isAuthenticated={Boolean(user)}
+          locationContext={locationContext.scopeContext}
+          onQueryChange={handleMapQueryChange}
+          onRequestLocation={locationContext.requestLocation}
+          onSetFixedScope={locationContext.setFixedScope}
+          onClearFixedScope={locationContext.clearFixedScope}
+          onSelectFootprint={(footprint) => {
+            setMapPreviewId(footprint?._id || null);
+            addPulseId(footprint?._id);
+          }}
+          pulseIds={pulseIds}
+          selectedId={mapPreviewId || activeFootprintId}
+          onPulseComplete={handlePulseComplete}
+          emptyReason={emptyReason}
+          onClearFilters={() => handleMapQueryChange({
+            ...mapQuery,
+            relationship: DEFAULT_MAP_QUERY.relationship,
+            period: DEFAULT_MAP_QUERY.period,
+            content: DEFAULT_MAP_QUERY.content,
+            query: '',
+          })}
+          onExpandScope={() => handleMapQueryChange({
+            ...mapQuery,
+            scope: 'global',
+            countryCode: undefined,
+            regionCode: undefined,
+          })}
         />
 
         <MapPreviewCard

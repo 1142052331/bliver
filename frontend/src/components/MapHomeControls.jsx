@@ -11,12 +11,16 @@ const DEFAULT_CENTER = [33.5597, 133.5311];
 export default function MapHomeControls({
   footprints,
   query = DEFAULT_MAP_QUERY,
+  queryContext = query,
+  viewerKey = 'guest',
   isAuthenticated = false,
   locationContext = { scope: 'smart', reason: 'unresolved' },
   onQueryChange = () => {},
   onSelectPlace = () => {},
   onSelectFootprint = () => {},
   onRequestLocation,
+  onSetFixedScope = () => {},
+  onClearFixedScope = () => {},
 }) {
   const map = useMap();
   const [locationError, setLocationError] = useState('');
@@ -55,9 +59,29 @@ export default function MapHomeControls({
     const next = { ...query, scope: scope.scope };
     delete next.countryCode;
     delete next.regionCode;
-    if (scope.countryCode) next.countryCode = scope.countryCode;
-    if (scope.regionCode) next.regionCode = scope.regionCode;
+    if ((scope.scope === 'region' || scope.scope === 'country') && scope.countryCode) {
+      next.countryCode = scope.countryCode;
+    }
+    if (scope.scope === 'region' && scope.regionCode) next.regionCode = scope.regionCode;
+    if (scope.scope === 'smart') onClearFixedScope();
+    else onSetFixedScope(scope);
     onQueryChange(next);
+  };
+
+  const selectPlace = (place) => {
+    if (place?.bounds) map.fitBounds(place.bounds, { padding: [48, 96], maxZoom: 15 });
+    else if (Number.isFinite(place?.lat) && Number.isFinite(place?.lng)) {
+      map.flyTo([place.lat, place.lng], 13, { duration: 0.7 });
+    }
+    onSelectPlace(place);
+  };
+
+  const selectFootprint = (footprint) => {
+    const { lat, lng } = footprint?.location || {};
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      map.flyTo([lat, lng], Math.max(map.getZoom?.() || 6, 14), { duration: 0.7 });
+    }
+    onSelectFootprint(footprint);
   };
 
   const activeFilterCount = [
@@ -71,10 +95,11 @@ export default function MapHomeControls({
       <div className="bliver-map-controls__top">
         <MapSearch
           query={query.query}
-          queryContext={query}
+          queryContext={queryContext}
+          viewerKey={viewerKey}
           onQueryChange={(search) => onQueryChange({ ...query, query: search })}
-          onSelectPlace={onSelectPlace}
-          onSelectFootprint={onSelectFootprint}
+          onSelectPlace={selectPlace}
+          onSelectFootprint={selectFootprint}
         />
         <div className="bliver-map-toolbar">
           <MapScopeControl

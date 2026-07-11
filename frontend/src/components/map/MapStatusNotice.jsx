@@ -1,10 +1,10 @@
-import { AlertCircle, LoaderCircle, MapOff, RefreshCcw, WifiOff } from 'lucide-react';
+import { AlertCircle, LoaderCircle, MapPinOff, RefreshCcw, WifiOff } from 'lucide-react';
 
 const ICONS = {
-  tile: MapOff,
+  tile: MapPinOff,
   data: AlertCircle,
   refresh: LoaderCircle,
-  empty: MapOff,
+  empty: MapPinOff,
   offline: WifiOff,
   location: AlertCircle,
 };
