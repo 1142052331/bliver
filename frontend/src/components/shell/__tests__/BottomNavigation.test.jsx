@@ -135,9 +135,9 @@ it('uses the approved navigation layer scale', () => {
     /\.bliver-shell \.bliver-destination-surface\s*{[^}]*padding-bottom:\s*calc\(var\(--bliver-nav-height\) \+ var\(--bliver-safe-bottom\)\);/s,
   );
   expect(mobileRules).toMatch(
-    /\.bliver-shell \.bliver-destination-auth-surface\s*{[^}]*padding-bottom:\s*calc\(var\(--bliver-nav-height\) \+ var\(--bliver-safe-bottom\) \+ 0\.75rem\)/s,
+    /\.bliver-shell \.bliver-destination-auth-surface\s*{[^}]*padding-bottom:\s*calc\(var\(--bliver-nav-height\) \+ var\(--bliver-safe-bottom\) \+ 0\.75rem\)\s*!important;/s,
   );
   expect(mobileRules).toMatch(
-    /\.bliver-shell \.bliver-destination-auth-surface > div > \.ios-panel\s*{[^}]*max-height:\s*calc\(100dvh - var\(--bliver-nav-height\) - var\(--bliver-safe-bottom\) - 1\.5rem\)/s,
+    /\.bliver-shell \.bliver-destination-auth-surface > div > \.ios-panel\s*{[^}]*max-height:\s*calc\(100dvh - var\(--bliver-nav-height\) - var\(--bliver-safe-bottom\) - 1\.5rem\)\s*!important;/s,
   );
 });
