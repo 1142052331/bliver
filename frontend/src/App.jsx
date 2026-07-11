@@ -25,7 +25,6 @@ import AuthModal from './components/AuthModal';
 import CheckInModal from './components/CheckInModal';
 import TimelineDrawer from './components/TimelineDrawer';
 import MapView from './components/MapView';
-import ClusterDetailPanel from './components/ClusterDetailPanel';
 import NotificationPanel from './components/NotificationPanel';
 import AdminPanel from './components/AdminPanel';
 import GlobalToaster from './components/GlobalToaster';
@@ -45,6 +44,7 @@ import BottomNavigation from './components/shell/BottomNavigation';
 import CheckInAction from './components/shell/CheckInAction';
 import LegacyDestinationBridge from './components/shell/LegacyDestinationBridge';
 import MapPreviewCard from './components/MapPreviewCard';
+import SamePlaceSheet from './components/map/SamePlaceSheet';
 import useUIStore from './store/useUIStore';
 import useShellStore from './store/useShellStore';
 import useSocket from './hooks/useSocket';
@@ -139,14 +139,14 @@ export default function App() {
     showPhotoWall, showAbout, showFeedback, showAnnouncements, showFriends,
     chatUserId, viewingProfileId,
     authTab, authMessage,
-    shareTarget, clusterData, activeFootprintId, mapPreviewId, flyArrivedFp, timelineTargetFpId,
+    shareTarget, samePlaceIds, activeFootprintId, mapPreviewId, flyArrivedFp, timelineTargetFpId,
     openCheckIn, closeCheckIn, openTimeline, closeTimeline,
     toggleNotifs, closeNotifs, openAdmin, closeAdmin,
     openAuth, closeAuth, openPhotoWall, closePhotoWall,
     openAbout, closeAbout, openFeedback, closeFeedback, openAnnouncements, closeAnnouncements,
     openFriends, closeFriends,
     setActiveFootprintId, setMapPreviewId, setFlyArrivedFp, setTimelineTargetFpId,
-    setClusterData, setShareTarget,
+    closeSamePlace, setShareTarget,
     openChat, closeChat, openProfile, closeProfile,
     setAuthTab, setAuthMessage,
     messageIsland, setMessageIsland, clearMessageIsland,
@@ -212,11 +212,6 @@ export default function App() {
 
   // ── Derived values ─────────────────────────────────────
 
-  const clusterFootprints = useMemo(() => {
-    if (!clusterData) return null;
-    const ids = new Set(clusterData.footprints.map(f => f._id));
-    return footprints.filter(f => ids.has(f._id));
-  }, [clusterData, footprints]);
   const mapPreviewFootprint = useMemo(
     () => footprints.find((footprint) => footprint._id === mapPreviewId) || null,
     [footprints, mapPreviewId],
@@ -426,15 +421,13 @@ export default function App() {
             )}
           </AnimatePresence>
 
-          {clusterFootprints && (
-            <ErrorBoundary>
-              <ClusterDetailPanel
-                footprints={clusterFootprints}
-                userId={user?._id}
-                isAdmin={isAdmin}
-                onClose={() => { setClusterData(null); setActiveFootprintId(null); }}
-              />
-            </ErrorBoundary>
+          {samePlaceIds?.length > 0 && (
+            <SamePlaceSheet
+              ids={samePlaceIds}
+              footprints={footprints}
+              onSelect={setMapPreviewId}
+              onClose={() => { closeSamePlace(); setActiveFootprintId(null); }}
+            />
           )}
         </FootprintActionsProvider>
 

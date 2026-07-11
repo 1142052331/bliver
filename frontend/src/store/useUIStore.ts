@@ -57,6 +57,7 @@ interface UIStore {
   flyArrivedFp: unknown;
   timelineTargetFpId: string | null;
   clusterData: ClusterPayload | null;
+  samePlaceIds: string[];
   shareTarget: string | null;
 
   // Chat / Profile
@@ -111,6 +112,8 @@ interface UIStore {
   setFlyArrivedFp: (fp: unknown) => void;
   setTimelineTargetFpId: (id: string | null) => void;
   setClusterData: (data: ClusterPayload | null) => void;
+  openSamePlace: (ids: string[]) => void;
+  closeSamePlace: () => void;
   setShareTarget: (id: string | null) => void;
 
   openChat: (uid: string) => void;
@@ -162,6 +165,7 @@ const useUIStore = create<UIStore>()(
   flyArrivedFp: null,
   timelineTargetFpId: null,
   clusterData: null,
+  samePlaceIds: [],
   shareTarget: null,
 
   chatUserId: null,
@@ -208,6 +212,8 @@ const useUIStore = create<UIStore>()(
   setFlyArrivedFp: (fp) => set({ flyArrivedFp: fp }),
   setTimelineTargetFpId: (id) => set({ timelineTargetFpId: id }),
   setClusterData: (data) => set({ clusterData: data }),
+  openSamePlace: (ids) => set({ samePlaceIds: [...new Set(ids)] }),
+  closeSamePlace: () => set({ samePlaceIds: [] }),
   setShareTarget: (id) => set({ shareTarget: id }),
 
   openChat: (uid) => set({ chatUserId: uid }),

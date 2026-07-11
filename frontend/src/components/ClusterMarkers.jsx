@@ -67,6 +67,15 @@ export function buildMarkerHtml(descriptor) {
   </div>`;
 }
 
+export function shouldOpenSamePlace({ zoom, maxZoom, childLatLngs }) {
+  if (!childLatLngs || childLatLngs.length < 2) return false;
+  const latitudes = childLatLngs.map((point) => point.lat);
+  const longitudes = childLatLngs.map((point) => point.lng);
+  const effectivelyIdentical = Math.max(...latitudes) - Math.min(...latitudes) <= 0.000001
+    && Math.max(...longitudes) - Math.min(...longitudes) <= 0.000001;
+  return effectivelyIdentical || zoom >= maxZoom - 1;
+}
+
 function createFootprintIcon(descriptor) {
   return L.divIcon({
     html: buildMarkerHtml(descriptor),
@@ -103,9 +112,7 @@ export default function ClusterMarkers({
 }) {
   const map = useMap();
   const clusterGroup = useRef(null);
-  const footprintsRef = useRef(footprints);
   const pulseTimers = useRef(new Set());
-  footprintsRef.current = footprints;
 
   useEffect(() => {
     const group = L.markerClusterGroup({
@@ -117,9 +124,19 @@ export default function ClusterMarkers({
     });
 
     group.on('clusterclick', (event) => {
-      const markerIds = event.layer.getAllChildMarkers().map((marker) => marker._footprintId);
-      const selected = footprintsRef.current.filter((footprint) => markerIds.includes(footprint._id));
-      useUIStore.getState().setClusterData({ footprints: selected });
+      const childMarkers = event.layer.getAllChildMarkers();
+      const markerIds = childMarkers.map((marker) => marker._footprintId);
+      const childLatLngs = childMarkers.map((marker) => marker.getLatLng());
+      const mapMaxZoom = map.getMaxZoom();
+      const maxZoom = Math.min(Number.isFinite(mapMaxZoom) ? mapMaxZoom : 18, 18);
+      if (shouldOpenSamePlace({ zoom: map.getZoom(), maxZoom, childLatLngs })) {
+        useUIStore.getState().openSamePlace(markerIds);
+      } else {
+        map.fitBounds(event.layer.getBounds(), {
+          padding: [48, 96],
+          maxZoom: Math.min(maxZoom, map.getZoom() + 2),
+        });
+      }
     });
 
     clusterGroup.current = group;

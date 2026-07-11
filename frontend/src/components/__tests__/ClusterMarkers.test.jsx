@@ -14,6 +14,7 @@ import {
   buildMarkerDescriptor,
   buildMarkerHtml,
   markerCacheKey,
+  shouldOpenSamePlace,
 } from '../ClusterMarkers';
 
 const footprint = {
@@ -62,5 +63,31 @@ describe('map marker descriptors', () => {
     expect(html).toContain('同省');
     expect(html).not.toContain('99');
     expect(html).not.toMatch(/streak/i);
+  });
+});
+
+describe('cluster selection', () => {
+  it('opens effectively identical coordinates immediately', () => {
+    expect(shouldOpenSamePlace({
+      zoom: 8,
+      maxZoom: 18,
+      childLatLngs: [{ lat: 31.23, lng: 121.47 }, { lat: 31.23, lng: 121.47 }],
+    })).toBe(true);
+  });
+
+  it('zooms distinct coordinates while useful separation remains', () => {
+    expect(shouldOpenSamePlace({
+      zoom: 12,
+      maxZoom: 18,
+      childLatLngs: [{ lat: 31.23, lng: 121.47 }, { lat: 31.2302, lng: 121.4702 }],
+    })).toBe(false);
+  });
+
+  it('opens close coordinates at the separation threshold', () => {
+    expect(shouldOpenSamePlace({
+      zoom: 17,
+      maxZoom: 18,
+      childLatLngs: [{ lat: 31.23, lng: 121.47 }, { lat: 31.2302, lng: 121.4702 }],
+    })).toBe(true);
   });
 });
