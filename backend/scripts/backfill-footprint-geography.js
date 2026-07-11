@@ -3,8 +3,10 @@
 require('dotenv').config({ quiet: true });
 
 const mongoose = require('mongoose');
-const connectDB = require('../config/db');
+const { connectDBOrThrow } = require('../config/db');
 const { createFootprintBackfillService, validateBackfillOptions } = require('../services/FootprintBackfillService');
+
+const PRODUCTION_CONFIRMATION = 'BACKFILL_FOOTPRINT_GEOGRAPHY';
 
 function readValue(argv, index, flag) {
   const value = argv[index + 1];
@@ -17,19 +19,28 @@ function parseInteger(value, flag) {
   return Number(value);
 }
 
-function parseArgs(argv = []) {
+function parseArgs(argv = [], env = process.env) {
   const options = {
-    dryRun: false,
+    dryRun: true,
     limit: 100,
     cursor: null,
     delayMs: 0,
     retryFailed: false,
   };
+  let explicitDryRun = false;
+  let execute = false;
+  let productionConfirmation = '';
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--dry-run') {
-      options.dryRun = true;
+      explicitDryRun = true;
+    } else if (arg === '--execute') {
+      execute = true;
+      options.dryRun = false;
+    } else if (arg === '--confirm-production') {
+      productionConfirmation = readValue(argv, index, arg);
+      index += 1;
     } else if (arg === '--retry-failed') {
       options.retryFailed = true;
     } else if (arg === '--limit') {
@@ -46,6 +57,14 @@ function parseArgs(argv = []) {
     }
   }
 
+  if (explicitDryRun && execute) throw new TypeError('--dry-run and --execute are mutually exclusive');
+  if (execute && env.NODE_ENV === 'production' && productionConfirmation !== PRODUCTION_CONFIRMATION) {
+    if (!productionConfirmation) {
+      throw new TypeError(`--confirm-production ${PRODUCTION_CONFIRMATION} is required in production`);
+    }
+    throw new TypeError('invalid production confirmation token');
+  }
+
   return validateBackfillOptions(options);
 }
 
@@ -53,13 +72,13 @@ async function runCli(argv = process.argv.slice(2), dependencies = {}) {
   const logger = dependencies.logger || console;
   let options;
   try {
-    options = parseArgs(argv);
+    options = parseArgs(argv, dependencies.env || process.env);
   } catch (error) {
     logger.error(`Invalid arguments: ${error.message}`);
     return 1;
   }
 
-  const connect = dependencies.connectDB || connectDB;
+  const connect = dependencies.connectDB || connectDBOrThrow;
   const disconnect = dependencies.disconnect || (() => mongoose.disconnect());
   const createService = dependencies.createService || createFootprintBackfillService;
   let connectionAttempted = false;
@@ -67,14 +86,18 @@ async function runCli(argv = process.argv.slice(2), dependencies = {}) {
     connectionAttempted = true;
     await connect();
     const totals = await createService().run(options);
-    logger.log(JSON.stringify({ dryRun: options.dryRun, ...totals }));
+    logger.log(JSON.stringify({ mode: options.dryRun ? 'dry-run' : 'execute', ...totals }));
     return 0;
   } catch {
     logger.error('Footprint geography backfill failed');
     return 1;
   } finally {
     if (connectionAttempted) {
-      await disconnect().catch(() => {});
+      try {
+        await disconnect();
+      } catch {
+        logger.error('Database disconnect failed');
+      }
     }
   }
 }
@@ -85,4 +108,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseArgs, runCli };
+module.exports = { parseArgs, runCli, PRODUCTION_CONFIRMATION };

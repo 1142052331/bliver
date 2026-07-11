@@ -3,17 +3,36 @@ const mongoose = require('mongoose');
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 3000;
 
-const connectDB = async (retryCount = 0) => {
+async function connectDBOrThrow({
+  connect = (uri) => mongoose.connect(uri),
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  maxRetries = MAX_RETRIES,
+  retryDelayMs = RETRY_DELAY_MS,
+  onRetry = () => {},
+} = {}) {
+  let retries = 0;
+  while (true) {
+    try {
+      return await connect(process.env.MONGODB_URI);
+    } catch (error) {
+      if (retries >= maxRetries) throw error;
+      retries += 1;
+      onRetry(retries, maxRetries, retryDelayMs);
+      await sleep(retryDelayMs);
+    }
+  }
+}
+
+const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await connectDBOrThrow({
+      onRetry: (retry, maxRetries, retryDelayMs) => {
+        console.log(`Retrying in ${retryDelayMs / 1000}s... (${retry}/${maxRetries})`);
+      },
+    });
     console.log('MongoDB connected');
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
-    if (retryCount < MAX_RETRIES) {
-      console.log(`Retrying in ${RETRY_DELAY_MS / 1000}s... (${retryCount + 1}/${MAX_RETRIES})`);
-      await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-      return connectDB(retryCount + 1);
-    }
     console.error('MongoDB connection failed after max retries');
     process.exit(1);
   }
@@ -28,3 +47,4 @@ mongoose.connection.on('error', (err) => {
 });
 
 module.exports = connectDB;
+module.exports.connectDBOrThrow = connectDBOrThrow;

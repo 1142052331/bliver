@@ -88,6 +88,8 @@
 - [ ] Write failing tests for dry run, bounded batches, idempotency, resume cursor, fresh 24-hour discovery, and bounded failure records.
 - [ ] Run the focused test and verify no backfill implementation exists.
 - [ ] Implement a dependency-injected batch service and a CLI supporting dry-run, limit, cursor, delay, and retry-failed options.
+- [ ] Keep no-argument CLI invocation in zero-write dry-run mode; live writes require `--execute`, and production additionally requires `--confirm-production BACKFILL_FOOTPRINT_GEOGRAPHY`.
+- [ ] Atomically claim live candidates with a run-token lease, complete through visibility/location CAS, and dead-letter the fifth failed attempt.
 - [ ] Ensure completed records are never given a later discovery expiry by reruns.
 - [ ] Run focused tests and commit the backfill path.
 

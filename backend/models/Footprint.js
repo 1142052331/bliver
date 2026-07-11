@@ -25,12 +25,15 @@ const footprintSchema = new mongoose.Schema({
   regionBackfill: {
     status: {
       type: String,
-      enum: ['pending', 'processing', 'complete', 'failed'],
+      enum: ['pending', 'processing', 'complete', 'failed', 'dead'],
       default: 'pending',
     },
     attempts: { type: Number, default: 0 },
     lastAttemptAt: { type: Date, default: null },
     error: { type: String, default: '', maxlength: 240 },
+    runToken: { type: String, default: '' },
+    leaseExpiresAt: { type: Date, default: null },
+    claimedFromStatus: { type: String, default: '' },
   },
   reactions: [{
     userId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -57,6 +60,14 @@ footprintSchema.index({ 'comments.userId': 1, 'comments.createdAt': -1 });
 footprintSchema.index(
   { 'comments.username': 1, 'comments.createdAt': -1 },
   { name: 'profile_comments_username_createdAt' },
+);
+footprintSchema.index(
+  { 'regionBackfill.status': 1, _id: 1 },
+  { name: 'region_backfill_status_id' },
+);
+footprintSchema.index(
+  { 'regionBackfill.status': 1, 'regionBackfill.leaseExpiresAt': 1, _id: 1 },
+  { name: 'region_backfill_status_lease_id' },
 );
 
 // Post-find middleware: resolve denormalized usernames from userId
