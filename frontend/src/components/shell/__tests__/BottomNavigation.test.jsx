@@ -86,10 +86,8 @@ it('uses the base navigation layer by default', () => {
 
   const navigation = screen.getByRole('navigation');
   expect(navigation).toHaveClass('bliver-bottom-navigation');
-  expect(navigation).not.toHaveClass(
-    'bliver-bottom-navigation--destination',
-    'bliver-bottom-navigation--destination-auth',
-  );
+  expect(navigation).not.toHaveClass('bliver-bottom-navigation--destination');
+  expect(navigation).not.toHaveClass('bliver-bottom-navigation--destination-auth');
 });
 
 it.each([

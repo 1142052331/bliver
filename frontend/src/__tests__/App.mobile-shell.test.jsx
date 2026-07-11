@@ -253,10 +253,9 @@ describe('App mobile shell integration', () => {
 
     render(<App />);
 
-    expect(screen.getByRole('navigation')).not.toHaveClass(
-      'bliver-bottom-navigation--destination',
-      'bliver-bottom-navigation--destination-auth',
-    );
+    const navigation = screen.getByRole('navigation');
+    expect(navigation).not.toHaveClass('bliver-bottom-navigation--destination');
+    expect(navigation).not.toHaveClass('bliver-bottom-navigation--destination-auth');
   });
 
   it('keeps bottom navigation below secondary Auth over a destination surface', () => {
