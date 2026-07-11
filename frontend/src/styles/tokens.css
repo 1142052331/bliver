@@ -12,6 +12,11 @@
   --bliver-coral-active: #ad3d2d;
   --bliver-border: #d7e1dc;
   --bliver-danger: #b83b3b;
+  --bliver-source-self: #173b31;
+  --bliver-source-friend: #3f7767;
+  --bliver-source-region: #557581;
+  --bliver-source-country: #756f4d;
+  --bliver-source-global: #6f6678;
   --bliver-shadow-card: 0 16px 40px rgba(23, 59, 49, 0.14);
   --bliver-shadow-float: 0 12px 30px rgba(23, 59, 49, 0.2);
   --bliver-radius-sm: 10px;
@@ -784,36 +789,63 @@
 .bliver-map-cluster-icon { background: transparent; border: 0; }
 
 .bliver-map-marker {
+  --bliver-marker-ring: var(--bliver-source-global);
   position: relative;
   display: flex;
-  width: 48px;
-  height: 58px;
+  width: 64px;
+  height: 72px;
   align-items: center;
   flex-direction: column;
 }
+
+.bliver-map-marker--self { --bliver-marker-ring: var(--bliver-source-self); }
+.bliver-map-marker--friend { --bliver-marker-ring: var(--bliver-source-friend); }
+.bliver-map-marker--region { --bliver-marker-ring: var(--bliver-source-region); }
+.bliver-map-marker--country { --bliver-marker-ring: var(--bliver-source-country); }
+.bliver-map-marker--global { --bliver-marker-ring: var(--bliver-source-global); }
 
 .bliver-map-marker__mood {
   position: relative;
   z-index: 1;
   display: inline-flex;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--bliver-surface);
+  border: 3px solid var(--bliver-marker-ring);
   border-radius: 50%;
-  background: var(--bliver-sage-soft);
+  background: var(--bliver-surface);
   box-shadow: 0 4px 10px rgba(23, 59, 49, 0.2);
   font-size: 16px;
 }
 
+.bliver-map-marker__source {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  min-width: 34px;
+  min-height: 18px;
+  align-items: center;
+  justify-content: center;
+  margin-top: -2px;
+  padding: 1px 5px;
+  border: 1px solid var(--bliver-marker-ring);
+  border-radius: 6px;
+  background: var(--bliver-surface);
+  color: var(--bliver-marker-ring);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .bliver-map-marker__pin {
-  width: 22px;
-  height: 22px;
-  margin-top: -4px;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
   border: 3px solid var(--bliver-surface);
   border-radius: 50% 50% 50% 0;
-  background: var(--bliver-forest);
+  background: var(--bliver-marker-ring);
   box-shadow: 0 5px 10px rgba(23, 59, 49, 0.26);
   transform: rotate(-45deg);
 }
@@ -821,14 +853,27 @@
 .bliver-map-marker__dot {
   position: absolute;
   z-index: 2;
-  top: 0;
-  right: 7px;
+  top: 1px;
+  right: 13px;
   width: 11px;
   height: 11px;
   border: 2px solid var(--bliver-surface);
   border-radius: 50%;
   background: var(--bliver-coral);
-  animation: bliver-map-pulse 1.4s ease-out 1;
+}
+
+.bliver-map-marker--selected .bliver-map-marker__mood {
+  box-shadow: 0 0 0 3px var(--bliver-surface), 0 0 0 6px var(--bliver-marker-ring), 0 5px 12px rgba(23, 59, 49, 0.22);
+}
+
+.bliver-map-marker--pulse .bliver-map-marker__mood::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--bliver-marker-ring);
+  border-radius: 50%;
+  animation: bliver-map-imprint 800ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+  pointer-events: none;
 }
 
 .bliver-map-cluster {
@@ -847,6 +892,12 @@
 }
 
 .bliver-map-cluster--unread { background: var(--bliver-forest-soft); }
+.bliver-map-cluster--self { background: var(--bliver-source-self); }
+.bliver-map-cluster--friend { background: var(--bliver-source-friend); }
+.bliver-map-cluster--region { background: var(--bliver-source-region); }
+.bliver-map-cluster--country { background: var(--bliver-source-country); }
+.bliver-map-cluster--global { background: var(--bliver-source-global); }
+.bliver-map-cluster--mixed { background: var(--bliver-forest-soft); }
 
 .bliver-map-cluster i {
   position: absolute;
@@ -863,6 +914,11 @@
 @keyframes bliver-map-pulse {
   0% { box-shadow: 0 0 0 0 rgba(197, 75, 54, 0.5); }
   100% { box-shadow: 0 0 0 12px rgba(197, 75, 54, 0); }
+}
+
+@keyframes bliver-map-imprint {
+  0% { opacity: 0.72; transform: scale(0.72); }
+  100% { opacity: 0; transform: scale(1.75); }
 }
 
 @media (max-width: 767px) {
@@ -940,4 +996,6 @@
 
   .bliver-map-state__spinner,
   .bliver-map-marker__dot { animation: none; }
+
+  .bliver-map-marker--pulse .bliver-map-marker__mood::after { display: none; }
 }
