@@ -9,7 +9,7 @@ const router = express.Router();
 // GET /api/users/:id/profile
 router.get('/users/:id/profile', optionalAuth, async (req, res) => {
   const viewer = req.user || null;
-  const result = await profileService.getProfile(req.params.id, viewer, req.isAdmin);
+  const result = await profileService.getProfile(req.params.id, viewer);
   if (!result) return res.status(404).json({ error: 'User not found' });
   res.json(result);
 });

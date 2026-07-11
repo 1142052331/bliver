@@ -9,13 +9,18 @@ const { isSuperuserName } = require('./authorization');
 const bus = require('../events/bus');
 const auditService = require('./AuditService');
 const AppError = require('../middleware/AppError');
+const {
+  filterReadableFootprints,
+  getReadableFootprint,
+} = require('./FootprintAccessService');
 
 class FootprintService {
   // ═══════════════════════════════════════════════════════
   //  Public: read
   // ═══════════════════════════════════════════════════════
 
-  async getToday(period, { isAdmin = false, userId: filterUserId, isAdminMode = false } = {}) {
+  async getToday(period, { viewer = null, userId: filterUserId } = {}) {
+    const isAdmin = viewer?.role === 'admin';
     const now = new Date();
     let start;
 
@@ -36,24 +41,27 @@ class FootprintService {
     end.setHours(23, 59, 59, 999);
 
     const filter = { createdAt: { $gte: start, $lte: end } };
-    if (filterUserId && isAdminMode) {
+    if (filterUserId && isAdmin) {
       filter.userId = filterUserId;
     }
 
     const docs = await populateFootprint(
-      Footprint.findSafe(filter, { isAdmin }).sort({ createdAt: -1 })
+      Footprint.findSafe(filter, { isAdmin }).sort({ createdAt: -1, _id: -1 })
     );
 
+    const readable = await filterReadableFootprints({ viewer, footprints: docs, now });
     return {
-      footprints: docs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin)),
+      footprints: readable.map((fp) => sanitizeLocation(fp.toObject(), isAdmin)),
       period,
       start,
     };
   }
 
-  async getById(footprintId, { isAdmin = false } = {}) {
-    const fp = await populateFootprint(Footprint.findByIdSafe(footprintId, { isAdmin }));
-    if (!fp) return null;
+  async getById(footprintId, { viewer = null } = {}) {
+    const readable = await getReadableFootprint({ viewer, footprintId });
+    if (!readable) return null;
+    const isAdmin = viewer?.role === 'admin';
+    const fp = await populateFootprint(Footprint.findByIdSafe(readable._id, { isAdmin }));
     return sanitizeLocation(fp.toObject(), isAdmin);
   }
 
@@ -150,7 +158,10 @@ class FootprintService {
     return fpObj;
   }
 
-  async react(footprintId, userId, username, emoji, { isAdmin = false } = {}) {
+  async react(footprintId, userId, username, emoji, { viewer } = {}) {
+    const readable = await getReadableFootprint({ viewer, footprintId });
+    if (!readable) return null;
+    const isAdmin = viewer?.role === 'admin';
     const before = await Footprint.findOneAndUpdate(
       { _id: footprintId },
       { $pull: { reactions: { userId } } },
@@ -189,9 +200,10 @@ class FootprintService {
     return { footprint: fpObj, isToggleOff };
   }
 
-  async comment(footprintId, userId, username, content, ip, { isAdmin = false } = {}) {
-    const fp = await Footprint.findById(footprintId);
+  async comment(footprintId, userId, username, content, ip, { viewer } = {}) {
+    const fp = await getReadableFootprint({ viewer, footprintId });
     if (!fp) return null;
+    const isAdmin = viewer?.role === 'admin';
 
     fp.comments.push({ userId, username, content, ipAddress: ip });
     await fp.save();
@@ -229,8 +241,8 @@ class FootprintService {
 
   // ── Delete a comment from a footprint ──
 
-  async deleteComment(footprintId, commentId, userId, userName) {
-    const fp = await Footprint.findById(footprintId);
+  async deleteComment(footprintId, commentId, userId, userName, { viewer } = {}) {
+    const fp = await getReadableFootprint({ viewer, footprintId });
     if (!fp) throw new AppError(404, 'Footprint not found');
 
     const comment = fp.comments.id(commentId);

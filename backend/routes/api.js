@@ -39,16 +39,15 @@ const router = express.Router();
   // GET /api/footprints/today?period=today|week|year
   router.get('/footprints/today', optionalAuth, async (req, res) => {
     const result = await footprintService.getToday(req.query.period || 'today', {
-      isAdmin: req.isAdmin,
+      viewer: req.user || null,
       userId: req.query.userId,
-      isAdminMode: !!req.isAdmin,
     });
     res.json(result);
   });
 
   // GET /api/footprints/:id
   router.get('/footprints/:id', optionalAuth, async (req, res) => {
-    const fp = await footprintService.getById(req.params.id, { isAdmin: req.isAdmin });
+    const fp = await footprintService.getById(req.params.id, { viewer: req.user || null });
     if (!fp) return res.status(404).json({ error: 'Not found' });
     res.json({ footprint: fp });
   });
@@ -69,7 +68,7 @@ const router = express.Router();
   router.post('/footprints/:id/react', auth, contentLimiter, validate(reactionSchema), async (req, res) => {
     const result = await footprintService.react(
       req.params.id, req.user.id, req.user.name, req.body.emoji,
-      { isAdmin: req.user.role === 'admin' }
+      { viewer: req.user }
     );
     if (!result) return res.status(404).json({ error: 'Not found' });
 
@@ -86,7 +85,7 @@ const router = express.Router();
 
     const result = await footprintService.comment(
       req.params.id, req.user.id, req.user.name, content, ip,
-      { isAdmin: req.user.role === 'admin' }
+      { viewer: req.user }
     );
     if (!result) return res.status(404).json({ error: 'Not found' });
 
@@ -96,7 +95,8 @@ const router = express.Router();
   // DELETE /api/footprints/:footprintId/comments/:commentId
   router.delete('/footprints/:footprintId/comments/:commentId', auth, contentLimiter, async (req, res) => {
     const result = await footprintService.deleteComment(
-      req.params.footprintId, req.params.commentId, req.user.id, req.user.name
+      req.params.footprintId, req.params.commentId, req.user.id, req.user.name,
+      { viewer: req.user }
     );
     res.json({ footprint: result.footprint });
   });

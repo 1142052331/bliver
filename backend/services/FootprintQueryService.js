@@ -7,38 +7,16 @@ const { populateFootprint } = require('./footprint');
 const { sanitizeLocation } = require('./location');
 const { getUnreadByFootprintId } = require('./FootprintReadService');
 const { id } = require('../policies/FootprintVisibilityPolicy');
+const {
+  activePublicFilter,
+  authorizationFilter,
+} = require('./FootprintAccessService');
 
 function and(...conditions) {
   const values = conditions.filter((condition) => condition && Object.keys(condition).length > 0);
   if (values.length === 0) return {};
   if (values.length === 1) return values[0];
   return { $and: values };
-}
-
-function activePublicFilter(now) {
-  return {
-    $or: [
-      { visibility: 'public', discoveryExpiresAt: { $gt: now } },
-      { visibility: { $exists: false } },
-    ],
-  };
-}
-
-function authorizationFilter({ viewer, friendIds, now }) {
-  if (viewer?.role === 'admin') return {};
-  if (!viewer) return activePublicFilter(now);
-
-  const branches = [
-    { userId: viewer.id },
-    activePublicFilter(now),
-  ];
-  if (friendIds.size > 0) {
-    branches.push({
-      userId: { $in: [...friendIds] },
-      visibility: { $in: ['public', 'friends'] },
-    });
-  }
-  return { $or: branches };
 }
 
 function relationshipFilter({ relationship, viewer, friendIds, now }) {
@@ -86,7 +64,12 @@ function fixedGeographyFilter(normalized) {
 
 function buildCandidateFilters({ viewer, friendIds, normalized, now, authorIds = [] }) {
   const common = and(
-    authorizationFilter({ viewer, friendIds, now }),
+    authorizationFilter({
+      viewerId: viewer?.id || null,
+      friendIds,
+      isAdmin: viewer?.role === 'admin',
+      now,
+    }),
     relationshipFilter({ relationship: normalized.relationship, viewer, friendIds, now }),
     periodFilter(normalized.period, now),
     contentFilter(normalized.content),

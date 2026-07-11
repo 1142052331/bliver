@@ -3,8 +3,12 @@ const User = require('../models/User');
 const Footprint = require('../models/Footprint');
 const FootprintRead = require('../models/FootprintRead');
 const AppError = require('../middleware/AppError');
-const { getFriendIds } = require('./SuperuserPolicy');
-const { canReadFootprint, id } = require('../policies/FootprintVisibilityPolicy');
+const { id } = require('../policies/FootprintVisibilityPolicy');
+const {
+  canReadWithAccess,
+  getReadableFootprint,
+  getViewerAccess,
+} = require('./FootprintAccessService');
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -66,20 +70,6 @@ async function getUnreadByFootprintId({ viewerId, footprints, now = new Date() }
   return result;
 }
 
-async function getReadableFootprint({ viewer, footprintId, now }) {
-  if (!mongoose.Types.ObjectId.isValid(footprintId)) return null;
-  const footprint = await Footprint.findById(footprintId);
-  if (!footprint) return null;
-  const friendIds = await getFriendIds(viewer.id);
-  return canReadFootprint({
-    footprint,
-    viewerId: viewer.id,
-    friendIds,
-    isAdmin: viewer.role === 'admin',
-    now,
-  }) ? footprint : null;
-}
-
 async function markRead({ viewer, footprintId, now = new Date() }) {
   const footprint = await getReadableFootprint({ viewer, footprintId, now });
   if (!footprint) throw new AppError(404, 'Footprint not found');
@@ -109,16 +99,10 @@ async function importLegacy({ viewer, entries, now = new Date() }) {
   }
 
   const footprints = await Footprint.find({ _id: { $in: [...normalized.keys()] } });
-  const friendIds = await getFriendIds(viewer.id);
+  const access = await getViewerAccess(viewer);
   const operations = [];
   for (const footprint of footprints) {
-    if (!canReadFootprint({
-      footprint,
-      viewerId: viewer.id,
-      friendIds,
-      isAdmin: viewer.role === 'admin',
-      now,
-    })) continue;
+    if (!canReadWithAccess(footprint, access, now)) continue;
     operations.push({
       updateOne: {
         filter: { userId: viewer.id, footprintId: footprint._id },

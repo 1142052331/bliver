@@ -5,11 +5,51 @@ const { populateFootprint } = require('./footprint');
 const { notify } = require('./notification');
 const bus = require('../events/bus');
 const AppError = require('../middleware/AppError');
+const {
+  authorizationFilter,
+  filterReadableFootprints,
+  getViewerAccess,
+} = require('./FootprintAccessService');
+
+const PROFILE_BATCH_SIZE = 50;
+
+function beforeCursor(cursor) {
+  if (!cursor) return {};
+  return {
+    $or: [
+      { createdAt: { $lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, _id: { $lt: cursor._id } },
+    ],
+  };
+}
+
+async function collectReadable({ filter, access, isAdmin, limit, now, populate }) {
+  const result = [];
+  let cursor = null;
+
+  while (result.length < limit) {
+    const cursorFilter = beforeCursor(cursor);
+    const filters = [filter, authorizationFilter({ ...access, now })];
+    if (cursor) filters.push(cursorFilter);
+    const effectiveFilter = { $and: filters };
+    const query = Footprint.findSafe(effectiveFilter, { isAdmin })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(PROFILE_BATCH_SIZE);
+    const docs = await populate(query);
+    const readable = await filterReadableFootprints({ access, footprints: docs, now });
+    result.push(...readable.slice(0, limit - result.length));
+
+    if (docs.length < PROFILE_BATCH_SIZE) break;
+    cursor = docs[docs.length - 1];
+  }
+
+  return result;
+}
 
 class ProfileService {
   // ── Get profile page data (visit tracking + footprints + reactions + comments) ──
 
-  async getProfile(userId, viewer, isAdmin) {
+  async getProfile(userId, viewer) {
     const user = await User.findById(userId)
       .select('-password')
       .populate('profileReactions.senderId', 'name avatarUrl')
@@ -22,18 +62,24 @@ class ProfileService {
       await this._recordVisit(userId, viewer);
     }
 
-    const docs = await populateFootprint(
-      Footprint.findSafe({ userId }, { isAdmin }).sort({ createdAt: -1 }).limit(30)
-    );
-    const footprints = docs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
+    const isAdmin = viewer?.role === 'admin';
+    const access = await getViewerAccess(viewer);
+    const now = new Date();
+    const readableFootprints = await collectReadable({
+      filter: { userId }, access, isAdmin, limit: 30, now, populate: populateFootprint,
+    });
+    const footprints = readableFootprints
+      .map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
 
-    const recentReactions = await Footprint.find({ 'reactions.userId': userId })
-      .sort({ 'reactions.0.createdAt': -1 }).limit(5)
-      .populate('userId', 'name avatarUrl');
-
-    const recentComments = await Footprint.find({ 'comments.username': user.name })
-      .sort({ 'comments.0.createdAt': -1 }).limit(5)
-      .populate('userId', 'name avatarUrl');
+    const populateAuthor = (query) => query.populate('userId', 'name avatarUrl');
+    const reactionDocs = await collectReadable({
+      filter: { 'reactions.userId': userId }, access, isAdmin, limit: 5, now, populate: populateAuthor,
+    });
+    const commentDocs = await collectReadable({
+      filter: { 'comments.username': user.name }, access, isAdmin, limit: 5, now, populate: populateAuthor,
+    });
+    const recentReactions = reactionDocs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
+    const recentComments = commentDocs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
 
     return { user, footprints, recentReactions, recentComments };
   }

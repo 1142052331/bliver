@@ -55,16 +55,21 @@
 ### Task 3: Enforce Visibility on Interactions
 
 **Files:**
+- Create: `backend/services/FootprintAccessService.js`
 - Modify: `backend/services/FootprintService.js`
 - Modify: `backend/routes/api.js`
 - Modify: `backend/services/FootprintReadService.js`
+- Modify: `backend/services/ProfileService.js`
+- Modify: `backend/routes/profile.js`
+- Test: `backend/__tests__/footprint-http-visibility.test.js`
 - Test: `backend/__tests__/footprint-read.test.js`
 - Test: `backend/__tests__/footprint-visibility-policy.test.js`
 
-- [ ] Add failing guest/stranger/friend/owner/admin tests for detail, reaction, comment, and comment deletion.
-- [ ] Verify unauthorized reads and mutations currently reach the data.
-- [ ] Reuse `FootprintVisibilityPolicy` for every read and interaction mutation.
-- [ ] Return consistent 403/404 responses without leaking hidden footprint content.
+- [ ] Add failing guest/stranger/friend/owner/admin tests for legacy lists, detail, reaction, comment, comment deletion, and profile aggregates.
+- [ ] Verify unauthorized reads and mutations currently reach the data, including profile reaction/comment aggregates.
+- [ ] Reuse `FootprintVisibilityPolicy` and accepted friend IDs through one access helper for every legacy read and interaction mutation.
+- [ ] Return privacy-safe 404 responses without leaking hidden footprint existence and sanitize operational location metadata.
+- [ ] Keep read-state mark/import on the shared access path and preserve authorized mutation notifications and admin deletion semantics.
 - [ ] Run focused tests and commit the authorization enforcement.
 
 ### Task 4: Add Resumable Legacy Geography Backfill
