@@ -1,5 +1,10 @@
 const { z } = require('zod');
 
+const requestBoolean = z.union([
+  z.boolean(),
+  z.enum(['true', 'false']),
+]).transform((value) => value === true || value === 'true');
+
 const messageSchema = {
   tooLong: (n) => `不能超过${n}字`,
   required: (f) => `请提供${f}`,
@@ -11,7 +16,7 @@ const checkin = z.object({
   lng: z.coerce.number({ required_error: '请提供经度' }),
   message: z.string().max(1000, messageSchema.tooLong(1000)).optional(),
   mood: z.string().max(10).optional(),
-  precise: z.coerce.boolean().optional(),
+  precise: requestBoolean.optional(),
   visibility: z.enum(['public', 'friends', 'private']).optional(),
   locationPrecision: z.enum(['approximate', 'precise']).optional(),
 }).strict();
