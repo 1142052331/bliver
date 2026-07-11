@@ -231,6 +231,7 @@ function createFootprintBackfillService({
 
   function sameValue(filter, path, value) {
     if (value === undefined) filter[path] = { $exists: false };
+    else if (value === null) filter[path] = { $eq: null, $exists: true };
     else filter[path] = value;
   }
 
@@ -244,11 +245,8 @@ function createFootprintBackfillService({
     };
     sameValue(filter, 'visibility', doc.visibility);
     sameValue(filter, 'locationPrecision', doc.locationPrecision);
-    if (doc.realLocation === undefined) {
-      filter.realLocation = { $exists: false };
-    } else {
-      filter.realLocation = doc.realLocation;
-    }
+    for (const field of REQUIRED_TEXT_FIELDS) sameValue(filter, field, doc[field]);
+    sameValue(filter, 'realLocation', doc.realLocation);
     return filter;
   }
 
@@ -474,19 +472,6 @@ function createFootprintBackfillService({
         continue;
       }
 
-      const lat = Number(doc.location?.lat);
-      const lng = Number(doc.location?.lng);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)
-        || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-        if (!options.dryRun) {
-          await markOwnedFailure(doc, runToken, new Date(clock()), 'invalid_location', totals);
-        } else {
-          totals.wouldFail += 1;
-        }
-        continue;
-      }
-
-      if (geocodeCalls > 0 && options.delayMs > 0) await sleep(options.delayMs);
       let attemptDoc = doc;
       if (!options.dryRun) {
         try {
@@ -505,6 +490,19 @@ function createFootprintBackfillService({
           continue;
         }
       }
+      const lat = Number(attemptDoc.location?.lat);
+      const lng = Number(attemptDoc.location?.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)
+        || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        if (!options.dryRun) {
+          await markOwnedFailure(attemptDoc, runToken, new Date(clock()), 'invalid_location', totals);
+        } else {
+          totals.wouldFail += 1;
+        }
+        continue;
+      }
+
+      if (geocodeCalls > 0 && options.delayMs > 0) await sleep(options.delayMs);
       geocodeCalls += 1;
       let classified;
       try {

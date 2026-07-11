@@ -532,6 +532,46 @@ describe('FootprintBackfillService', () => {
     });
   });
 
+  test.each([
+    ['placeName', ''],
+    ['countryCode', null],
+    ['countryName', 'Changed country'],
+    ['regionCode', 'CHANGED-REGION'],
+    ['regionName', 'Changed region'],
+  ])('status-only completion requeues when %s changes after classification', async (field, changedValue) => {
+    const pending = rawFootprint({
+      visibility: 'public',
+      locationPrecision: 'precise',
+      placeName: geography.displayName,
+      countryCode: geography.countryCode,
+      countryName: geography.countryName,
+      regionCode: geography.regionCode,
+      regionName: geography.regionName,
+      regionBackfill: { status: 'pending', attempts: 1 },
+    });
+    await Footprint.collection.insertOne(pending);
+    const originalUpdateOne = Footprint.updateOne.bind(Footprint);
+    let changed = false;
+    jest.spyOn(Footprint, 'updateOne').mockImplementation(async (filter, update, options) => {
+      if (!changed && update.$set?.['regionBackfill.status'] === 'complete') {
+        changed = true;
+        await Footprint.collection.updateOne(
+          { _id: pending._id },
+          { $set: { [field]: changedValue } },
+        );
+      }
+      return originalUpdateOne(filter, update, options);
+    });
+
+    const result = await serviceWith({ runTokenFactory: () => `structured-${field}` })
+      .run({ limit: 10 });
+
+    expect(result).toMatchObject({ succeeded: 0, skipped: 1, conflicted: 1 });
+    const saved = await Footprint.collection.findOne({ _id: pending._id });
+    expect(saved[field]).toBe(changedValue);
+    expect(saved.regionBackfill).toMatchObject({ status: 'pending', attempts: 1 });
+  });
+
   test('status-only completion treats matchedCount zero as an ownership conflict', async () => {
     const pending = rawFootprint({
       visibility: 'public',
@@ -630,6 +670,87 @@ describe('FootprintBackfillService', () => {
     expect(fifth).toMatchObject({ failed: 1, deadLettered: 1 });
     expect((await Footprint.collection.findOne({ _id: pending._id })).regionBackfill)
       .toMatchObject({ status: 'dead', attempts: 5 });
+  });
+
+  test('uses authoritative coordinates after an ambiguous begin-attempt result', async () => {
+    const pending = rawFootprint({
+      visibility: 'public',
+      locationPrecision: 'precise',
+      regionBackfill: { status: 'pending', attempts: 0 },
+    });
+    await Footprint.collection.insertOne(pending);
+    const beijing = {
+      displayName: 'Beijing, China',
+      countryCode: 'CN',
+      countryName: 'China',
+      regionCode: 'CN-BJ',
+      regionName: 'Beijing',
+    };
+    const geocoder = jest.fn(async (lat) => (lat === 40 ? beijing : geography));
+    const originalFindOneAndUpdate = Footprint.findOneAndUpdate.bind(Footprint);
+    let updateCalls = 0;
+    jest.spyOn(Footprint, 'findOneAndUpdate').mockImplementation((...args) => {
+      const query = originalFindOneAndUpdate(...args);
+      updateCalls += 1;
+      if (updateCalls === 2) {
+        const originalExec = query.exec.bind(query);
+        query.exec = async () => {
+          await originalExec();
+          await Footprint.collection.updateOne(
+            { _id: pending._id },
+            {
+              $set: {
+                visibility: 'private',
+                location: { lat: 40, lng: 116 },
+              },
+            },
+          );
+          throw new Error('attempt result unknown');
+        };
+      }
+      return query;
+    });
+
+    const result = await serviceWith({
+      reverseGeocodeStructured: geocoder,
+      runTokenFactory: () => 'authoritative-attempt',
+    }).run({ limit: 10 });
+
+    expect(result).toMatchObject({ succeeded: 1, failed: 0, conflicted: 0 });
+    expect(geocoder).toHaveBeenCalledWith(40, 116);
+    expect(await Footprint.collection.findOne({ _id: pending._id })).toMatchObject({
+      visibility: 'private',
+      location: { lat: 40, lng: 116 },
+      placeName: beijing.displayName,
+      regionCode: beijing.regionCode,
+      discoveryExpiresAt: null,
+      regionBackfill: { status: 'complete', attempts: 1 },
+    });
+  });
+
+  test('distinguishes a null structured snapshot from a concurrently removed field', async () => {
+    const pending = rawFootprint({
+      countryCode: null,
+      regionBackfill: { status: 'pending', attempts: 0 },
+    });
+    await Footprint.collection.insertOne(pending);
+    const geocoder = jest.fn(async () => {
+      await Footprint.collection.updateOne(
+        { _id: pending._id },
+        { $unset: { countryCode: '' } },
+      );
+      return geography;
+    });
+
+    const result = await serviceWith({
+      reverseGeocodeStructured: geocoder,
+      runTokenFactory: () => 'null-snapshot-worker',
+    }).run({ limit: 10 });
+
+    expect(result).toMatchObject({ succeeded: 0, skipped: 1, conflicted: 1 });
+    const saved = await Footprint.collection.findOne({ _id: pending._id });
+    expect(saved).not.toHaveProperty('countryCode');
+    expect(saved.regionBackfill).toMatchObject({ status: 'pending', attempts: 1 });
   });
 
   test('inspects ownership after an ambiguous completion write error', async () => {
