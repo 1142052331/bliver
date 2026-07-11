@@ -46,4 +46,44 @@ const reverseGeocode = async (lat, lng) => (
   await reverseGeocodeStructured(lat, lng)
 ).displayName;
 
-module.exports = { reverseGeocode, reverseGeocodeStructured };
+async function searchPlaces(query, { countryCode = '', regionCode = '', signal } = {}) {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return [];
+  const key = `search:${normalizedQuery.toLocaleLowerCase()}:${countryCode}:${regionCode}`;
+  const cached = geocodeCache.get(key);
+  if (cached) return cached;
+
+  const { data } = await axios.get('https://nominatim.openstreetmap.org/search', {
+    params: {
+      q: normalizedQuery,
+      format: 'jsonv2',
+      'accept-language': 'zh',
+      addressdetails: 1,
+      limit: 5,
+      ...(countryCode ? { countrycodes: countryCode.toLowerCase() } : {}),
+    },
+    headers: { 'User-Agent': 'BliverApp/1.0' },
+    timeout: 5000,
+    signal,
+  });
+  const places = (Array.isArray(data) ? data : []).flatMap((place) => {
+    const lat = Number(place.lat);
+    const lng = Number(place.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+    const box = (place.boundingbox || []).map(Number);
+    return [{
+      id: String(place.place_id),
+      label: place.display_name || place.name || '未命名地点',
+      lat,
+      lng,
+      bounds: box.length === 4 && box.every(Number.isFinite)
+        ? [[box[0], box[2]], [box[1], box[3]]]
+        : null,
+      type: place.type || '',
+    }];
+  });
+  geocodeCache.set(key, places);
+  return places;
+}
+
+module.exports = { reverseGeocode, reverseGeocodeStructured, searchPlaces };

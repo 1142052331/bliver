@@ -2,7 +2,8 @@ const express = require('express');
 const AppError = require('../middleware/AppError');
 const { optionalAuth } = require('../middleware/auth');
 const footprintQueryService = require('../services/FootprintQueryService');
-const { reverseGeocodeStructured } = require('../services/nominatim');
+const { normalizeMapQuery } = require('../validators/mapQuery');
+const { reverseGeocodeStructured, searchPlaces } = require('../services/nominatim');
 
 const router = express.Router();
 
@@ -12,6 +13,27 @@ router.get('/map/footprints', optionalAuth, async (req, res) => {
     query: req.query,
   });
   res.json(result);
+});
+
+router.get('/map/search', optionalAuth, async (req, res) => {
+  const query = normalizeMapQuery(req.query);
+  if (!query.query) return res.json({ places: [], footprints: [], errors: {} });
+
+  const [placesResult, footprintsResult] = await Promise.allSettled([
+    searchPlaces(query.query, {
+      countryCode: query.countryCode,
+      regionCode: query.regionCode,
+    }),
+    footprintQueryService.searchAuthorized({ viewer: req.user || null, query }),
+  ]);
+  const errors = {};
+  if (placesResult.status === 'rejected') errors.places = '地点搜索暂时不可用';
+  if (footprintsResult.status === 'rejected') errors.footprints = '足迹搜索暂时不可用';
+  return res.json({
+    places: placesResult.status === 'fulfilled' ? placesResult.value : [],
+    footprints: footprintsResult.status === 'fulfilled' ? footprintsResult.value : [],
+    errors,
+  });
 });
 
 router.post('/map/location-context', optionalAuth, async (req, res) => {

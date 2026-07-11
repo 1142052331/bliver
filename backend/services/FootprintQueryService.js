@@ -1,4 +1,5 @@
 const Footprint = require('../models/Footprint');
+const User = require('../models/User');
 const AppError = require('../middleware/AppError');
 const { normalizeMapQuery } = require('../validators/mapQuery');
 const { getFriendIds } = require('./SuperuserPolicy');
@@ -59,11 +60,17 @@ function contentFilter(content) {
   return content === 'photo' ? { photoUrl: { $nin: ['', null] } } : {};
 }
 
-function textFilter(query) {
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function textFilter(query, authorIds = []) {
   if (!query) return {};
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escaped = escapeRegex(query);
   const regex = new RegExp(escaped, 'i');
-  return { $or: [{ placeName: regex }, { message: regex }] };
+  const branches = [{ placeName: regex }, { message: regex }];
+  if (authorIds.length > 0) branches.push({ userId: { $in: authorIds } });
+  return { $or: branches };
 }
 
 function fixedGeographyFilter(normalized) {
@@ -77,13 +84,13 @@ function fixedGeographyFilter(normalized) {
   return {};
 }
 
-function buildCandidateFilters({ viewer, friendIds, normalized, now }) {
+function buildCandidateFilters({ viewer, friendIds, normalized, now, authorIds = [] }) {
   const common = and(
     authorizationFilter({ viewer, friendIds, now }),
     relationshipFilter({ relationship: normalized.relationship, viewer, friendIds, now }),
     periodFilter(normalized.period, now),
     contentFilter(normalized.content),
-    textFilter(normalized.query),
+    textFilter(normalized.query, authorIds),
   );
 
   if (normalized.scope !== 'smart') {
@@ -181,7 +188,13 @@ async function listMap({ viewer, query, now = new Date() }) {
   }
 
   const friendIds = viewer ? await getFriendIds(viewer.id) : new Set();
-  const candidateFilters = buildCandidateFilters({ viewer, friendIds, normalized, now });
+  const authorIds = normalized.query
+    ? (await User.find({ name: new RegExp(escapeRegex(normalized.query), 'i') })
+      .select('_id').limit(50).lean()).map((user) => user._id)
+    : [];
+  const candidateFilters = buildCandidateFilters({
+    viewer, friendIds, normalized, now, authorIds,
+  });
   const docs = await listCandidateLayers({
     candidateFilters,
     limit: normalized.limit,
@@ -201,10 +214,16 @@ async function listMap({ viewer, query, now = new Date() }) {
   };
 }
 
+async function searchAuthorized({ viewer, query, now = new Date() }) {
+  if (!query?.query?.trim()) return [];
+  return (await listMap({ viewer, query, now })).footprints;
+}
+
 module.exports = {
   activePublicFilter,
   buildCandidateFilters,
   decorateMapFootprint,
   listCandidateLayers,
   listMap,
+  searchAuthorized,
 };

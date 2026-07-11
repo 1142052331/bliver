@@ -66,7 +66,10 @@ describe('FootprintQueryService.listMap', () => {
     app.use(require('../middleware/errorHandler'));
   });
   afterAll(disconnectDB);
-  afterEach(clearDB);
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await clearDB();
+  });
 
   async function createUser(name, fields = {}) {
     return User.create({ name, password: 'hash', ...fields });
@@ -266,5 +269,40 @@ describe('FootprintQueryService.listMap', () => {
     const response = await request(app).post('/api/map/location-context').send({});
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('Invalid coordinates');
+  });
+
+  test('GET /api/map/search combines places with authorized author search', async () => {
+    const activeAuthor = await createUser('高知旅人');
+    const hiddenAuthor = await createUser('高知隐藏');
+    const active = await createFootprint(activeAuthor._id, { message: '普通消息' });
+    await createFootprint(hiddenAuthor._id, { visibility: 'private', message: '普通消息' });
+    const { searchPlaces } = require('../services/nominatim');
+    searchPlaces.mockResolvedValueOnce([{
+      id: 'place-1', label: '日本高知市', lat: 33.56, lng: 133.53,
+    }]);
+
+    const response = await request(app)
+      .get('/api/map/search?query=高知&scope=global&period=year');
+
+    expect(response.status).toBe(200);
+    expect(response.body.places).toHaveLength(1);
+    expect(response.body.footprints.map((item) => item._id)).toEqual([active.id]);
+    expect(response.body.errors).toEqual({});
+    expect(JSON.stringify(response.body)).not.toContain('高知隐藏');
+  });
+
+  test('GET /api/map/search preserves footprints when place search fails', async () => {
+    const author = await createUser('author');
+    const footprint = await createFootprint(author._id, { placeName: '高知市' });
+    const { searchPlaces } = require('../services/nominatim');
+    searchPlaces.mockRejectedValueOnce(new Error('network'));
+
+    const response = await request(app)
+      .get('/api/map/search?query=高知&scope=global&period=year');
+
+    expect(response.status).toBe(200);
+    expect(response.body.places).toEqual([]);
+    expect(response.body.footprints.map((item) => item._id)).toEqual([footprint.id]);
+    expect(response.body.errors).toEqual({ places: '地点搜索暂时不可用' });
   });
 });
