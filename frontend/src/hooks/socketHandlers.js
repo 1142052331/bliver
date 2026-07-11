@@ -46,10 +46,10 @@ export function profileUpdated() {
   };
 }
 
-export function newNotification(setNotifications) {
+export function newNotification(appendNotification) {
   const setMsg = useUIStore.getState().setMessageIsland;
   return (data) => {
-    setNotifications((prev) => [data.notification, ...prev]);
+    appendNotification(data.notification);
     const n = data.notification;
     const type = n.type === 'profile_view' ? 'profile_view' : n.type === 'reaction' ? 'reaction' : 'comment';
     setMsg({

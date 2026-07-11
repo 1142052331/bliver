@@ -34,6 +34,9 @@ export default function useSocket({
   setUser,
   setFootprints,
   setNotifications,
+  appendNotification,
+  applyServerNotifications,
+  captureNotificationRequest,
   setOnlineCount,
 }) {
   const socketRef = useRef(null);
@@ -53,7 +56,12 @@ export default function useSocket({
       return;
     }
 
-    refetchNotifications(setNotifications);
+    const notificationController = new AbortController();
+    refetchNotifications(
+      applyServerNotifications,
+      { signal: notificationController.signal },
+      captureNotificationRequest,
+    );
 
     const socketUrl = getSocketURL();
     const socket = io(socketUrl, { auth: { token } });
@@ -75,7 +83,7 @@ export default function useSocket({
       'footprint:updated': footprintUpdated(setFootprints),
       'footprint:deleted': footprintDeleted(setFootprints),
       'profile:updated': profileUpdated(),
-      'new_notification': newNotification(setNotifications),
+      'new_notification': newNotification(appendNotification),
       'user_online': userOnline(),
       'user_offline': userOffline(),
       'force_logout': forceLogout(queryClient, setUser),
@@ -85,6 +93,7 @@ export default function useSocket({
     }
 
     return () => {
+      notificationController.abort();
       for (const [event, handler] of Object.entries(domainHandlers)) {
         off(event, handler);
       }

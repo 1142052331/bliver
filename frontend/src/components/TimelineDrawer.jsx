@@ -5,8 +5,9 @@ import { groupFootprintsByUser } from '../utils/groupFootprints';
 import { X, Clock, Trash2, Share2, Check } from 'lucide-react';
 import ReactionPicker from './ReactionPicker';
 import { useFootprintActionsContext } from '../contexts/FootprintActionsContext';
+import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
 
-function UserTimeline({ user, items, userId, isAdmin, onSelectFootprint }) {
+function UserTimeline({ user, items, userId, isAdmin, onSelectFootprint, onOpenProfile }) {
   const { handleReact: onReact, handleDelete: onDelete, handleShare: onShare } = useFootprintActionsContext();
   const timeStr = (date) =>
     new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -24,25 +25,25 @@ function UserTimeline({ user, items, userId, isAdmin, onSelectFootprint }) {
 
   return (
     <div className="mb-6">
-      <div className="flex items-center gap-2 mb-3 pl-1">
-        <span
-          className="cursor-pointer"
-          onClick={() => user?._id && useUIStore.getState().openProfile(user._id)}
+      <div className="mb-3">
+        <button
+          type="button"
+          disabled={!user?._id}
+          aria-label={`查看 ${user?.name || 'Unknown'} 的个人主页`}
+          className="group flex min-h-11 items-center gap-2 border-0 bg-transparent p-0 pl-1 text-left disabled:cursor-default"
+          onClick={() => user?._id && onOpenProfile(user._id)}
         >
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} className="w-8 h-8 rounded-full object-cover ring-1 ring-white/18 hover:ring-sky-300/55 transition-all" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
+            <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover ring-1 ring-white/18 group-hover:ring-sky-300/55 transition-all" onError={(e) => { e.target.style.display = 'none'; }} loading="lazy" />
           ) : (
-            <div className="w-8 h-8 rounded-full ios-primary flex items-center justify-center text-xs font-bold hover:ring-2 hover:ring-sky-300/55 transition-all">
+            <span className="w-8 h-8 rounded-full ios-primary flex items-center justify-center text-xs font-bold group-hover:ring-2 group-hover:ring-sky-300/55 transition-all">
               {(user?.name || '?')[0]}
-            </div>
+            </span>
           )}
-        </span>
-        <span
-          className="cursor-pointer font-semibold text-sm text-white/88 hover:text-sky-200"
-          onClick={() => user?._id && useUIStore.getState().openProfile(user._id)}
-        >
-          {user?.name || 'Unknown'}
-        </span>
+          <span className="font-semibold text-sm text-white/88 group-hover:text-sky-200">
+            {user?.name || 'Unknown'}
+          </span>
+        </button>
       </div>
 
       <div className="relative border-l border-white/12 ml-[15px] pl-5 space-y-4">
@@ -112,29 +113,46 @@ const PERIODS = [
   { key: 'year', label: '本年' },
 ];
 
-export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onSelectFootprint, period, onChangePeriod, loading }) {
+export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onSelectFootprint, period, onChangePeriod, loading, reserveMobileNavigation = false }) {
+  const dialogRef = useRef(null);
+  useDialogFocusTrap(dialogRef, isOpen, onClose);
+
+  if (!isOpen) return null;
+
   const grouped = groupFootprintsByUser(footprints);
+  const handleOpenProfile = (profileId) => {
+    onClose();
+    useUIStore.getState().openProfile(profileId);
+  };
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className={`ios-backdrop fixed inset-0 z-[1500] transition-opacity ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
+        aria-hidden="true"
+        className="ios-backdrop fixed inset-0 z-[1500] opacity-100"
         onClick={onClose}
       />
 
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="timeline-drawer-title"
+        tabIndex={-1}
         style={{ right: `max(0px, env(safe-area-inset-right))` }}
         className={`ios-panel fixed top-0 h-dvh w-[380px] max-w-[88vw] z-[1600]
-          transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
-          flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}
+          flex flex-col ${reserveMobileNavigation ? 'bliver-destination-surface' : ''}`}
       >
         <div className="px-5 py-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-extrabold text-lg text-white/92">足迹记录</h2>
-            <button onClick={onClose} className="ios-icon-button w-8 h-8 min-w-8">
+            <h2 id="timeline-drawer-title" className="font-extrabold text-lg text-white/92">足迹记录</h2>
+            <button
+              type="button"
+              aria-label="关闭足迹记录"
+              onClick={onClose}
+              className="ios-icon-button w-11 h-11 min-w-11 min-h-11"
+            >
               <X className="w-4 h-4 text-white/55" />
             </button>
           </div>
@@ -143,8 +161,9 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
             {PERIODS.map((p) => (
               <button
                 key={p.key}
+                type="button"
                 onClick={() => onChangePeriod && onChangePeriod(p.key)}
-                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200
+                className={`flex-1 min-h-11 py-2 rounded-lg text-xs font-semibold transition-all duration-200
                   ${period === p.key
                     ? 'ios-segment-active'
                     : 'text-white/45 hover:text-white/72'
@@ -188,6 +207,7 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
                 userId={userId}
                 isAdmin={isAdmin}
                 onSelectFootprint={onSelectFootprint}
+                onOpenProfile={handleOpenProfile}
               />
             ))
           )}

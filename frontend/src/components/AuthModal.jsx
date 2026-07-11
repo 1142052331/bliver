@@ -4,8 +4,9 @@ import imageCompression from 'browser-image-compression';
 import { apiClient } from '../api';
 import { saveAuth, saveCredentials, getCredentials, setAutoLogin } from '../auth';
 import { MapPin, Camera, Loader2, X } from 'lucide-react';
+import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
 
-export default function AuthModal({ onDone, initialTab, message, onClose }) {
+export default function AuthModal({ onDone, initialTab, message, onClose, reserveMobileNavigation = false }) {
   const [tab, setTab] = useState(initialTab || 'login');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +18,8 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
   const [autoLoginCheck, setAutoLoginCheck] = useState(false);
   const fileRef = useRef(null);
   const previewUrlRef = useRef(null);
+  const dialogRef = useRef(null);
+  useDialogFocusTrap(dialogRef, true, onClose);
 
   const revokePreview = () => {
     if (previewUrlRef.current) {
@@ -83,13 +86,35 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
   const isOverlay = !!onClose;
 
   return (
-    <div className={`fixed inset-0 z-[3000] flex items-center justify-center
-      ${isOverlay ? 'ios-backdrop pointer-events-auto' : 'ios-app-shell'}`}>
-      <div className="ios-panel p-6 w-[380px] max-w-[92vw] relative pointer-events-auto">
+    <div
+      className={`fixed inset-0 z-[3000] overflow-y-auto overscroll-contain p-3
+        ${reserveMobileNavigation ? 'bliver-destination-auth-surface' : ''}
+        ${isOverlay ? 'ios-backdrop pointer-events-auto' : 'ios-app-shell'}`}
+      style={{
+        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+      }}
+    >
+      <div className="flex min-h-full items-start justify-center sm:items-center">
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-modal-title"
+          aria-describedby="auth-modal-description"
+          tabIndex={-1}
+          className="ios-panel relative my-auto max-h-[calc(100dvh-1.5rem)] w-[380px]
+            max-w-[92vw] overflow-y-auto p-6 pointer-events-auto"
+          style={{
+            maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem)',
+          }}
+        >
         {isOverlay && (
           <button
+            type="button"
+            aria-label="Close authentication dialog"
             onClick={onClose}
-            className="ios-icon-button absolute top-3 right-3 w-8 h-8 min-w-8"
+            className="ios-icon-button absolute top-3 right-3 w-11 h-11 min-w-11 min-h-11"
           >
             <X className="w-4 h-4 text-gray-300" />
           </button>
@@ -100,8 +125,8 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
             <MapPin className="w-5 h-5" />
           </div>
         </div>
-        <h1 className="text-xl font-extrabold text-white/92 text-center mb-1">Bliver</h1>
-        <p className="text-sm text-white/46 text-center mb-5">Location sharing with friends</p>
+        <h1 id="auth-modal-title" className="text-xl font-extrabold text-white/92 text-center mb-1">Bliver</h1>
+        <p id="auth-modal-description" className="text-sm text-white/46 text-center mb-5">Location sharing with friends</p>
 
         {message && (
           <div className="mb-4 p-3 bg-sky-400/12 border border-sky-300/20 rounded-[18px] text-sm text-sky-200 text-center">
@@ -112,29 +137,37 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
         {/* Tabs */}
         <div className="ios-segment flex rounded-full p-1 mb-5">
           <button
+            type="button"
             onClick={() => { setTab('login'); setError(''); }}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-medium transition-colors ${
               tab === 'login' ? 'ios-segment-active' : 'text-white/45'
             }`}
           >Login</button>
           <button
+            type="button"
             onClick={() => { setTab('register'); setError(''); }}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-medium transition-colors ${
               tab === 'register' ? 'ios-segment-active' : 'text-white/45'
             }`}
           >Register</button>
         </div>
 
         <form onSubmit={handleSubmit}>
+          <label htmlFor="auth-username" className="sr-only">Username</label>
           <input
-            autoFocus
+            id="auth-username"
+            data-dialog-initial-focus
+            autoComplete="username"
             className="w-full p-3 aurora-input text-sm mb-3"
             placeholder="Username"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
+          <label htmlFor="auth-password" className="sr-only">Password</label>
           <input
+            id="auth-password"
             type="password"
+            autoComplete={tab === 'register' ? 'new-password' : 'current-password'}
             className="w-full p-3 aurora-input text-sm mb-3"
             placeholder="Password"
             value={password}
@@ -148,19 +181,19 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="aurora-btn-glass flex items-center gap-2 px-4 py-2 rounded-full text-sm text-white/78"
+                className="aurora-btn-glass flex min-h-11 items-center gap-2 px-4 py-2 rounded-full text-sm text-white/78"
               >
                 <Camera className="w-4 h-4" />
                 {avatar ? 'Change' : 'Avatar'}
               </button>
-              {preview && <img src={preview} className="w-10 h-10 rounded-full object-cover border border-white/18" />}
+              {preview && <img src={preview} alt="" className="w-10 h-10 rounded-full object-cover border border-white/18" />}
             </div>
           )}
 
           {/* Remember me & Auto-login checkboxes (login tab only) */}
           {tab === 'login' && (
             <div className="space-y-2 mb-3">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex min-h-11 items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={rememberMe}
@@ -169,7 +202,7 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
                 />
                 <span className="text-sm text-gray-300">记住账号密码</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex min-h-11 items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={autoLoginCheck}
@@ -186,7 +219,7 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
           <button
             type="submit"
             disabled={loading || !name.trim() || !password}
-            className="ios-primary w-full py-3.5
+            className="ios-primary w-full min-h-11 py-3.5
               rounded-full font-extrabold
               disabled:opacity-40 disabled:cursor-not-allowed
               transition-all duration-300 flex items-center justify-center gap-2"
@@ -195,6 +228,7 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
             {tab === 'login' ? 'Login' : 'Create Account'}
           </button>
         </form>
+        </div>
       </div>
     </div>
   );

@@ -1,0 +1,331 @@
+:root {
+  --bliver-forest: #173b31;
+  --bliver-forest-soft: #2d594d;
+  --bliver-sage: #a9c9bf;
+  --bliver-focus-ring-on-dark: #a9c9bf;
+  --bliver-sage-soft: #e5eee9;
+  --bliver-paper: #faf8f3;
+  --bliver-surface: #ffffff;
+  --bliver-ink: #1e2925;
+  --bliver-muted: #5d7068;
+  --bliver-coral: #c54b36;
+  --bliver-coral-active: #ad3d2d;
+  --bliver-border: #d7e1dc;
+  --bliver-danger: #b83b3b;
+  --bliver-shadow-card: 0 16px 40px rgba(23, 59, 49, 0.14);
+  --bliver-shadow-float: 0 12px 30px rgba(23, 59, 49, 0.2);
+  --bliver-radius-sm: 10px;
+  --bliver-radius-md: 16px;
+  --bliver-radius-lg: 24px;
+  --bliver-space-sm: 8px;
+  --bliver-safe-top: env(safe-area-inset-top, 0px);
+  --bliver-safe-right: env(safe-area-inset-right, 0px);
+  --bliver-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --bliver-safe-left: env(safe-area-inset-left, 0px);
+  --bliver-nav-height: 64px;
+  --bliver-motion-fast: 150ms;
+  --bliver-motion-base: 220ms;
+  font-family: Inter, "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bliver-paper);
+  color: var(--bliver-ink);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+.bliver-shell :focus-visible,
+.bliver-shell .aurora-input:focus-visible {
+  outline: 3px solid #173b31;
+  outline: 3px solid var(--bliver-forest);
+  outline-offset: 3px;
+}
+
+.bliver-shell .ios-panel:focus-visible,
+.bliver-shell .ios-panel :focus-visible {
+  outline-color: var(--bliver-focus-ring-on-dark);
+}
+
+.bliver-shell {
+  color-scheme: light;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bliver-paper);
+  color: var(--bliver-ink);
+}
+
+.bliver-shell__content {
+  position: absolute;
+  inset: 0;
+}
+
+.bliver-bottom-navigation {
+  position: fixed;
+  z-index: 1100;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-height: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom));
+  padding: 4px var(--bliver-safe-right) var(--bliver-safe-bottom) var(--bliver-safe-left);
+  border-top: 1px solid var(--bliver-border);
+  background: var(--bliver-surface);
+}
+
+.bliver-bottom-navigation--destination {
+  z-index: 2600;
+}
+
+.bliver-bottom-navigation--destination-auth {
+  z-index: 3100;
+}
+
+.bliver-bottom-navigation__item {
+  appearance: none;
+  display: flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--bliver-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.bliver-bottom-navigation__item[aria-current="page"] {
+  color: var(--bliver-forest);
+}
+
+.bliver-bottom-navigation__icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.bliver-bottom-navigation__label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.bliver-bottom-navigation__badge {
+  position: absolute;
+  top: -6px;
+  left: 14px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid var(--bliver-surface);
+  border-radius: 999px;
+  background: var(--bliver-coral);
+  color: var(--bliver-surface);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+
+.bliver-mobile-top-bar {
+  position: fixed;
+  z-index: 1110;
+  top: calc(var(--bliver-safe-top) + 10px);
+  right: calc(var(--bliver-safe-right) + 12px);
+  left: calc(var(--bliver-safe-left) + 12px);
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) minmax(0, auto) minmax(72px, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 4px 6px;
+  border: 1px solid var(--bliver-border);
+  border-radius: var(--bliver-radius-md);
+  background: var(--bliver-paper);
+  box-shadow: var(--bliver-shadow-card);
+  color: var(--bliver-forest);
+}
+
+.bliver-mobile-top-bar__control {
+  appearance: none;
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--bliver-motion-fast) ease, transform var(--bliver-motion-fast) ease;
+}
+
+.bliver-mobile-top-bar__control:active {
+  transform: translateY(1px) scale(0.98);
+  background: var(--bliver-sage-soft);
+}
+
+.bliver-mobile-top-bar__brand {
+  justify-self: start;
+  padding: 0 10px;
+  color: var(--bliver-forest);
+  font-family: Newsreader, "Noto Serif SC", Georgia, serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.bliver-mobile-top-bar__brand--static {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
+
+.bliver-mobile-top-bar__location {
+  min-width: 0;
+  max-width: min(52vw, 260px);
+  gap: 5px;
+  padding: 0 10px;
+  border: 1px solid var(--bliver-border);
+  background: var(--bliver-surface);
+  color: var(--bliver-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.bliver-mobile-top-bar__location--static {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-color: transparent;
+  background: transparent;
+}
+
+.bliver-mobile-top-bar__location-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bliver-mobile-top-bar__notifications {
+  position: relative;
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+}
+
+.bliver-mobile-top-bar__notifications--static {
+  color: var(--bliver-forest);
+}
+
+.bliver-mobile-top-bar__badge {
+  position: absolute;
+  top: 3px;
+  left: 25px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid var(--bliver-paper);
+  border-radius: 999px;
+  background: var(--bliver-danger);
+  color: var(--bliver-surface);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+
+.bliver-check-in-action {
+  appearance: none;
+  position: fixed;
+  z-index: 1120;
+  right: calc(var(--bliver-safe-right) + 18px);
+  bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom) + 18px);
+  display: inline-flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bliver-coral);
+  box-shadow: var(--bliver-shadow-float);
+  color: var(--bliver-surface);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--bliver-motion-fast) ease, transform var(--bliver-motion-fast) ease;
+}
+
+.bliver-check-in-action:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+  background: var(--bliver-coral-active);
+}
+
+.bliver-check-in-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 767px) {
+  .bliver-shell__content {
+    padding-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom));
+  }
+
+  .bliver-shell .bliver-destination-surface {
+    padding-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom));
+  }
+
+  .bliver-shell .bliver-destination-auth-surface {
+    padding-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom) + 0.75rem) !important;
+  }
+
+  .bliver-shell .bliver-destination-auth-surface > div > .ios-panel {
+    max-height: calc(100dvh - var(--bliver-nav-height) - var(--bliver-safe-bottom) - 1.5rem) !important;
+  }
+
+  .bliver-shell .leaflet-container .leaflet-control-attribution {
+    margin-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom) + var(--bliver-space-sm));
+  }
+}
+
+@media (min-width: 768px) {
+  .bliver-bottom-navigation,
+  .bliver-mobile-top-bar,
+  .bliver-check-in-action {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bliver-shell,
+  .bliver-shell::before,
+  .bliver-shell::after,
+  .bliver-shell *,
+  .bliver-shell *::before,
+  .bliver-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+
+  .bliver-mobile-top-bar__control:active {
+    transform: none;
+  }
+
+  .bliver-check-in-action:active:not(:disabled) {
+    transform: none;
+  }
+}

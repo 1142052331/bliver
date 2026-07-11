@@ -8,7 +8,6 @@ html, body {
   overflow: hidden;
   overscroll-behavior: none;
   position: fixed;
-  background: #121212;
 }
 
 #root {

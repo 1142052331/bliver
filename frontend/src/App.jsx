@@ -14,12 +14,11 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 import { broadcastLogin } from './authSync';
 import { getPeriod, setPeriod } from './auth';
 import useAuth from './hooks/useAuth';
-import { refetchNotifications } from './hooks/useNotifications';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { MapPin, Image, Clock, Megaphone } from 'lucide-react';
+import { Image, Clock } from 'lucide-react';
 
 import NavBar from './components/NavBar';
 import AuthModal from './components/AuthModal';
@@ -40,8 +39,13 @@ import AnnouncementPanel from './components/AnnouncementPanel';
 import FriendsPanel from './components/FriendsPanel';
 import ChatWindow from './components/ChatWindow';
 import MessageIsland from './components/MessageIsland';
-import MobileActionDrawer from './components/MobileActionDrawer';
+import AppShell from './components/shell/AppShell';
+import MobileTopBar from './components/shell/MobileTopBar';
+import BottomNavigation from './components/shell/BottomNavigation';
+import CheckInAction from './components/shell/CheckInAction';
+import LegacyDestinationBridge from './components/shell/LegacyDestinationBridge';
 import useUIStore from './store/useUIStore';
+import useShellStore from './store/useShellStore';
 import useSocket from './hooks/useSocket';
 import useFriends from './hooks/useFriends';
 import { FootprintActionsProvider } from './contexts/FootprintActionsContext';
@@ -87,7 +91,17 @@ export default function App() {
   const { user, setUser, isAdmin, isAsen, requireLogin, logout, pendingActionRef } = useAuth();
 
   // ── Notifications ─────────────────────────────────────
-  const { notifications, setNotifications, unreadCount, markFootprintRead, handleNotifNavigate } = useNotifications();
+  const {
+    notifications,
+    setNotifications,
+    appendNotification,
+    applyServerNotifications,
+    captureNotificationRequest,
+    clearNotifications,
+    unreadCount,
+    markFootprintRead,
+    handleNotifNavigate,
+  } = useNotifications(user?._id);
 
   // ── Core state ────────────────────────────────────────
   const [onlineCount, setOnlineCount] = useState(0);
@@ -140,7 +154,14 @@ export default function App() {
 
   // ── Refs ──────────────────────────────────────────────
   const { socketRef } = useSocket({
-    user, setUser, setFootprints, setNotifications, setOnlineCount,
+    user,
+    setUser,
+    setFootprints,
+    setNotifications,
+    appendNotification,
+    applyServerNotifications,
+    captureNotificationRequest,
+    setOnlineCount,
   });
 
   const {
@@ -160,7 +181,13 @@ export default function App() {
   }, []);
 
   // ── Visibility change + focus: refresh data + wake zombie socket ──
-  useVisibilityRefresh({ user, socketRef, refetchFootprints, setNotifications });
+  useVisibilityRefresh({
+    user,
+    socketRef,
+    refetchFootprints,
+    applyServerNotifications,
+    captureNotificationRequest,
+  });
 
   // ── Keep flyArrivedFp synced with latest footprints ────
   useEffect(() => {
@@ -178,7 +205,7 @@ export default function App() {
 
   const handleLogout = () => {
     logout();
-    setNotifications([]);
+    clearNotifications();
     refetchFootprints();
   };
 
@@ -194,63 +221,82 @@ export default function App() {
   const chatFriendMeta = useChatFriendMeta(chatUserId, friends);
 
   const totalFriendUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+  const activeDestination = useShellStore((state) => state.activeDestination);
+  const setActiveDestination = useShellStore((state) => state.setActiveDestination);
+  const destinationSurfaceBehindAuthIsOpen = (
+    (activeDestination === 'activity' && showTimeline)
+    || (activeDestination === 'messages' && showFriends)
+    || (activeDestination === 'me' && Boolean(viewingProfileId))
+  );
+  const bottomNavigationLayer = destinationSurfaceBehindAuthIsOpen
+    ? 'destination'
+    : showAuth && activeDestination !== 'map'
+      ? 'destination-auth'
+      : 'base';
+
+  const handleDestinationChange = (nextDestination) => {
+    if (nextDestination === activeDestination) return;
+
+    if (showTimeline) closeTimeline();
+    if (showFriends) closeFriends();
+    if (viewingProfileId) closeProfile();
+    if (showAuth) closeAuth();
+
+    setActiveDestination(nextDestination);
+  };
+
+  const handleCheckIn = () => {
+    if (!requireLogin({ type: 'checkin' })) return;
+    setPendingCheckInLocation(null);
+    openCheckIn();
+  };
+
+  const handleNotificationsPress = () => {
+    if (!user) {
+      openAuth('login', '登录后查看通知');
+      return;
+    }
+    toggleNotifs();
+  };
 
   // ── Render ─────────────────────────────────────────────
 
   return (
     <ErrorBoundary>
-      <div className="ios-app-shell ios-map-overlay fixed inset-0 overflow-hidden"
-        style={{ touchAction: 'none' }}>
-        {/* ── Mobile top bar: Bliver (left) ‖ 公告 + 好友 + 菜单 (right) ── */}
-        <div className="md:hidden fixed z-[1000] pointer-events-none inset-x-0 flex items-start justify-between transform-gpu will-change-transform"
-          style={{ top: `max(12px, env(safe-area-inset-top))`, paddingLeft: `max(12px, env(safe-area-inset-left))`, paddingRight: `max(12px, env(safe-area-inset-right))` }}>
-
-          {/* Left column */}
-          <div className="pointer-events-auto flex flex-col items-start gap-2.5">
-            <button
-              type="button"
-              onClick={() => openAbout()}
-              className="ios-island px-4 py-2.5
-                text-white text-sm font-extrabold
-                active:scale-95 transition-transform duration-150"
-              style={{ fontFamily: 'var(--font-body)' }}
-            >
-              Bliver
-            </button>
-
-            {user && (
-              <button
-                type="button"
-                onClick={() => openAnnouncements()}
-                className="ios-icon-button relative active:scale-90"
-              >
-                <Megaphone className="w-4 h-4" />
-                {announceHasUnread && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-300
-                    shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
-                )}
-              </button>
-            )}
+      <AppShell
+        topBar={
+          <MobileTopBar
+            locationLabel="地图"
+            unreadNotifications={user ? unreadCount : 0}
+            onBrandPress={openAbout}
+            onNotificationsPress={handleNotificationsPress}
+          />
+        }
+        bottomNavigation={
+          <BottomNavigation
+            activeDestination={activeDestination}
+            layer={bottomNavigationLayer}
+            unreadMessages={totalFriendUnread}
+            onDestinationChange={handleDestinationChange}
+          />
+        }
+        primaryAction={<CheckInAction onPress={handleCheckIn} />}
+      >
+        <div className="ios-app-shell ios-map-overlay absolute inset-0">
+          <div className="hidden md:block">
+            <NavBar
+              onlineCount={onlineCount}
+              user={user}
+              onLogout={handleLogout}
+              unreadCount={unreadCount}
+              announceHasUnread={announceHasUnread}
+              friendUnreadCount={totalFriendUnread}
+              isAdmin={isAdmin}
+              onCheckIn={handleCheckIn}
+            />
           </div>
 
-          {/* Right: handled by MobileActionDrawer (unchanged) */}
-        </div>
-
-        <NavBar
-          onlineCount={onlineCount}
-          user={user}
-          onLogout={handleLogout}
-          unreadCount={unreadCount}
-          announceHasUnread={announceHasUnread}
-          friendUnreadCount={totalFriendUnread}
-          isAdmin={isAdmin}
-          onCheckIn={() => {
-            if (!requireLogin({ type: 'checkin' })) return;
-            openCheckIn();
-          }}
-        />
-
-        {showNotifs && (
+        {user && showNotifs && (
           <NotificationPanel
             notifications={notifications}
             onClose={() => closeNotifs()}
@@ -275,12 +321,13 @@ export default function App() {
             <FriendsPanel
               key="friends"
               isOpen={showFriends}
-              onClose={() => closeFriends()}
+              reserveMobileNavigation={bottomNavigationLayer === 'destination' && activeDestination === 'messages'}
+              onClose={() => { closeFriends(); setActiveDestination('map'); }}
               friends={friends}
               onlineStatus={onlineStatus}
               unreadCounts={unreadCounts}
-              onOpenProfile={(uid) => { closeFriends(); openProfile(uid); }}
-              onOpenChat={(uid) => { closeFriends(); openChat(uid); }}
+              onOpenProfile={(uid) => { closeFriends(); setActiveDestination('map'); openProfile(uid); }}
+              onOpenChat={(uid) => { closeFriends(); setActiveDestination('map'); openChat(uid); }}
             />
           )}
         </AnimatePresence>
@@ -329,26 +376,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Mobile check-in FAB — iOS glass style, bottom center */}
-        <div className="md:hidden fixed z-[1000] pointer-events-none transform-gpu will-change-transform"
-          style={{
-            bottom: `max(20px, env(safe-area-inset-bottom))`,
-            left: '50%',
-            transform: 'translateX(-50%)',
-          }}>
-          <button
-            onClick={() => {
-              if (!requireLogin({ type: 'checkin' })) return;
-              setPendingCheckInLocation(null);
-              openCheckIn();
-            }}
-            className="ios-fab pointer-events-auto flex items-center gap-2 px-5 py-3.5
-              active:scale-95 transition-all duration-200"
-          >
-            <MapPin className="w-4 h-4 text-sky-300" />
-            <span className="text-sm font-medium text-white/80">打卡</span>
-          </button>
-        </div>
 
         <CheckInModal
           isOpen={showCheckIn}
@@ -359,11 +386,12 @@ export default function App() {
         <FootprintActionsProvider user={user} requireLogin={requireLogin} setFootprints={setFootprints}>
           <TimelineDrawer
             isOpen={showTimeline}
-            onClose={() => closeTimeline()}
+            reserveMobileNavigation={bottomNavigationLayer === 'destination' && activeDestination === 'activity'}
+            onClose={() => { closeTimeline(); setActiveDestination('map'); }}
             footprints={footprints}
             userId={user?._id}
             isAdmin={isAdmin}
-            onSelectFootprint={(fpId) => { closeTimeline(); setTimelineTargetFpId(fpId); }}
+            onSelectFootprint={(fpId) => { closeTimeline(); setActiveDestination('map'); setTimelineTargetFpId(fpId); }}
             period={footprintPeriod}
             onChangePeriod={handlePeriodChange}
             loading={footprintsLoading}
@@ -394,15 +422,13 @@ export default function App() {
           )}
         </FootprintActionsProvider>
 
-        <MobileActionDrawer
+        <LegacyDestinationBridge
+          destination={activeDestination}
           user={user}
-          isAdmin={isAdmin}
-          unreadCount={unreadCount}
-          friendUnreadCount={totalFriendUnread}
-          onCheckIn={() => {
-            if (!requireLogin({ type: 'checkin' })) return;
-            openCheckIn();
-          }}
+          openTimeline={openTimeline}
+          openFriends={openFriends}
+          openProfile={openProfile}
+          openAuth={openAuth}
         />
 
         {showAdmin && <ErrorBoundary><AdminPanel onClose={() => closeAdmin()} socketRef={socketRef} /></ErrorBoundary>}
@@ -422,8 +448,9 @@ export default function App() {
           <AuthModal
             initialTab={authTab}
             message={authMessage}
-            onDone={(u) => { setUser(u); closeAuth(); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
-            onClose={() => closeAuth()}
+            reserveMobileNavigation={bottomNavigationLayer === 'destination-auth'}
+            onDone={(u) => { setUser(u); closeAuth(); if (!destinationSurfaceBehindAuthIsOpen) setActiveDestination('map'); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
+            onClose={() => { closeAuth(); if (!destinationSurfaceBehindAuthIsOpen) setActiveDestination('map'); }}
           />
         )}
 
@@ -432,15 +459,16 @@ export default function App() {
             <ErrorBoundary key={viewingProfileId}>
               <ProfileDrawer
                 userId={viewingProfileId}
-                onClose={() => closeProfile()}
-                onLogout={() => { closeProfile(); handleLogout(); }}
-                onSelectFootprint={(fpId) => { closeProfile(); setActiveFootprintId(fpId); }}
+                reserveMobileNavigation={bottomNavigationLayer === 'destination' && activeDestination === 'me'}
+                onClose={() => { closeProfile(); setActiveDestination('map'); }}
+                onLogout={() => { closeProfile(); setActiveDestination('map'); handleLogout(); }}
+                onSelectFootprint={(fpId) => { closeProfile(); setActiveDestination('map'); setActiveFootprintId(fpId); }}
                 friendshipStatus={friendshipStatus}
                 pendingRequestId={getPendingRequestId(viewingProfileId)}
                 onSendFriendRequest={sendFriendRequest}
                 onAcceptRequest={acceptRequest}
                 onRejectRequest={rejectRequest}
-                onOpenChat={(uid) => { closeProfile(); openChat(uid); }}
+                onOpenChat={(uid) => { closeProfile(); setActiveDestination('map'); openChat(uid); }}
               />
             </ErrorBoundary>
           )}
@@ -476,7 +504,8 @@ export default function App() {
           }
           .animate-slide-down { animation: slideDown 0.4s cubic-bezier(0.2,0.8,0.2,1); }
         `}</style>
-      </div>
+        </div>
+      </AppShell>
     </ErrorBoundary>
   );
 }
