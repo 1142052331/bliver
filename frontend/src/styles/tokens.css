@@ -338,6 +338,12 @@
 
 .bliver-map-search__field input::placeholder { color: var(--bliver-muted); opacity: 1; }
 
+.bliver-map-search__field input::-webkit-search-cancel-button,
+.bliver-map-search__field input::-webkit-search-decoration {
+  display: none;
+  appearance: none;
+}
+
 .bliver-map-search__clear,
 .bliver-map-sheet__header button {
   display: inline-flex;
@@ -719,7 +725,7 @@
 
 .bliver-map-notice button {
   display: inline-flex;
-  min-height: 36px;
+  min-height: 44px;
   align-items: center;
   gap: 5px;
   padding: 0 9px;
@@ -732,6 +738,99 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.bliver-desktop-nav {
+  min-height: 64px;
+  padding: 8px 10px;
+  border: 1px solid var(--bliver-border);
+  border-radius: var(--bliver-radius-md);
+  background: var(--bliver-paper);
+  box-shadow: var(--bliver-shadow-card);
+  color: var(--bliver-ink);
+}
+
+.bliver-desktop-nav__brand-mark,
+.bliver-desktop-nav__icon {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--bliver-forest);
+  cursor: pointer;
+}
+
+.bliver-desktop-nav__brand-mark {
+  background: var(--bliver-forest);
+  color: var(--bliver-surface);
+}
+
+.bliver-desktop-nav__icon:hover { background: var(--bliver-sage-soft); }
+
+.bliver-desktop-nav__brand {
+  color: var(--bliver-forest);
+  font-family: Newsreader, "Noto Serif SC", Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.bliver-desktop-nav__publish,
+.bliver-desktop-nav__auth,
+.bliver-desktop-shortcut {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--bliver-border);
+  border-radius: 10px;
+  background: var(--bliver-surface);
+  color: var(--bliver-forest);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bliver-desktop-nav__publish {
+  margin-left: 4px;
+  padding: 0 14px;
+  border-color: var(--bliver-coral);
+  background: var(--bliver-coral);
+  color: var(--bliver-surface);
+}
+
+.bliver-desktop-nav__auth { padding: 0 13px; }
+.bliver-desktop-nav__auth--primary { border-color: var(--bliver-forest); background: var(--bliver-forest); color: var(--bliver-surface); }
+
+.bliver-desktop-nav__online {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--bliver-border);
+  border-radius: 10px;
+  background: var(--bliver-surface);
+  color: var(--bliver-ink);
+  font-size: 12px;
+}
+
+.bliver-desktop-nav__online-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bliver-sage); }
+.bliver-desktop-nav__online-label { color: var(--bliver-muted); }
+
+.bliver-desktop-shortcut {
+  min-width: 112px;
+  padding: 0 14px;
+  box-shadow: 0 8px 18px rgba(23, 59, 49, 0.12);
+}
+
+.bliver-desktop-shortcut:hover,
+.bliver-desktop-nav__auth:hover { background: var(--bliver-sage-soft); }
 
 .bliver-map-state {
   position: absolute;

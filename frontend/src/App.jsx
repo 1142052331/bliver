@@ -489,17 +489,17 @@ export default function App() {
           style={{ top: `max(88px, calc(env(safe-area-inset-top) + 64px))`, right: `max(12px, env(safe-area-inset-right))` }}>
           <button
             onClick={() => openTimeline()}
-            className="aurora-btn-glass px-4 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2"
+            className="bliver-desktop-shortcut"
           >
-            <Clock className="w-4 h-4 text-teal-400" />
-            <span className="text-white/80">足迹记录</span>
+            <Clock className="w-4 h-4" />
+            <span>足迹记录</span>
           </button>
           <button
             onClick={() => openPhotoWall()}
-            className="aurora-btn-glass px-4 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2"
+            className="bliver-desktop-shortcut"
           >
-            <Image className="w-4 h-4 text-purple-400" />
-            <span className="text-white/80">照片墙</span>
+            <Image className="w-4 h-4" />
+            <span>照片墙</span>
           </button>
         </div>
 

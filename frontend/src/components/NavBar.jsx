@@ -5,8 +5,8 @@ import useUIStore from '../store/useUIStore';
 export default function NavBar({ onlineCount, user, onLogout, unreadCount, announceHasUnread, friendUnreadCount, isAdmin, onCheckIn }) {
   const { toggleNotifs, openAnnouncements, openFriends, openAdmin, openAuth, openAbout, openFeedback } = useUIStore();
   return (
-    <nav className="ios-glass absolute z-[1000] hidden md:flex items-center justify-between
-      px-3.5 py-2.5 rounded-[28px] transform-gpu will-change-transform"
+    <nav className="bliver-desktop-nav absolute z-[1000] hidden md:flex items-center justify-between
+      transform-gpu will-change-transform"
       style={{
         fontFamily: 'var(--font-body)',
         top: `max(12px, env(safe-area-inset-top))`,
@@ -18,16 +18,16 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
       <div className="flex items-center gap-2">
         <button
           onClick={openAbout}
-          className="relative w-10 h-10 rounded-full ios-primary flex items-center justify-center
-            hover:scale-[1.04] transition-transform duration-200 cursor-pointer"
+          className="bliver-desktop-nav__brand-mark"
+          aria-label="关于 Bliver"
           title="关于 Bliver"
         >
-          <MapPin className="w-4 h-4 text-white" />
+          <MapPin className="w-4 h-4" />
         </button>
-        <span className="font-extrabold text-lg tracking-tight text-white/92">Bliver</span>
+        <span className="bliver-desktop-nav__brand">Bliver</span>
         <button
           onClick={onCheckIn}
-          className="ios-primary px-3.5 py-1.5 text-xs ml-1"
+          className="bliver-desktop-nav__publish"
         >
           <MapPin className="w-3 h-3" />
           打卡
@@ -36,17 +36,17 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
 
       <div className="flex items-center gap-2">
         {/* Online count */}
-        <div className="ios-island flex items-center gap-1.5 text-xs pl-2.5 pr-3.5 py-1.5"
+        <div className="bliver-desktop-nav__online"
           title={`${onlineCount} 位用户在线`}>
-          <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.6)] animate-pulse" />
-          <span className="font-semibold text-white/80">{onlineCount}</span>
-          <span className="text-white/30">在线</span>
+          <span className="bliver-desktop-nav__online-dot" />
+          <span className="font-semibold">{onlineCount}</span>
+          <span className="bliver-desktop-nav__online-label">在线</span>
         </div>
 
         {/* Announcements */}
         {user && (
           <button onClick={openAnnouncements}
-            className="ios-icon-button relative">
+            className="bliver-desktop-nav__icon relative">
             <Megaphone className="w-4 h-4" />
             {announceHasUnread && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400
@@ -58,7 +58,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
         {/* Friends */}
         {user && (
           <button onClick={openFriends}
-            className="ios-icon-button relative">
+            className="bliver-desktop-nav__icon relative">
             <Users className="w-4 h-4" />
             {friendUnreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center
@@ -73,7 +73,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
         {/* Bell */}
         {user && (
           <button onClick={toggleNotifs}
-            className="ios-icon-button relative">
+            className="bliver-desktop-nav__icon relative">
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
               <span className="absolute top-1 right-1.5 min-w-[16px] h-[16px] flex items-center justify-center
@@ -88,7 +88,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
         {/* Feedback */}
         {user && (
           <button onClick={openFeedback}
-            className="ios-icon-button"
+            className="bliver-desktop-nav__icon"
             title="反馈建议">
             <MessageSquare className="w-4 h-4" />
           </button>
@@ -123,7 +123,7 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
             </span>
 
             <button onClick={onLogout}
-              className="ios-icon-button"
+              className="bliver-desktop-nav__icon"
               title="退出">
               <LogOut className="w-4 h-4" />
             </button>
@@ -131,13 +131,12 @@ export default function NavBar({ onlineCount, user, onLogout, unreadCount, annou
         ) : (
           <>
             <button onClick={() => openAuth('login', '')}
-              className="ios-primary px-3.5 py-2 text-xs">
+              className="bliver-desktop-nav__auth bliver-desktop-nav__auth--primary">
               <LogIn className="w-3 h-3" />
               登录
             </button>
             <button onClick={() => openAuth('register', '')}
-              className="aurora-btn-glass px-3.5 py-2 text-white/78 text-xs font-semibold rounded-full
-                flex items-center gap-1">
+              className="bliver-desktop-nav__auth">
               <UserPlus className="w-3 h-3" />
               注册
             </button>
