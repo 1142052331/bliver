@@ -102,6 +102,7 @@ export default function MapSearch({
           aria-expanded={showResults}
           aria-controls="bliver-map-search-results"
           aria-activedescendant={activeIndex >= 0 ? `bliver-map-search-option-${activeIndex}` : undefined}
+          placeholder="搜索地点或足迹"
           autoComplete="off"
         />
         {value && (
