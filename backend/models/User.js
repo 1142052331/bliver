@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
   registerIp:  { type: String, default: '', index: true },
   lastLoginIp: { type: String, default: '', index: true },
   lastLoginAt: { type: Date, default: null, index: true },
+  footprintReadBaselineAt: { type: Date, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

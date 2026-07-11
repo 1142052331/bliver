@@ -3,6 +3,7 @@ const { upload, uploadToCloudinary } = require('../middleware/upload');
 const { auth, admin, optionalAuth } = require('../middleware/auth');
 const { contentLimiter } = require('../middleware/rateLimiter');
 const footprintService = require('../services/FootprintService');
+const footprintReadService = require('../services/FootprintReadService');
 const validate = require('../middleware/validate');
 const { checkin: checkinSchema, comment: commentSchema, reaction: reactionSchema } = require('../validators/schemas');
 
@@ -16,6 +17,22 @@ const router = express.Router();
   router.use(notificationRoutes);
 
   // ── Footprints ────────────────────────────────────────
+
+  router.put('/footprints/:id/read', auth, async (req, res) => {
+    await footprintReadService.markRead({
+      viewer: req.user,
+      footprintId: req.params.id,
+    });
+    res.json({ ok: true });
+  });
+
+  router.post('/footprints/read-state/import', auth, async (req, res) => {
+    const result = await footprintReadService.importLegacy({
+      viewer: req.user,
+      entries: req.body.entries,
+    });
+    res.json(result);
+  });
 
   // GET /api/footprints/today?period=today|week|year
   router.get('/footprints/today', optionalAuth, async (req, res) => {
