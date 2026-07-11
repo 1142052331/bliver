@@ -771,7 +771,7 @@ describe('FootprintBackfillService', () => {
 
     expect(result).toMatchObject({ succeeded: 1, failed: 0 });
     expect(await Footprint.collection.findOne({ _id: pending._id })).toMatchObject({
-      regionBackfill: { status: 'complete', runToken: 'ambiguous-worker' },
+      regionBackfill: { status: 'complete', runToken: 'ambiguous-worker', attempts: 1 },
     });
   });
 
@@ -794,7 +794,7 @@ describe('FootprintBackfillService', () => {
 
     expect(result).toMatchObject({ succeeded: 0, failed: 1 });
     expect(await Footprint.collection.findOne({ _id: pending._id })).toMatchObject({
-      regionBackfill: { status: 'failed', runToken: 'ambiguous-failure-worker' },
+      regionBackfill: { status: 'failed', runToken: 'ambiguous-failure-worker', attempts: 1 },
     });
   });
 
@@ -831,6 +831,67 @@ describe('FootprintBackfillService', () => {
     expect(geocoder).not.toHaveBeenCalled();
     expect((await Footprint.collection.findOne({ _id: invalid._id })).regionBackfill.status)
       .toBe('pending');
+  });
+
+  test('invalid coordinates remain retryable without consuming geocoder attempts', async () => {
+    const invalid = rawFootprint({
+      location: { lat: 91, lng: 121.47 },
+      regionBackfill: { status: 'pending', attempts: MAX_ATTEMPTS - 1 },
+    });
+    await Footprint.collection.insertOne(invalid);
+    const geocoder = jest.fn();
+    const service = serviceWith({ reverseGeocodeStructured: geocoder });
+
+    const first = await service.run({ limit: 10 });
+    const second = await service.run({ retryFailed: true, limit: 10, cursor: null });
+
+    expect(first).toMatchObject({ failed: 1, deadLettered: 0 });
+    expect(second).toMatchObject({ failed: 1, deadLettered: 0 });
+    expect(geocoder).not.toHaveBeenCalled();
+    expect(await Footprint.collection.findOne({ _id: invalid._id })).toMatchObject({
+      regionBackfill: {
+        status: 'failed',
+        attempts: MAX_ATTEMPTS - 1,
+        error: 'INVALID_COORDINATES',
+      },
+    });
+  });
+
+  test('increments attempts exactly once for each resolved success or provider failure', async () => {
+    const success = rawFootprint({ regionBackfill: { status: 'pending', attempts: 2 } });
+    const failure = rawFootprint({ regionBackfill: { status: 'pending', attempts: 2 } });
+    const docs = [success, failure].sort((a, b) => a._id.toString().localeCompare(b._id.toString()));
+    await Footprint.collection.insertMany(docs);
+    const geocoder = jest.fn()
+      .mockResolvedValueOnce(geography)
+      .mockResolvedValueOnce({ ...geography, failureCode: 'reverse_geocode_failed' });
+
+    const result = await serviceWith({ reverseGeocodeStructured: geocoder }).run({ limit: 10 });
+
+    expect(result).toMatchObject({ succeeded: 1, failed: 1 });
+    const stored = await Footprint.collection.find({ _id: { $in: docs.map((doc) => doc._id) } })
+      .sort({ _id: 1 }).toArray();
+    expect(stored[0].regionBackfill).toMatchObject({ status: 'complete', attempts: 3 });
+    expect(stored[1].regionBackfill).toMatchObject({ status: 'failed', attempts: 3 });
+    expect(geocoder).toHaveBeenCalledTimes(2);
+  });
+
+  test('requeues without charging an attempt when inter-call delay fails', async () => {
+    const docs = [rawFootprint(), rawFootprint()]
+      .sort((a, b) => a._id.toString().localeCompare(b._id.toString()));
+    await Footprint.collection.insertMany(docs);
+    const sleep = jest.fn().mockRejectedValue(new Error('secret throttle failure'));
+    const service = serviceWith({ sleep });
+
+    await expect(service.run({ limit: 10, delayMs: 25 })).rejects.toThrow('geocode_delay_failed');
+
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(await Footprint.collection.findOne({ _id: docs[0]._id })).toMatchObject({
+      regionBackfill: { status: 'complete', attempts: 1 },
+    });
+    expect(await Footprint.collection.findOne({ _id: docs[1]._id })).toMatchObject({
+      regionBackfill: { status: 'pending', attempts: 0 },
+    });
   });
 
   test('advances retry sweeps across batches and dead-letters the final allowed failure', async () => {

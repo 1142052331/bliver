@@ -247,21 +247,19 @@ function createFootprintBackfillService({
     sameValue(filter, 'locationPrecision', doc.locationPrecision);
     for (const field of REQUIRED_TEXT_FIELDS) sameValue(filter, field, doc[field]);
     sameValue(filter, 'realLocation', doc.realLocation);
+    sameValue(filter, 'regionBackfill.attempts', doc.regionBackfill?.attempts);
     return filter;
   }
 
-  async function beginGeocodeAttempt(doc, runToken, attemptedAt) {
+  async function refreshOwnedSnapshot(doc, runToken, refreshedAt) {
     return Footprint.findOneAndUpdate(
       completionFilter(doc, runToken),
-      [{
+      {
         $set: {
-          'regionBackfill.attempts': {
-            $add: [{ $ifNull: ['$regionBackfill.attempts', 0] }, 1],
-          },
-          'regionBackfill.lastAttemptAt': attemptedAt,
+          'regionBackfill.leaseExpiresAt': new Date(refreshedAt.getTime() + leaseMs),
         },
-      }],
-      { returnDocument: 'after', updatePipeline: true },
+      },
+      { returnDocument: 'after' },
     ).select('_id location realLocation visibility locationPrecision placeName countryCode countryName regionCode regionName regionBackfill')
       .lean()
       .exec();
@@ -286,16 +284,87 @@ function createFootprintBackfillService({
     totals.conflicted += 1;
   }
 
-  async function markOwnedFailure(doc, runToken, attemptedAt, error, totals) {
-    const deadLettered = (doc.regionBackfill?.attempts || 0) >= MAX_ATTEMPTS;
-    const failureStatus = deadLettered ? 'dead' : 'failed';
+  async function markOwnedValidationFailure(doc, runToken, error, totals) {
     try {
       const write = await Footprint.updateOne(
+        completionFilter(doc, runToken),
         {
-          _id: doc._id,
-          'regionBackfill.status': 'processing',
-          'regionBackfill.runToken': runToken,
+          $set: {
+            'regionBackfill.status': 'failed',
+            'regionBackfill.leaseExpiresAt': null,
+            'regionBackfill.error': error,
+          },
         },
+      );
+      if (write.acknowledged && write.matchedCount === 1) {
+        totals.failed += 1;
+        return;
+      }
+    } catch {
+      const current = await inspect(doc._id).catch(() => null);
+      if (current?.regionBackfill?.runToken === runToken
+        && current.regionBackfill.status === 'failed'
+        && current.regionBackfill.attempts === doc.regionBackfill?.attempts) {
+        totals.failed += 1;
+        return;
+      }
+    }
+    await releaseConflict(doc, runToken, totals);
+  }
+
+  async function recordAttemptConflict(doc, runToken, attemptedAt, totals) {
+    const expectedAttempts = (doc.regionBackfill?.attempts || 0) + 1;
+    const filter = {
+      _id: doc._id,
+      'regionBackfill.status': 'processing',
+      'regionBackfill.runToken': runToken,
+    };
+    sameValue(filter, 'regionBackfill.attempts', doc.regionBackfill?.attempts);
+    try {
+      const write = await Footprint.updateOne(
+        filter,
+        {
+          $set: {
+            'regionBackfill.status': 'pending',
+            'regionBackfill.leaseExpiresAt': null,
+            'regionBackfill.lastAttemptAt': attemptedAt,
+            'regionBackfill.error': 'state_conflict',
+          },
+          $inc: { 'regionBackfill.attempts': 1 },
+        },
+      );
+      if (write.acknowledged && write.matchedCount === 1) {
+        totals.skipped += 1;
+        totals.conflicted += 1;
+        return;
+      }
+    } catch {
+      const current = await inspect(doc._id).catch(() => null);
+      if (current?.regionBackfill?.runToken === runToken
+        && current.regionBackfill.status === 'pending'
+        && current.regionBackfill.attempts === expectedAttempts) {
+        totals.skipped += 1;
+        totals.conflicted += 1;
+        return;
+      }
+    }
+    totals.skipped += 1;
+    totals.conflicted += 1;
+  }
+
+  async function markOwnedFailure(doc, runToken, attemptedAt, error, totals) {
+    const expectedAttempts = (doc.regionBackfill?.attempts || 0) + 1;
+    const deadLettered = expectedAttempts >= MAX_ATTEMPTS;
+    const failureStatus = deadLettered ? 'dead' : 'failed';
+    const filter = {
+      _id: doc._id,
+      'regionBackfill.status': 'processing',
+      'regionBackfill.runToken': runToken,
+    };
+    sameValue(filter, 'regionBackfill.attempts', doc.regionBackfill?.attempts);
+    try {
+      const write = await Footprint.updateOne(
+        filter,
         {
           $set: {
             'regionBackfill.status': failureStatus,
@@ -303,6 +372,7 @@ function createFootprintBackfillService({
             'regionBackfill.lastAttemptAt': attemptedAt,
             'regionBackfill.error': error,
           },
+          $inc: { 'regionBackfill.attempts': 1 },
         },
       );
       if (write.acknowledged && write.matchedCount === 1) {
@@ -316,9 +386,16 @@ function createFootprintBackfillService({
 
     const current = await inspect(doc._id).catch(() => null);
     if (current?.regionBackfill?.runToken === runToken
-      && current.regionBackfill.status === failureStatus) {
+      && current.regionBackfill.status === failureStatus
+      && current.regionBackfill.attempts === expectedAttempts) {
       totals.failed += 1;
       if (deadLettered) totals.deadLettered += 1;
+      return;
+    }
+    if (current?.regionBackfill?.runToken === runToken
+      && current.regionBackfill.status === 'processing'
+      && current.regionBackfill.attempts === doc.regionBackfill?.attempts) {
+      await recordAttemptConflict(doc, runToken, attemptedAt, totals);
       return;
     }
     totals.skipped += 1;
@@ -326,6 +403,7 @@ function createFootprintBackfillService({
   }
 
   async function completeOwned(doc, runToken, completedAt, geography, totals) {
+    const expectedAttempts = (doc.regionBackfill?.attempts || 0) + 1;
     const visibility = VALID_VISIBILITIES.has(doc.visibility) ? doc.visibility : 'public';
     const locationPrecision = VALID_PRECISIONS.has(doc.locationPrecision)
       ? doc.locationPrecision
@@ -346,18 +424,20 @@ function createFootprintBackfillService({
             'regionBackfill.lastAttemptAt': completedAt,
             'regionBackfill.error': '',
           },
+          $inc: { 'regionBackfill.attempts': 1 },
         },
       );
       if (write.acknowledged && write.matchedCount === 1) {
         totals.succeeded += 1;
         return;
       }
-      await releaseConflict(doc, runToken, totals);
+      await recordAttemptConflict(doc, runToken, completedAt, totals);
       return;
     } catch {
       const current = await inspect(doc._id).catch(() => null);
       if (current?.regionBackfill?.runToken === runToken
-        && current.regionBackfill.status === 'complete') {
+        && current.regionBackfill.status === 'complete'
+        && current.regionBackfill.attempts === expectedAttempts) {
         totals.succeeded += 1;
         return;
       }
@@ -472,16 +552,23 @@ function createFootprintBackfillService({
         continue;
       }
 
+      if (geocodeCalls > 0 && options.delayMs > 0) {
+        try {
+          await sleep(options.delayMs);
+        } catch {
+          if (!options.dryRun) await releaseConflict(doc, runToken, totals);
+          throw new Error('geocode_delay_failed');
+        }
+      }
+
       let attemptDoc = doc;
       if (!options.dryRun) {
         try {
-          attemptDoc = await beginGeocodeAttempt(doc, runToken, new Date(clock()));
+          attemptDoc = await refreshOwnedSnapshot(doc, runToken, new Date(clock()));
         } catch {
           const current = await inspect(doc._id).catch(() => null);
-          const expectedAttempts = (doc.regionBackfill?.attempts || 0) + 1;
           attemptDoc = current?.regionBackfill?.status === 'processing'
             && current.regionBackfill.runToken === runToken
-            && current.regionBackfill.attempts === expectedAttempts
             ? current
             : null;
         }
@@ -495,14 +582,13 @@ function createFootprintBackfillService({
       if (!Number.isFinite(lat) || !Number.isFinite(lng)
         || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
         if (!options.dryRun) {
-          await markOwnedFailure(attemptDoc, runToken, new Date(clock()), 'invalid_location', totals);
+          await markOwnedValidationFailure(attemptDoc, runToken, 'INVALID_COORDINATES', totals);
         } else {
           totals.wouldFail += 1;
         }
         continue;
       }
 
-      if (geocodeCalls > 0 && options.delayMs > 0) await sleep(options.delayMs);
       geocodeCalls += 1;
       let classified;
       try {
