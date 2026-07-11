@@ -6,7 +6,7 @@ import { saveAuth, saveCredentials, getCredentials, setAutoLogin } from '../auth
 import { MapPin, Camera, Loader2, X } from 'lucide-react';
 import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
 
-export default function AuthModal({ onDone, initialTab, message, onClose }) {
+export default function AuthModal({ onDone, initialTab, message, onClose, reserveMobileNavigation = false }) {
   const [tab, setTab] = useState(initialTab || 'login');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -88,6 +88,7 @@ export default function AuthModal({ onDone, initialTab, message, onClose }) {
   return (
     <div
       className={`fixed inset-0 z-[3000] overflow-y-auto overscroll-contain p-3
+        ${reserveMobileNavigation ? 'bliver-destination-auth-surface' : ''}
         ${isOverlay ? 'ios-backdrop pointer-events-auto' : 'ios-app-shell'}`}
       style={{
         paddingTop: 'max(0.75rem, env(safe-area-inset-top))',

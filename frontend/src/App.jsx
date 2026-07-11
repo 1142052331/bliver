@@ -321,6 +321,7 @@ export default function App() {
             <FriendsPanel
               key="friends"
               isOpen={showFriends}
+              reserveMobileNavigation={bottomNavigationLayer === 'destination' && activeDestination === 'messages'}
               onClose={() => { closeFriends(); setActiveDestination('map'); }}
               friends={friends}
               onlineStatus={onlineStatus}
@@ -385,6 +386,7 @@ export default function App() {
         <FootprintActionsProvider user={user} requireLogin={requireLogin} setFootprints={setFootprints}>
           <TimelineDrawer
             isOpen={showTimeline}
+            reserveMobileNavigation={bottomNavigationLayer === 'destination' && activeDestination === 'activity'}
             onClose={() => { closeTimeline(); setActiveDestination('map'); }}
             footprints={footprints}
             userId={user?._id}
@@ -446,6 +448,7 @@ export default function App() {
           <AuthModal
             initialTab={authTab}
             message={authMessage}
+            reserveMobileNavigation={bottomNavigationLayer === 'destination-auth'}
             onDone={(u) => { setUser(u); closeAuth(); if (!destinationSurfaceBehindAuthIsOpen) setActiveDestination('map'); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
             onClose={() => { closeAuth(); if (!destinationSurfaceBehindAuthIsOpen) setActiveDestination('map'); }}
           />
@@ -456,6 +459,7 @@ export default function App() {
             <ErrorBoundary key={viewingProfileId}>
               <ProfileDrawer
                 userId={viewingProfileId}
+                reserveMobileNavigation={bottomNavigationLayer === 'destination' && activeDestination === 'me'}
                 onClose={() => { closeProfile(); setActiveDestination('map'); }}
                 onLogout={() => { closeProfile(); setActiveDestination('map'); handleLogout(); }}
                 onSelectFootprint={(fpId) => { closeProfile(); setActiveDestination('map'); setActiveFootprintId(fpId); }}

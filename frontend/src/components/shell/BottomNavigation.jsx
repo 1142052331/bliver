@@ -10,6 +10,12 @@ const NAV_ITEMS = [
   { id: 'me', label: '我的', Icon: UserRound },
 ];
 
+function getLayerClassName(layer) {
+  if (layer === 'destination') return 'bliver-bottom-navigation--destination';
+  if (layer === 'destination-auth') return 'bliver-bottom-navigation--destination-auth';
+  return undefined;
+}
+
 export default function BottomNavigation({
   activeDestination,
   layer = 'base',
@@ -20,9 +26,10 @@ export default function BottomNavigation({
   const normalizedUnreadMessages = Number.isFinite(numericUnreadMessages)
     ? Math.max(0, Math.floor(numericUnreadMessages))
     : 0;
-  const navigationClassName = layer === 'base'
-    ? 'bliver-bottom-navigation'
-    : `bliver-bottom-navigation bliver-bottom-navigation--${layer}`;
+  const navigationClassName = [
+    'bliver-bottom-navigation',
+    getLayerClassName(layer),
+  ].filter(Boolean).join(' ');
 
   return (
     <nav className={navigationClassName} aria-label="主要导航">

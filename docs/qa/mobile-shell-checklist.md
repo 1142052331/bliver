@@ -48,6 +48,7 @@ Authenticated checks require a disposable non-production account and were not pe
 - The regression assertion was added before the fix, and the mobile attribution now keeps a visible 8px gap above the navigation.
 - Switching destinations first closes the currently open destination-owned legacy interface; closing the selected destination interface returns the selection to Map.
 - Bottom navigation remains clickable above destination-owned Timeline, Friends, Profile, and primary Auth surfaces; secondary Auth stays above the navigation.
+- Raised destination surfaces reserve the full mobile navigation and safe-area height so their final content and actions remain visible and clickable.
 
 ## Current Commands
 

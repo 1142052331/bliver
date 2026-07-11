@@ -7,6 +7,7 @@ export default function FriendsPanel({
   isOpen, onClose,
   friends, onlineStatus, unreadCounts,
   onOpenProfile, onOpenChat,
+  reserveMobileNavigation = false,
 }) {
   if (!isOpen) return null;
 
@@ -34,8 +35,8 @@ export default function FriendsPanel({
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
-        className="ios-panel absolute top-0 right-0 h-full w-full md:w-[390px]
-          flex flex-col pointer-events-auto"
+        className={`ios-panel absolute top-0 right-0 h-full w-full md:w-[390px]
+          flex flex-col pointer-events-auto ${reserveMobileNavigation ? 'bliver-destination-surface' : ''}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 flex-shrink-0

@@ -139,4 +139,25 @@ describe('AuthModal accessibility', () => {
     expect(screen.getByText('记住账号密码').closest('label')).toHaveClass('min-h-11');
     expect(screen.getByText('自动登录').closest('label')).toHaveClass('min-h-11');
   });
+
+  it.each([
+    [undefined, false],
+    [true, true],
+  ])('sets mobile navigation reservation to %s', (reserveMobileNavigation, shouldReserve) => {
+    const { container } = render(
+      <AuthModal
+        initialTab="login"
+        onDone={vi.fn()}
+        onClose={vi.fn()}
+        reserveMobileNavigation={reserveMobileNavigation}
+      />,
+    );
+
+    const root = container.firstElementChild;
+    if (shouldReserve) {
+      expect(root).toHaveClass('bliver-destination-auth-surface');
+    } else {
+      expect(root).not.toHaveClass('bliver-destination-auth-surface');
+    }
+  });
 });

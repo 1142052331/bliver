@@ -283,6 +283,18 @@
     padding-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom));
   }
 
+  .bliver-shell .bliver-destination-surface {
+    padding-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom));
+  }
+
+  .bliver-shell .bliver-destination-auth-surface {
+    padding-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom) + 0.75rem) !important;
+  }
+
+  .bliver-shell .bliver-destination-auth-surface > div > .ios-panel {
+    max-height: calc(100dvh - var(--bliver-nav-height) - var(--bliver-safe-bottom) - 1.5rem) !important;
+  }
+
   .bliver-shell .leaflet-container .leaflet-control-attribution {
     margin-bottom: calc(var(--bliver-nav-height) + var(--bliver-safe-bottom) + var(--bliver-space-sm));
   }

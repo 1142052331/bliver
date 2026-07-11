@@ -84,6 +84,27 @@ describe('TimelineDrawer accessibility', () => {
     expect(closeButton).toHaveClass('h-11', 'min-h-11', 'w-11', 'min-w-11');
   });
 
+  it.each([
+    [undefined, false],
+    [true, true],
+  ])('sets mobile navigation reservation to %s', (reserveMobileNavigation, shouldReserve) => {
+    render(
+      <TimelineDrawer
+        {...defaultProps}
+        isOpen
+        onClose={vi.fn()}
+        reserveMobileNavigation={reserveMobileNavigation}
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog');
+    if (shouldReserve) {
+      expect(dialog).toHaveClass('bliver-destination-surface');
+    } else {
+      expect(dialog).not.toHaveClass('bliver-destination-surface');
+    }
+  });
+
   it('contains forward and reverse tab navigation inside the open dialog', async () => {
     const user = userEvent.setup();
     render(<TimelineHarness />);

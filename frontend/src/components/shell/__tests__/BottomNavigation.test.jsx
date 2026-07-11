@@ -105,8 +105,24 @@ it.each([
   expect(screen.getByRole('navigation')).toHaveClass(modifierClass);
 });
 
+it('falls back to the exact base class for an unknown layer', () => {
+  render(
+    <BottomNavigation
+      activeDestination="map"
+      layer="unexpected"
+      onDestinationChange={() => {}}
+    />,
+  );
+
+  expect(screen.getByRole('navigation')).toHaveClass('bliver-bottom-navigation', { exact: true });
+});
+
 it('uses the approved navigation layer scale', () => {
   const tokensCss = readFileSync(resolve(cwd(), 'src/styles/tokens.css'), 'utf8');
+  const mobileRules = tokensCss.slice(
+    tokensCss.indexOf('@media (max-width: 767px)'),
+    tokensCss.indexOf('@media (min-width: 768px)'),
+  );
 
   expect(tokensCss).toMatch(/\.bliver-bottom-navigation\s*{[^}]*z-index:\s*1100;/s);
   expect(tokensCss).toMatch(
@@ -114,5 +130,14 @@ it('uses the approved navigation layer scale', () => {
   );
   expect(tokensCss).toMatch(
     /\.bliver-bottom-navigation--destination-auth\s*{[^}]*z-index:\s*3100;/s,
+  );
+  expect(mobileRules).toMatch(
+    /\.bliver-shell \.bliver-destination-surface\s*{[^}]*padding-bottom:\s*calc\(var\(--bliver-nav-height\) \+ var\(--bliver-safe-bottom\)\);/s,
+  );
+  expect(mobileRules).toMatch(
+    /\.bliver-shell \.bliver-destination-auth-surface\s*{[^}]*padding-bottom:\s*calc\(var\(--bliver-nav-height\) \+ var\(--bliver-safe-bottom\) \+ 0\.75rem\)/s,
+  );
+  expect(mobileRules).toMatch(
+    /\.bliver-shell \.bliver-destination-auth-surface > div > \.ios-panel\s*{[^}]*max-height:\s*calc\(100dvh - var\(--bliver-nav-height\) - var\(--bliver-safe-bottom\) - 1\.5rem\)/s,
   );
 });

@@ -9,7 +9,7 @@ import ProfileVisitors from './ProfileVisitors';
 import FootprintCardList from './FootprintCardList';
 import { isSuperuser } from '../domain/superuser';
 
-export default function ProfileDrawer({ userId, onClose, onLogout, friendshipStatus, pendingRequestId, onSendFriendRequest, onAcceptRequest, onRejectRequest, onOpenChat, onSelectFootprint }) {
+export default function ProfileDrawer({ userId, onClose, onLogout, friendshipStatus, pendingRequestId, onSendFriendRequest, onAcceptRequest, onRejectRequest, onOpenChat, onSelectFootprint, reserveMobileNavigation = false }) {
   const {
     profile,
     footprints,
@@ -47,8 +47,8 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
         exit={{ x: '100%' }}
         transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
         style={{ right: `max(0px, env(safe-area-inset-right))` }}
-        className="absolute top-0 h-full w-full md:w-96 ios-panel border-l-0
-          flex flex-col pointer-events-auto"
+        className={`absolute top-0 h-full w-full md:w-96 ios-panel border-l-0
+          flex flex-col pointer-events-auto ${reserveMobileNavigation ? 'bliver-destination-surface' : ''}`}
       >
         {loading ? (
           <ProfileSkeleton />

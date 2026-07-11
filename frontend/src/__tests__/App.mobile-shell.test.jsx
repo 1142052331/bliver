@@ -20,6 +20,10 @@ const mocks = vi.hoisted(() => ({
   closeAuth: vi.fn(),
   openAbout: vi.fn(),
   toggleNotifs: vi.fn(),
+  authModalProps: vi.fn(),
+  timelineDrawerProps: vi.fn(),
+  friendsPanelProps: vi.fn(),
+  profileDrawerProps: vi.fn(),
 }));
 
 const uiState = vi.hoisted(() => ({
@@ -153,18 +157,24 @@ vi.mock('../components/MobileActionDrawer', () => ({
   default: () => <button type="button" aria-label="菜单">菜单</button>,
 }));
 vi.mock('../components/AuthModal', () => ({
-  default: ({ onClose, onDone }) => (
-    <div>
-      <button type="button" onClick={onClose}>Close auth surface</button>
-      <button type="button" onClick={() => onDone({ _id: 'signed-in-user' })}>Complete auth</button>
-    </div>
-  ),
+  default: (props) => {
+    mocks.authModalProps(props.reserveMobileNavigation);
+    return (
+      <div>
+        <button type="button" onClick={props.onClose}>Close auth surface</button>
+        <button type="button" onClick={() => props.onDone({ _id: 'signed-in-user' })}>Complete auth</button>
+      </div>
+    );
+  },
 }));
 vi.mock('../components/CheckInModal', () => ({ default: () => null }));
 vi.mock('../components/TimelineDrawer', () => ({
-  default: ({ isOpen, onClose }) => (
-    isOpen ? <button type="button" onClick={onClose}>Close timeline surface</button> : null
-  ),
+  default: (props) => {
+    mocks.timelineDrawerProps(props.reserveMobileNavigation);
+    return props.isOpen
+      ? <button type="button" onClick={props.onClose}>Close timeline surface</button>
+      : null;
+  },
 }));
 vi.mock('../components/ClusterDetailPanel', () => ({ default: () => null }));
 vi.mock('../components/NotificationPanel', () => ({ default: () => null }));
@@ -173,13 +183,19 @@ vi.mock('../components/GlobalToaster', () => ({ default: () => null }));
 vi.mock('../components/AboutModal', () => ({ default: () => null }));
 vi.mock('../components/FeedbackModal', () => ({ default: () => null }));
 vi.mock('../components/ProfileDrawer', () => ({
-  default: ({ onClose }) => <button type="button" onClick={onClose}>Close profile surface</button>,
+  default: (props) => {
+    mocks.profileDrawerProps(props.reserveMobileNavigation);
+    return <button type="button" onClick={props.onClose}>Close profile surface</button>;
+  },
 }));
 vi.mock('../components/FootprintDetailModal', () => ({ default: () => null }));
 vi.mock('../components/PhotoWall', () => ({ default: () => null }));
 vi.mock('../components/AnnouncementPanel', () => ({ default: () => null }));
 vi.mock('../components/FriendsPanel', () => ({
-  default: ({ onClose }) => <button type="button" onClick={onClose}>Close friends surface</button>,
+  default: (props) => {
+    mocks.friendsPanelProps(props.reserveMobileNavigation);
+    return <button type="button" onClick={props.onClose}>Close friends surface</button>;
+  },
 }));
 vi.mock('../components/ChatWindow', () => ({ default: () => null }));
 vi.mock('../components/MessageIsland', () => ({ default: () => null }));
@@ -216,12 +232,12 @@ describe('App mobile shell integration', () => {
   });
 
   it.each([
-    ['Timeline', 'activity', null, 'showTimeline', true],
-    ['Friends', 'messages', { _id: 'user-1' }, 'showFriends', true],
-    ['Profile', 'me', { _id: 'user-1' }, 'viewingProfileId', 'user-1'],
+    ['Timeline', 'activity', null, 'showTimeline', true, mocks.timelineDrawerProps],
+    ['Friends', 'messages', { _id: 'user-1' }, 'showFriends', true, mocks.friendsPanelProps],
+    ['Profile', 'me', { _id: 'user-1' }, 'viewingProfileId', 'user-1', mocks.profileDrawerProps],
   ])(
     'raises bottom navigation above the %s destination surface',
-    (_surface, destination, currentUser, stateKey, stateValue) => {
+    (_surface, destination, currentUser, stateKey, stateValue, surfaceProps) => {
       mocks.user = currentUser;
       uiState[stateKey] = stateValue;
       useShellStore.setState({ activeDestination: destination });
@@ -231,6 +247,7 @@ describe('App mobile shell integration', () => {
       expect(screen.getByRole('navigation')).toHaveClass(
         'bliver-bottom-navigation--destination',
       );
+      expect(surfaceProps).toHaveBeenLastCalledWith(true);
     },
   );
 
@@ -245,6 +262,7 @@ describe('App mobile shell integration', () => {
       expect(screen.getByRole('navigation')).toHaveClass(
         'bliver-bottom-navigation--destination-auth',
       );
+      expect(mocks.authModalProps).toHaveBeenLastCalledWith(true);
     },
   );
 
@@ -256,6 +274,7 @@ describe('App mobile shell integration', () => {
     const navigation = screen.getByRole('navigation');
     expect(navigation).not.toHaveClass('bliver-bottom-navigation--destination');
     expect(navigation).not.toHaveClass('bliver-bottom-navigation--destination-auth');
+    expect(mocks.authModalProps).toHaveBeenLastCalledWith(false);
   });
 
   it('keeps bottom navigation below secondary Auth over a destination surface', () => {
@@ -268,6 +287,8 @@ describe('App mobile shell integration', () => {
     const navigation = screen.getByRole('navigation');
     expect(navigation).toHaveClass('bliver-bottom-navigation--destination');
     expect(navigation).not.toHaveClass('bliver-bottom-navigation--destination-auth');
+    expect(mocks.timelineDrawerProps).toHaveBeenLastCalledWith(true);
+    expect(mocks.authModalProps).toHaveBeenLastCalledWith(false);
   });
 
   it('keeps Activity current until the Timeline surface closes', async () => {

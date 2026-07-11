@@ -113,7 +113,7 @@ const PERIODS = [
   { key: 'year', label: '本年' },
 ];
 
-export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onSelectFootprint, period, onChangePeriod, loading }) {
+export default function TimelineDrawer({ isOpen, onClose, footprints, userId, isAdmin, onSelectFootprint, period, onChangePeriod, loading, reserveMobileNavigation = false }) {
   const dialogRef = useRef(null);
   useDialogFocusTrap(dialogRef, isOpen, onClose);
 
@@ -141,8 +141,8 @@ export default function TimelineDrawer({ isOpen, onClose, footprints, userId, is
         aria-labelledby="timeline-drawer-title"
         tabIndex={-1}
         style={{ right: `max(0px, env(safe-area-inset-right))` }}
-        className="ios-panel fixed top-0 h-dvh w-[380px] max-w-[88vw] z-[1600]
-          flex flex-col"
+        className={`ios-panel fixed top-0 h-dvh w-[380px] max-w-[88vw] z-[1600]
+          flex flex-col ${reserveMobileNavigation ? 'bliver-destination-surface' : ''}`}
       >
         <div className="px-5 py-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-3">
