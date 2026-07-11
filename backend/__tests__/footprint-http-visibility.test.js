@@ -131,6 +131,26 @@ describe('legacy footprint HTTP visibility', () => {
     expect(response.body.footprints.map((item) => item._id)).toEqual([second.id, first.id]);
   });
 
+  test('today year query applies guest authorization in Mongo and preserves strict order', async () => {
+    const owner = await createUser('owner');
+    const createdAt = new Date(new Date().getFullYear(), 0, 2, 12);
+    const first = await createFootprint(owner._id, { message: 'first', createdAt });
+    const second = await createFootprint(owner._id, { message: 'second', createdAt });
+    await createFootprint(owner._id, { message: 'hidden', visibility: 'private', createdAt });
+    await createFootprint(owner._id, {
+      message: 'expired', createdAt, discoveryExpiresAt: new Date(Date.now() - DAY),
+    });
+    const findSafeSpy = jest.spyOn(Footprint, 'findSafe');
+    try {
+      const response = await request(app).get('/api/footprints/today?period=year');
+      expect(response.status).toBe(200);
+      expect(response.body.footprints.map((item) => item._id)).toEqual([second.id, first.id]);
+      expect(JSON.stringify(findSafeSpy.mock.calls[0][0])).toContain('visibility');
+    } finally {
+      findSafeSpy.mockRestore();
+    }
+  });
+
   test.each([
     ['reaction', 'post', 'react', { emoji: 'like' }],
     ['comment', 'post', 'comment', { content: 'hidden comment' }],
@@ -169,7 +189,26 @@ describe('legacy footprint HTTP visibility', () => {
 
     const stored = await Footprint.findById(footprint._id);
     expect(stored.reactions).toHaveLength(1);
+    expect(stored.reactions[0].createdAt).toBeInstanceOf(Date);
     expect(stored.comments).toHaveLength(1);
+    expect(await Notification.countDocuments()).toBe(2);
+  });
+
+  test('owner and admin interactions preserve notification side effects', async () => {
+    const owner = await createUser('owner');
+    const admin = await createUser('admin', { role: 'admin' });
+    const privateFootprint = await createFootprint(owner._id, { visibility: 'private' });
+
+    expect((await request(app).post(`/api/footprints/${privateFootprint.id}/react`)
+      .set(auth(owner)).send({ emoji: 'like' })).status).toBe(200);
+    expect((await request(app).post(`/api/footprints/${privateFootprint.id}/comment`)
+      .set(auth(owner)).send({ content: 'owner comment' })).status).toBe(201);
+    expect(await Notification.countDocuments()).toBe(0);
+
+    expect((await request(app).post(`/api/footprints/${privateFootprint.id}/react`)
+      .set(auth(admin)).send({ emoji: 'heart' })).status).toBe(200);
+    expect((await request(app).post(`/api/footprints/${privateFootprint.id}/comment`)
+      .set(auth(admin)).send({ content: 'admin comment' })).status).toBe(201);
     expect(await Notification.countDocuments()).toBe(2);
   });
 
@@ -289,18 +328,62 @@ describe('legacy footprint HTTP visibility', () => {
     expect(adminResponse.body.recentComments[0].regionBackfill).toBeDefined();
   });
 
+  test('profile user DTO never leaks operational fields and gates visitors to owner/admin', async () => {
+    const visitor = await createUser('visitor');
+    const target = await createUser('target', {
+      registerIp: '10.0.0.1',
+      lastLoginIp: '10.0.0.2',
+      lastLoginAt: new Date(),
+      footprintReadBaselineAt: new Date(),
+      lastFootprintVisibility: 'private',
+      profileVisitors: [{ visitorId: visitor._id, visitedAt: new Date() }],
+    });
+    const stranger = await createUser('stranger');
+    const admin = await createUser('admin', { role: 'admin' });
+    const forbiddenFields = [
+      'password', 'registerIp', 'lastLoginIp', 'lastLoginAt',
+      'footprintReadBaselineAt', 'lastFootprintVisibility',
+    ];
+
+    const responses = {
+      guest: await request(app).get(`/api/users/${target.id}/profile`),
+      stranger: await request(app).get(`/api/users/${target.id}/profile`).set(auth(stranger)),
+      owner: await request(app).get(`/api/users/${target.id}/profile`).set(auth(target)),
+      admin: await request(app).get(`/api/users/${target.id}/profile`).set(auth(admin)),
+    };
+    for (const response of Object.values(responses)) {
+      expect(response.status).toBe(200);
+      expect(response.body.user).toMatchObject({ _id: target.id, name: target.name });
+      for (const field of forbiddenFields) expect(response.body.user[field]).toBeUndefined();
+    }
+    expect(responses.guest.body.user.profileVisitors).toBeUndefined();
+    expect(responses.stranger.body.user.profileVisitors).toBeUndefined();
+    expect(responses.owner.body.user.profileVisitors.map((item) => item.visitorId._id)).toContain(visitor.id);
+    expect(responses.admin.body.user.profileVisitors.map((item) => item.visitorId._id)).toContain(visitor.id);
+
+    const reactionResponse = await request(app)
+      .post(`/api/users/${target.id}/profile/react`)
+      .set(auth(stranger))
+      .send({ emoji: 'like' });
+    expect(reactionResponse.status).toBe(200);
+    for (const field of forbiddenFields) expect(reactionResponse.body.user[field]).toBeUndefined();
+  });
+
   test('public profile history queries are bounded at the database', async () => {
     const target = await createUser('target');
     const limitSpy = jest.spyOn(mongoose.Query.prototype, 'limit');
     const aggregateLimitSpy = jest.spyOn(mongoose.Aggregate.prototype, 'limit');
+    const findSafeSpy = jest.spyOn(Footprint, 'findSafe');
     try {
       const response = await request(app).get(`/api/users/${target.id}/profile`);
       expect(response.status).toBe(200);
-      expect(limitSpy.mock.calls.filter(([value]) => value === 50)).toHaveLength(2);
-      expect(aggregateLimitSpy).toHaveBeenCalledWith(5);
+      expect(limitSpy.mock.calls.filter(([value]) => value === 50)).toHaveLength(1);
+      expect(aggregateLimitSpy.mock.calls.filter(([value]) => value === 5)).toHaveLength(2);
+      expect(JSON.stringify(findSafeSpy.mock.calls[0][0])).toContain('visibility');
     } finally {
       limitSpy.mockRestore();
       aggregateLimitSpy.mockRestore();
+      findSafeSpy.mockRestore();
     }
   });
 
@@ -352,13 +435,66 @@ describe('legacy footprint HTTP visibility', () => {
     expect(response.body.recentComments.map((item) => item._id)).toEqual([second.id, first.id]);
   });
 
-  test('profile batching continues past hidden candidates to find readable history', async () => {
+  test('profile comments trust userId and use username only for legacy missing ids', async () => {
+    const target = await createUser('$target');
+    const imposter = await createUser('imposter');
+    const author = await createUser('author');
+    const misattributed = await createFootprint(author._id, {
+      message: 'wrong id',
+      comments: [{ userId: imposter._id, username: target.name, content: 'not target' }],
+    });
+    const legacy = await createFootprint(author._id, {
+      message: 'legacy target',
+      comments: [{ username: target.name, content: 'legacy target' }],
+    });
+
+    const response = await request(app).get(`/api/users/${target.id}/profile`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.recentComments.map((item) => item._id)).toEqual([legacy.id]);
+    expect(response.body.recentComments.some((item) => item._id === misattributed.id)).toBe(false);
+  });
+
+  test('profile recent reactions sort by the latest matching reaction event', async () => {
+    const target = await createUser('target');
+    const author = await createUser('author');
+    const now = new Date();
+    const olderFootprintWithNewestReaction = await createFootprint(author._id, {
+      createdAt: new Date(+now - 2 * DAY), discoveryExpiresAt: new Date(+now + DAY),
+      reactions: [{ userId: target._id, username: target.name, emoji: 'like', createdAt: now }],
+    });
+    const newerFootprintWithOldReaction = await createFootprint(author._id, {
+      createdAt: new Date(+now - DAY), discoveryExpiresAt: new Date(+now + DAY),
+      reactions: [{
+        userId: target._id, username: target.name, emoji: 'heart', createdAt: new Date(+now - 3 * DAY),
+      }],
+    });
+
+    const response = await request(app).get(`/api/users/${target.id}/profile`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.recentReactions.map((item) => item._id)).toEqual([
+      olderFootprintWithNewestReaction.id,
+      newerFootprintWithOldReaction.id,
+    ]);
+  });
+
+  test('reaction timestamps and profile lookup indexes are declared', () => {
+    expect(Footprint.schema.path('reactions').schema.path('createdAt')?.defaultValue).toBeDefined();
+    const indexes = Footprint.schema.indexes().map(([fields]) => fields);
+    expect(indexes).toEqual(expect.arrayContaining([
+      { 'reactions.userId': 1, 'reactions.createdAt': -1 },
+      { 'comments.userId': 1, 'comments.createdAt': -1 },
+    ]));
+  });
+
+  test('profile history prefilters hidden rows in one bounded query', async () => {
     const target = await createUser('target');
     const olderActive = await createFootprint(target._id, {
       message: 'older active', createdAt: new Date(Date.now() - DAY),
       discoveryExpiresAt: new Date(Date.now() + DAY),
     });
-    await Footprint.insertMany(Array.from({ length: 50 }, (_, index) => ({
+    await Footprint.insertMany(Array.from({ length: 5 }, (_, index) => ({
       userId: target._id,
       location: { lat: 31.23, lng: 121.47 },
       message: `hidden ${index}`,
@@ -372,8 +508,8 @@ describe('legacy footprint HTTP visibility', () => {
       const response = await request(app).get(`/api/users/${target.id}/profile`);
       expect(response.status).toBe(200);
       expect(response.body.footprints.map((item) => item._id)).toEqual([olderActive.id]);
-      expect(limitSpy.mock.calls.filter(([value]) => value === 50)).toHaveLength(2);
-      expect(aggregateLimitSpy).toHaveBeenCalledWith(5);
+      expect(limitSpy.mock.calls.filter(([value]) => value === 50)).toHaveLength(1);
+      expect(aggregateLimitSpy.mock.calls.filter(([value]) => value === 5)).toHaveLength(2);
     } finally {
       limitSpy.mockRestore();
       aggregateLimitSpy.mockRestore();

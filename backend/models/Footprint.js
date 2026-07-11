@@ -36,6 +36,7 @@ const footprintSchema = new mongoose.Schema({
     userId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     username: { type: String, required: true },
     emoji:    { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
   }],
   comments:  [{
     userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -51,6 +52,8 @@ footprintSchema.index({ visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id
 footprintSchema.index({ countryCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
 footprintSchema.index({ countryCode: 1, regionCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
 footprintSchema.index({ userId: 1, createdAt: -1, _id: -1 });
+footprintSchema.index({ 'reactions.userId': 1, 'reactions.createdAt': -1 });
+footprintSchema.index({ 'comments.userId': 1, 'comments.createdAt': -1 });
 
 // Post-find middleware: resolve denormalized usernames from userId
 async function resolveUsernames(docs) {

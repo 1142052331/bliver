@@ -56,11 +56,26 @@ function aggregationAccess(access) {
   };
 }
 
+async function fetchAggregateRows({ rows, access, isAdmin, now }) {
+  if (rows.length === 0) return [];
+  const docs = await Footprint.findSafe({ _id: { $in: rows.map((row) => row._id) } }, { isAdmin })
+    .populate('userId', 'name avatarUrl');
+  const readable = await filterReadableFootprints({ access, footprints: docs, now });
+  const byId = new Map(readable.map((doc) => [doc.id, doc]));
+  return rows.map((row) => byId.get(row._id.toString())).filter(Boolean);
+}
+
 async function collectRecentComments({ user, access, isAdmin, now }) {
+  const legacyNameMatch = {
+    $and: [
+      { $eq: [{ $ifNull: ['$$comment.userId', null] }, null] },
+      { $eq: ['$$comment.username', { $literal: user.name }] },
+    ],
+  };
   const matchingComment = {
     $or: [
       { $eq: ['$$comment.userId', user._id] },
-      { $eq: ['$$comment.username', user.name] },
+      legacyNameMatch,
     ],
   };
   const rows = await Footprint.aggregate()
@@ -69,7 +84,7 @@ async function collectRecentComments({ user, access, isAdmin, now }) {
         {
           $or: [
             { 'comments.userId': user._id },
-            { 'comments.username': user.name },
+            { comments: { $elemMatch: { userId: null, username: user.name } } },
           ],
         },
         authorizationFilter({ ...aggregationAccess(access), now }),
@@ -89,12 +104,57 @@ async function collectRecentComments({ user, access, isAdmin, now }) {
     .sort({ _profileLatestCommentAt: -1, _id: -1 })
     .limit(5);
 
-  if (rows.length === 0) return [];
-  const docs = await Footprint.findSafe({ _id: { $in: rows.map((row) => row._id) } }, { isAdmin })
-    .populate('userId', 'name avatarUrl');
-  const readable = await filterReadableFootprints({ access, footprints: docs, now });
-  const byId = new Map(readable.map((doc) => [doc.id, doc]));
-  return rows.map((row) => byId.get(row._id.toString())).filter(Boolean);
+  return fetchAggregateRows({ rows, access, isAdmin, now });
+}
+
+async function collectRecentReactions({ user, access, isAdmin, now }) {
+  const rows = await Footprint.aggregate()
+    .match({
+      $and: [
+        { 'reactions.userId': user._id },
+        authorizationFilter({ ...aggregationAccess(access), now }),
+      ],
+    })
+    .addFields({
+      _profileLatestReactionAt: {
+        $max: {
+          $map: {
+            input: {
+              $filter: {
+                input: '$reactions',
+                as: 'reaction',
+                cond: { $eq: ['$$reaction.userId', user._id] },
+              },
+            },
+            as: 'reaction',
+            in: { $ifNull: ['$$reaction.createdAt', '$createdAt'] },
+          },
+        },
+      },
+    })
+    .sort({ _profileLatestReactionAt: -1, _id: -1 })
+    .limit(5);
+
+  return fetchAggregateRows({ rows, access, isAdmin, now });
+}
+
+function publicProfileUser(user, { includeVisitors }) {
+  const source = user.toObject();
+  const result = {
+    _id: source._id,
+    name: source.name,
+    avatarUrl: source.avatarUrl,
+    profileBannerUrl: source.profileBannerUrl,
+    isOnline: source.isOnline,
+    role: source.role,
+    profileComments: source.profileComments,
+    profileReactions: source.profileReactions,
+    checkinStreak: source.checkinStreak,
+    createdAt: source.createdAt,
+    updatedAt: source.updatedAt,
+  };
+  if (includeVisitors) result.profileVisitors = source.profileVisitors;
+  return result;
 }
 
 class ProfileService {
@@ -116,21 +176,24 @@ class ProfileService {
     const isAdmin = viewer?.role === 'admin';
     const access = await getViewerAccess(viewer);
     const now = new Date();
+    const includeVisitors = isAdmin || viewer?.id === user.id;
     const readableFootprints = await collectReadable({
       filter: { userId }, access, isAdmin, limit: 30, now, populate: populateFootprint,
     });
     const footprints = readableFootprints
       .map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
 
-    const populateAuthor = (query) => query.populate('userId', 'name avatarUrl');
-    const reactionDocs = await collectReadable({
-      filter: { 'reactions.userId': userId }, access, isAdmin, limit: 5, now, populate: populateAuthor,
-    });
+    const reactionDocs = await collectRecentReactions({ user, access, isAdmin, now });
     const commentDocs = await collectRecentComments({ user, access, isAdmin, now });
     const recentReactions = reactionDocs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
     const recentComments = commentDocs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
 
-    return { user, footprints, recentReactions, recentComments };
+    return {
+      user: publicProfileUser(user, { includeVisitors }),
+      footprints,
+      recentReactions,
+      recentComments,
+    };
   }
 
   // ── Add comment to someone's profile ──
@@ -147,10 +210,11 @@ class ProfileService {
 
     const updated = await User.findById(targetUserId).select('-password')
       .populate('profileReactions.senderId', 'name avatarUrl');
+    const publicUser = publicProfileUser(updated, { includeVisitors: false });
 
-    bus.emit('profile:updated', { userId: targetUserId, user: updated });
+    bus.emit('profile:updated', { userId: targetUserId, user: publicUser });
 
-    return { user: updated };
+    return { user: publicUser };
   }
 
   // ── Toggle reaction emoji on profile ──
@@ -177,10 +241,11 @@ class ProfileService {
 
     const updated = await User.findById(targetUserId).select('-password')
       .populate('profileReactions.senderId', 'name avatarUrl');
+    const publicUser = publicProfileUser(updated, { includeVisitors: false });
 
-    bus.emit('profile:updated', { userId: targetUserId, user: updated });
+    bus.emit('profile:updated', { userId: targetUserId, user: publicUser });
 
-    return { user: updated, isToggleOff };
+    return { user: publicUser, isToggleOff };
   }
 
   // ── Update current user's banner image ──
@@ -193,10 +258,11 @@ class ProfileService {
       { profileBannerUrl: cloudinaryUrl },
       { returnDocument: 'after' }
     ).select('-password');
+    const publicUser = publicProfileUser(user, { includeVisitors: false });
 
-    bus.emit('profile:updated', { userId, user });
+    bus.emit('profile:updated', { userId, user: publicUser });
 
-    return { user };
+    return { user: publicUser };
   }
 
   // ── Update current user's name / avatar ──
@@ -220,10 +286,11 @@ class ProfileService {
     }
 
     const user = await User.findByIdAndUpdate(userId, updates, { returnDocument: 'after' }).select('-password');
+    const publicUser = publicProfileUser(user, { includeVisitors: false });
 
-    bus.emit('profile:updated', { userId, user });
+    bus.emit('profile:updated', { userId, user: publicUser });
 
-    return { user };
+    return { user: publicUser };
   }
 
   // ── Private ──

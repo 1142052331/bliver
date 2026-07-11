@@ -10,8 +10,10 @@ const bus = require('../events/bus');
 const auditService = require('./AuditService');
 const AppError = require('../middleware/AppError');
 const {
+  authorizationFilter,
   filterReadableFootprints,
   getReadableFootprint,
+  getViewerAccess,
 } = require('./FootprintAccessService');
 
 class FootprintService {
@@ -44,12 +46,16 @@ class FootprintService {
     if (filterUserId && isAdmin) {
       filter.userId = filterUserId;
     }
+    const access = await getViewerAccess(viewer);
+    const effectiveFilter = {
+      $and: [filter, authorizationFilter({ ...access, now })],
+    };
 
     const docs = await populateFootprint(
-      Footprint.findSafe(filter, { isAdmin }).sort({ createdAt: -1, _id: -1 })
+      Footprint.findSafe(effectiveFilter, { isAdmin }).sort({ createdAt: -1, _id: -1 })
     );
 
-    const readable = await filterReadableFootprints({ viewer, footprints: docs, now });
+    const readable = await filterReadableFootprints({ access, footprints: docs, now });
     return {
       footprints: readable.map((fp) => sanitizeLocation(fp.toObject(), isAdmin)),
       period,

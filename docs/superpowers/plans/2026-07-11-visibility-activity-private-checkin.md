@@ -60,6 +60,8 @@
 - Modify: `backend/routes/api.js`
 - Modify: `backend/services/FootprintReadService.js`
 - Modify: `backend/services/ProfileService.js`
+- Modify: `backend/models/Footprint.js`
+- Modify: `backend/services/FootprintQueryService.js`
 - Modify: `backend/routes/profile.js`
 - Test: `backend/__tests__/footprint-http-visibility.test.js`
 - Test: `backend/__tests__/footprint-read.test.js`
@@ -71,6 +73,7 @@
 - [ ] Return privacy-safe 404 responses without leaking hidden footprint existence and sanitize operational location metadata.
 - [ ] Keep read-state mark/import on the shared access path and preserve authorized mutation notifications and admin deletion semantics.
 - [ ] Avoid initializing read baselines for imports with no authorized entries, and preserve latest-comment chronology in profile aggregates.
+- [ ] Return an explicit public profile DTO, attribute comment/reaction activity by authoritative user IDs, and query both profile activity and legacy lists through bounded authorization-prefiltered paths.
 - [ ] Run focused tests and commit the authorization enforcement.
 
 ### Task 4: Add Resumable Legacy Geography Backfill
