@@ -9,12 +9,14 @@ const { checkin: checkinSchema, comment: commentSchema, reaction: reactionSchema
 
 const authRoutes = require('./auth');
 const notificationRoutes = require('./notifications');
+const mapRoutes = require('./map');
 
 const router = express.Router();
 
   // Mount sub-routers
   router.use(authRoutes);
   router.use(notificationRoutes);
+  router.use(mapRoutes);
 
   // ── Footprints ────────────────────────────────────────
 

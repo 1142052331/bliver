@@ -1,8 +1,16 @@
 const axios = require('axios');
 const { geocodeCache, GeoCache } = require('./geoCache');
 
-const reverseGeocode = async (lat, lng) => {
-  const key = GeoCache.roundKey(lat, lng, 2); // ~1km grid
+const EMPTY_LOCATION = {
+  displayName: 'Unknown location',
+  countryCode: '',
+  countryName: '',
+  regionCode: '',
+  regionName: '',
+};
+
+const reverseGeocodeStructured = async (lat, lng) => {
+  const key = `reverse:${GeoCache.roundKey(lat, lng, 2)}`;
   const cached = geocodeCache.get(key);
   if (cached) return cached;
 
@@ -13,13 +21,29 @@ const reverseGeocode = async (lat, lng) => {
       headers: { 'User-Agent': 'BliverApp/1.0' },
       timeout: 5000,
     });
-    const result = data.display_name || data.name || 'Unknown location';
+    const address = data.address || {};
+    const result = {
+      displayName: data.display_name || data.name || EMPTY_LOCATION.displayName,
+      countryCode: (address.country_code || '').toUpperCase(),
+      countryName: address.country || '',
+      regionCode: (
+        address['ISO3166-2-lvl4']
+        || address['ISO3166-2-lvl3']
+        || address['ISO3166-2-lvl6']
+        || ''
+      ).toUpperCase(),
+      regionName: address.state || address.province || address.region || '',
+    };
     geocodeCache.set(key, result);
     return result;
   } catch (err) {
     console.error('[Nominatim] Reverse geocode failed:', err.message);
-    return 'Unknown location';
+    return { ...EMPTY_LOCATION };
   }
 };
 
-module.exports = { reverseGeocode };
+const reverseGeocode = async (lat, lng) => (
+  await reverseGeocodeStructured(lat, lng)
+).displayName;
+
+module.exports = { reverseGeocode, reverseGeocodeStructured };
