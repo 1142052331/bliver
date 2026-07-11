@@ -1,5 +1,5 @@
+import { useEffect, useState } from 'react';
 import { Clock3, MapPin, X } from 'lucide-react';
-import { getReadMap, isUnread } from '../readStatus';
 
 function timeAgo(value) {
   const elapsed = Date.now() - new Date(value).getTime();
@@ -12,10 +12,12 @@ function timeAgo(value) {
 }
 
 export default function MapPreviewCard({ footprint, userId, onClose, onOpenDetail, onOpenProfile }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setImageFailed(false), [footprint?._id, footprint?.photoUrl]);
   if (!footprint) return null;
 
   const author = footprint.userId || {};
-  const unread = isUnread(footprint, getReadMap(userId));
+  const unread = Boolean(footprint.isUnread);
   const message = (footprint.message || '').split('\n').filter(Boolean).slice(-1)[0] || '留下了一条足迹';
 
   return (
@@ -36,7 +38,7 @@ export default function MapPreviewCard({ footprint, userId, onClose, onOpenDetai
             </span>
           )}
           <span>
-            <strong>{author.name || '匿名用户'}</strong>
+            <strong title={author.name || '匿名用户'}>{author.name || '匿名用户'}</strong>
             <span className="bliver-map-preview__time"><Clock3 size={13} />{timeAgo(footprint.createdAt)}</span>
           </span>
         </button>
@@ -47,12 +49,21 @@ export default function MapPreviewCard({ footprint, userId, onClose, onOpenDetai
 
       <div className="bliver-map-preview__body">
         <div className="bliver-map-preview__content">
-          <p className="bliver-map-preview__place"><MapPin size={15} />{footprint.placeName || '未命名地点'}</p>
+          <div className="bliver-map-preview__context">
+            <span className="bliver-map-preview__source">{footprint.sourceLabel || '全球'}</span>
+            {unread && <span className="bliver-map-preview__unread">未读更新</span>}
+          </div>
+          <p className="bliver-map-preview__place" title={footprint.placeName || '未命名地点'}><MapPin size={15} />{footprint.placeName || '未命名地点'}</p>
           <p className="bliver-map-preview__message">{footprint.mood ? `${footprint.mood} ` : ''}{message}</p>
-          {unread && <span className="bliver-map-preview__unread">未读更新</span>}
         </div>
-        {footprint.photoUrl && (
-          <img className="bliver-map-preview__photo" src={footprint.photoUrl} alt="" loading="lazy" />
+        {footprint.photoUrl && !imageFailed && (
+          <img
+            className="bliver-map-preview__photo"
+            src={footprint.photoUrl}
+            alt={`${author.name || '用户'}在${footprint.placeName || '此地点'}的足迹照片`}
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+          />
         )}
       </div>
 
