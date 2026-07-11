@@ -22,6 +22,7 @@ function TimelineHarness() {
   return (
     <>
       <button type="button" onClick={() => setIsOpen(true)}>Open timeline</button>
+      <button type="button" onClick={() => setIsOpen(false)}>Map destination</button>
       <TimelineDrawer
         {...defaultProps}
         isOpen={isOpen}
@@ -134,6 +135,19 @@ describe('TimelineDrawer accessibility', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
+  });
+
+  it('keeps focus on an explicit external target that closes the dialog', async () => {
+    const user = userEvent.setup();
+    render(<TimelineHarness />);
+
+    await user.click(screen.getByRole('button', { name: 'Open timeline' }));
+    const mapDestination = screen.getByRole('button', { name: 'Map destination' });
+
+    await user.click(mapDestination);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(mapDestination).toHaveFocus();
   });
 
   it('closes before opening a profile from the user identity control', async () => {

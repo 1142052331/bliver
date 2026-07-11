@@ -81,7 +81,16 @@ export default function useDialogFocusTrap(dialogRef, isActive, onClose) {
       const activeDialogIndex = activeDialogs.lastIndexOf(activeDialog);
       if (activeDialogIndex !== -1) activeDialogs.splice(activeDialogIndex, 1);
 
-      if (wasTopmost && previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) {
+      const activeElement = document.activeElement;
+      const hasExplicitExternalFocus = activeElement instanceof HTMLElement
+        && activeElement !== document.body
+        && activeElement.isConnected
+        && !dialog.contains(activeElement);
+
+      if (wasTopmost
+        && !hasExplicitExternalFocus
+        && previouslyFocused instanceof HTMLElement
+        && previouslyFocused.isConnected) {
         previouslyFocused.focus();
       }
     };
