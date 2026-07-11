@@ -465,6 +465,173 @@ describe('FootprintBackfillService', () => {
     });
   });
 
+  test('preserves failed provenance when reclaiming an expired processing lease', async () => {
+    const expired = rawFootprint({
+      visibility: 'private',
+      locationPrecision: 'precise',
+      placeName: geography.displayName,
+      countryCode: geography.countryCode,
+      countryName: geography.countryName,
+      regionCode: geography.regionCode,
+      regionName: geography.regionName,
+      regionBackfill: {
+        status: 'processing',
+        claimedFromStatus: 'failed',
+        attempts: 2,
+        runToken: 'crashed-worker',
+        leaseExpiresAt: new Date('2026-07-12T07:00:00.000Z'),
+      },
+    });
+    await Footprint.collection.insertOne(expired);
+    const geocoder = jest.fn().mockResolvedValue(geography);
+
+    const result = await serviceWith({
+      reverseGeocodeStructured: geocoder,
+      runTokenFactory: () => 'reclaim-worker',
+    }).run({ limit: 10 });
+
+    expect(result).toMatchObject({ processed: 1, succeeded: 1, skipped: 0 });
+    expect(geocoder).toHaveBeenCalledTimes(1);
+    expect(await Footprint.collection.findOne({ _id: expired._id })).toMatchObject({
+      regionBackfill: { status: 'complete', claimedFromStatus: 'failed', attempts: 3 },
+    });
+  });
+
+  test('status-only completion requeues when claimed visibility or location changes', async () => {
+    const pending = rawFootprint({
+      visibility: 'public',
+      locationPrecision: 'precise',
+      placeName: geography.displayName,
+      countryCode: geography.countryCode,
+      countryName: geography.countryName,
+      regionCode: geography.regionCode,
+      regionName: geography.regionName,
+      regionBackfill: { status: 'pending', attempts: 3 },
+    });
+    await Footprint.collection.insertOne(pending);
+    const originalUpdateOne = Footprint.updateOne.bind(Footprint);
+    let changed = false;
+    jest.spyOn(Footprint, 'updateOne').mockImplementation(async (filter, update, options) => {
+      if (!changed && update.$set?.['regionBackfill.status'] === 'complete') {
+        changed = true;
+        await Footprint.collection.updateOne(
+          { _id: pending._id },
+          { $set: { visibility: 'private', 'location.lat': 40 } },
+        );
+      }
+      return originalUpdateOne(filter, update, options);
+    });
+
+    const result = await serviceWith({ runTokenFactory: () => 'status-conflict' }).run({ limit: 10 });
+
+    expect(result).toMatchObject({ succeeded: 0, skipped: 1, conflicted: 1 });
+    expect(await Footprint.collection.findOne({ _id: pending._id })).toMatchObject({
+      visibility: 'private',
+      location: { lat: 40, lng: pending.location.lng },
+      regionBackfill: { status: 'pending', attempts: 3 },
+    });
+  });
+
+  test('status-only completion treats matchedCount zero as an ownership conflict', async () => {
+    const pending = rawFootprint({
+      visibility: 'public',
+      locationPrecision: 'precise',
+      placeName: geography.displayName,
+      countryCode: geography.countryCode,
+      countryName: geography.countryName,
+      regionCode: geography.regionCode,
+      regionName: geography.regionName,
+      regionBackfill: { status: 'pending', attempts: 0 },
+    });
+    await Footprint.collection.insertOne(pending);
+    const originalUpdateOne = Footprint.updateOne.bind(Footprint);
+    jest.spyOn(Footprint, 'updateOne').mockImplementation((filter, update, options) => {
+      if (update.$set?.['regionBackfill.status'] === 'complete') {
+        return Promise.resolve({ acknowledged: true, matchedCount: 0, modifiedCount: 0 });
+      }
+      return originalUpdateOne(filter, update, options);
+    });
+
+    const result = await serviceWith({ runTokenFactory: () => 'status-no-match' }).run({ limit: 10 });
+
+    expect(result).toMatchObject({ succeeded: 0, skipped: 1, conflicted: 1 });
+    expect((await Footprint.collection.findOne({ _id: pending._id })).regionBackfill.status)
+      .toBe('pending');
+  });
+
+  test('status-only completion recognizes an applied write after a client error', async () => {
+    const pending = rawFootprint({
+      visibility: 'friends',
+      locationPrecision: 'precise',
+      placeName: geography.displayName,
+      countryCode: geography.countryCode,
+      countryName: geography.countryName,
+      regionCode: geography.regionCode,
+      regionName: geography.regionName,
+      regionBackfill: { status: 'pending', attempts: 2 },
+    });
+    await Footprint.collection.insertOne(pending);
+    const originalUpdateOne = Footprint.updateOne.bind(Footprint);
+    jest.spyOn(Footprint, 'updateOne').mockImplementation(async (filter, update, options) => {
+      const result = await originalUpdateOne(filter, update, options);
+      if (update.$set?.['regionBackfill.status'] === 'complete') {
+        throw new Error('status completion result unknown');
+      }
+      return result;
+    });
+
+    const result = await serviceWith({ runTokenFactory: () => 'status-ambiguous' }).run({ limit: 10 });
+
+    expect(result).toMatchObject({ succeeded: 0, skipped: 1, conflicted: 0 });
+    expect(await Footprint.collection.findOne({ _id: pending._id })).toMatchObject({
+      visibility: 'friends',
+      regionBackfill: { status: 'complete', attempts: 2 },
+    });
+  });
+
+  test('charges only real geocode attempts before dead-lettering the fifth failure', async () => {
+    const pending = rawFootprint({
+      visibility: 'public',
+      locationPrecision: 'precise',
+      placeName: geography.displayName,
+      countryCode: geography.countryCode,
+      countryName: geography.countryName,
+      regionCode: geography.regionCode,
+      regionName: geography.regionName,
+      regionBackfill: { status: 'pending', attempts: 3 },
+    });
+    await Footprint.collection.insertOne(pending);
+    const originalUpdateOne = Footprint.updateOne.bind(Footprint);
+    jest.spyOn(Footprint, 'updateOne').mockImplementation((filter, update, options) => {
+      if (update.$set?.['regionBackfill.status'] === 'complete') {
+        return Promise.resolve({ acknowledged: true, matchedCount: 0, modifiedCount: 0 });
+      }
+      return originalUpdateOne(filter, update, options);
+    });
+    const service = serviceWith({
+      reverseGeocodeStructured: jest.fn().mockResolvedValue({
+        ...geography,
+        failureCode: 'reverse_geocode_failed',
+      }),
+    });
+
+    await service.run({ limit: 10 });
+    Footprint.updateOne.mockRestore();
+    await Footprint.collection.updateOne(
+      { _id: pending._id },
+      { $set: { placeName: '', 'regionBackfill.status': 'pending' } },
+    );
+    const fourth = await service.run({ limit: 10 });
+    const afterFourth = await Footprint.collection.findOne({ _id: pending._id });
+    const fifth = await service.run({ retryFailed: true, limit: 10, cursor: null });
+
+    expect(fourth).toMatchObject({ failed: 1, deadLettered: 0 });
+    expect(afterFourth.regionBackfill).toMatchObject({ status: 'failed', attempts: 4 });
+    expect(fifth).toMatchObject({ failed: 1, deadLettered: 1 });
+    expect((await Footprint.collection.findOne({ _id: pending._id })).regionBackfill)
+      .toMatchObject({ status: 'dead', attempts: 5 });
+  });
+
   test('inspects ownership after an ambiguous completion write error', async () => {
     const pending = rawFootprint({ regionBackfill: { status: 'pending', attempts: 0 } });
     await Footprint.collection.insertOne(pending);
@@ -688,6 +855,23 @@ describe('footprint geography backfill CLI', () => {
 
     expect(disconnect).toHaveBeenCalledTimes(1);
     expect(logger.error).toHaveBeenCalledWith('Footprint geography backfill failed');
+    expect(logger.error).toHaveBeenCalledWith('Database disconnect failed');
+    expect(JSON.stringify(logger.error.mock.calls)).not.toContain('secret');
+  });
+
+  test('returns nonzero when disconnect fails after a successful dry-run', async () => {
+    const { runCli } = require('../scripts/backfill-footprint-geography');
+    const logger = { log: jest.fn(), error: jest.fn() };
+
+    await expect(runCli([], {
+      connectDB: jest.fn().mockResolvedValue(undefined),
+      disconnect: jest.fn().mockRejectedValue(new Error('secret cleanup detail')),
+      logger,
+      createService: () => ({
+        run: jest.fn().mockResolvedValue({ processed: 0, succeeded: 0 }),
+      }),
+    })).resolves.toBe(1);
+
     expect(logger.error).toHaveBeenCalledWith('Database disconnect failed');
     expect(JSON.stringify(logger.error.mock.calls)).not.toContain('secret');
   });

@@ -82,24 +82,26 @@ async function runCli(argv = process.argv.slice(2), dependencies = {}) {
   const disconnect = dependencies.disconnect || (() => mongoose.disconnect());
   const createService = dependencies.createService || createFootprintBackfillService;
   let connectionAttempted = false;
+  let exitCode = 0;
   try {
     connectionAttempted = true;
     await connect();
     const totals = await createService().run(options);
     logger.log(JSON.stringify({ mode: options.dryRun ? 'dry-run' : 'execute', ...totals }));
-    return 0;
   } catch {
     logger.error('Footprint geography backfill failed');
-    return 1;
+    exitCode = 1;
   } finally {
     if (connectionAttempted) {
       try {
         await disconnect();
       } catch {
         logger.error('Database disconnect failed');
+        exitCode = 1;
       }
     }
   }
+  return exitCode;
 }
 
 if (require.main === module) {

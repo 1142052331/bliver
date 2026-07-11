@@ -106,6 +106,7 @@ function hasText(value) {
 function needsBackfill(doc, retryFailed) {
   const status = doc.regionBackfill?.claimedFromStatus || doc.regionBackfill?.status;
   if (status === 'complete') return false;
+  if (status === 'failed' && doc.regionBackfill?.status === 'processing') return true;
   if (status === 'failed' && !retryFailed) return false;
   if (retryFailed && (status === 'failed' || status === 'pending')) return true;
   if (!VALID_VISIBILITIES.has(doc.visibility)) return true;
@@ -203,15 +204,23 @@ function createFootprintBackfillService({
       buildClaimFilter(id, { retryFailed: options.retryFailed, now: attemptedAt }),
       [{
         $set: {
-          'regionBackfill.claimedFromStatus': '$regionBackfill.status',
+          'regionBackfill.claimedFromStatus': {
+            $cond: [
+              { $eq: ['$regionBackfill.status', 'processing'] },
+              {
+                $cond: [
+                  { $in: ['$regionBackfill.claimedFromStatus', ['pending', 'failed']] },
+                  '$regionBackfill.claimedFromStatus',
+                  'pending',
+                ],
+              },
+              '$regionBackfill.status',
+            ],
+          },
           'regionBackfill.status': 'processing',
           'regionBackfill.runToken': runToken,
           'regionBackfill.leaseExpiresAt': new Date(attemptedAt.getTime() + leaseMs),
-          'regionBackfill.lastAttemptAt': attemptedAt,
           'regionBackfill.error': '',
-          'regionBackfill.attempts': {
-            $add: [{ $ifNull: ['$regionBackfill.attempts', 0] }, 1],
-          },
         },
       }],
       { returnDocument: 'after', updatePipeline: true },
@@ -241,6 +250,23 @@ function createFootprintBackfillService({
       filter.realLocation = doc.realLocation;
     }
     return filter;
+  }
+
+  async function beginGeocodeAttempt(doc, runToken, attemptedAt) {
+    return Footprint.findOneAndUpdate(
+      completionFilter(doc, runToken),
+      [{
+        $set: {
+          'regionBackfill.attempts': {
+            $add: [{ $ifNull: ['$regionBackfill.attempts', 0] }, 1],
+          },
+          'regionBackfill.lastAttemptAt': attemptedAt,
+        },
+      }],
+      { returnDocument: 'after', updatePipeline: true },
+    ).select('_id location realLocation visibility locationPrecision placeName countryCode countryName regionCode regionName regionBackfill')
+      .lean()
+      .exec();
   }
 
   async function releaseConflict(doc, runToken, totals) {
@@ -347,6 +373,41 @@ function createFootprintBackfillService({
     }
   }
 
+  async function completeStatusOnly(doc, runToken, totals) {
+    try {
+      const write = await Footprint.updateOne(
+        completionFilter(doc, runToken),
+        {
+          $set: {
+            'regionBackfill.status': 'complete',
+            'regionBackfill.leaseExpiresAt': null,
+            'regionBackfill.error': '',
+          },
+        },
+      );
+      if (write.acknowledged && write.matchedCount === 1) {
+        totals.skipped += 1;
+        return;
+      }
+      await releaseConflict(doc, runToken, totals);
+      return;
+    } catch {
+      const current = await inspect(doc._id).catch(() => null);
+      if (current?.regionBackfill?.runToken === runToken
+        && current.regionBackfill.status === 'complete') {
+        totals.skipped += 1;
+        return;
+      }
+      if (current?.regionBackfill?.runToken !== runToken
+        || current?.regionBackfill?.status === 'complete') {
+        totals.skipped += 1;
+        totals.conflicted += 1;
+        return;
+      }
+      await releaseConflict(doc, runToken, totals);
+    }
+  }
+
   async function run(inputOptions = {}) {
     const options = validateBackfillOptions(inputOptions);
     const scanTime = new Date(clock());
@@ -409,22 +470,7 @@ function createFootprintBackfillService({
       }
       if (!needsBackfill(doc, options.retryFailed)) {
         if (options.dryRun) totals.wouldSkip += 1;
-        else totals.skipped += 1;
-        if (!options.dryRun) {
-          await Footprint.updateOne(
-            {
-              _id: doc._id,
-              'regionBackfill.status': 'processing',
-              'regionBackfill.runToken': runToken,
-            },
-            {
-              $set: {
-                'regionBackfill.status': 'complete',
-                'regionBackfill.leaseExpiresAt': null,
-              },
-            },
-          );
-        }
+        else await completeStatusOnly(doc, runToken, totals);
         continue;
       }
 
@@ -441,6 +487,24 @@ function createFootprintBackfillService({
       }
 
       if (geocodeCalls > 0 && options.delayMs > 0) await sleep(options.delayMs);
+      let attemptDoc = doc;
+      if (!options.dryRun) {
+        try {
+          attemptDoc = await beginGeocodeAttempt(doc, runToken, new Date(clock()));
+        } catch {
+          const current = await inspect(doc._id).catch(() => null);
+          const expectedAttempts = (doc.regionBackfill?.attempts || 0) + 1;
+          attemptDoc = current?.regionBackfill?.status === 'processing'
+            && current.regionBackfill.runToken === runToken
+            && current.regionBackfill.attempts === expectedAttempts
+            ? current
+            : null;
+        }
+        if (!attemptDoc) {
+          await releaseConflict(doc, runToken, totals);
+          continue;
+        }
+      }
       geocodeCalls += 1;
       let classified;
       try {
@@ -451,7 +515,7 @@ function createFootprintBackfillService({
 
       if (classified.error) {
         if (!options.dryRun) {
-          await markOwnedFailure(doc, runToken, new Date(clock()), classified.error, totals);
+          await markOwnedFailure(attemptDoc, runToken, new Date(clock()), classified.error, totals);
         } else {
           totals.wouldFail += 1;
         }
@@ -463,7 +527,7 @@ function createFootprintBackfillService({
         continue;
       }
 
-      await completeOwned(doc, runToken, new Date(clock()), classified.geography, totals);
+      await completeOwned(attemptDoc, runToken, new Date(clock()), classified.geography, totals);
     }
 
     return totals;
