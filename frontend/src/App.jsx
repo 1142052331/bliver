@@ -44,6 +44,7 @@ import MobileTopBar from './components/shell/MobileTopBar';
 import BottomNavigation from './components/shell/BottomNavigation';
 import CheckInAction from './components/shell/CheckInAction';
 import LegacyDestinationBridge from './components/shell/LegacyDestinationBridge';
+import MapPreviewCard from './components/MapPreviewCard';
 import useUIStore from './store/useUIStore';
 import useShellStore from './store/useShellStore';
 import useSocket from './hooks/useSocket';
@@ -113,7 +114,7 @@ export default function App() {
   const queryClient = useQueryClient();
   const periodRef = useRef(footprintPeriod);
   periodRef.current = footprintPeriod;
-  const { data: footprints = [], isLoading: footprintsLoading, refetch: refetchFootprints } = useFootprints(footprintPeriod, null);
+  const { data: footprints = [], isLoading: footprintsLoading, error: footprintsError, refetch: refetchFootprints } = useFootprints(footprintPeriod, null);
 
   // ── Feedback trigger for returning users ───────────────
   const feedbackChecked = useRef(false);
@@ -138,13 +139,13 @@ export default function App() {
     showPhotoWall, showAbout, showFeedback, showAnnouncements, showFriends,
     chatUserId, viewingProfileId,
     authTab, authMessage,
-    shareTarget, clusterData, activeFootprintId, flyArrivedFp, timelineTargetFpId,
+    shareTarget, clusterData, activeFootprintId, mapPreviewId, flyArrivedFp, timelineTargetFpId,
     openCheckIn, closeCheckIn, openTimeline, closeTimeline,
     toggleNotifs, closeNotifs, openAdmin, closeAdmin,
     openAuth, closeAuth, openPhotoWall, closePhotoWall,
     openAbout, closeAbout, openFeedback, closeFeedback, openAnnouncements, closeAnnouncements,
     openFriends, closeFriends,
-    setActiveFootprintId, setFlyArrivedFp, setTimelineTargetFpId,
+    setActiveFootprintId, setMapPreviewId, setFlyArrivedFp, setTimelineTargetFpId,
     setClusterData, setShareTarget,
     openChat, closeChat, openProfile, closeProfile,
     setAuthTab, setAuthMessage,
@@ -216,6 +217,10 @@ export default function App() {
     const ids = new Set(clusterData.footprints.map(f => f._id));
     return footprints.filter(f => ids.has(f._id));
   }, [clusterData, footprints]);
+  const mapPreviewFootprint = useMemo(
+    () => footprints.find((footprint) => footprint._id === mapPreviewId) || null,
+    [footprints, mapPreviewId],
+  );
 
   // Derived: friend info for ChatWindow (async fallback for non-friend admin chats)
   const chatFriendMeta = useChatFriendMeta(chatUserId, friends);
@@ -355,6 +360,17 @@ export default function App() {
           isAdmin={isAdmin}
           setFlyArrivedFp={setFlyArrivedFp}
           setTimelineTargetFpId={setTimelineTargetFpId}
+          loading={footprintsLoading}
+          error={footprintsError}
+          onRetry={refetchFootprints}
+        />
+
+        <MapPreviewCard
+          footprint={mapPreviewFootprint}
+          userId={user?._id}
+          onClose={() => setMapPreviewId(null)}
+          onOpenProfile={openProfile}
+          onOpenDetail={() => { setMapPreviewId(null); setFlyArrivedFp(mapPreviewFootprint); }}
         />
 
         {/* Desktop side buttons */}

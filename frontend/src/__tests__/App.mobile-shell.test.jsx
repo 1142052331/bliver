@@ -24,6 +24,8 @@ const mocks = vi.hoisted(() => ({
   timelineDrawerProps: vi.fn(),
   friendsPanelProps: vi.fn(),
   profileDrawerProps: vi.fn(),
+  mapPreviewProps: vi.fn(),
+  footprints: [],
 }));
 
 const uiState = vi.hoisted(() => ({
@@ -44,6 +46,7 @@ const uiState = vi.hoisted(() => ({
   shareTarget: null,
   clusterData: null,
   activeFootprintId: null,
+  mapPreviewId: null,
   flyArrivedFp: null,
   timelineTargetFpId: null,
   openCheckIn: mocks.openCheckIn,
@@ -67,6 +70,7 @@ const uiState = vi.hoisted(() => ({
   openFriends: mocks.openFriends,
   closeFriends: mocks.closeFriends,
   setActiveFootprintId: vi.fn(),
+  setMapPreviewId: vi.fn(),
   setFlyArrivedFp: vi.fn(),
   setTimelineTargetFpId: vi.fn(),
   setClusterData: vi.fn(),
@@ -117,7 +121,7 @@ vi.mock('../hooks/useNotifications', () => ({
   refetchNotifications: vi.fn(),
 }));
 vi.mock('../hooks/useFootprints', () => ({
-  default: () => ({ data: [], isLoading: false, refetch: vi.fn() }),
+  default: () => ({ data: mocks.footprints, isLoading: false, error: null, refetch: vi.fn() }),
 }));
 vi.mock('../hooks/useSocket', () => ({ default: () => ({ socketRef: { current: null } }) }));
 vi.mock('../hooks/useFriends', () => ({
@@ -189,6 +193,14 @@ vi.mock('../components/ProfileDrawer', () => ({
   },
 }));
 vi.mock('../components/FootprintDetailModal', () => ({ default: () => null }));
+vi.mock('../components/MapPreviewCard', () => ({
+  default: (props) => {
+    mocks.mapPreviewProps(props);
+    return props.footprint
+      ? <button type="button" onClick={props.onOpenDetail}>Open selected footprint</button>
+      : null;
+  },
+}));
 vi.mock('../components/PhotoWall', () => ({ default: () => null }));
 vi.mock('../components/AnnouncementPanel', () => ({ default: () => null }));
 vi.mock('../components/FriendsPanel', () => ({
@@ -213,7 +225,25 @@ describe('App mobile shell integration', () => {
     uiState.showFriends = false;
     uiState.showTimeline = false;
     uiState.viewingProfileId = null;
+    uiState.mapPreviewId = null;
+    mocks.footprints = [];
     useShellStore.setState(useShellStore.getInitialState(), true);
+  });
+
+  it('routes a selected map footprint through preview before detail', async () => {
+    const user = userEvent.setup();
+    const selected = { _id: 'fp-1', userId: { _id: 'u-1' } };
+    mocks.footprints = [selected];
+    uiState.mapPreviewId = selected._id;
+
+    render(<App />);
+
+    expect(mocks.mapPreviewProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({ footprint: selected }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Open selected footprint' }));
+    expect(uiState.setMapPreviewId).toHaveBeenCalledWith(null);
+    expect(uiState.setFlyArrivedFp).toHaveBeenCalledWith(selected);
   });
 
   it('renders the natural-city shell without legacy mobile controls', () => {

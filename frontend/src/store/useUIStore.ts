@@ -53,6 +53,7 @@ interface UIStore {
 
   // Map interaction
   activeFootprintId: string | null;
+  mapPreviewId: string | null;
   flyArrivedFp: unknown;
   timelineTargetFpId: string | null;
   clusterData: ClusterPayload | null;
@@ -106,6 +107,7 @@ interface UIStore {
   closeFriends: () => void;
 
   setActiveFootprintId: (id: string | null) => void;
+  setMapPreviewId: (id: string | null) => void;
   setFlyArrivedFp: (fp: unknown) => void;
   setTimelineTargetFpId: (id: string | null) => void;
   setClusterData: (data: ClusterPayload | null) => void;
@@ -156,6 +158,7 @@ const useUIStore = create<UIStore>()(
   authMessage: '',
 
   activeFootprintId: null,
+  mapPreviewId: null,
   flyArrivedFp: null,
   timelineTargetFpId: null,
   clusterData: null,
@@ -201,6 +204,7 @@ const useUIStore = create<UIStore>()(
   closeFriends: () => set({ showFriends: false }),
 
   setActiveFootprintId: (id) => set({ activeFootprintId: id }),
+  setMapPreviewId: (id) => set({ mapPreviewId: id }),
   setFlyArrivedFp: (fp) => set({ flyArrivedFp: fp }),
   setTimelineTargetFpId: (id) => set({ timelineTargetFpId: id }),
   setClusterData: (data) => set({ clusterData: data }),
