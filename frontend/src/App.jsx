@@ -228,6 +228,11 @@ export default function App() {
     || (activeDestination === 'messages' && showFriends)
     || (activeDestination === 'me' && Boolean(viewingProfileId))
   );
+  const bottomNavigationLayer = destinationSurfaceBehindAuthIsOpen
+    ? 'destination'
+    : showAuth && activeDestination !== 'map'
+      ? 'destination-auth'
+      : 'base';
 
   const handleDestinationChange = (nextDestination) => {
     if (nextDestination === activeDestination) return;
@@ -270,6 +275,7 @@ export default function App() {
         bottomNavigation={
           <BottomNavigation
             activeDestination={activeDestination}
+            layer={bottomNavigationLayer}
             unreadMessages={totalFriendUnread}
             onDestinationChange={handleDestinationChange}
           />

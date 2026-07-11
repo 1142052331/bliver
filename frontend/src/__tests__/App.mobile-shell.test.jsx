@@ -215,6 +215,62 @@ describe('App mobile shell integration', () => {
     expect(mapLayer).not.toHaveStyle({ touchAction: 'none' });
   });
 
+  it.each([
+    ['Timeline', 'activity', null, 'showTimeline', true],
+    ['Friends', 'messages', { _id: 'user-1' }, 'showFriends', true],
+    ['Profile', 'me', { _id: 'user-1' }, 'viewingProfileId', 'user-1'],
+  ])(
+    'raises bottom navigation above the %s destination surface',
+    (_surface, destination, currentUser, stateKey, stateValue) => {
+      mocks.user = currentUser;
+      uiState[stateKey] = stateValue;
+      useShellStore.setState({ activeDestination: destination });
+
+      render(<App />);
+
+      expect(screen.getByRole('navigation')).toHaveClass(
+        'bliver-bottom-navigation--destination',
+      );
+    },
+  );
+
+  it.each(['messages', 'me'])(
+    'raises bottom navigation above destination-owned Auth for guest %s',
+    (destination) => {
+      uiState.showAuth = true;
+      useShellStore.setState({ activeDestination: destination });
+
+      render(<App />);
+
+      expect(screen.getByRole('navigation')).toHaveClass(
+        'bliver-bottom-navigation--destination-auth',
+      );
+    },
+  );
+
+  it('keeps bottom navigation at the base layer for Map Auth', () => {
+    uiState.showAuth = true;
+
+    render(<App />);
+
+    expect(screen.getByRole('navigation')).not.toHaveClass(
+      'bliver-bottom-navigation--destination',
+      'bliver-bottom-navigation--destination-auth',
+    );
+  });
+
+  it('keeps bottom navigation below secondary Auth over a destination surface', () => {
+    uiState.showTimeline = true;
+    uiState.showAuth = true;
+    useShellStore.setState({ activeDestination: 'activity' });
+
+    render(<App />);
+
+    const navigation = screen.getByRole('navigation');
+    expect(navigation).toHaveClass('bliver-bottom-navigation--destination');
+    expect(navigation).not.toHaveClass('bliver-bottom-navigation--destination-auth');
+  });
+
   it('keeps Activity current until the Timeline surface closes', async () => {
     const user = userEvent.setup();
     uiState.showTimeline = true;

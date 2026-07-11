@@ -72,6 +72,14 @@
   background: var(--bliver-surface);
 }
 
+.bliver-bottom-navigation--destination {
+  z-index: 2600;
+}
+
+.bliver-bottom-navigation--destination-auth {
+  z-index: 3100;
+}
+
 .bliver-bottom-navigation__item {
   appearance: none;
   display: flex;

@@ -81,8 +81,40 @@ it('marks every shell control for QA', () => {
   expect(container.querySelectorAll('[data-shell-control]')).toHaveLength(4);
 });
 
-it('stays above map panes and controls but below full-screen modals', () => {
+it('uses the base navigation layer by default', () => {
+  render(<BottomNavigation activeDestination="map" onDestinationChange={() => {}} />);
+
+  const navigation = screen.getByRole('navigation');
+  expect(navigation).toHaveClass('bliver-bottom-navigation');
+  expect(navigation).not.toHaveClass(
+    'bliver-bottom-navigation--destination',
+    'bliver-bottom-navigation--destination-auth',
+  );
+});
+
+it.each([
+  ['destination', 'bliver-bottom-navigation--destination'],
+  ['destination-auth', 'bliver-bottom-navigation--destination-auth'],
+])('applies the %s layer modifier', (layer, modifierClass) => {
+  render(
+    <BottomNavigation
+      activeDestination="map"
+      layer={layer}
+      onDestinationChange={() => {}}
+    />,
+  );
+
+  expect(screen.getByRole('navigation')).toHaveClass(modifierClass);
+});
+
+it('uses the approved navigation layer scale', () => {
   const tokensCss = readFileSync(resolve(cwd(), 'src/styles/tokens.css'), 'utf8');
 
   expect(tokensCss).toMatch(/\.bliver-bottom-navigation\s*{[^}]*z-index:\s*1100;/s);
+  expect(tokensCss).toMatch(
+    /\.bliver-bottom-navigation--destination\s*{[^}]*z-index:\s*2600;/s,
+  );
+  expect(tokensCss).toMatch(
+    /\.bliver-bottom-navigation--destination-auth\s*{[^}]*z-index:\s*3100;/s,
+  );
 });

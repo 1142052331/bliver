@@ -12,6 +12,7 @@ const NAV_ITEMS = [
 
 export default function BottomNavigation({
   activeDestination,
+  layer = 'base',
   unreadMessages = 0,
   onDestinationChange,
 }) {
@@ -19,9 +20,12 @@ export default function BottomNavigation({
   const normalizedUnreadMessages = Number.isFinite(numericUnreadMessages)
     ? Math.max(0, Math.floor(numericUnreadMessages))
     : 0;
+  const navigationClassName = layer === 'base'
+    ? 'bliver-bottom-navigation'
+    : `bliver-bottom-navigation bliver-bottom-navigation--${layer}`;
 
   return (
-    <nav className="bliver-bottom-navigation" aria-label="主要导航">
+    <nav className={navigationClassName} aria-label="主要导航">
       {NAV_ITEMS.map(({ id, label, Icon }) => {
         const isActive = activeDestination === id;
         const isMessages = id === 'messages';
