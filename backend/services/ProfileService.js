@@ -169,7 +169,7 @@ class ProfileService {
     if (!user) return null;
 
     // Record visit when another logged-in user views this profile
-    if (viewer && viewer.id !== userId) {
+    if (viewer && !user._id.equals(viewer.id)) {
       await this._recordVisit(userId, viewer);
     }
 

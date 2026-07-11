@@ -369,6 +369,25 @@ describe('legacy footprint HTTP visibility', () => {
     for (const field of forbiddenFields) expect(reactionResponse.body.user[field]).toBeUndefined();
   });
 
+  test('uppercase self profile route does not record a visit or notification', async () => {
+    const owner = await createUser('owner');
+
+    const response = await request(app)
+      .get(`/api/users/${owner.id.toUpperCase()}/profile`)
+      .set(auth(owner));
+
+    expect(response.status).toBe(200);
+    expect((await User.findById(owner._id)).profileVisitors).toHaveLength(0);
+    expect(await Notification.countDocuments({ type: 'profile_view' })).toBe(0);
+
+    const stranger = await createUser('stranger');
+    expect((await request(app)
+      .get(`/api/users/${owner.id}/profile`)
+      .set(auth(stranger))).status).toBe(200);
+    expect((await User.findById(owner._id)).profileVisitors).toHaveLength(1);
+    expect(await Notification.countDocuments({ type: 'profile_view' })).toBe(1);
+  });
+
   test('public profile history queries are bounded at the database', async () => {
     const target = await createUser('target');
     const limitSpy = jest.spyOn(mongoose.Query.prototype, 'limit');
