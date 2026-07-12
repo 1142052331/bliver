@@ -531,6 +531,20 @@ describe('ActivityService.listActivity', () => {
         updatedAt: NOW,
       });
     }
+    for (let index = 0; index < 2000; index += 1) {
+      rows.push({
+        userId: new mongoose.Types.ObjectId(),
+        location: { lat: 31, lng: 121 },
+        visibility: 'public',
+        discoveryOrigin: 'backfill',
+        discoveryWindowToken: 'active-window-0',
+        discoveryExpiresAt: new Date(+NOW + DAY),
+        countryCode: 'CN',
+        regionCode: 'CN-SH',
+        createdAt: new Date(+NOW - (index + 10) * 1000),
+        updatedAt: NOW,
+      });
+    }
     for (let index = 1; index < activeWindows.length; index += 1) {
       rows.push({
         userId: new mongoose.Types.ObjectId(),
@@ -650,14 +664,22 @@ describe('ActivityService.listActivity', () => {
       _id: new mongoose.Types.ObjectId(),
     });
     const cases = [
-      [null, { scope: 'global' }, ['activity_public_createdAt_id_expiry'], false, 0],
+      [null, { scope: 'global' }, [
+        'activity_normal_public_createdAt_id_expiry', 'activity_public_createdAt_id_expiry',
+      ], false, 0],
       [null, { scope: 'global' }, ['activity_backfill_window_public_createdAt_id'], true, 1],
-      [null, { scope: 'country', countryCode: 'CN' }, ['activity_country_public_createdAt_id_expiry'], false, 0],
+      [null, { scope: 'country', countryCode: 'CN' }, [
+        'activity_normal_country_createdAt_id_expiry', 'activity_country_public_createdAt_id_expiry',
+      ], false, 0],
       [null, { scope: 'country', countryCode: 'CN' }, ['activity_backfill_window_country_createdAt_id'], true, 1],
-      [null, { scope: 'region', countryCode: 'CN', regionCode: 'CN-SH' }, ['activity_region_public_createdAt_id_expiry'], false, 0],
+      [null, { scope: 'region', countryCode: 'CN', regionCode: 'CN-SH' }, [
+        'activity_normal_region_createdAt_id_expiry', 'activity_region_public_createdAt_id_expiry',
+      ], false, 0],
       [null, { scope: 'region', countryCode: 'CN', regionCode: 'CN-SH' }, ['activity_backfill_window_region_createdAt_id'], true, 1],
       [viewer(current), { scope: 'global' }, ['userId_1_createdAt_-1__id_-1'], false, 0],
-      [viewer(current), { scope: 'global' }, ['activity_public_createdAt_id_expiry'], false, 1],
+      [viewer(current), { scope: 'global' }, [
+        'activity_normal_public_createdAt_id_expiry', 'activity_public_createdAt_id_expiry',
+      ], false, 1],
       [viewer(current), { scope: 'global' }, ['activity_backfill_window_public_createdAt_id'], true, 2],
       [viewer(admin), { scope: 'global', cursor }, ['activity_createdAt_id'], true, 0],
     ];
@@ -677,12 +699,16 @@ describe('ActivityService.listActivity', () => {
     ]));
     const smartCases = [
       [null, [
-        [['activity_public_createdAt_id_expiry'], false],
+        [[
+          'activity_normal_public_createdAt_id_expiry', 'activity_public_createdAt_id_expiry',
+        ], false],
         ...backfillTierExpectations,
       ]],
       [viewer(current), [
         [['userId_1_createdAt_-1__id_-1'], false],
-        [['activity_public_createdAt_id_expiry'], false],
+        [[
+          'activity_normal_public_createdAt_id_expiry', 'activity_public_createdAt_id_expiry',
+        ], false],
         ...backfillTierExpectations,
       ]],
       [viewer(admin), [[['activity_createdAt_id'], true]]],
@@ -726,6 +752,7 @@ describe('ActivityService.listActivity', () => {
       .explain('executionStats');
     const normalDetails = collectPlanDetails(normalPlan.queryPlanner.winningPlan);
     expect(normalDetails.stages).not.toContain('SORT');
+    expect(normalDetails.indexes).toContain('activity_normal_public_createdAt_id_expiry');
     expect(normalPlan.executionStats.totalDocsExamined).toBeLessThanOrEqual(20);
     expect(normalPlan.executionStats.totalKeysExamined).toBeLessThanOrEqual(20);
   });

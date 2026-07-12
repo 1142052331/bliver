@@ -632,7 +632,9 @@ function createFootprintBackfillService({
       totals.nextCursor = encodeBackfillCursor({
         mode: cursorMode,
         id: candidate._id.toString(),
-        windowToken: options.dryRun ? null : discoveryWindow?.token || null,
+        windowToken: options.dryRun
+          ? null
+          : discoveryWindow?.token || decodedCursor?.windowToken || null,
       });
       let doc = candidate;
       if (!options.dryRun) {

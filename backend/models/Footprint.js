@@ -85,6 +85,33 @@ footprintSchema.index(
   { name: 'activity_backfill_window_region_createdAt_id' },
 );
 footprintSchema.index(
+  { visibility: 1, discoveryOrigin: 1, createdAt: -1, _id: -1, discoveryExpiresAt: 1 },
+  { name: 'activity_normal_public_createdAt_id_expiry' },
+);
+footprintSchema.index(
+  {
+    countryCode: 1,
+    visibility: 1,
+    discoveryOrigin: 1,
+    createdAt: -1,
+    _id: -1,
+    discoveryExpiresAt: 1,
+  },
+  { name: 'activity_normal_country_createdAt_id_expiry' },
+);
+footprintSchema.index(
+  {
+    countryCode: 1,
+    regionCode: 1,
+    visibility: 1,
+    discoveryOrigin: 1,
+    createdAt: -1,
+    _id: -1,
+    discoveryExpiresAt: 1,
+  },
+  { name: 'activity_normal_region_createdAt_id_expiry' },
+);
+footprintSchema.index(
   { visibility: 1, createdAt: -1, _id: -1, discoveryExpiresAt: 1 },
   { name: 'activity_public_createdAt_id_expiry' },
 );

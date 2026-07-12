@@ -21,19 +21,14 @@ function createBackfillDiscoveryWindowService({
     const newToken = String(tokenFactory());
     const expiresAt = new Date(+now + DAY_MS);
     for (let slot = 0; slot < maxActiveWindows; slot += 1) {
+      const recycled = await Window.findOneAndUpdate(
+        { slot, expiresAt: { $lte: now } },
+        { $set: { token: newToken, createdAt: now, expiresAt } },
+        { returnDocument: 'after' },
+      ).lean();
+      if (recycled) return recycled;
       try {
-        const window = await Window.findOneAndUpdate(
-          {
-            slot,
-            $or: [
-              { expiresAt: { $lte: now } },
-              { expiresAt: { $exists: false } },
-            ],
-          },
-          { $set: { token: newToken, slot, createdAt: now, expiresAt } },
-          { upsert: true, returnDocument: 'after' },
-        ).lean();
-        if (window) return window;
+        return await Window.create({ token: newToken, slot, createdAt: now, expiresAt });
       } catch (error) {
         if (error?.code !== 11000) throw error;
       }

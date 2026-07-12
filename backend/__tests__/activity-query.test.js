@@ -290,6 +290,39 @@ describe('Activity sort indexes', () => {
         _id: -1,
       },
     ],
+    [
+      'activity_normal_public_createdAt_id_expiry',
+      {
+        visibility: 1,
+        discoveryOrigin: 1,
+        createdAt: -1,
+        _id: -1,
+        discoveryExpiresAt: 1,
+      },
+    ],
+    [
+      'activity_normal_country_createdAt_id_expiry',
+      {
+        countryCode: 1,
+        visibility: 1,
+        discoveryOrigin: 1,
+        createdAt: -1,
+        _id: -1,
+        discoveryExpiresAt: 1,
+      },
+    ],
+    [
+      'activity_normal_region_createdAt_id_expiry',
+      {
+        countryCode: 1,
+        regionCode: 1,
+        visibility: 1,
+        discoveryOrigin: 1,
+        createdAt: -1,
+        _id: -1,
+        discoveryExpiresAt: 1,
+      },
+    ],
   ])('declares named %s index', (name, expectedFields) => {
     const indexes = new Map(Footprint.schema.indexes().map(([fields, options]) => [options.name, fields]));
 

@@ -135,6 +135,7 @@ Task 6 must verify the named Activity sort indexes with representative MongoDB `
 - [x] Encode publication/backfill discovery origin explicitly; query normal publication by the enforced `createdAt + 24h` invariant without blocking sort.
 - [x] Materialize exact-expiry backfill run windows behind a database-enforced 32-slot cap; carry opaque window tokens across execute cursors and acquire before claims.
 - [x] Merge bounded per-window candidates with publication, rollout-only legacy, and related candidates; prove fixed/smart scans with active/expired/legacy adversarial data and all active slots.
+- [x] Preserve execute window tokens across non-public resume batches and use origin equality-prefix chronology indexes so recent backfills cannot inflate normal publication scans.
 - [x] Run focused and full backend tests and self-review the diff.
 - [x] Commit the service without push or deployment.
 

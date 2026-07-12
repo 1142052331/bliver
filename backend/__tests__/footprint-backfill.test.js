@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const { connectDB, disconnectDB, clearDB } = require('./setup');
 const Footprint = require('../models/Footprint');
+const BackfillDiscoveryWindow = require('../models/BackfillDiscoveryWindow');
+const { createBackfillDiscoveryWindowService } = require('../services/BackfillDiscoveryWindowService');
 const {
   createFootprintBackfillService,
   validateBackfillOptions,
@@ -270,6 +272,33 @@ describe('FootprintBackfillService', () => {
     const saved = await Footprint.find({ _id: { $in: docs.map((doc) => doc._id) } }).lean();
     expect(saved.every((doc) => doc.discoveryWindowToken === 'window-a')).toBe(true);
     expect(saved.every((doc) => +doc.discoveryExpiresAt === +now + 24 * 60 * 60 * 1000)).toBe(true);
+  });
+
+  test('preserves the live window token across a private-only middle batch', async () => {
+    const docs = [rawFootprint(), rawFootprint(), rawFootprint()]
+      .sort((a, b) => a._id.toString().localeCompare(b._id.toString()));
+    docs[0].visibility = 'public';
+    docs[1].visibility = 'private';
+    docs[2].visibility = 'public';
+    await Footprint.collection.insertMany(docs);
+    const windowService = createBackfillDiscoveryWindowService({
+      Window: BackfillDiscoveryWindow,
+      tokenFactory: () => 'alternating-window',
+      maxActiveWindows: 1,
+    });
+    const service = serviceWith({ windowService });
+
+    const first = await service.run({ limit: 1 });
+    const second = await service.run({ limit: 1, cursor: first.nextCursor });
+    const third = await service.run({ limit: 1, cursor: second.nextCursor });
+
+    expect(decodeBackfillCursor(first.nextCursor).windowToken).toBe('alternating-window');
+    expect(decodeBackfillCursor(second.nextCursor).windowToken).toBe('alternating-window');
+    expect(decodeBackfillCursor(third.nextCursor).windowToken).toBe('alternating-window');
+    expect(await BackfillDiscoveryWindow.countDocuments()).toBe(1);
+    const saved = await Footprint.find({ _id: { $in: [docs[0]._id, docs[2]._id] } }).lean();
+    expect(saved.every((doc) => doc.discoveryWindowToken === 'alternating-window')).toBe(true);
+    expect(new Set(saved.map((doc) => doc.discoveryExpiresAt.toISOString())).size).toBe(1);
   });
 
   test('window acquisition failure happens before claims or completion', async () => {

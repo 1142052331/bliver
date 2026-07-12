@@ -25,9 +25,9 @@ const SOURCE_LABELS = {
   global: '全球',
 };
 const NORMAL_INDEX_BY_SCOPE = {
-  global: 'activity_public_createdAt_id_expiry',
-  country: 'activity_country_public_createdAt_id_expiry',
-  region: 'activity_region_public_createdAt_id_expiry',
+  global: 'activity_normal_public_createdAt_id_expiry',
+  country: 'activity_normal_country_createdAt_id_expiry',
+  region: 'activity_normal_region_createdAt_id_expiry',
 };
 const BACKFILL_WINDOW_INDEX_BY_SCOPE = {
   global: 'activity_backfill_window_public_createdAt_id',
