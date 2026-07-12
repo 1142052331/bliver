@@ -18,14 +18,33 @@ const COPY = {
   },
 };
 
+const CHECKIN_COPY = {
+  denied: {
+    title: '发布足迹需要位置',
+    message: '允许定位后才能发布足迹。请在浏览器地址栏的权限设置中允许定位，然后重试。',
+    action: '重试定位',
+  },
+  unavailable: {
+    title: '当前无法取得发布位置',
+    message: '发布足迹需要浏览器提供位置。请检查设备或浏览器的定位能力，然后再次尝试。',
+    action: '再次检查定位',
+  },
+  error: {
+    title: '暂时无法取得发布位置',
+    message: '发布足迹需要位置。请检查网络和定位权限，然后重试。',
+    action: '重试定位',
+  },
+};
+
 export default function LocationPermissionNotice({
   permissionState,
   onRequestLocation,
+  context = 'browse',
   now,
   viewerKey = 'guest',
   className = '',
 }) {
-  const copy = COPY[permissionState];
+  const copy = context === 'checkin' ? CHECKIN_COPY[permissionState] : COPY[permissionState];
   if (!copy) return null;
 
   return (

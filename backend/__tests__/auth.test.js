@@ -11,6 +11,21 @@ beforeAll(async () => { await connectDB(); app = require('../index').app; });
 afterAll(async () => { await disconnectDB(); });
 afterEach(async () => { await clearDB(); });
 
+const CURRENT_USER_KEYS = [
+  '_id',
+  'avatarUrl',
+  'id',
+  'lastFootprintVisibility',
+  'name',
+  'profileBannerUrl',
+  'role',
+];
+
+function expectCurrentUserDto(user) {
+  expect(Object.keys(user).sort()).toEqual(CURRENT_USER_KEYS);
+  expect(user.id).toBe(user._id);
+}
+
 describe('POST /api/auth/register', () => {
   test('registers a new user and records IP', async () => {
     const res = await request(app)
@@ -23,6 +38,7 @@ describe('POST /api/auth/register', () => {
     expect(res.body.user.name).toBe('newuser');
     expect(res.body.user.role).toBe('user');
     expect(res.body.user.lastFootprintVisibility).toBe('public');
+    expectCurrentUserDto(res.body.user);
 
     // Verify IP fields in DB
     const user = await User.findOne({ name: 'newuser' });
@@ -86,6 +102,7 @@ describe('POST /api/auth/login', () => {
     expect(res.body.token).toBeDefined();
     expect(res.body.user.name).toBe('loginuser');
     expect(res.body.user.lastFootprintVisibility).toBe('public');
+    expectCurrentUserDto(res.body.user);
   });
 
   test('login preserves an existing lastFootprintVisibility preference', async () => {
@@ -163,7 +180,38 @@ describe('GET /api/auth/me', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.user.name).toBe('meuser');
-    expect(res.body.user.password).toBeUndefined();
+    expectCurrentUserDto(res.body.user);
+  });
+
+  test('returns the same explicit current-user DTO without private account data', async () => {
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({ name: 'private-me', password: 'secret123' });
+    const visitor = await User.create({ name: 'visitor', password: 'hash' });
+    await User.updateOne({ name: 'private-me' }, {
+      avatarUrl: 'https://cdn.example/avatar.jpg',
+      profileBannerUrl: 'https://cdn.example/banner.jpg',
+      registerIp: '10.0.0.1',
+      lastLoginIp: '10.0.0.2',
+      footprintReadBaselineAt: new Date('2026-07-01T00:00:00.000Z'),
+      profileVisitors: [{ visitorId: visitor._id, visitedAt: new Date() }],
+    });
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${reg.body.token}`);
+
+    expect(res.status).toBe(200);
+    expectCurrentUserDto(res.body.user);
+    expect(res.body.user).toMatchObject({
+      avatarUrl: 'https://cdn.example/avatar.jpg',
+      profileBannerUrl: 'https://cdn.example/banner.jpg',
+    });
+    expect(res.body.user).not.toHaveProperty('password');
+    expect(res.body.user).not.toHaveProperty('registerIp');
+    expect(res.body.user).not.toHaveProperty('lastLoginIp');
+    expect(res.body.user).not.toHaveProperty('profileVisitors');
+    expect(res.body.user).not.toHaveProperty('footprintReadBaselineAt');
   });
 
   test('rejects without token', async () => {

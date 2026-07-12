@@ -7,8 +7,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CheckInModal from '../components/CheckInModal';
 
-const { mockCheckin } = vi.hoisted(() => ({
+const { mockCheckin, mockImageCompression } = vi.hoisted(() => ({
   mockCheckin: vi.fn(),
+  mockImageCompression: vi.fn(),
 }));
 
 vi.mock('../api', () => ({
@@ -19,7 +20,7 @@ vi.mock('../api', () => ({
 
 // Mock browser-image-compression
 vi.mock('browser-image-compression', () => ({
-  default: vi.fn().mockResolvedValue(new File([], 'compressed.jpg')),
+  default: mockImageCompression,
 }));
 
 const mockGeolocation = {
@@ -79,6 +80,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   mockCheckin.mockResolvedValue({ data: { footprint: { _id: 'footprint-1' } } });
+  mockImageCompression.mockResolvedValue(new File([], 'compressed.jpg', { type: 'image/jpeg' }));
   Object.defineProperty(globalThis.navigator, 'geolocation', {
     value: mockGeolocation,
     writable: true,
@@ -241,6 +243,74 @@ describe('CheckInModal', () => {
     }
   });
 
+  test('keeps GPS acquisition and publication usable when reminder storage throws', async () => {
+    const user = userEvent.setup();
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    mockGeolocation.getCurrentPosition.mockImplementationOnce((success) => {
+      success({ coords: { latitude: 35.6895, longitude: 139.6917 } });
+    });
+
+    try {
+      render(<CheckInModal isOpen onClose={mockOnClose} />);
+      const publish = await screen.findByRole('button', { name: '公开发布足迹' });
+      expect(publish).toBeEnabled();
+      await user.click(publish);
+      await waitFor(() => expect(mockCheckin).toHaveBeenCalledTimes(1));
+    } finally {
+      setItemSpy.mockRestore();
+    }
+  });
+
+  test('disables publication and exposes progress while a photo is processing', async () => {
+    const compression = deferred();
+    mockImageCompression.mockReturnValueOnce(compression.promise);
+    const user = userEvent.setup();
+    const { container } = render(
+      <CheckInModal isOpen onClose={mockOnClose} presetLocation={{ lat: 31.2304, lng: 121.4737 }} />,
+    );
+
+    const upload = user.upload(
+      container.querySelector('input[type="file"]'),
+      new File(['first'], 'first.jpg', { type: 'image/jpeg' }),
+    );
+
+    expect(await screen.findByText('正在处理照片')).toBeVisible();
+    expect(screen.getByRole('button', { name: '公开发布足迹' })).toBeDisabled();
+    compression.resolve(new File(['first-compressed'], 'first-compressed.jpg', { type: 'image/jpeg' }));
+    await upload;
+    await waitFor(() => expect(screen.getByRole('button', { name: '公开发布足迹' })).toBeEnabled());
+  });
+
+  test('ignores an older slow compression result after a newer photo finishes', async () => {
+    const firstCompression = deferred();
+    const secondCompression = deferred();
+    mockImageCompression
+      .mockReturnValueOnce(firstCompression.promise)
+      .mockReturnValueOnce(secondCompression.promise);
+    const user = userEvent.setup();
+    const { container } = render(
+      <CheckInModal isOpen onClose={mockOnClose} presetLocation={{ lat: 31.2304, lng: 121.4737 }} />,
+    );
+    const input = container.querySelector('input[type="file"]');
+
+    const firstUpload = user.upload(input, new File(['first'], 'first.jpg', { type: 'image/jpeg' }));
+    await waitFor(() => expect(mockImageCompression).toHaveBeenCalledTimes(1));
+    const secondUpload = user.upload(input, new File(['second'], 'second.jpg', { type: 'image/jpeg' }));
+    await waitFor(() => expect(mockImageCompression).toHaveBeenCalledTimes(2));
+
+    secondCompression.resolve(new File(['second-compressed'], 'second-compressed.jpg', { type: 'image/jpeg' }));
+    await secondUpload;
+    firstCompression.resolve(new File(['first-compressed'], 'first-compressed.jpg', { type: 'image/jpeg' }));
+    await firstUpload;
+    await user.click(screen.getByRole('button', { name: '公开发布足迹' }));
+
+    await waitFor(() => expect(mockCheckin).toHaveBeenCalledTimes(1));
+    const photo = mockCheckin.mock.calls[0][0].get('photo');
+    expect(photo.name).toBe('second-compressed.jpg');
+  });
+
   test('renders submit button when GPS succeeds', async () => {
     mockGeolocation.getCurrentPosition.mockImplementationOnce((success) =>
       success({ coords: { latitude: 35.6895, longitude: 139.6917 } })
@@ -263,7 +333,7 @@ describe('CheckInModal', () => {
     render(<CheckInModal isOpen={true} onClose={mockOnClose} />);
 
     await waitFor(() => {
-      expect(screen.getByText('定位权限已关闭')).toBeInTheDocument();
+      expect(screen.getByText('发布足迹需要位置')).toBeInTheDocument();
     });
   });
 
@@ -393,3 +463,13 @@ describe('CheckInModal', () => {
     expect(getContrastRatio(darkFocusRing, '#101319')).toBeGreaterThanOrEqual(3);
   });
 });
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}

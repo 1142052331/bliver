@@ -1526,6 +1526,16 @@
   object-fit: cover;
 }
 
+.bliver-checkin__photo-processing {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: var(--bliver-muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
 .bliver-checkin__decision {
   padding-top: 14px;
   border-top: 1px solid var(--bliver-border);

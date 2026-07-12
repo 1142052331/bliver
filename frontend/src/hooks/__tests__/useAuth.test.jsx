@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { render } from '@testing-library/react';
-import { describe, expect, test, vi } from 'vitest';
+import { act, render } from '@testing-library/react';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import useAuth from '../useAuth';
 
 const mocks = vi.hoisted(() => ({
@@ -34,13 +34,31 @@ vi.mock('../../store/useUIStore', () => ({ default: (selector) => selector({
   setAuthTab: vi.fn(),
 }) }));
 
-function Probe({ onUser }) {
+function Probe({ onUser, onAuth }) {
   const auth = useAuth();
   useEffect(() => { if (auth.user) onUser(auth.user); }, [auth.user, onUser]);
+  useEffect(() => { onAuth?.(auth); }, [auth, onAuth]);
   return null;
 }
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('useAuth auto-login', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getUser.mockReturnValue({ _id: 'user-1', lastFootprintVisibility: 'public' });
+    mocks.getToken.mockReturnValue('token-a');
+    mocks.isAutoLogin.mockReturnValue(true);
+  });
+
   test('persists the authoritative /me user snapshot without changing the token', async () => {
     const serverUser = { _id: 'user-1', name: 'alice', role: 'user', lastFootprintVisibility: 'private' };
     mocks.me.mockResolvedValueOnce({ data: { user: serverUser } });
@@ -51,5 +69,55 @@ describe('useAuth auto-login', () => {
     await vi.waitFor(() => expect(onUser).toHaveBeenCalledWith(serverUser));
     expect(mocks.saveUser).toHaveBeenCalledWith(serverUser);
     expect(mocks.getToken).toHaveBeenCalled();
+  });
+
+  test('does not let a stale /me success overwrite a newer local session', async () => {
+    const requestA = deferred();
+    mocks.me.mockReturnValueOnce(requestA.promise);
+    const onUser = vi.fn();
+    let auth;
+    render(<Probe onUser={onUser} onAuth={(value) => { auth = value; }} />);
+
+    const userB = { _id: 'user-2', name: 'bob', role: 'user' };
+    mocks.getToken.mockReturnValue('token-b');
+    mocks.getUser.mockReturnValue(userB);
+    await act(async () => auth.setUser(userB));
+
+    await act(async () => requestA.resolve({ data: { user: { _id: 'user-1', name: 'alice', role: 'user' } } }));
+
+    expect(onUser).toHaveBeenLastCalledWith(userB);
+    expect(mocks.saveUser).not.toHaveBeenCalled();
+    expect(mocks.subscribeToPush).not.toHaveBeenCalled();
+  });
+
+  test('does not let a stale /me error clear a newer local session', async () => {
+    const requestA = deferred();
+    mocks.me.mockReturnValueOnce(requestA.promise);
+    const onUser = vi.fn();
+    let auth;
+    render(<Probe onUser={onUser} onAuth={(value) => { auth = value; }} />);
+
+    const userB = { _id: 'user-2', name: 'bob', role: 'user' };
+    mocks.getToken.mockReturnValue('token-b');
+    mocks.getUser.mockReturnValue(userB);
+    await act(async () => auth.setUser(userB));
+    await act(async () => requestA.reject(new Error('session A expired')));
+
+    expect(onUser).toHaveBeenLastCalledWith(userB);
+    expect(mocks.clearAuth).not.toHaveBeenCalled();
+  });
+
+  test('aborts the pending /me request on unmount without clearing auth', async () => {
+    let requestSignal;
+    mocks.me.mockImplementationOnce(({ signal }) => {
+      requestSignal = signal;
+      return new Promise(() => {});
+    });
+
+    const view = render(<Probe onUser={vi.fn()} />);
+    view.unmount();
+
+    expect(requestSignal.aborted).toBe(true);
+    expect(mocks.clearAuth).not.toHaveBeenCalled();
   });
 });

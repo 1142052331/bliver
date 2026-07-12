@@ -80,6 +80,14 @@ function savePublicationPreferences(viewerKey, visibility, locationPrecision) {
   }
 }
 
+function safelyMarkLocationReminder(viewerKey, now, state) {
+  try {
+    markLocationReminder(viewerKey, now, localStorage, state);
+  } catch {
+    // Location and publishing must work when browser storage is unavailable.
+  }
+}
+
 export default function CheckInModal({ isOpen, onClose, presetLocation = null }) {
   if (!isOpen) return null;
   return <OpenCheckInModal onClose={onClose} presetLocation={presetLocation} />;
@@ -93,6 +101,7 @@ function OpenCheckInModal({ onClose, presetLocation }) {
   const [mood, setMood] = useState('');
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState('');
+  const [photoProcessing, setPhotoProcessing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(() => (hasPresetLocation
     ? { lat: presetLocation.lat, lng: presetLocation.lng }
@@ -106,6 +115,7 @@ function OpenCheckInModal({ onClose, presetLocation }) {
   const previewUrlRef = useRef(null);
   const dialogRef = useRef(null);
   const mountedRef = useRef(true);
+  const photoRequestRef = useRef(0);
 
   const revokePreview = useCallback(() => {
     if (previewUrlRef.current) {
@@ -116,20 +126,21 @@ function OpenCheckInModal({ onClose, presetLocation }) {
 
   useEffect(() => () => {
     mountedRef.current = false;
+    photoRequestRef.current += 1;
     revokePreview();
   }, [revokePreview]);
 
   useEffect(() => {
     if (hasPresetLocation) return undefined;
     const now = Date.now();
-    markLocationReminder(viewerKey, now, localStorage, 'locating');
+    safelyMarkLocationReminder(viewerKey, now, 'locating');
 
     if (!navigator.geolocation) {
       queueMicrotask(() => {
         if (!mountedRef.current) return;
         setLocating(false);
         setPermissionState('unavailable');
-        markLocationReminder(viewerKey, now, localStorage, 'unavailable');
+        safelyMarkLocationReminder(viewerKey, now, 'unavailable');
       });
       return undefined;
     }
@@ -140,7 +151,7 @@ function OpenCheckInModal({ onClose, presetLocation }) {
         setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
         setLocating(false);
         setPermissionState('granted');
-        markLocationReminder(viewerKey, now, localStorage, 'granted');
+        safelyMarkLocationReminder(viewerKey, now, 'granted');
       },
       (error) => {
         if (!mountedRef.current) return;
@@ -148,7 +159,7 @@ function OpenCheckInModal({ onClose, presetLocation }) {
         setLocation(null);
         setLocating(false);
         setPermissionState(nextState);
-        markLocationReminder(viewerKey, now, localStorage, nextState);
+        safelyMarkLocationReminder(viewerKey, now, nextState);
       },
       { timeout: 15000, enableHighAccuracy: true },
     );
@@ -160,13 +171,13 @@ function OpenCheckInModal({ onClose, presetLocation }) {
     setLocating(true);
     setPermissionState('locating');
     setSubmissionError('');
-    markLocationReminder(viewerKey, now, localStorage, 'locating');
+    safelyMarkLocationReminder(viewerKey, now, 'locating');
 
     if (!navigator.geolocation) {
       setLocation(null);
       setLocating(false);
       setPermissionState('unavailable');
-      markLocationReminder(viewerKey, now, localStorage, 'unavailable');
+      safelyMarkLocationReminder(viewerKey, now, 'unavailable');
       return;
     }
 
@@ -176,7 +187,7 @@ function OpenCheckInModal({ onClose, presetLocation }) {
         setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
         setLocating(false);
         setPermissionState('granted');
-        markLocationReminder(viewerKey, now, localStorage, 'granted');
+        safelyMarkLocationReminder(viewerKey, now, 'granted');
       },
       (error) => {
         if (!mountedRef.current) return;
@@ -184,7 +195,7 @@ function OpenCheckInModal({ onClose, presetLocation }) {
         setLocation(null);
         setLocating(false);
         setPermissionState(nextState);
-        markLocationReminder(viewerKey, now, localStorage, nextState);
+        safelyMarkLocationReminder(viewerKey, now, nextState);
       },
       { timeout: 15000, enableHighAccuracy: true },
     );
@@ -193,17 +204,26 @@ function OpenCheckInModal({ onClose, presetLocation }) {
   const handleFile = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    const requestId = photoRequestRef.current + 1;
+    photoRequestRef.current = requestId;
+    setPhotoProcessing(true);
     setSubmissionError('');
     try {
       const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || photoRequestRef.current !== requestId) return;
       setPhoto(compressed);
       revokePreview();
       const url = URL.createObjectURL(compressed);
       previewUrlRef.current = url;
       setPreview(url);
     } catch {
-      if (mountedRef.current) setSubmissionError('照片处理失败，请重新选择一张照片。');
+      if (mountedRef.current && photoRequestRef.current === requestId) {
+        setSubmissionError('照片处理失败，请重新选择一张照片。');
+      }
+    } finally {
+      if (mountedRef.current && photoRequestRef.current === requestId) {
+        setPhotoProcessing(false);
+      }
     }
   };
 
@@ -297,6 +317,7 @@ function OpenCheckInModal({ onClose, presetLocation }) {
 
         {['denied', 'unavailable', 'error'].includes(permissionState) && (
           <LocationPermissionNotice
+            context="checkin"
             permissionState={permissionState}
             viewerKey={viewerKey}
             onRequestLocation={requestLocation}
@@ -336,8 +357,16 @@ function OpenCheckInModal({ onClose, presetLocation }) {
               <Camera size={18} aria-hidden="true" />
               {photo ? '更换照片' : '添加照片'}
             </button>
+            {photoProcessing && (
+              <span className="bliver-checkin__photo-processing" role="status">
+                <Loader2 size={17} className="bliver-checkin__spinner" aria-hidden="true" />
+                正在处理照片
+              </span>
+            )}
             {preview && <img src={preview} alt="待发布照片预览" />}
             {photo && <button type="button" aria-label="移除照片" onClick={() => {
+              photoRequestRef.current += 1;
+              setPhotoProcessing(false);
               setPhoto(null);
               setPreview('');
               revokePreview();
@@ -397,7 +426,7 @@ function OpenCheckInModal({ onClose, presetLocation }) {
               <ShieldCheck size={18} aria-hidden="true" />
               <span><small>本次发布</small><strong>{audience.label} · {precision.label}</strong></span>
             </div>
-            <button type="submit" disabled={loading || locating || location?.lat == null}>
+            <button type="submit" disabled={loading || photoProcessing || locating || location?.lat == null}>
               {loading && <Loader2 size={18} className="bliver-checkin__spinner" aria-hidden="true" />}
               {PUBLISH_LABELS[visibility]}
             </button>

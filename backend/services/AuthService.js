@@ -6,6 +6,21 @@ const { isSuperuserName } = require('./authorization');
 const bus = require('../events/bus');
 const AppError = require('../middleware/AppError');
 
+const CURRENT_USER_FIELDS = 'name avatarUrl profileBannerUrl role lastFootprintVisibility';
+
+function toCurrentUserDto(user) {
+  const id = String(user._id);
+  return {
+    _id: id,
+    id,
+    name: user.name,
+    avatarUrl: user.avatarUrl || '',
+    profileBannerUrl: user.profileBannerUrl || '',
+    role: user.role,
+    lastFootprintVisibility: user.lastFootprintVisibility || 'public',
+  };
+}
+
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) return forwarded.split(',')[0].trim();
@@ -28,7 +43,7 @@ async function register({ name, password, avatarUrl, ip }) {
   });
 
   const token = jwt.sign({ id: user._id, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-  return { user: { _id: user._id, name: user.name, avatarUrl: user.avatarUrl, role: user.role, lastFootprintVisibility: user.lastFootprintVisibility || 'public' }, token };
+  return { user: toCurrentUserDto(user), token };
 }
 
 async function login(name, password, ip) {
@@ -53,11 +68,11 @@ async function login(name, password, ip) {
   }
 
   const token = jwt.sign({ id: user._id, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-  return { user: { _id: user._id, name: user.name, avatarUrl: user.avatarUrl, role: user.role, lastFootprintVisibility: user.lastFootprintVisibility || 'public' }, token };
+  return { user: toCurrentUserDto(user), token };
 }
 
 async function getMe(userId) {
-  const user = await User.findById(userId).select('-password');
+  const user = await User.findById(userId).select(CURRENT_USER_FIELDS);
   if (!user) return null;
 
   if (isSuperuserName(user.name) && user.role !== 'admin') {
@@ -65,7 +80,7 @@ async function getMe(userId) {
     await user.save();
   }
 
-  return user;
+  return toCurrentUserDto(user);
 }
 
 module.exports = { getClientIp, register, login, getMe };

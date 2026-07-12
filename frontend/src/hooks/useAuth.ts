@@ -8,8 +8,10 @@ import { isAdminUser, isSuperuser } from '../domain/superuser';
 
 interface AppUser {
   _id: string;
+  id: string;
   name: string;
   avatarUrl?: string;
+  profileBannerUrl?: string;
   role: 'user' | 'admin';
   lastFootprintVisibility?: 'public' | 'friends' | 'private';
 }
@@ -34,14 +36,24 @@ export default function useAuth() {
   useEffect(() => {
     const controller = new AbortController();
     const saved = getUser();
-    if (saved && getToken() && isAutoLogin()) {
+    const requestToken = getToken();
+    const requestViewerId = saved?._id;
+    const isCurrentSession = () => {
+      const currentUser = getUser();
+      return !controller.signal.aborted
+        && getToken() === requestToken
+        && currentUser?._id === requestViewerId;
+    };
+
+    if (saved && requestToken && isAutoLogin()) {
       apiClient.auth.me({ signal: controller.signal }).then((res) => {
+        if (!isCurrentSession()) return;
         const u: AppUser = res.data.user;
         setUser(u);
         saveUser(u);
         subscribeToPush().catch(() => {});
       }).catch((err: Error) => {
-        if (err.name === 'CanceledError') return;
+        if (err.name === 'CanceledError' || !isCurrentSession()) return;
         clearAuth();
         setUser(null);
       });
