@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiClient } from '../api';
-import { getUser, getToken, clearAuth, isAutoLogin } from '../auth';
+import { getUser, getToken, clearAuth, isAutoLogin, saveUser } from '../auth';
 import { broadcastLogout, listenAuthSync } from '../authSync';
 import { subscribeToPush } from '../push';
 import useUIStore from '../store/useUIStore';
@@ -38,6 +38,7 @@ export default function useAuth() {
       apiClient.auth.me({ signal: controller.signal }).then((res) => {
         const u: AppUser = res.data.user;
         setUser(u);
+        saveUser(u);
         subscribeToPush().catch(() => {});
       }).catch((err: Error) => {
         if (err.name === 'CanceledError') return;

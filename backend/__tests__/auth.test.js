@@ -22,6 +22,7 @@ describe('POST /api/auth/register', () => {
     expect(res.body.token).toBeDefined();
     expect(res.body.user.name).toBe('newuser');
     expect(res.body.user.role).toBe('user');
+    expect(res.body.user.lastFootprintVisibility).toBe('public');
 
     // Verify IP fields in DB
     const user = await User.findOne({ name: 'newuser' });
@@ -84,6 +85,18 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
     expect(res.body.user.name).toBe('loginuser');
+    expect(res.body.user.lastFootprintVisibility).toBe('public');
+  });
+
+  test('login preserves an existing lastFootprintVisibility preference', async () => {
+    await User.updateOne({ name: 'loginuser' }, { lastFootprintVisibility: 'private' });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ name: 'loginuser', password: 'mypassword' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.lastFootprintVisibility).toBe('private');
   });
 
   test('login updates lastLoginIp and lastLoginAt', async () => {

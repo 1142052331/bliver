@@ -9,7 +9,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiClient } from '../api';
-import { getUser } from '../auth';
+import { getUser, saveUser } from '../auth';
 import LocationPermissionNotice from './LocationPermissionNotice';
 import { markLocationReminder } from '../domain/locationReminder';
 import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
@@ -228,11 +228,13 @@ function OpenCheckInModal({ onClose, presetLocation }) {
       savePublicationPreferences(viewerKey, visibility, locationPrecision);
       const savedUser = getUser();
       if (savedUser && savedUser._id === viewerKey) {
-        localStorage.setItem('bliver_user', JSON.stringify({ ...savedUser, lastFootprintVisibility: visibility }));
+        saveUser({ ...savedUser, lastFootprintVisibility: visibility });
       }
       revokePreview();
       onClose();
-      if (!localStorage.getItem('feedback_submitted')) {
+      let feedbackSubmitted = false;
+      try { feedbackSubmitted = !!localStorage.getItem('feedback_submitted'); } catch { /* best effort */ }
+      if (!feedbackSubmitted) {
         setTimeout(() => useUIStore.getState().openFeedback(), 600);
       }
     } catch (error) {

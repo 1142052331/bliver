@@ -14,6 +14,15 @@ export const saveAuth = (user, token) => {
   localStorage.setItem(TOKEN_KEY, token);
 };
 
+// Keep the server-authoritative user snapshot in sync without affecting auth state.
+export const saveUser = (user) => {
+  try {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch {
+    // Storage may be blocked or full; in-memory auth remains valid.
+  }
+};
+
 export const clearAuth = () => {
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(TOKEN_KEY);

@@ -223,6 +223,24 @@ describe('CheckInModal', () => {
     expect(mockOnClose).not.toHaveBeenCalled();
   });
 
+  test('keeps a successful publication successful when preference storage throws', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    localStorage.setItem('bliver_user', JSON.stringify({ _id: 'user-1', lastFootprintVisibility: 'public' }));
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('blocked', 'SecurityError'); });
+
+    try {
+      render(<CheckInModal isOpen onClose={onClose} presetLocation={{ lat: 31.2304, lng: 121.4737 }} />);
+      await user.click(screen.getByRole('button', { name: /公开发布/ }));
+
+      await waitFor(() => expect(mockCheckin).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    } finally {
+      setItemSpy.mockRestore();
+    }
+  });
+
   test('renders submit button when GPS succeeds', async () => {
     mockGeolocation.getCurrentPosition.mockImplementationOnce((success) =>
       success({ coords: { latitude: 35.6895, longitude: 139.6917 } })
