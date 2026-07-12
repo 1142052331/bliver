@@ -1251,3 +1251,48 @@
 
   .bliver-map-marker--pulse .bliver-map-marker__mood::after { display: none; }
 }
+
+/* Natural City activity destination */
+.bliver-activity-page { min-height: 100%; padding: calc(20px + var(--bliver-safe-top)) max(16px, var(--bliver-safe-right)) calc(88px + var(--bliver-safe-bottom)) max(16px, var(--bliver-safe-left)); background: var(--bliver-paper); }
+.bliver-activity-page__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; max-width: 720px; margin: 0 auto 20px; }
+.bliver-activity-page__eyebrow { margin: 0 0 4px; color: var(--bliver-muted); font-size: 13px; font-weight: 650; }
+.bliver-activity-page h1 { margin: 0; color: var(--bliver-forest); font-size: 28px; line-height: 1.2; }
+.bliver-activity-page__scope { min-height: 44px; padding: 8px 14px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-md); background: var(--bliver-surface); color: var(--bliver-forest); font: inherit; font-size: 15px; font-weight: 650; cursor: pointer; }
+.bliver-activity-list { display: grid; gap: 14px; max-width: 720px; margin: 0 auto; }
+.bliver-activity-card { padding: 16px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-md); background: var(--bliver-surface); box-shadow: var(--bliver-shadow-card); }
+.bliver-activity-card__header, .bliver-activity-card__meta, .bliver-activity-card__actions { display: flex; align-items: center; gap: 10px; }
+.bliver-activity-card__avatar { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border-radius: 50%; background: var(--bliver-sage-soft); color: var(--bliver-forest); font-weight: 750; }
+.bliver-activity-card__identity { display: grid; gap: 2px; min-width: 0; }
+.bliver-activity-card__identity strong { color: var(--bliver-ink); font-size: 16px; }
+.bliver-activity-card__identity span, .bliver-activity-card__meta { color: var(--bliver-muted); font-size: 13px; }
+.bliver-activity-card__mood { margin-left: auto; font-size: 22px; }
+.bliver-activity-card__meta { flex-wrap: wrap; margin-top: 12px; }
+.bliver-activity-card__meta time { margin-left: auto; }
+.bliver-activity-card__source { padding: 3px 8px; border-radius: 6px; background: var(--bliver-sage-soft); color: var(--bliver-forest); font-weight: 650; }
+.bliver-activity-card__message { margin: 14px 0 0; color: var(--bliver-ink); font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.bliver-activity-card__media { display: block; width: 100%; max-height: 520px; margin-top: 14px; border-radius: var(--bliver-radius-sm); object-fit: contain; background: var(--bliver-sage-soft); }
+.bliver-activity-card__actions { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--bliver-border); }
+.bliver-activity-card__actions button, .bliver-activity-sheet__header button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: var(--bliver-radius-sm); background: transparent; color: var(--bliver-muted); font: inherit; cursor: pointer; }
+.bliver-activity-card__actions button:hover, .bliver-activity-card__actions button:focus-visible { background: var(--bliver-sage-soft); color: var(--bliver-forest); }
+.bliver-activity-state, .bliver-activity-notice { max-width: 720px; margin: 24px auto; padding: 20px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-md); background: var(--bliver-surface); }
+.bliver-activity-state h2 { margin: 0 0 8px; color: var(--bliver-forest); font-size: 18px; }
+.bliver-activity-state p, .bliver-activity-notice p { margin: 0 0 14px; font-size: 15px; line-height: 1.55; }
+.bliver-activity-state button, .bliver-activity-notice button { min-height: 44px; padding: 9px 14px; border: 0; border-radius: var(--bliver-radius-sm); background: var(--bliver-forest); color: var(--bliver-surface); font: inherit; cursor: pointer; }
+.bliver-activity-notice { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 16px; background: var(--bliver-sage-soft); }
+.bliver-activity-notice p { margin: 0; }
+.bliver-activity-skeletons { display: grid; gap: 14px; max-width: 720px; margin: 0 auto; }
+.bliver-activity-skeleton { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 16px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-md); background: var(--bliver-surface); }
+.bliver-activity-skeleton__avatar, .bliver-activity-skeleton__line { display: block; height: 16px; border-radius: 6px; background: var(--bliver-sage-soft); }
+.bliver-activity-skeleton__avatar { width: 44px; height: 44px; grid-row: span 2; border-radius: 50%; }
+.bliver-activity-skeleton__line--wide { width: 72%; }
+.bliver-activity-sheet-layer { position: fixed; z-index: 1500; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 16px; background: rgb(23 59 49 / 16%); }
+.bliver-activity-sheet { width: min(100%, 480px); padding: 10px 16px calc(16px + var(--bliver-safe-bottom)); border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-lg) var(--bliver-radius-lg) 0 0; background: var(--bliver-surface); box-shadow: var(--bliver-shadow-float); }
+.bliver-activity-sheet__handle { width: 36px; height: 4px; margin: 0 auto 10px; border-radius: 2px; background: var(--bliver-border); }
+.bliver-activity-sheet__header { display: flex; align-items: center; justify-content: space-between; }
+.bliver-activity-sheet__header h2 { margin: 0; color: var(--bliver-forest); font-size: 18px; }
+.bliver-activity-sheet__options { display: grid; gap: 4px; margin-top: 8px; }
+.bliver-activity-sheet__options button { display: grid; min-height: 52px; grid-template-columns: 1fr auto; align-items: center; padding: 8px 10px; border: 1px solid transparent; border-radius: var(--bliver-radius-sm); background: transparent; color: var(--bliver-ink); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+.bliver-activity-sheet__options button[aria-pressed="true"] { border-color: var(--bliver-forest); background: var(--bliver-sage-soft); color: var(--bliver-forest); font-weight: 700; }
+.bliver-activity-sheet__options small { color: var(--bliver-muted); }
+
+@media (max-width: 480px) { .bliver-activity-card__meta time { margin-left: 0; } .bliver-activity-notice { align-items: flex-start; flex-direction: column; } }
