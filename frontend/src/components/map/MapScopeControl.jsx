@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Globe2, Map, Navigation, X } from 'lucide-react';
 import LocationPermissionNotice from '../LocationPermissionNotice';
@@ -19,7 +19,7 @@ export default function MapScopeControl({
 }) {
   const closeRef = useRef(null);
   const reminderAttemptedRef = useRef(false);
-  const [showReminder, setShowReminder] = useState(false);
+  const [showReminder, setShowReminder] = useReducer((_current, next) => next, false);
   useEffect(() => {
     if (open) requestAnimationFrame(() => closeRef.current?.focus());
   }, [open]);
@@ -40,7 +40,7 @@ export default function MapScopeControl({
       : true;
     setShowReminder(consumed);
     return undefined;
-  }, [open, context.reason, locationReminder]);
+  }, [open, context.reason, locationReminder, now]);
 
   const choose = (scope) => {
     if (scope === 'region' && !context.regionCode) {
