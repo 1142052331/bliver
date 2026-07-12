@@ -1,7 +1,7 @@
 # Visibility, Activity, and Privacy-Aware Check-in QA
 
 Date: 2026-07-13  
-Commit under test: `744f3ea` (`codex/map-home-redesign`)  
+Commit under test: `b873285` (`codex/map-home-redesign`)
 Scope: Task 14 production-readiness evidence for Phases 3 and 5.
 
 ## Automated gates
