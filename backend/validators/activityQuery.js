@@ -35,6 +35,9 @@ const activityQuerySchema = z.object({
       context.addIssue({ code: 'custom', path: ['regionCode'], message: 'Region code is required' });
     }
   }
+  if (value.scope === 'smart' && value.regionCode && !value.countryCode) {
+    context.addIssue({ code: 'custom', path: ['countryCode'], message: 'Country code is required' });
+  }
   if (value.scope === 'country') {
     if (!value.countryCode) {
       context.addIssue({ code: 'custom', path: ['countryCode'], message: 'Country code is required' });
@@ -49,11 +52,16 @@ const activityQuerySchema = z.object({
 });
 
 function normalizeActivityQuery(input) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new AppError(400, 'Invalid activity query');
+  }
+  const prototype = Object.getPrototypeOf(input);
+  if ((prototype !== Object.prototype && prototype !== null)
     || Object.keys(input).some((key) => !ALLOWED_QUERY_FIELDS.has(key))) {
     throw new AppError(400, 'Invalid activity query');
   }
-  const result = activityQuerySchema.safeParse(input);
+  const ownInput = Object.fromEntries(Object.keys(input).map((key) => [key, input[key]]));
+  const result = activityQuerySchema.safeParse(ownInput);
   if (!result.success) throw new AppError(400, 'Invalid activity query');
   return result.data;
 }

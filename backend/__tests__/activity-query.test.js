@@ -37,6 +37,13 @@ describe('normalizeActivityQuery', () => {
       .toEqual({ scope: 'smart', countryCode: 'JP', regionCode: 'JP-13', limit: 20 });
   });
 
+  test('accepts country-only smart context but requires country for a smart region', () => {
+    expect(normalizeActivityQuery({ countryCode: 'cn' }))
+      .toEqual({ scope: 'smart', countryCode: 'CN', limit: 20 });
+    expect(() => normalizeActivityQuery({ regionCode: 'cn-sh' }))
+      .toThrow('Invalid activity query');
+  });
+
   test('accepts a valid opaque cursor without exposing its payload', () => {
     const cursor = encodeActivityCursor({ createdAt: CREATED_AT, _id: ID });
 
@@ -76,6 +83,15 @@ describe('normalizeActivityQuery', () => {
 
     expect(() => normalizeActivityQuery(input)).toThrow('Invalid activity query');
     expect({}.polluted).toBeUndefined();
+  });
+
+  test('rejects inherited query fields and accepts copied own fields from null-prototype input', () => {
+    const inherited = Object.create({ scope: 'global' });
+    const nullPrototype = Object.assign(Object.create(null), { scope: 'country', countryCode: 'cn' });
+
+    expect(() => normalizeActivityQuery(inherited)).toThrow('Invalid activity query');
+    expect(normalizeActivityQuery(nullPrototype))
+      .toEqual({ scope: 'country', countryCode: 'CN', limit: 20 });
   });
 });
 
@@ -145,5 +161,17 @@ describe('ActivityCursor', () => {
         },
       ],
     });
+  });
+
+  test('snapshots independent dates in cursor predicates', () => {
+    const inputDate = new Date(CREATED_AT);
+    const filter = buildCursorFilter({ createdAt: inputDate, _id: ID });
+
+    inputDate.setUTCFullYear(2000);
+    expect(filter.$or[0].createdAt.$lt).toEqual(CREATED_AT);
+    expect(filter.$or[1].createdAt).toEqual(CREATED_AT);
+
+    filter.$or[0].createdAt.$lt.setUTCFullYear(2001);
+    expect(filter.$or[1].createdAt).toEqual(CREATED_AT);
   });
 });

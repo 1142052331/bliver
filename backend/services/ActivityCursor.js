@@ -75,11 +75,12 @@ function buildCursorFilter(cursor) {
     throw invalidCursor();
   }
   const id = new mongoose.Types.ObjectId(normalizeObjectId(cursor._id));
+  const timestamp = cursor.createdAt.getTime();
 
   return {
     $or: [
-      { createdAt: { $lt: cursor.createdAt } },
-      { createdAt: cursor.createdAt, _id: { $lt: id } },
+      { createdAt: { $lt: new Date(timestamp) } },
+      { createdAt: new Date(timestamp), _id: { $lt: id } },
     ],
   };
 }
