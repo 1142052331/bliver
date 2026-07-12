@@ -34,6 +34,13 @@ export default function MapScopeControl({
   }, [viewerKey]);
 
   useEffect(() => {
+    if (context.reason !== 'resolved-location') return;
+    setShowReminder(false);
+    setReminderViewerKey(null);
+    setForcedReason(null);
+  }, [context.reason]);
+
+  useEffect(() => {
     if (!open) {
       reminderAttemptedRef.current = false;
       return undefined;
@@ -50,25 +57,29 @@ export default function MapScopeControl({
     if (consumed) setReminderViewerKey(viewerKey);
     setShowReminder(consumed);
     return undefined;
-  }, [open, context.reason, locationReminder, now]);
+  }, [open, context.reason, locationReminder, now, viewerKey]);
+
+  const requestLocation = async (options) => {
+    const result = await Promise.resolve(onRequestLocation(options));
+    if (result?.status === 'granted') {
+      setShowReminder(false);
+      setReminderViewerKey(null);
+      setForcedReason(null);
+    } else if (['denied', 'unavailable', 'error'].includes(result?.status)) {
+      setForcedReason(result.status === 'denied' ? 'permission-denied' : `location-${result.status}`);
+      setReminderViewerKey(viewerKey);
+      setShowReminder(true);
+    }
+    return result;
+  };
 
   const choose = async (scope) => {
     if (scope === 'region' && !context.regionCode) {
-      const result = await Promise.resolve(onRequestLocation({ explicit: true }));
-      if (['denied', 'unavailable', 'error'].includes(result?.status)) {
-        setForcedReason(result.status === 'denied' ? 'permission-denied' : `location-${result.status}`);
-        setReminderViewerKey(viewerKey);
-        setShowReminder(true);
-      }
+      await requestLocation({ explicit: true });
       return;
     }
     if (scope === 'country' && !context.countryCode) {
-      const result = await Promise.resolve(onRequestLocation({ explicit: true }));
-      if (['denied', 'unavailable', 'error'].includes(result?.status)) {
-        setForcedReason(result.status === 'denied' ? 'permission-denied' : `location-${result.status}`);
-        setReminderViewerKey(viewerKey);
-        setShowReminder(true);
-      }
+      await requestLocation({ explicit: true });
       return;
     }
     const next = { scope };
@@ -129,7 +140,7 @@ export default function MapScopeControl({
                   ? 'unavailable'
                   : (forcedReason || context.reason) === 'location-error' ? 'error' : 'idle'}
               viewerKey={viewerKey}
-              onRequestLocation={onRequestLocation}
+              onRequestLocation={requestLocation}
             />}
             <div className="bliver-map-scope-options">
               {options.map(([scope, label, detail, Icon]) => {

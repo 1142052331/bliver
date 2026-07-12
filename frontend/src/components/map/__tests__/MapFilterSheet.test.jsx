@@ -158,6 +158,36 @@ describe('MapScopeControl', () => {
     expect(document.body.querySelector('.bliver-location-permission-notice')).not.toBeInTheDocument();
   });
 
+  it('clears a denied notice after retry resolves location', async () => {
+    const user = userEvent.setup();
+    const onRequestLocation = vi.fn()
+      .mockResolvedValueOnce({ status: 'denied' })
+      .mockResolvedValueOnce({ status: 'granted' });
+    const props = {
+      open: true,
+      value: 'smart',
+      context: { scope: 'smart', reason: 'unresolved' },
+      locationReminder: { consumeOrdinaryReminder: () => false },
+      onChange: vi.fn(),
+      onClose: vi.fn(),
+      onRequestLocation,
+      viewerKey: 'viewer-a',
+    };
+    const { rerender } = render(<MapScopeControl {...props} />);
+    const region = screen.getAllByRole('button').find((button) => button.getAttribute('aria-disabled') === 'true');
+
+    await user.click(region);
+    await waitFor(() => expect(document.body.querySelector('.bliver-location-permission-notice')).toBeInTheDocument());
+    const retry = screen.getByRole('button', { name: /重新尝试定位/ });
+    await user.click(retry);
+    rerender(<MapScopeControl {...props} context={{
+      scope: 'smart', reason: 'resolved-location', countryCode: 'CN', regionCode: 'CN-SH',
+    }} />);
+
+    await waitFor(() => expect(document.body.querySelector('.bliver-location-permission-notice')).not.toBeInTheDocument());
+    expect(onRequestLocation).toHaveBeenCalledTimes(2);
+  });
+
   it('emits fixed geography codes and closes the sheet', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
