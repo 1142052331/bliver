@@ -7,7 +7,6 @@ const {
   canReadWithAccess,
   getViewerAccess,
 } = require('./FootprintAccessService');
-const { populateFootprint } = require('./footprint');
 const { sanitizeLocation } = require('./location');
 const { createBackfillDiscoveryWindowService } = require('./BackfillDiscoveryWindowService');
 const {
@@ -71,19 +70,21 @@ function discoveryTier({ scope, geography = {}, now }) {
 }
 
 function backfillWindowTiers({ scope, geography = {}, windows, cursorFilter }) {
-  return windows.map((window) => ({
+  if (!windows.length) return [];
+  return [{
     scope: 'global',
+    kind: 'backfill',
     hint: BACKFILL_WINDOW_INDEX_BY_SCOPE[scope],
     filter: and(
       {
         visibility: 'public',
         discoveryOrigin: 'backfill',
-        discoveryWindowToken: window.token,
+        discoveryWindowToken: { $in: windows.map((window) => window.token) },
       },
       geography,
       cursorFilter,
     ),
-  }));
+  }];
 }
 
 function buildSmartTiers({ access, now }) {
@@ -218,20 +219,24 @@ function buildDiscoveryPipeline(tier, limit, isAdmin) {
 }
 
 async function queryTier({ tier, limit, isAdmin }) {
-  if (tier.kind !== 'discovery') {
+  if (tier.kind !== 'discovery' && tier.kind !== 'backfill') {
     let query = Footprint.findSafe(tier.filter, { isAdmin })
       .sort({ createdAt: -1, _id: -1 })
       .limit(limit);
     if (tier.hint) query = query.hint(tier.hint);
-    return populateFootprint(query);
+    return query;
   }
 
-  const docs = await Footprint.aggregate(buildDiscoveryPipeline(tier, limit, isAdmin))
+  const pipeline = tier.kind === 'backfill'
+    ? [
+      { $match: tier.filter },
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $limit: limit },
+      ...(isAdmin ? [] : [{ $project: { realLocation: 0 } }]),
+    ]
+    : buildDiscoveryPipeline(tier, limit, isAdmin);
+  return Footprint.aggregate(pipeline)
     .hint(tier.hint);
-  return Footprint.populate(docs, {
-    path: 'userId',
-    select: 'name avatarUrl isOnline role checkinStreak',
-  });
 }
 
 function compareFootprints(left, right) {
@@ -300,6 +305,15 @@ async function listActivity({ viewer, query, now = new Date() }) {
     perTierLimit: normalized.limit + 1,
     isAdmin: access.isAdmin,
   });
+  if (candidates.length > 0) {
+    await Footprint.populate(candidates, {
+      path: 'userId',
+      select: 'name avatarUrl isOnline role checkinStreak',
+    });
+    if (typeof Footprint.refreshNestedUsernames === 'function') {
+      await Footprint.refreshNestedUsernames(candidates);
+    }
+  }
   const readable = candidates
     .filter((doc) => canReadWithAccess(doc, access, requestNow))
     .sort(compareFootprints);

@@ -53,4 +53,17 @@ describe('BackfillDiscoveryWindowService', () => {
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
     expect(await BackfillDiscoveryWindow.countDocuments()).toBe(1);
   });
+
+  test('validates window slots within the fixed 0 through 31 range', async () => {
+    const base = { token: 'slot-window', createdAt: now, expiresAt: new Date(+now + 1000) };
+
+    await expect(BackfillDiscoveryWindow.create({ ...base, slot: -1 }))
+      .rejects.toThrow(/slot/);
+    await expect(BackfillDiscoveryWindow.create({ ...base, token: 'slot-window-high', slot: 32 }))
+      .rejects.toThrow(/slot/);
+    await expect(BackfillDiscoveryWindow.create({ ...base, token: 'slot-window-low', slot: 0 }))
+      .resolves.toMatchObject({ slot: 0 });
+    await expect(BackfillDiscoveryWindow.create({ ...base, token: 'slot-window-max', slot: 31 }))
+      .resolves.toMatchObject({ slot: 31 });
+  });
 });

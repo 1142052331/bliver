@@ -6,6 +6,7 @@ const BackfillDiscoveryWindow = require('../models/BackfillDiscoveryWindow');
 const { encodeActivityCursor } = require('../services/ActivityCursor');
 const { normalizeActivityQuery } = require('../validators/activityQuery');
 const { getViewerAccess } = require('../services/FootprintAccessService');
+const { invalidateUser } = require('../services/userNameCache');
 const { connectDB, disconnectDB, clearDB } = require('./setup');
 
 const NOW = new Date('2026-07-12T12:00:00.000Z');
@@ -107,6 +108,36 @@ describe('ActivityService.listActivity', () => {
       username: author.name,
       content: 'visible comment',
     });
+    expect(result.items[0].comments[0]).not.toHaveProperty('ipAddress');
+  });
+
+  test('refreshes nested reaction and comment usernames after users rename', async () => {
+    const author = await createUser('rename-author');
+    const participant = await createUser('old-participant-name');
+    await createFootprint(author._id, {
+      reactions: [{
+        userId: participant._id,
+        username: participant.name,
+        emoji: 'like',
+        createdAt: new Date(+NOW - 30_000),
+      }],
+      comments: [{
+        userId: participant._id,
+        username: participant.name,
+        content: 'renamed comment',
+        ipAddress: '203.0.113.10',
+        createdAt: new Date(+NOW - 20_000),
+      }],
+    });
+    await User.updateOne({ _id: participant._id }, { $set: { name: 'new-participant-name' } });
+    invalidateUser(participant._id);
+
+    const result = await activityService.listActivity({
+      viewer: null, query: { scope: 'global' }, now: NOW,
+    });
+
+    expect(result.items[0].reactions[0].username).toBe('new-participant-name');
+    expect(result.items[0].comments[0].username).toBe('new-participant-name');
     expect(result.items[0].comments[0]).not.toHaveProperty('ipAddress');
   });
 
@@ -446,6 +477,51 @@ describe('ActivityService.listActivity', () => {
     }
   });
 
+  test('32 active backfill windows use a stable small number of database operations', async () => {
+    const author = await createUser('bounded-window-author');
+    const windows = Array.from({ length: 32 }, (_, index) => ({
+      token: `bounded-window-${index}`,
+      slot: index,
+      createdAt: new Date(+NOW - (index + 1) * 1000),
+      expiresAt: new Date(+NOW + DAY),
+    }));
+    await BackfillDiscoveryWindow.create(windows);
+    const footprints = [];
+    for (let index = 0; index < windows.length; index += 1) {
+      footprints.push(await createFootprint(author._id, {
+        discoveryOrigin: 'backfill',
+        discoveryWindowToken: windows[index].token,
+        discoveryExpiresAt: new Date(+NOW + DAY),
+        createdAt: new Date(+NOW - (index + 1) * 60_000),
+      }));
+    }
+    const expectedIds = footprints.slice(0, 20).map((footprint) => footprint.id);
+    const findSafe = jest.spyOn(Footprint, 'findSafe');
+    const aggregate = jest.spyOn(Footprint, 'aggregate');
+    const populate = jest.spyOn(Footprint, 'populate');
+    const userFind = jest.spyOn(User, 'find');
+    const findWindows = jest.spyOn(BackfillDiscoveryWindow, 'find');
+
+    try {
+      const result = await activityService.listActivity({
+        viewer: null, query: { scope: 'global', limit: 20 }, now: NOW,
+      });
+
+      expect(ids(result)).toEqual(expectedIds);
+      expect(result).toMatchObject({ hasMore: true, usedScopes: ['global'] });
+      expect(findSafe.mock.calls.length + aggregate.mock.calls.length + findWindows.mock.calls.length)
+        .toBeLessThanOrEqual(4);
+      expect(populate).toHaveBeenCalledTimes(1);
+      expect(userFind.mock.calls.length).toBeLessThanOrEqual(2);
+    } finally {
+      findSafe.mockRestore();
+      aggregate.mockRestore();
+      populate.mockRestore();
+      userFind.mockRestore();
+      findWindows.mockRestore();
+    }
+  });
+
   test('hasMore and nextCursor are correct for exhausted, exact-limit, and over-limit results', async () => {
     const author = await createUser('page-author');
     await createFootprint(author._id, { message: 'one' });
@@ -688,15 +764,16 @@ describe('ActivityService.listActivity', () => {
       const plan = await explainTier({ who, query, tierIndex });
       if (requireNoSort) expect(plan.stages).not.toContain('SORT');
       expect(plan.indexes).toEqual(expect.arrayContaining(expectedIndexes));
-      if (Math.max(...plan.docsExamined) > 40 || Math.max(...plan.keysExamined) > 40) {
+      const executionBound = expectedIndexes.some((indexName) => indexName.startsWith('activity_backfill_window_')) ? 50 : 40;
+      if (Math.max(...plan.docsExamined) > executionBound || Math.max(...plan.keysExamined) > executionBound) {
         throw new Error(`Unbounded ${who ? who.role : 'guest'} ${query.scope}: docs=${plan.docsExamined.join(',')} keys=${plan.keysExamined.join(',')} indexes=${plan.indexes.join(',')}`);
       }
-      expect(Math.max(...plan.keysExamined)).toBeLessThanOrEqual(40);
+      expect(Math.max(...plan.keysExamined)).toBeLessThanOrEqual(executionBound);
     }
 
-    const backfillTierExpectations = activeWindows.map(() => ([
+    const backfillTierExpectations = [[
       ['activity_backfill_window_public_createdAt_id'], true,
-    ]));
+    ]];
     const smartCases = [
       [null, [
         [[
@@ -734,8 +811,9 @@ describe('ActivityService.listActivity', () => {
         });
         if (requireNoSort) expect(plan.stages).not.toContain('SORT');
         expect(plan.indexes).toEqual(expect.arrayContaining(expectedIndexes));
-        expect(Math.max(...plan.docsExamined)).toBeLessThanOrEqual(40);
-        expect(Math.max(...plan.keysExamined)).toBeLessThanOrEqual(40);
+        const executionBound = tiers[tierIndex].kind === 'backfill' ? 80 : 40;
+        expect(Math.max(...plan.docsExamined)).toBeLessThanOrEqual(executionBound);
+        expect(Math.max(...plan.keysExamined)).toBeLessThanOrEqual(executionBound);
       }
     }
 

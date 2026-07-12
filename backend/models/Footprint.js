@@ -177,6 +177,8 @@ async function resolveUsernames(docs) {
   }
 }
 
+footprintSchema.statics.refreshNestedUsernames = resolveUsernames;
+
 footprintSchema.post('find', resolveUsernames);
 footprintSchema.post('findOne', resolveUsernames);
 footprintSchema.post('findById', resolveUsernames);
