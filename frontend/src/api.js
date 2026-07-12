@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getToken } from './auth';
+import { activityRequestParams } from './domain/activityQuery';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '',
@@ -47,6 +48,12 @@ export const apiClient = {
     list(query, opts) { return api.get(qs('/api/map/footprints', query), opts); },
     search(query, opts) { return api.get(qs('/api/map/search', query), opts); },
     resolveLocation(data, opts) { return api.post('/api/map/location-context', data, opts); },
+  },
+
+  activity: {
+    list(query = {}, cursor, opts) {
+      return api.get(qs('/api/activity', activityRequestParams(query, cursor)), opts);
+    },
   },
 
   auth: {
