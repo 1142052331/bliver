@@ -124,6 +124,37 @@ describe('ActivityPage', () => {
     expect(onRequestLocation).toHaveBeenCalledWith({ explicit: true });
   });
 
+  it('uses global as the effective scope when an initial region scope has no codes', () => {
+    useActivityFeed.mockReturnValue(feed({ data: { pages: [{ items: [], hasMore: false }] } }));
+    renderPage({ initialScope: 'region', locationContext: { reason: 'permission-denied' } });
+
+    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 });
+    expect(screen.getByRole('button', { name: '选择动态范围' })).toHaveTextContent('全球');
+    expect(screen.getByRole('heading', { name: '全球还没有新动态' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '返回智能范围' })).not.toBeInTheDocument();
+  });
+
+  it('uses global as the effective scope when an initial country scope has no country code', () => {
+    useActivityFeed.mockReturnValue(feed({ data: { pages: [{ items: [], hasMore: false }] } }));
+    renderPage({ initialScope: 'country', locationContext: { regionCode: 'CN-SH', reason: 'unresolved' } });
+
+    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 });
+    expect(screen.getByRole('button', { name: '选择动态范围' })).toHaveTextContent('全球');
+    expect(screen.getByRole('heading', { name: '全球还没有新动态' })).toBeInTheDocument();
+  });
+
+  it('explains only the missing province when country context is available', async () => {
+    const user = userEvent.setup();
+    renderPage({ locationContext: { countryCode: 'CN', countryName: '中国', reason: 'unresolved' } });
+
+    await user.click(screen.getByRole('button', { name: '选择动态范围' }));
+    const sheet = screen.getByRole('dialog', { name: '选择动态范围' });
+    expect(within(sheet).getByText('开启定位后可选择本省动态。')).toBeInTheDocument();
+    expect(within(sheet).queryByText('开启定位后可选择本省和本国动态。')).not.toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: /本省/ })).toBeDisabled();
+    expect(within(sheet).getByRole('button', { name: /本国/ })).toBeEnabled();
+  });
+
   it('disables geographic scopes without location codes while keeping smart and global available', async () => {
     const user = userEvent.setup();
     renderPage({ locationContext: { reason: 'unresolved' } });
@@ -215,6 +246,14 @@ describe('ActivityPage', () => {
     expect(useActivityFeed).toHaveBeenLastCalledWith({
       scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 20,
     });
+  });
+
+  it('uses the country-specific empty state for an empty country scope', () => {
+    useActivityFeed.mockReturnValue(feed({ data: { pages: [{ items: [], hasMore: false }] } }));
+    renderPage({ initialScope: 'country' });
+
+    expect(screen.getByRole('heading', { name: '本国还没有新动态' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '返回智能范围' })).toBeInTheDocument();
   });
 
   it('renders a retry-only failure when no cached activity exists', async () => {

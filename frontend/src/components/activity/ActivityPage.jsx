@@ -32,18 +32,19 @@ export default function ActivityPage({
   const [scope, setScope] = useState(initialScope);
   const [sheetOpen, setSheetOpen] = useState(false);
   const query = useMemo(() => queryForScope(scope, locationContext), [scope, locationContext]);
+  const effectiveScope = query.scope;
   const feed = useActivityFeed(query);
   const items = useMemo(() => (feed.data?.pages || []).flatMap((page) => page.items || []).sort((a, b) => {
     const time = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     return time || String(b._id).localeCompare(String(a._id));
   }), [feed.data]);
   const hasCached = items.length > 0;
-  const isLocationFallback = scope === 'smart' && !locationContext.countryCode;
+  const isLocationFallback = scope !== 'global' && effectiveScope === 'global';
   return (
     <main className="bliver-activity-page" aria-labelledby="activity-page-title">
       <header className="bliver-activity-page__header">
         <div><p className="bliver-activity-page__eyebrow">公开发现</p><h1 id="activity-page-title">动态</h1></div>
-        <button type="button" className="bliver-activity-page__scope" aria-label="选择动态范围" onClick={() => setSheetOpen(true)}>{scope === 'smart' ? '智能范围' : scope === 'region' ? '本省' : scope === 'country' ? '本国' : '全球'}</button>
+        <button type="button" className="bliver-activity-page__scope" aria-label="选择动态范围" onClick={() => setSheetOpen(true)}>{effectiveScope === 'smart' ? '智能范围' : effectiveScope === 'region' ? '本省' : effectiveScope === 'country' ? '本国' : '全球'}</button>
       </header>
       {isLocationFallback && (
         <aside className="bliver-activity-location-notice" aria-label="定位范围提示">
@@ -53,11 +54,11 @@ export default function ActivityPage({
           )}
         </aside>
       )}
-      {feed.isPending && !feed.data ? <ActivitySkeletons /> : feed.isError && !hasCached ? <ActivityError onRetry={feed.refetch} /> : items.length === 0 ? <ActivityEmpty fixed={scope !== 'smart'} onBroaden={() => setScope('smart')} /> : <div className="bliver-activity-list">{items.map((item) => <ActivityCard key={item._id} item={item} requireLogin={requireLogin} onReact={onReact} onComment={onComment} />)}</div>}
+      {feed.isPending && !feed.data ? <ActivitySkeletons /> : feed.isError && !hasCached ? <ActivityError onRetry={feed.refetch} /> : items.length === 0 ? <ActivityEmpty scope={effectiveScope} onBroaden={() => setScope('smart')} /> : <div className="bliver-activity-list">{items.map((item) => <ActivityCard key={item._id} item={item} requireLogin={requireLogin} onReact={onReact} onComment={onComment} />)}</div>}
       {feed.isError && hasCached && <ActivityError cached onRetry={feed.refetch} />}
       <ActivityScopeSheet
         open={sheetOpen}
-        value={scope}
+        value={effectiveScope}
         onChange={setScope}
         onClose={() => setSheetOpen(false)}
         regionName={locationContext.regionName}

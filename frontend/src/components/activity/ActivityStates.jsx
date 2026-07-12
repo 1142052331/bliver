@@ -30,12 +30,18 @@ export function ActivityError({ cached, onRetry }) {
   );
 }
 
-export function ActivityEmpty({ fixed, onBroaden }) {
+export function ActivityEmpty({ scope = 'smart', onBroaden }) {
+  const copy = {
+    smart: ['还没有新动态', '公开足迹会按时间出现在这里。', false],
+    region: ['本省还没有新动态', '换到智能范围，看看附近和好友的足迹。', true],
+    country: ['本国还没有新动态', '换到智能范围，看看附近和好友的足迹。', true],
+    global: ['全球还没有新动态', '公开足迹会按时间出现在这里。', false],
+  }[scope] || ['还没有新动态', '公开足迹会按时间出现在这里。', false];
   return (
     <section className="bliver-activity-state">
-      <h2>{fixed ? '本省还没有新动态' : '还没有新动态'}</h2>
-      <p>{fixed ? '换到智能范围，看看附近和好友的足迹。' : '公开足迹会按时间出现在这里。'}</p>
-      {fixed && <button type="button" onClick={onBroaden}>返回智能范围</button>}
+      <h2>{copy[0]}</h2>
+      <p>{copy[1]}</p>
+      {copy[2] && <button type="button" onClick={onBroaden}>返回智能范围</button>}
     </section>
   );
 }

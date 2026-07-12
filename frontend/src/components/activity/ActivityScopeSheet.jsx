@@ -64,7 +64,7 @@ export default function ActivityScopeSheet({
         </header>
         {(!regionAvailable || !countryAvailable) && (
           <p id="activity-scope-location-help" className="bliver-activity-sheet__help">
-            开启定位后可选择本省和本国动态。
+            {!regionAvailable && !countryAvailable ? '开启定位后可选择本省和本国动态。' : !regionAvailable ? '开启定位后可选择本省动态。' : '开启定位后可选择本国动态。'}
           </p>
         )}
         <div className="bliver-activity-sheet__options">
