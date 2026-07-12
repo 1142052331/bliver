@@ -103,6 +103,7 @@
 - [ ] Write failing tests for scope codes, bounded limit, opaque cursor decoding, malformed cursor rejection, and equal-timestamp ordering.
 - [ ] Run the focused tests and confirm the contracts are absent.
 - [ ] Implement normalized activity input and a versioned `createdAt + _id` cursor.
+- [ ] Contract: `limit` defaults to 20 and caps at 50; fixed scopes reject stray geography; v1 base64url cursors are canonical and capped at 256 characters.
 - [ ] Run focused tests and commit the query contract.
 
 ### Task 6: Build Server-Authoritative Activity Selection
