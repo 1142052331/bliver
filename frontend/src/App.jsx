@@ -45,6 +45,7 @@ import CheckInAction from './components/shell/CheckInAction';
 import LegacyDestinationBridge from './components/shell/LegacyDestinationBridge';
 import MapPreviewCard from './components/MapPreviewCard';
 import SamePlaceSheet from './components/map/SamePlaceSheet';
+import ActivityPage from './components/activity/ActivityPage';
 import useUIStore from './store/useUIStore';
 import useShellStore from './store/useShellStore';
 import useSocket from './hooks/useSocket';
@@ -309,7 +310,7 @@ export default function App() {
   const activeDestination = useShellStore((state) => state.activeDestination);
   const setActiveDestination = useShellStore((state) => state.setActiveDestination);
   const destinationSurfaceBehindAuthIsOpen = (
-    (activeDestination === 'activity' && showTimeline)
+    activeDestination === 'activity'
     || (activeDestination === 'messages' && showFriends)
     || (activeDestination === 'me' && Boolean(viewingProfileId))
   );
@@ -511,9 +512,23 @@ export default function App() {
         />
 
         <FootprintActionsProvider user={user} requireLogin={requireLogin} setFootprints={setFootprints}>
+          {activeDestination === 'activity' && (
+            <div className="bliver-activity-destination fixed inset-0 z-[1200] overflow-y-auto">
+              <ActivityPage
+                viewer={user}
+                requireLogin={requireLogin}
+                onRequireLogin={requireLogin}
+                locationContext={locationContext.scopeContext}
+                onRequestLocation={locationContext.requestLocation}
+                onReact={setFlyArrivedFp}
+                onComment={setFlyArrivedFp}
+              />
+            </div>
+          )}
+
           <TimelineDrawer
             isOpen={showTimeline}
-            reserveMobileNavigation={bottomNavigationLayer === 'destination' && activeDestination === 'activity'}
+            reserveMobileNavigation={showTimeline && bottomNavigationLayer === 'destination' && activeDestination === 'activity'}
             onClose={() => { closeTimeline(); setActiveDestination('map'); }}
             footprints={footprints}
             userId={user?._id}
@@ -550,7 +565,6 @@ export default function App() {
         <LegacyDestinationBridge
           destination={activeDestination}
           user={user}
-          openTimeline={openTimeline}
           openFriends={openFriends}
           openProfile={openProfile}
           openAuth={openAuth}

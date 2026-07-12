@@ -30,10 +30,13 @@ describe('LegacyDestinationBridge', () => {
     expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
-  it('opens the existing timeline for Activity without prematurely returning to Map', () => {
+  it('leaves Activity to its dedicated destination surface', () => {
     const actions = createActions();
     render(<LegacyDestinationBridge destination="activity" user={{ _id: 'u1' }} {...actions} />);
-    expect(actions.openTimeline).toHaveBeenCalledTimes(1);
+    expect(actions.openTimeline).not.toHaveBeenCalled();
+    expect(actions.openFriends).not.toHaveBeenCalled();
+    expect(actions.openProfile).not.toHaveBeenCalled();
+    expect(actions.openAuth).not.toHaveBeenCalled();
     expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
@@ -77,7 +80,7 @@ describe('LegacyDestinationBridge', () => {
 
     rerender(<LegacyDestinationBridge destination="activity" user={{ _id: 'u1' }} {...actions} />);
 
-    expect(actions.openTimeline).toHaveBeenCalledTimes(1);
+    expect(actions.openTimeline).not.toHaveBeenCalled();
     expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
@@ -90,7 +93,7 @@ describe('LegacyDestinationBridge', () => {
       </StrictMode>,
     );
 
-    expect(actions.openTimeline).toHaveBeenCalledTimes(1);
+    expect(actions.openTimeline).not.toHaveBeenCalled();
     expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
@@ -102,7 +105,7 @@ describe('LegacyDestinationBridge', () => {
 
     rerender(<LegacyDestinationBridge destination="messages" user={{ _id: 'u1' }} {...actions} />);
 
-    expect(actions.openTimeline).toHaveBeenCalledTimes(1);
+    expect(actions.openTimeline).not.toHaveBeenCalled();
     expect(actions.openFriends).toHaveBeenCalledTimes(1);
     expect(actions.onHandled).not.toHaveBeenCalled();
   });
@@ -116,37 +119,37 @@ describe('LegacyDestinationBridge', () => {
     rerender(<LegacyDestinationBridge destination="map" user={{ _id: 'u1' }} {...actions} />);
     rerender(<LegacyDestinationBridge destination="activity" user={{ _id: 'u1' }} {...actions} />);
 
-    expect(actions.openTimeline).toHaveBeenCalledTimes(2);
+    expect(actions.openTimeline).not.toHaveBeenCalled();
     expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
   it('preserves a failed destination until its required action becomes available', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const onHandled = vi.fn();
-    const openTimeline = vi.fn();
+    const openFriends = vi.fn();
     const { rerender } = render(
       <LegacyDestinationBridge
-        destination="activity"
+        destination="messages"
         user={{ _id: 'u1' }}
         onHandled={onHandled}
       />,
     );
 
     expect(consoleError).toHaveBeenCalledWith(
-      'LegacyDestinationBridge requires an openTimeline callback for the activity destination.',
+      'LegacyDestinationBridge requires an openFriends callback for the messages destination.',
     );
     expect(onHandled).not.toHaveBeenCalled();
 
     rerender(
       <LegacyDestinationBridge
-        destination="activity"
+        destination="messages"
         user={{ _id: 'u1' }}
-        openTimeline={openTimeline}
+        openFriends={openFriends}
         onHandled={onHandled}
       />,
     );
 
-    expect(openTimeline).toHaveBeenCalledTimes(1);
+    expect(openFriends).toHaveBeenCalledTimes(1);
     expect(onHandled).not.toHaveBeenCalled();
   });
 
@@ -177,6 +180,6 @@ describe('LegacyDestinationBridge', () => {
       );
     }).not.toThrow();
 
-    expect(openTimeline).toHaveBeenCalledTimes(1);
+    expect(openTimeline).not.toHaveBeenCalled();
   });
 });

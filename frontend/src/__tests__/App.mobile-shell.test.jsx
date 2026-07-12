@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   toggleNotifs: vi.fn(),
   authModalProps: vi.fn(),
   timelineDrawerProps: vi.fn(),
+  activityPageProps: vi.fn(),
   friendsPanelProps: vi.fn(),
   profileDrawerProps: vi.fn(),
   mapPreviewProps: vi.fn(),
@@ -256,6 +257,12 @@ vi.mock('../components/MapPreviewCard', () => ({
       : null;
   },
 }));
+vi.mock('../components/activity/ActivityPage', () => ({
+  default: (props) => {
+    mocks.activityPageProps(props);
+    return <div data-testid="activity-page">Activity destination</div>;
+  },
+}));
 vi.mock('../components/PhotoWall', () => ({ default: () => null }));
 vi.mock('../components/AnnouncementPanel', () => ({ default: () => null }));
 vi.mock('../components/FriendsPanel', () => ({
@@ -433,7 +440,6 @@ describe('App mobile shell integration', () => {
   });
 
   it.each([
-    ['Timeline', 'activity', null, 'showTimeline', true, mocks.timelineDrawerProps],
     ['Friends', 'messages', { _id: 'user-1' }, 'showFriends', true, mocks.friendsPanelProps],
     ['Profile', 'me', { _id: 'user-1' }, 'viewingProfileId', 'user-1', mocks.profileDrawerProps],
   ])(
@@ -451,6 +457,40 @@ describe('App mobile shell integration', () => {
       expect(surfaceProps).toHaveBeenLastCalledWith(true);
     },
   );
+
+  it('renders Activity as a destination surface above the map and below bottom navigation', () => {
+    const viewer = { _id: 'user-1' };
+    const footprint = { _id: 'activity-footprint' };
+    mocks.user = viewer;
+    useShellStore.setState({ activeDestination: 'activity' });
+
+    const { container } = render(<App />);
+
+    expect(screen.getByTestId('activity-page')).toBeInTheDocument();
+    expect(container.querySelector('.bliver-activity-destination')).toHaveClass(
+      'fixed', 'inset-0', 'overflow-y-auto',
+    );
+    expect(screen.getByRole('navigation')).toHaveClass(
+      'bliver-bottom-navigation--destination',
+    );
+    expect(mocks.openTimeline).not.toHaveBeenCalled();
+    expect(mocks.timelineDrawerProps).toHaveBeenLastCalledWith(false);
+    const props = mocks.activityPageProps.mock.calls.at(-1)[0];
+    expect(props).toEqual(expect.objectContaining({
+      viewer,
+      requireLogin: mocks.requireLogin,
+      onRequireLogin: mocks.requireLogin,
+      locationContext: mocks.scopeContext,
+      onRequestLocation: mocks.requestLocation,
+      onReact: expect.any(Function),
+      onComment: expect.any(Function),
+    }));
+
+    props.onReact(footprint);
+    props.onComment(footprint);
+    expect(uiState.setFlyArrivedFp).toHaveBeenNthCalledWith(1, footprint);
+    expect(uiState.setFlyArrivedFp).toHaveBeenNthCalledWith(2, footprint);
+  });
 
   it.each(['messages', 'me'])(
     'raises bottom navigation above destination-owned Auth for guest %s',
@@ -479,7 +519,6 @@ describe('App mobile shell integration', () => {
   });
 
   it('keeps bottom navigation below secondary Auth over a destination surface', () => {
-    uiState.showTimeline = true;
     uiState.showAuth = true;
     useShellStore.setState({ activeDestination: 'activity' });
 
@@ -488,31 +527,26 @@ describe('App mobile shell integration', () => {
     const navigation = screen.getByRole('navigation');
     expect(navigation).toHaveClass('bliver-bottom-navigation--destination');
     expect(navigation).not.toHaveClass('bliver-bottom-navigation--destination-auth');
-    expect(mocks.timelineDrawerProps).toHaveBeenLastCalledWith(true);
+    expect(screen.getByTestId('activity-page')).toBeInTheDocument();
+    expect(mocks.timelineDrawerProps).toHaveBeenLastCalledWith(false);
     expect(mocks.authModalProps).toHaveBeenLastCalledWith(false);
   });
 
-  it('keeps Activity current until the Timeline surface closes', async () => {
+  it('selects Activity without opening the legacy Timeline drawer', async () => {
     const user = userEvent.setup();
-    uiState.showTimeline = true;
     render(<App />);
 
     const mapDestination = screen.getByRole('button', { name: '地图' });
     const activityDestination = screen.getByRole('button', { name: '动态' });
     await user.click(activityDestination);
 
-    await waitFor(() => expect(mocks.openTimeline).toHaveBeenCalledTimes(1));
+    expect(await screen.findByTestId('activity-page')).toBeInTheDocument();
+    expect(mocks.openTimeline).not.toHaveBeenCalled();
     expect(activityDestination).toHaveAttribute('aria-current', 'page');
     expect(mapDestination).not.toHaveAttribute('aria-current');
-
-    await user.click(screen.getByRole('button', { name: 'Close timeline surface' }));
-
-    expect(mapDestination).toHaveAttribute('aria-current', 'page');
-    expect(activityDestination).not.toHaveAttribute('aria-current');
   });
 
   it.each([
-    ['Timeline', 'activity', null, 'showTimeline', true, mocks.closeTimeline, '动态'],
     ['Friends', 'messages', { _id: 'user-1' }, 'showFriends', true, mocks.closeFriends, /^消息/],
     ['Profile', 'me', { _id: 'user-1' }, 'viewingProfileId', 'user-1', mocks.closeProfile, '我的'],
     ['Auth', 'messages', null, 'showAuth', true, mocks.closeAuth, /^消息/],
@@ -537,38 +571,36 @@ describe('App mobile shell integration', () => {
     },
   );
 
-  it('closes Timeline before opening Messages', async () => {
+  it('moves from Activity to Messages without invoking the legacy Timeline drawer', async () => {
     const user = userEvent.setup();
     mocks.user = { _id: 'user-1' };
-    uiState.showTimeline = true;
     useShellStore.setState({ activeDestination: 'activity' });
     render(<App />);
 
-    await waitFor(() => expect(mocks.openTimeline).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('activity-page')).toBeInTheDocument();
     const messagesDestination = screen.getByRole('button', { name: /^消息/ });
 
     await user.click(messagesDestination);
 
     await waitFor(() => expect(mocks.openFriends).toHaveBeenCalledTimes(1));
-    expect(mocks.closeTimeline).toHaveBeenCalledTimes(1);
-    expect(mocks.closeTimeline.mock.invocationCallOrder[0])
-      .toBeLessThan(mocks.openFriends.mock.invocationCallOrder[0]);
+    expect(mocks.openTimeline).not.toHaveBeenCalled();
+    expect(mocks.closeTimeline).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('activity-page')).not.toBeInTheDocument();
     expect(messagesDestination).toHaveAttribute('aria-current', 'page');
   });
 
-  it('does not close or reopen Activity when its selected destination is pressed again', async () => {
+  it('does not reopen Activity when its selected destination is pressed again', async () => {
     const user = userEvent.setup();
-    uiState.showTimeline = true;
     useShellStore.setState({ activeDestination: 'activity' });
     render(<App />);
 
     const activityDestination = screen.getByRole('button', { name: '动态' });
-    await waitFor(() => expect(mocks.openTimeline).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('activity-page')).toBeInTheDocument();
 
     await user.click(activityDestination);
 
     expect(mocks.closeTimeline).not.toHaveBeenCalled();
-    expect(mocks.openTimeline).toHaveBeenCalledTimes(1);
+    expect(mocks.openTimeline).not.toHaveBeenCalled();
     expect(activityDestination).toHaveAttribute('aria-current', 'page');
   });
 
@@ -664,7 +696,6 @@ describe('App mobile shell integration', () => {
     'keeps Activity current when secondary Auth exits through %s',
     async (authAction) => {
       const user = userEvent.setup();
-      uiState.showTimeline = true;
       uiState.showAuth = true;
       useShellStore.setState({ activeDestination: 'activity' });
       render(<App />);
@@ -678,10 +709,19 @@ describe('App mobile shell integration', () => {
       expect(activityDestination).toHaveAttribute('aria-current', 'page');
       expect(mapDestination).not.toHaveAttribute('aria-current');
 
-      await user.click(screen.getByRole('button', { name: 'Close timeline surface' }));
-      expect(mapDestination).toHaveAttribute('aria-current', 'page');
+      expect(screen.getByTestId('activity-page')).toBeInTheDocument();
     },
   );
+
+  it('keeps the legacy Timeline available from an explicit history entry point', () => {
+    uiState.showTimeline = true;
+
+    render(<App />);
+
+    expect(screen.getByRole('button', { name: 'Close timeline surface' })).toBeInTheDocument();
+    expect(screen.queryByTestId('activity-page')).not.toBeInTheDocument();
+    expect(mocks.timelineDrawerProps).toHaveBeenLastCalledWith(false);
+  });
 
   it('opens About from the brand control', async () => {
     const user = userEvent.setup();

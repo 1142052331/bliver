@@ -15,7 +15,6 @@ function callRequiredAction(action, actionName, destination, ...args) {
 export default function LegacyDestinationBridge({
   destination,
   user,
-  openTimeline,
   openFriends,
   openProfile,
   openAuth,
@@ -33,7 +32,7 @@ export default function LegacyDestinationBridge({
     let handled = false;
 
     if (destination === 'activity') {
-      handled = callRequiredAction(openTimeline, 'openTimeline', destination);
+      handled = true;
     } else if (destination === 'messages') {
       handled = user
         ? callRequiredAction(openFriends, 'openFriends', destination)
@@ -49,7 +48,7 @@ export default function LegacyDestinationBridge({
     if (!handled) return;
 
     handledDestinationRef.current = destination;
-  }, [destination, openAuth, openFriends, openProfile, openTimeline, user]);
+  }, [destination, openAuth, openFriends, openProfile, user]);
 
   return null;
 }
