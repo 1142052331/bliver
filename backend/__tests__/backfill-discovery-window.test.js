@@ -36,30 +36,32 @@ describe('BackfillDiscoveryWindowService', () => {
     expect(await BackfillDiscoveryWindow.countDocuments()).toBe(1);
   });
 
-  test('enforces the cap across concurrent acquisition attempts', async () => {
-    const tokens = ['window-a', 'window-b'];
+  test('enforces the 32-window cap across 64 concurrent acquisition attempts', async () => {
+    const tokens = Array.from({ length: 64 }, (_, index) => `window-${index}`);
     const service = createBackfillDiscoveryWindowService({
       Window: BackfillDiscoveryWindow,
       tokenFactory: () => tokens.shift(),
-      maxActiveWindows: 1,
     });
 
-    const results = await Promise.allSettled([
-      service.acquire({ now }),
-      service.acquire({ now }),
-    ]);
+    const results = await Promise.allSettled(
+      Array.from({ length: 64 }, () => service.acquire({ now })),
+    );
 
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
-    expect(await BackfillDiscoveryWindow.countDocuments()).toBe(1);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(32);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(32);
+    expect(await BackfillDiscoveryWindow.countDocuments()).toBe(32);
   });
 
-  test('validates window slots within the fixed 0 through 31 range', async () => {
+  test('requires an integer window slot within the fixed 0 through 31 range', async () => {
     const base = { token: 'slot-window', createdAt: now, expiresAt: new Date(+now + 1000) };
 
+    await expect(BackfillDiscoveryWindow.create(base))
+      .rejects.toThrow(/slot/);
     await expect(BackfillDiscoveryWindow.create({ ...base, slot: -1 }))
       .rejects.toThrow(/slot/);
     await expect(BackfillDiscoveryWindow.create({ ...base, token: 'slot-window-high', slot: 32 }))
+      .rejects.toThrow(/slot/);
+    await expect(BackfillDiscoveryWindow.create({ ...base, token: 'slot-window-decimal', slot: 1.5 }))
       .rejects.toThrow(/slot/);
     await expect(BackfillDiscoveryWindow.create({ ...base, token: 'slot-window-low', slot: 0 }))
       .resolves.toMatchObject({ slot: 0 });

@@ -17,6 +17,7 @@ const { connectDB, disconnectDB, clearDB } = require('./setup');
 
 const NOW = new Date('2026-07-11T12:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
+const ACTIVE_DISCOVERY_EXPIRY = new Date('2100-01-01T00:00:00.000Z');
 
 describe('normalizeMapQuery', () => {
   test('normalizes map query defaults', () => {
@@ -82,7 +83,7 @@ describe('FootprintQueryService.listMap', () => {
       placeName: '上海市',
       message: '周末散步',
       visibility: 'public',
-      discoveryExpiresAt: new Date(+NOW + DAY),
+      discoveryExpiresAt: ACTIVE_DISCOVERY_EXPIRY,
       countryCode: 'CN',
       countryName: '中国',
       regionCode: 'CN-SH',

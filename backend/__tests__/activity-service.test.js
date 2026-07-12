@@ -168,6 +168,44 @@ describe('ActivityService.listActivity', () => {
     });
   });
 
+  test.each([
+    ['friend', false],
+    ['admin', true],
+  ])('refreshes merged nested usernames once for the authenticated %s path', async (path, isAdmin) => {
+    const current = await createUser(`refresh-${path}-current`, isAdmin ? { role: 'admin' } : {});
+    const author = isAdmin ? current : await createUser('refresh-friend-author');
+    if (!isAdmin) {
+      await Friendship.create({ requester: current._id, recipient: author._id, status: 'accepted' });
+    }
+    await createFootprint(author._id, {
+      visibility: isAdmin ? 'private' : 'friends',
+      reactions: [{
+        userId: current._id,
+        username: current.name,
+        emoji: 'like',
+        createdAt: new Date(+NOW - 30_000),
+      }],
+    });
+    const findSafe = jest.spyOn(Footprint, 'findSafe');
+    const refreshNestedUsernames = jest.spyOn(Footprint, 'refreshNestedUsernames');
+
+    try {
+      const result = await activityService.listActivity({
+        viewer: viewer(current), query: { scope: 'smart' }, now: NOW,
+      });
+
+      expect(result.items).toHaveLength(1);
+      expect(findSafe).toHaveBeenCalledWith(
+        expect.any(Object),
+        { isAdmin, refreshNestedUsernames: false },
+      );
+      expect(refreshNestedUsernames).toHaveBeenCalledTimes(1);
+    } finally {
+      findSafe.mockRestore();
+      refreshNestedUsernames.mockRestore();
+    }
+  });
+
   test('smart scope fills friend, region, country, then global tiers and classifies duplicates deterministically', async () => {
     const current = await createUser('tier-current');
     const friend = await createUser('tier-friend');
@@ -398,7 +436,7 @@ describe('ActivityService.listActivity', () => {
   test('paginates publication, active backfill, and legacy in original chronology', async () => {
     const author = await createUser('window-chronology-author');
     await BackfillDiscoveryWindow.create({
-      token: 'chronology-window', createdAt: NOW, expiresAt: new Date(+NOW + DAY),
+      token: 'chronology-window', slot: 0, createdAt: NOW, expiresAt: new Date(+NOW + DAY),
     });
     const publication = await createFootprint(author._id, {
       discoveryOrigin: 'publication',
@@ -572,13 +610,11 @@ describe('ActivityService.listActivity', () => {
     await Friendship.create({ requester: current._id, recipient: friend._id, status: 'accepted' });
     const activeWindows = Array.from({ length: 32 }, (_, index) => ({
       token: `active-window-${index}`,
+      slot: index,
       createdAt: new Date(+NOW - (index + 1) * 1000),
       expiresAt: new Date(+NOW + DAY),
     }));
-    await BackfillDiscoveryWindow.create([
-      ...activeWindows,
-      { token: 'expired-window', createdAt: new Date(+NOW - 2 * DAY), expiresAt: new Date(+NOW - DAY) },
-    ]);
+    await BackfillDiscoveryWindow.create(activeWindows);
     const rows = [];
     for (let index = 0; index < 2000; index += 1) {
       const isPrivate = index < 1000;

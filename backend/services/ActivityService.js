@@ -220,7 +220,7 @@ function buildDiscoveryPipeline(tier, limit, isAdmin) {
 
 async function queryTier({ tier, limit, isAdmin }) {
   if (tier.kind !== 'discovery' && tier.kind !== 'backfill') {
-    let query = Footprint.findSafe(tier.filter, { isAdmin })
+    let query = Footprint.findSafe(tier.filter, { isAdmin, refreshNestedUsernames: false })
       .sort({ createdAt: -1, _id: -1 })
       .limit(limit);
     if (tier.hint) query = query.hint(tier.hint);

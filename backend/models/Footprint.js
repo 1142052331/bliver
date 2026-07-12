@@ -179,13 +179,22 @@ async function resolveUsernames(docs) {
 
 footprintSchema.statics.refreshNestedUsernames = resolveUsernames;
 
-footprintSchema.post('find', resolveUsernames);
+footprintSchema.post('find', async function refreshNestedUsernamesAfterFind(docs) {
+  if (this.mongooseOptions().skipNestedUsernameRefresh) return;
+  await resolveUsernames(docs);
+});
 footprintSchema.post('findOne', resolveUsernames);
 footprintSchema.post('findById', resolveUsernames);
 
-footprintSchema.statics.findSafe = function (filter, { isAdmin = false } = {}) {
+footprintSchema.statics.findSafe = function (
+  filter,
+  { isAdmin = false, refreshNestedUsernames = true } = {},
+) {
   const query = this.find(filter);
   if (!isAdmin) query.select('-realLocation');
+  if (!refreshNestedUsernames) {
+    query.mongooseOptions({ skipNestedUsernameRefresh: true });
+  }
   return query;
 };
 

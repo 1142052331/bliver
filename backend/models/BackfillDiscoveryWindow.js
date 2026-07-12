@@ -4,6 +4,7 @@ const backfillDiscoveryWindowSchema = new mongoose.Schema({
   token: { type: String, required: true, unique: true, maxlength: 128 },
   slot: {
     type: Number,
+    required: true,
     min: 0,
     max: 31,
     validate: {
@@ -11,7 +12,6 @@ const backfillDiscoveryWindowSchema = new mongoose.Schema({
       message: 'slot must be an integer from 0 through 31',
     },
     unique: true,
-    sparse: true,
   },
   createdAt: { type: Date, required: true },
   expiresAt: { type: Date, required: true },
