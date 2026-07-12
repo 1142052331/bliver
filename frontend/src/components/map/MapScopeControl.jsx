@@ -20,9 +20,18 @@ export default function MapScopeControl({
   const closeRef = useRef(null);
   const reminderAttemptedRef = useRef(false);
   const [showReminder, setShowReminder] = useReducer((_current, next) => next, false);
+  const [reminderViewerKey, setReminderViewerKey] = useReducer((_current, next) => next, null);
+  const [forcedReason, setForcedReason] = useReducer((_current, next) => next, null);
   useEffect(() => {
     if (open) requestAnimationFrame(() => closeRef.current?.focus());
   }, [open]);
+
+  useEffect(() => {
+    reminderAttemptedRef.current = false;
+    setShowReminder(false);
+    setReminderViewerKey(null);
+    setForcedReason(null);
+  }, [viewerKey]);
 
   useEffect(() => {
     if (!open) {
@@ -38,17 +47,28 @@ export default function MapScopeControl({
     const consumed = locationReminder?.consumeOrdinaryReminder
       ? locationReminder.consumeOrdinaryReminder({ now: now ?? Date.now() })
       : true;
+    if (consumed) setReminderViewerKey(viewerKey);
     setShowReminder(consumed);
     return undefined;
   }, [open, context.reason, locationReminder, now]);
 
-  const choose = (scope) => {
+  const choose = async (scope) => {
     if (scope === 'region' && !context.regionCode) {
-      onRequestLocation({ explicit: true });
+      const result = await Promise.resolve(onRequestLocation({ explicit: true }));
+      if (['denied', 'unavailable', 'error'].includes(result?.status)) {
+        setForcedReason(result.status === 'denied' ? 'permission-denied' : `location-${result.status}`);
+        setReminderViewerKey(viewerKey);
+        setShowReminder(true);
+      }
       return;
     }
     if (scope === 'country' && !context.countryCode) {
-      onRequestLocation({ explicit: true });
+      const result = await Promise.resolve(onRequestLocation({ explicit: true }));
+      if (['denied', 'unavailable', 'error'].includes(result?.status)) {
+        setForcedReason(result.status === 'denied' ? 'permission-denied' : `location-${result.status}`);
+        setReminderViewerKey(viewerKey);
+        setShowReminder(true);
+      }
       return;
     }
     const next = { scope };
@@ -102,12 +122,12 @@ export default function MapScopeControl({
                 <X size={20} />
               </button>
             </header>
-            {showReminder && open && ['permission-denied', 'location-unavailable', 'location-error'].includes(context.reason) && <LocationPermissionNotice
-              permissionState={context.reason === 'permission-denied'
+            {showReminder && reminderViewerKey === viewerKey && open && ['permission-denied', 'location-unavailable', 'location-error'].includes(forcedReason || context.reason) && <LocationPermissionNotice
+              permissionState={(forcedReason || context.reason) === 'permission-denied'
                 ? 'denied'
-                : context.reason === 'location-unavailable'
+                : (forcedReason || context.reason) === 'location-unavailable'
                   ? 'unavailable'
-                  : context.reason === 'location-error' ? 'error' : 'idle'}
+                  : (forcedReason || context.reason) === 'location-error' ? 'error' : 'idle'}
               viewerKey={viewerKey}
               onRequestLocation={onRequestLocation}
             />}

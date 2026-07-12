@@ -133,6 +133,31 @@ describe('MapScopeControl', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('shows guidance after explicit denial from unresolved scope despite cooldown', async () => {
+    const user = userEvent.setup();
+    const onRequestLocation = vi.fn().mockResolvedValue({ status: 'denied' });
+    render(<MapScopeControl open value="smart" context={{ scope: 'smart', reason: 'unresolved' }}
+      locationReminder={{ consumeOrdinaryReminder: () => false }} onChange={vi.fn()} onClose={vi.fn()}
+      onRequestLocation={onRequestLocation} />);
+    const region = screen.getAllByRole('button').find((button) => button.getAttribute('aria-disabled') === 'true');
+    await user.click(region);
+    await waitFor(() => expect(document.body.querySelector('.bliver-location-permission-notice')).toBeInTheDocument());
+    expect(onRequestLocation).toHaveBeenCalledWith({ explicit: true });
+  });
+
+  it('does not carry a denied notice across viewer changes', async () => {
+    const user = userEvent.setup();
+    const onRequestLocation = vi.fn().mockResolvedValue({ status: 'denied' });
+    const props = { open: true, value: 'smart', context: { scope: 'smart', reason: 'unresolved' },
+      locationReminder: { consumeOrdinaryReminder: () => false }, onChange: vi.fn(), onClose: vi.fn(), onRequestLocation };
+    const { rerender } = render(<MapScopeControl {...props} viewerKey="viewer-a" />);
+    const region = screen.getAllByRole('button').find((button) => button.getAttribute('aria-disabled') === 'true');
+    await user.click(region);
+    await waitFor(() => expect(document.body.querySelector('.bliver-location-permission-notice')).toBeInTheDocument());
+    rerender(<MapScopeControl {...props} viewerKey="viewer-b" />);
+    expect(document.body.querySelector('.bliver-location-permission-notice')).not.toBeInTheDocument();
+  });
+
   it('emits fixed geography codes and closes the sheet', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
