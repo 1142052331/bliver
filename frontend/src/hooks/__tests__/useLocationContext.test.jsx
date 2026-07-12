@@ -120,6 +120,54 @@ describe('useLocationContext', () => {
     expect(result.current.scopeContext).toEqual({ scope: 'smart', reason: 'unresolved' });
   });
 
+  it('keeps resolved locations isolated when switching between viewers', async () => {
+    const getCurrentPosition = vi.fn((resolve) => resolve({
+      coords: { latitude: 31.23, longitude: 121.47 },
+    }));
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    });
+    mocks.resolveLocation
+      .mockResolvedValueOnce({ data: { location: { countryCode: 'CN', regionCode: 'CN-SH' } } })
+      .mockResolvedValueOnce({ data: { location: { countryCode: 'US', regionCode: 'US-CA' } } });
+
+    const { result, rerender } = renderHook(
+      ({ viewerKey }) => useLocationContext({ viewerKey }),
+      { initialProps: { viewerKey: 'viewer-a' } },
+    );
+
+    await act(() => result.current.requestLocation({ explicit: true, now: NOW }));
+    expect(result.current.scopeContext).toMatchObject({ countryCode: 'CN', regionCode: 'CN-SH' });
+
+    rerender({ viewerKey: 'viewer-b' });
+    expect(result.current.scopeContext).toEqual({ scope: 'smart', reason: 'unresolved' });
+    await act(() => result.current.requestLocation({ explicit: true, now: NOW + 1 }));
+    expect(result.current.scopeContext).toMatchObject({ countryCode: 'US', regionCode: 'US-CA' });
+
+    rerender({ viewerKey: 'viewer-a' });
+    expect(result.current.scopeContext).toMatchObject({ countryCode: 'CN', regionCode: 'CN-SH' });
+  });
+
+  it('does not expose a signed-in viewer location to guest mode', async () => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition: vi.fn((resolve) => resolve({ coords: { latitude: 1, longitude: 2 } })) },
+    });
+    mocks.resolveLocation.mockResolvedValueOnce({
+      data: { location: { countryCode: 'CN', regionCode: 'CN-SH' } },
+    });
+    const { result, rerender } = renderHook(
+      ({ viewerKey }) => useLocationContext({ viewerKey }),
+      { initialProps: { viewerKey: 'viewer-a' } },
+    );
+
+    await act(() => result.current.requestLocation({ explicit: true, now: NOW }));
+    rerender({ viewerKey: 'guest' });
+
+    expect(result.current.scopeContext).toEqual({ scope: 'smart', reason: 'unresolved' });
+  });
+
   it('resolves structured location without persisting precise coordinates', async () => {
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,

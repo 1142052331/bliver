@@ -14,7 +14,7 @@ import {
 export default function useLocationContext({ viewerKey } = {}) {
   const currentViewerKey = viewerKey || getUser()?._id || 'guest';
   const [fixedScope, setFixedScopeState] = useState(loadFixedScope);
-  const [resolvedLocation, setResolvedLocation] = useState(null);
+  const [resolvedLocations, setResolvedLocations] = useState({});
   const restorePermissionState = useCallback((key) => {
     const restored = loadLocationReminderState(key).permissionState;
     return ['denied', 'unavailable', 'error'].includes(restored) ? restored : 'idle';
@@ -24,6 +24,7 @@ export default function useLocationContext({ viewerKey } = {}) {
   }));
   const permissionState = permissionStates[currentViewerKey]
     ?? restorePermissionState(currentViewerKey);
+  const resolvedLocation = resolvedLocations[currentViewerKey] || null;
   const setPermissionState = useCallback((nextState) => {
     setPermissionStates((current) => ({ ...current, [currentViewerKey]: nextState }));
   }, [currentViewerKey]);
@@ -38,7 +39,12 @@ export default function useLocationContext({ viewerKey } = {}) {
     setPermissionState('locating');
 
     if (!navigator.geolocation) {
-      setResolvedLocation(null);
+      setResolvedLocations((current) => {
+        if (!(currentViewerKey in current)) return current;
+        const next = { ...current };
+        delete next[currentViewerKey];
+        return next;
+      });
       setPermissionState('unavailable');
       markLocationReminder(currentViewerKey, now, localStorage, 'unavailable');
       return { status: 'unavailable' };
@@ -55,12 +61,17 @@ export default function useLocationContext({ viewerKey } = {}) {
       const { latitude: lat, longitude: lng } = position.coords;
       const response = await apiClient.map.resolveLocation({ lat, lng });
       const location = response?.data?.location || null;
-      setResolvedLocation(location);
+      setResolvedLocations((current) => ({ ...current, [currentViewerKey]: location }));
       setPermissionState('granted');
       markLocationReminder(currentViewerKey, now, localStorage, 'granted');
       return { status: 'granted', location, coords: { lat, lng } };
     } catch (error) {
-      setResolvedLocation(null);
+      setResolvedLocations((current) => {
+        if (!(currentViewerKey in current)) return current;
+        const next = { ...current };
+        delete next[currentViewerKey];
+        return next;
+      });
       const denied = error?.code === 1;
       const nextState = denied ? 'denied' : 'error';
       setPermissionState(nextState);
