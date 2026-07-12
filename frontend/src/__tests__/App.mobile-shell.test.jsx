@@ -519,6 +519,23 @@ describe('App mobile shell integration', () => {
     expect(screen.getByTestId('footprint-detail')).toHaveTextContent('activity-footprint');
   });
 
+  it('clears Activity detail when navigating away and does not reopen it on return', async () => {
+    const user = userEvent.setup();
+    mocks.user = { _id: 'user-1' };
+    useShellStore.setState({ activeDestination: 'activity' });
+    render(<App />);
+
+    await user.click(screen.getByTestId('activity-react'));
+    expect(screen.getByTestId('footprint-detail')).toHaveTextContent('activity-footprint');
+
+    await user.click(screen.getByRole('button', { name: '地图' }));
+    expect(screen.queryByTestId('footprint-detail')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '动态' }));
+    expect(screen.getByTestId('activity-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('footprint-detail')).not.toBeInTheDocument();
+  });
+
   it('returns a guest Activity interaction to Activity and opens its target after login', async () => {
     const user = userEvent.setup();
     uiState.showAuth = true;

@@ -329,6 +329,7 @@ export default function App() {
   const handleDestinationChange = (nextDestination) => {
     if (nextDestination === activeDestination) return;
 
+    if (activeDestination === 'activity') setActivityDetailFp(null);
     if (showTimeline) closeTimeline();
     if (showFriends) closeFriends();
     if (viewingProfileId) closeProfile();
