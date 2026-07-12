@@ -6,6 +6,8 @@ const {
   validateBackfillOptions,
   materializeLegacyCandidates,
   MAX_ATTEMPTS,
+  encodeBackfillCursor,
+  decodeBackfillCursor,
 } = require('../services/FootprintBackfillService');
 
 describe('FootprintBackfillService', () => {
@@ -18,7 +20,10 @@ describe('FootprintBackfillService', () => {
     regionName: 'Shanghai',
   };
 
-  beforeAll(connectDB);
+  beforeAll(async () => {
+    await connectDB();
+    await Footprint.syncIndexes();
+  });
   afterAll(disconnectDB);
   beforeEach(clearDB);
   afterEach(() => jest.restoreAllMocks());
@@ -87,7 +92,7 @@ describe('FootprintBackfillService', () => {
       wouldFail: 0,
       wouldSkip: 0,
       deadLettered: 0,
-      nextCursor: friends._id.toString(),
+      nextCursor: encodeBackfillCursor({ mode: 'normal', id: friends._id.toString() }),
       hasMore: false,
     });
     expect(geocoder).toHaveBeenNthCalledWith(1, legacy.location.lat, legacy.location.lng);
@@ -210,7 +215,7 @@ describe('FootprintBackfillService', () => {
       wouldFail: 0,
       wouldSkip: 0,
       deadLettered: 0,
-      nextCursor: docs[1]._id.toString(),
+      nextCursor: encodeBackfillCursor({ mode: 'normal', id: docs[1]._id.toString() }),
       hasMore: true,
     });
 
@@ -219,7 +224,7 @@ describe('FootprintBackfillService', () => {
       processed: 1,
       succeeded: 1,
       failed: 0,
-      nextCursor: docs[2]._id.toString(),
+      nextCursor: encodeBackfillCursor({ mode: 'normal', id: docs[2]._id.toString() }),
       hasMore: false,
     });
 
@@ -248,7 +253,7 @@ describe('FootprintBackfillService', () => {
       wouldFail: 0,
       wouldSkip: 0,
       deadLettered: 0,
-      nextCursor: legacy._id.toString(),
+      nextCursor: encodeBackfillCursor({ mode: 'dry', id: legacy._id.toString() }),
       hasMore: false,
     });
     expect(await Footprint.collection.findOne({ _id: legacy._id })).not.toHaveProperty('visibility');
@@ -465,7 +470,7 @@ describe('FootprintBackfillService', () => {
     });
   });
 
-  test('preserves failed provenance when reclaiming an expired processing lease', async () => {
+  test('reclaims expired failed-origin processing leases only in retry mode', async () => {
     const expired = rawFootprint({
       visibility: 'private',
       locationPrecision: 'precise',
@@ -485,10 +490,16 @@ describe('FootprintBackfillService', () => {
     await Footprint.collection.insertOne(expired);
     const geocoder = jest.fn().mockResolvedValue(geography);
 
-    const result = await serviceWith({
+    const service = serviceWith({
       reverseGeocodeStructured: geocoder,
       runTokenFactory: () => 'reclaim-worker',
-    }).run({ limit: 10 });
+    });
+
+    const normal = await service.run({ limit: 10 });
+    expect(normal).toMatchObject({ processed: 0, succeeded: 0 });
+    expect(geocoder).not.toHaveBeenCalled();
+
+    const result = await service.run({ retryFailed: true, limit: 10, cursor: null });
 
     expect(result).toMatchObject({ processed: 1, succeeded: 1, skipped: 0 });
     expect(geocoder).toHaveBeenCalledTimes(1);
@@ -672,6 +683,102 @@ describe('FootprintBackfillService', () => {
       .toMatchObject({ status: 'dead', attempts: 5 });
   });
 
+  test('dead-letters the fifth consumed attempt when completion CAS conflicts', async () => {
+    const pending = rawFootprint({
+      visibility: 'public',
+      regionBackfill: { status: 'pending', attempts: MAX_ATTEMPTS - 1 },
+    });
+    await Footprint.collection.insertOne(pending);
+    const geocoder = jest.fn(async () => {
+      await Footprint.collection.updateOne(
+        { _id: pending._id },
+        { $set: { visibility: 'private' } },
+      );
+      return geography;
+    });
+
+    const result = await serviceWith({ reverseGeocodeStructured: geocoder }).run({ limit: 10 });
+
+    expect(result).toMatchObject({
+      succeeded: 0,
+      skipped: 1,
+      conflicted: 1,
+      deadLettered: 1,
+    });
+    expect(await Footprint.collection.findOne({ _id: pending._id })).toMatchObject({
+      visibility: 'private',
+      regionBackfill: { status: 'dead', attempts: MAX_ATTEMPTS },
+    });
+  });
+
+  test('restores failed provenance after a lower-budget geocoder CAS conflict', async () => {
+    const failedOrigin = rawFootprint({
+      visibility: 'public',
+      regionBackfill: {
+        status: 'processing',
+        claimedFromStatus: 'failed',
+        attempts: 2,
+        runToken: 'expired-failed',
+        leaseExpiresAt: new Date('2026-07-12T07:00:00.000Z'),
+      },
+    });
+    await Footprint.collection.insertOne(failedOrigin);
+    const geocoder = jest.fn(async () => {
+      await Footprint.collection.updateOne(
+        { _id: failedOrigin._id },
+        { $set: { 'location.lat': 40 } },
+      );
+      return geography;
+    });
+    const service = serviceWith({ reverseGeocodeStructured: geocoder });
+
+    const retry = await service.run({ retryFailed: true, limit: 10, cursor: null });
+    const normal = await service.run({ limit: 10, cursor: null });
+
+    expect(retry).toMatchObject({ skipped: 1, conflicted: 1, deadLettered: 0 });
+    expect(normal).toMatchObject({ processed: 0 });
+    expect(geocoder).toHaveBeenCalledTimes(1);
+    expect(await Footprint.collection.findOne({ _id: failedOrigin._id })).toMatchObject({
+      location: { lat: 40, lng: failedOrigin.location.lng },
+      regionBackfill: { status: 'failed', attempts: 3 },
+    });
+  });
+
+  test('restores failed provenance after a pre-geocoder refresh conflict', async () => {
+    const failed = rawFootprint({
+      regionBackfill: { status: 'failed', attempts: 2, error: 'reverse_geocode_failed' },
+    });
+    await Footprint.collection.insertOne(failed);
+    const originalFindOneAndUpdate = Footprint.findOneAndUpdate.bind(Footprint);
+    let calls = 0;
+    jest.spyOn(Footprint, 'findOneAndUpdate').mockImplementation((...args) => {
+      const query = originalFindOneAndUpdate(...args);
+      calls += 1;
+      if (calls === 2) {
+        const originalExec = query.exec.bind(query);
+        query.exec = async () => {
+          await Footprint.collection.updateOne(
+            { _id: failed._id },
+            { $set: { 'location.lng': 116 } },
+          );
+          return originalExec();
+        };
+      }
+      return query;
+    });
+    const geocoder = jest.fn();
+
+    const result = await serviceWith({ reverseGeocodeStructured: geocoder })
+      .run({ retryFailed: true, limit: 10, cursor: null });
+
+    expect(result).toMatchObject({ skipped: 1, conflicted: 1 });
+    expect(geocoder).not.toHaveBeenCalled();
+    expect(await Footprint.collection.findOne({ _id: failed._id })).toMatchObject({
+      location: { lat: failed.location.lat, lng: 116 },
+      regionBackfill: { status: 'failed', attempts: 2 },
+    });
+  });
+
   test('uses authoritative coordinates after an ambiguous begin-attempt result', async () => {
     const pending = rawFootprint({
       visibility: 'public',
@@ -833,28 +940,37 @@ describe('FootprintBackfillService', () => {
       .toBe('pending');
   });
 
-  test('invalid coordinates remain retryable without consuming geocoder attempts', async () => {
-    const invalid = rawFootprint({
-      location: { lat: 91, lng: 121.47 },
-      regionBackfill: { status: 'pending', attempts: MAX_ATTEMPTS - 1 },
-    });
-    await Footprint.collection.insertOne(invalid);
+  test('dead-letters structurally invalid coordinates without consuming attempts', async () => {
+    const invalid = [
+      rawFootprint({
+        location: { lat: null, lng: 121.47 },
+        regionBackfill: { status: 'pending', attempts: 0 },
+      }),
+      rawFootprint({
+        location: { lat: 91, lng: 121.47 },
+        regionBackfill: { status: 'pending', attempts: MAX_ATTEMPTS - 1 },
+      }),
+    ];
+    await Footprint.collection.insertMany(invalid);
     const geocoder = jest.fn();
     const service = serviceWith({ reverseGeocodeStructured: geocoder });
 
     const first = await service.run({ limit: 10 });
     const second = await service.run({ retryFailed: true, limit: 10, cursor: null });
 
-    expect(first).toMatchObject({ failed: 1, deadLettered: 0 });
-    expect(second).toMatchObject({ failed: 1, deadLettered: 0 });
+    expect(first).toMatchObject({ failed: 2, deadLettered: 2 });
+    expect(second).toMatchObject({ processed: 0, failed: 0 });
     expect(geocoder).not.toHaveBeenCalled();
-    expect(await Footprint.collection.findOne({ _id: invalid._id })).toMatchObject({
-      regionBackfill: {
-        status: 'failed',
-        attempts: MAX_ATTEMPTS - 1,
+    const saved = await Footprint.collection.find({ _id: { $in: invalid.map((doc) => doc._id) } })
+      .sort({ _id: 1 }).toArray();
+    expect(saved.map((doc) => doc.regionBackfill.attempts).sort()).toEqual([0, MAX_ATTEMPTS - 1]);
+    for (const doc of saved) {
+      expect(doc.regionBackfill).toMatchObject({
+        status: 'dead',
         error: 'INVALID_COORDINATES',
-      },
-    });
+        lastAttemptAt: now,
+      });
+    }
   });
 
   test('increments attempts exactly once for each resolved success or provider failure', async () => {
@@ -936,10 +1052,52 @@ describe('FootprintBackfillService', () => {
     expect(find).not.toHaveBeenCalled();
     expect(geocoder).not.toHaveBeenCalled();
   });
+
+  test('encodes opaque versioned cursors and rejects sweep-mode mismatches', () => {
+    const id = new mongoose.Types.ObjectId().toString();
+    const normal = encodeBackfillCursor({ mode: 'normal', id });
+    const retry = encodeBackfillCursor({ mode: 'retry', id });
+    const dry = encodeBackfillCursor({ mode: 'dry', id });
+
+    expect(normal).not.toContain(id);
+    expect(decodeBackfillCursor(normal)).toEqual({ version: 1, mode: 'normal', id });
+    expect(() => validateBackfillOptions({ cursor: normal })).not.toThrow();
+    expect(() => validateBackfillOptions({ cursor: retry, retryFailed: true })).not.toThrow();
+    expect(() => validateBackfillOptions({ cursor: dry, dryRun: true })).not.toThrow();
+    expect(() => validateBackfillOptions({ cursor: normal, retryFailed: true }))
+      .toThrow('cursor mode');
+    expect(() => validateBackfillOptions({ cursor: retry })).toThrow('cursor mode');
+    expect(() => validateBackfillOptions({ cursor: dry })).toThrow('cursor mode');
+  });
+
+  test('rejects a terminal normal cursor when starting a retry sweep', async () => {
+    const docs = [rawFootprint(), rawFootprint()]
+      .sort((a, b) => a._id.toString().localeCompare(b._id.toString()));
+    await Footprint.collection.insertMany(docs);
+    const geocoder = jest.fn()
+      .mockResolvedValueOnce({ ...geography, failureCode: 'reverse_geocode_failed' })
+      .mockResolvedValueOnce(geography);
+    const service = serviceWith({ reverseGeocodeStructured: geocoder });
+
+    const normal = await service.run({ limit: 2 });
+    expect(decodeBackfillCursor(normal.nextCursor)).toMatchObject({
+      mode: 'normal',
+      id: docs[1]._id.toString(),
+    });
+    await expect(service.run({
+      retryFailed: true,
+      limit: 2,
+      cursor: normal.nextCursor,
+    })).rejects.toThrow('cursor mode');
+    expect(geocoder).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('footprint geography backfill CLI', () => {
-  const cursor = new mongoose.Types.ObjectId().toString();
+  const cursor = encodeBackfillCursor({
+    mode: 'dry',
+    id: new mongoose.Types.ObjectId().toString(),
+  });
   const productionToken = 'BACKFILL_FOOTPRINT_GEOGRAPHY';
 
   test('defaults an invocation with no flags to dry-run', () => {
@@ -1089,6 +1247,10 @@ describe('footprint backfill materialized eligibility', () => {
     disconnectWarning.mockRestore();
   });
   beforeEach(clearDB);
+  afterEach(() => {
+    jest.restoreAllMocks();
+    disconnectWarning = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
 
   test('schema stores lease ownership and exposes status-driven indexes', () => {
     const statusPath = Footprint.schema.path('regionBackfill.status');
@@ -1149,6 +1311,18 @@ describe('footprint backfill materialized eligibility', () => {
     const legacy = [rawLegacy(), rawLegacy(), rawLegacy()]
       .sort((a, b) => a._id.toString().localeCompare(b._id.toString()));
     await Footprint.collection.insertMany(legacy);
+    await Footprint.syncIndexes();
+    const originalFind = Footprint.find.bind(Footprint);
+    let usedHint;
+    const findSpy = jest.spyOn(Footprint, 'find').mockImplementation((...args) => {
+      const query = originalFind(...args);
+      const originalHint = query.hint.bind(query);
+      query.hint = (hint) => {
+        usedHint = hint;
+        return originalHint(hint);
+      };
+      return query;
+    });
 
     const result = await materializeLegacyCandidates({
       Footprint,
@@ -1157,6 +1331,8 @@ describe('footprint backfill materialized eligibility', () => {
     });
 
     expect(result).toEqual({ materialized: 2, hasMoreLegacy: true });
+    expect(findSpy).toHaveBeenCalledWith({ 'regionBackfill.status': null });
+    expect(usedHint).toBe('region_backfill_status_id');
     const stored = await Footprint.collection.find({}).sort({ _id: 1 }).toArray();
     expect(stored.slice(0, 2).every((doc) => doc.regionBackfill.status === 'pending')).toBe(true);
     expect(stored[2]).not.toHaveProperty('regionBackfill.status');
@@ -1176,6 +1352,24 @@ describe('footprint backfill materialized eligibility', () => {
 
     expect(explanation.executionStats.nReturned).toBe(1);
     expect(explanation.executionStats.totalDocsExamined).toBeLessThanOrEqual(1);
+    expect(JSON.stringify(explanation.queryPlanner.winningPlan)).toContain('IXSCAN');
+  });
+
+  test('legacy materialization examines only bounded null-status index entries', async () => {
+    const complete = Array.from({ length: 300 }, () => rawLegacy({
+      regionBackfill: { status: 'complete', attempts: 1 },
+    }));
+    const legacy = [rawLegacy(), rawLegacy()];
+    await Footprint.collection.insertMany([...complete, ...legacy]);
+    await Footprint.syncIndexes();
+
+    const explanation = await Footprint.collection.find({
+      'regionBackfill.status': null,
+    }).sort({ _id: 1 }).limit(3).hint('region_backfill_status_id').explain('executionStats');
+
+    expect(explanation.executionStats.nReturned).toBe(2);
+    expect(explanation.executionStats.totalDocsExamined).toBeLessThanOrEqual(3);
+    expect(explanation.executionStats.totalKeysExamined).toBeLessThanOrEqual(3);
     expect(JSON.stringify(explanation.queryPlanner.winningPlan)).toContain('IXSCAN');
   });
 

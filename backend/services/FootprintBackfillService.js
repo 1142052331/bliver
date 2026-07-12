@@ -11,18 +11,81 @@ const VALID_VISIBILITIES = new Set(['public', 'friends', 'private']);
 const VALID_PRECISIONS = new Set(['approximate', 'precise']);
 const DEFAULT_LEASE_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
+const CURSOR_VERSION = 1;
+const CURSOR_MODES = new Set(['normal', 'retry', 'dry']);
+
+function getCursorMode({ dryRun = false, retryFailed = false } = {}) {
+  if (dryRun) return 'dry';
+  return retryFailed ? 'retry' : 'normal';
+}
+
+function encodeBackfillCursor({ mode, id }) {
+  if (!CURSOR_MODES.has(mode)) throw new TypeError('cursor mode is invalid');
+  if (typeof id !== 'string' || !mongoose.isObjectIdOrHexString(id)) {
+    throw new TypeError('cursor id must be a valid ObjectId string');
+  }
+  return Buffer.from(JSON.stringify({ v: CURSOR_VERSION, m: mode, i: id }), 'utf8')
+    .toString('base64url');
+}
+
+function decodeBackfillCursor(cursor) {
+  if (typeof cursor !== 'string' || cursor.length === 0 || cursor.length > 256
+    || !/^[A-Za-z0-9_-]+$/.test(cursor)) {
+    throw new TypeError('cursor must be a valid opaque cursor');
+  }
+  let payload;
+  try {
+    const decoded = Buffer.from(cursor, 'base64url');
+    if (decoded.toString('base64url') !== cursor) throw new Error('non-canonical cursor');
+    payload = JSON.parse(decoded.toString('utf8'));
+  } catch {
+    throw new TypeError('cursor must be a valid opaque cursor');
+  }
+  if (!payload || payload.v !== CURSOR_VERSION || !CURSOR_MODES.has(payload.m)
+    || typeof payload.i !== 'string' || !mongoose.isObjectIdOrHexString(payload.i)) {
+    throw new TypeError('cursor must be a valid opaque cursor');
+  }
+  return { version: payload.v, mode: payload.m, id: payload.i };
+}
+
+function retryableAttemptsBranch() {
+  return {
+    $or: [
+      { 'regionBackfill.attempts': { $lt: MAX_ATTEMPTS } },
+      { 'regionBackfill.attempts': { $exists: false } },
+      { 'regionBackfill.attempts': null },
+    ],
+  };
+}
 
 function retryableFailedBranch() {
+  return { $and: [{ 'regionBackfill.status': 'failed' }, retryableAttemptsBranch()] };
+}
+
+function expiredPendingOriginBranch(now) {
   return {
     $and: [
-      { 'regionBackfill.status': 'failed' },
+      { 'regionBackfill.status': 'processing' },
+      { 'regionBackfill.leaseExpiresAt': { $lte: now } },
       {
         $or: [
-          { 'regionBackfill.attempts': { $lt: MAX_ATTEMPTS } },
-          { 'regionBackfill.attempts': { $exists: false } },
-          { 'regionBackfill.attempts': null },
+          { 'regionBackfill.claimedFromStatus': 'pending' },
+          { 'regionBackfill.claimedFromStatus': '' },
+          { 'regionBackfill.claimedFromStatus': null },
+          { 'regionBackfill.claimedFromStatus': { $exists: false } },
         ],
       },
+    ],
+  };
+}
+
+function expiredFailedOriginBranch(now) {
+  return {
+    $and: [
+      { 'regionBackfill.status': 'processing' },
+      { 'regionBackfill.leaseExpiresAt': { $lte: now } },
+      { 'regionBackfill.claimedFromStatus': 'failed' },
+      retryableAttemptsBranch(),
     ],
   };
 }
@@ -42,9 +105,11 @@ function validateBackfillOptions(options = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
     throw new RangeError(`limit must be an integer between 1 and ${MAX_LIMIT}`);
   }
-  if (cursor !== null && cursor !== undefined
-    && (typeof cursor !== 'string' || !mongoose.isObjectIdOrHexString(cursor))) {
-    throw new TypeError('cursor must be a valid ObjectId string');
+  if (cursor !== null && cursor !== undefined) {
+    const decoded = decodeBackfillCursor(cursor);
+    if (decoded.mode !== getCursorMode({ dryRun, retryFailed })) {
+      throw new TypeError('cursor mode does not match the requested sweep');
+    }
   }
   if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > MAX_DELAY_MS) {
     throw new RangeError(`delayMs must be an integer between 0 and ${MAX_DELAY_MS}`);
@@ -64,13 +129,10 @@ function validateBackfillOptions(options = {}) {
 function buildEligibilityQuery({ cursor, retryFailed, now = new Date(), dryRun = false }) {
   const statusBranches = [
     { 'regionBackfill.status': 'pending' },
-    {
-      'regionBackfill.status': 'processing',
-      'regionBackfill.leaseExpiresAt': { $lte: now },
-    },
+    expiredPendingOriginBranch(now),
   ];
   if (retryFailed) {
-    statusBranches.push(retryableFailedBranch());
+    statusBranches.push(retryableFailedBranch(), expiredFailedOriginBranch(now));
   }
   if (dryRun) {
     statusBranches.push(
@@ -88,13 +150,10 @@ function buildEligibilityQuery({ cursor, retryFailed, now = new Date(), dryRun =
 function buildClaimFilter(id, { retryFailed, now }) {
   const statuses = [
     { 'regionBackfill.status': 'pending' },
-    {
-      'regionBackfill.status': 'processing',
-      'regionBackfill.leaseExpiresAt': { $lte: now },
-    },
+    expiredPendingOriginBranch(now),
   ];
   if (retryFailed) {
-    statuses.push(retryableFailedBranch());
+    statuses.push(retryableFailedBranch(), expiredFailedOriginBranch(now));
   }
   return { _id: id, $or: statuses };
 }
@@ -111,6 +170,11 @@ function needsBackfill(doc, retryFailed) {
   if (retryFailed && (status === 'failed' || status === 'pending')) return true;
   if (!VALID_VISIBILITIES.has(doc.visibility)) return true;
   return REQUIRED_TEXT_FIELDS.some((field) => !hasText(doc[field]));
+}
+
+function recoveryStatus(doc, expectedAttempts = null) {
+  if (expectedAttempts !== null && expectedAttempts >= MAX_ATTEMPTS) return 'dead';
+  return doc.regionBackfill?.claimedFromStatus === 'failed' ? 'failed' : 'pending';
 }
 
 function classifyGeography(value) {
@@ -133,21 +197,14 @@ function classifyGeography(value) {
 
 async function materializeLegacyCandidates({ Footprint, cursor = null, limit }) {
   const legacyFilter = {
-    $and: [
-      cursor ? { _id: { $gt: new mongoose.Types.ObjectId(cursor) } } : {},
-      {
-        $or: [
-          { 'regionBackfill.status': { $exists: false } },
-          { 'regionBackfill.status': null },
-        ],
-      },
-    ],
+    'regionBackfill.status': null,
+    ...(cursor ? { _id: { $gt: new mongoose.Types.ObjectId(cursor) } } : {}),
   };
   const fetched = await Footprint.find(legacyFilter)
     .select('_id')
     .sort({ _id: 1 })
     .limit(limit + 1)
-    .hint({ _id: 1 })
+    .hint('region_backfill_status_id')
     .lean()
     .exec();
   const ids = fetched.slice(0, limit).map((doc) => doc._id);
@@ -156,10 +213,7 @@ async function materializeLegacyCandidates({ Footprint, cursor = null, limit }) 
   const write = await Footprint.updateMany(
     {
       _id: { $in: ids },
-      $or: [
-        { 'regionBackfill.status': { $exists: false } },
-        { 'regionBackfill.status': null },
-      ],
+      'regionBackfill.status': null,
     },
     {
       $set: {
@@ -266,6 +320,7 @@ function createFootprintBackfillService({
   }
 
   async function releaseConflict(doc, runToken, totals) {
+    const status = recoveryStatus(doc);
     await Footprint.updateOne(
       {
         _id: doc._id,
@@ -274,7 +329,7 @@ function createFootprintBackfillService({
       },
       {
         $set: {
-          'regionBackfill.status': 'pending',
+          'regionBackfill.status': status,
           'regionBackfill.leaseExpiresAt': null,
           'regionBackfill.error': 'state_conflict',
         },
@@ -284,28 +339,31 @@ function createFootprintBackfillService({
     totals.conflicted += 1;
   }
 
-  async function markOwnedValidationFailure(doc, runToken, error, totals) {
+  async function markOwnedValidationFailure(doc, runToken, validatedAt, error, totals) {
     try {
       const write = await Footprint.updateOne(
         completionFilter(doc, runToken),
         {
           $set: {
-            'regionBackfill.status': 'failed',
+            'regionBackfill.status': 'dead',
             'regionBackfill.leaseExpiresAt': null,
+            'regionBackfill.lastAttemptAt': validatedAt,
             'regionBackfill.error': error,
           },
         },
       );
       if (write.acknowledged && write.matchedCount === 1) {
         totals.failed += 1;
+        totals.deadLettered += 1;
         return;
       }
     } catch {
       const current = await inspect(doc._id).catch(() => null);
       if (current?.regionBackfill?.runToken === runToken
-        && current.regionBackfill.status === 'failed'
+        && current.regionBackfill.status === 'dead'
         && current.regionBackfill.attempts === doc.regionBackfill?.attempts) {
         totals.failed += 1;
+        totals.deadLettered += 1;
         return;
       }
     }
@@ -314,6 +372,7 @@ function createFootprintBackfillService({
 
   async function recordAttemptConflict(doc, runToken, attemptedAt, totals) {
     const expectedAttempts = (doc.regionBackfill?.attempts || 0) + 1;
+    const status = recoveryStatus(doc, expectedAttempts);
     const filter = {
       _id: doc._id,
       'regionBackfill.status': 'processing',
@@ -325,7 +384,7 @@ function createFootprintBackfillService({
         filter,
         {
           $set: {
-            'regionBackfill.status': 'pending',
+            'regionBackfill.status': status,
             'regionBackfill.leaseExpiresAt': null,
             'regionBackfill.lastAttemptAt': attemptedAt,
             'regionBackfill.error': 'state_conflict',
@@ -336,15 +395,17 @@ function createFootprintBackfillService({
       if (write.acknowledged && write.matchedCount === 1) {
         totals.skipped += 1;
         totals.conflicted += 1;
+        if (status === 'dead') totals.deadLettered += 1;
         return;
       }
     } catch {
       const current = await inspect(doc._id).catch(() => null);
       if (current?.regionBackfill?.runToken === runToken
-        && current.regionBackfill.status === 'pending'
+        && current.regionBackfill.status === status
         && current.regionBackfill.attempts === expectedAttempts) {
         totals.skipped += 1;
         totals.conflicted += 1;
+        if (status === 'dead') totals.deadLettered += 1;
         return;
       }
     }
@@ -488,17 +549,23 @@ function createFootprintBackfillService({
 
   async function run(inputOptions = {}) {
     const options = validateBackfillOptions(inputOptions);
+    const cursorMode = getCursorMode(options);
+    const cursorId = options.cursor ? decodeBackfillCursor(options.cursor).id : null;
     const scanTime = new Date(clock());
     let hasMoreLegacy = false;
     if (!options.dryRun) {
       const materialized = await materializeLegacyCandidates({
         Footprint,
-        cursor: options.cursor,
+        cursor: cursorId,
         limit: options.limit,
       });
       hasMoreLegacy = materialized.hasMoreLegacy;
     }
-    const query = Footprint.find(buildEligibilityQuery({ ...options, now: scanTime }))
+    const query = Footprint.find(buildEligibilityQuery({
+      ...options,
+      cursor: cursorId,
+      now: scanTime,
+    }))
       .select('_id location realLocation visibility locationPrecision placeName countryCode countryName regionCode regionName regionBackfill')
       .sort({ _id: 1 })
       .limit(options.limit + 1)
@@ -528,7 +595,7 @@ function createFootprintBackfillService({
 
     for (const candidate of docs) {
       totals.processed += 1;
-      totals.nextCursor = candidate._id.toString();
+      totals.nextCursor = encodeBackfillCursor({ mode: cursorMode, id: candidate._id.toString() });
       let doc = candidate;
       if (!options.dryRun) {
         try {
@@ -577,12 +644,19 @@ function createFootprintBackfillService({
           continue;
         }
       }
-      const lat = Number(attemptDoc.location?.lat);
-      const lng = Number(attemptDoc.location?.lng);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)
+      const lat = attemptDoc.location?.lat;
+      const lng = attemptDoc.location?.lng;
+      if (typeof lat !== 'number' || typeof lng !== 'number'
+        || !Number.isFinite(lat) || !Number.isFinite(lng)
         || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
         if (!options.dryRun) {
-          await markOwnedValidationFailure(attemptDoc, runToken, 'INVALID_COORDINATES', totals);
+          await markOwnedValidationFailure(
+            attemptDoc,
+            runToken,
+            new Date(clock()),
+            'INVALID_COORDINATES',
+            totals,
+          );
         } else {
           totals.wouldFail += 1;
         }
@@ -626,4 +700,6 @@ module.exports = {
   buildEligibilityQuery,
   materializeLegacyCandidates,
   MAX_ATTEMPTS,
+  encodeBackfillCursor,
+  decodeBackfillCursor,
 };
