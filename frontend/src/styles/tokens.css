@@ -1569,7 +1569,7 @@
 .bliver-checkin__choices span { min-width: 0; }
 .bliver-checkin__choices strong, .bliver-checkin__choices small { display: block; }
 .bliver-checkin__choices strong { color: var(--bliver-ink); font-size: 15px; line-height: 1.4; }
-.bliver-checkin__choices small { margin-top: 2px; color: var(--bliver-muted); font-size: 13px; line-height: 1.4; }
+.bliver-checkin__choices small { margin-top: 2px; color: var(--bliver-muted); font-size: 15px; line-height: 1.4; }
 .bliver-checkin__choices svg { visibility: hidden; color: var(--bliver-forest); }
 .bliver-checkin__choices label:has(input:checked) svg { visibility: visible; }
 

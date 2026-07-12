@@ -11,6 +11,7 @@ interface AppUser {
   name: string;
   avatarUrl?: string;
   role: 'user' | 'admin';
+  lastFootprintVisibility?: 'public' | 'friends' | 'private';
 }
 
 interface PendingAction {

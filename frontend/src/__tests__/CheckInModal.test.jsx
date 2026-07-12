@@ -178,6 +178,26 @@ describe('CheckInModal', () => {
     expect(screen.getByText(/会显示到地图上的具体坐标/)).toBeVisible();
   });
 
+  test('reveals exact coordinates only after opting into precise location', async () => {
+    const user = userEvent.setup();
+    render(<CheckInModal isOpen onClose={mockOnClose} presetLocation={{ lat: 31.2304, lng: 121.4737 }} />);
+    expect(screen.queryByText(/31\.2304/)).not.toBeInTheDocument();
+    await user.click(screen.getByDisplayValue('precise'));
+    expect(screen.getByText(/31\.2304/)).toBeInTheDocument();
+  });
+
+  test('initializes from authenticated user visibility and removes a selected photo', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('bliver_user', JSON.stringify({ _id: 'user-1', lastFootprintVisibility: 'friends' }));
+    const { container } = render(<CheckInModal isOpen onClose={mockOnClose} presetLocation={{ lat: 31.2304, lng: 121.4737 }} />);
+    expect(screen.getByDisplayValue('friends')).toBeChecked();
+    const file = new File(['image'], 'place.jpg', { type: 'image/jpeg' });
+    await user.upload(container.querySelector('input[type="file"]'), file);
+    expect(await screen.findByRole('button', { name: '移除照片' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '移除照片' }));
+    expect(screen.queryByRole('button', { name: '移除照片' })).not.toBeInTheDocument();
+  });
+
   test('retains the complete form and privacy decisions when publication fails', async () => {
     mockCheckin.mockRejectedValueOnce(new Error('offline'));
     const user = userEvent.setup();
@@ -214,8 +234,7 @@ describe('CheckInModal', () => {
       expect(screen.getByRole('button', { name: '公开发布足迹' })).toBeInTheDocument();
     });
 
-    // Coordinates should be visible
-    expect(screen.getByText(/35.6895/)).toBeInTheDocument();
+    expect(screen.getByText(/附近区域（约 2\.5 公里范围）/)).toBeInTheDocument();
   });
 
   test('shows location permission warning when denied', async () => {
@@ -246,8 +265,7 @@ describe('CheckInModal', () => {
     // GPS should NOT have been called
     expect(mockGeolocation.getCurrentPosition).not.toHaveBeenCalled();
 
-    // Coordinates should show preset values
-    expect(screen.getByText(/31.2304/)).toBeInTheDocument();
+    expect(screen.getByText(/附近区域（约 2\.5 公里范围）/)).toBeInTheDocument();
   });
 
   test('shows mood emoji buttons', async () => {

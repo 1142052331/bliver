@@ -63,6 +63,15 @@ function loadPublicationPreferences(viewerKey) {
   }
 }
 
+function getInitialPreferences(viewerKey) {
+  const stored = loadPublicationPreferences(viewerKey);
+  const savedUser = getUser();
+  if (savedUser?.lastFootprintVisibility && VALID_VISIBILITIES.has(savedUser.lastFootprintVisibility)) {
+    stored.visibility = savedUser.lastFootprintVisibility;
+  }
+  return stored;
+}
+
 function savePublicationPreferences(viewerKey, visibility, locationPrecision) {
   try {
     localStorage.setItem(preferenceKey(viewerKey), JSON.stringify({ visibility, locationPrecision }));
@@ -78,7 +87,7 @@ export default function CheckInModal({ isOpen, onClose, presetLocation = null })
 
 function OpenCheckInModal({ onClose, presetLocation }) {
   const viewerKey = getUser()?._id || 'guest';
-  const initialPreferences = loadPublicationPreferences(viewerKey);
+  const initialPreferences = getInitialPreferences(viewerKey);
   const hasPresetLocation = presetLocation?.lat != null && presetLocation?.lng != null;
   const [message, setMessage] = useState('');
   const [mood, setMood] = useState('');
@@ -217,6 +226,10 @@ function OpenCheckInModal({ onClose, presetLocation }) {
     try {
       await apiClient.footprints.checkin(form);
       savePublicationPreferences(viewerKey, visibility, locationPrecision);
+      const savedUser = getUser();
+      if (savedUser && savedUser._id === viewerKey) {
+        localStorage.setItem('bliver_user', JSON.stringify({ ...savedUser, lastFootprintVisibility: visibility }));
+      }
       revokePreview();
       onClose();
       if (!localStorage.getItem('feedback_submitted')) {
@@ -272,7 +285,9 @@ function OpenCheckInModal({ onClose, presetLocation }) {
           {locating ? (
             <><Loader2 size={18} className="bliver-checkin__spinner" aria-hidden="true" /><span>正在获取位置</span></>
           ) : location?.lat != null ? (
-            <><MapPin size={18} aria-hidden="true" /><span>当前位置 {location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span></>
+            <><MapPin size={18} aria-hidden="true" /><span>{locationPrecision === 'precise'
+              ? `当前位置 ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+              : '附近区域（约 2.5 公里范围）'}</span></>
           ) : (
             <><MapPin size={18} aria-hidden="true" /><span>尚未取得可发布的位置</span></>
           )}
@@ -320,6 +335,12 @@ function OpenCheckInModal({ onClose, presetLocation }) {
               {photo ? '更换照片' : '添加照片'}
             </button>
             {preview && <img src={preview} alt="待发布照片预览" />}
+            {photo && <button type="button" aria-label="移除照片" onClick={() => {
+              setPhoto(null);
+              setPreview('');
+              revokePreview();
+              if (fileRef.current) fileRef.current.value = '';
+            }}>移除照片</button>}
           </div>
 
           <fieldset className="bliver-checkin__decision">
