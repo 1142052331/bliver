@@ -12,10 +12,10 @@ const VALID_PRECISIONS = new Set(['approximate', 'precise']);
 const DEFAULT_LEASE_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const CURSOR_VERSION = 1;
-const CURSOR_MODES = new Set(['normal', 'retry', 'dry']);
+const CURSOR_MODES = new Set(['normal', 'retry', 'dry-normal', 'dry-retry']);
 
 function getCursorMode({ dryRun = false, retryFailed = false } = {}) {
-  if (dryRun) return 'dry';
+  if (dryRun) return retryFailed ? 'dry-retry' : 'dry-normal';
   return retryFailed ? 'retry' : 'normal';
 }
 

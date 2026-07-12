@@ -253,7 +253,7 @@ describe('FootprintBackfillService', () => {
       wouldFail: 0,
       wouldSkip: 0,
       deadLettered: 0,
-      nextCursor: encodeBackfillCursor({ mode: 'dry', id: legacy._id.toString() }),
+      nextCursor: encodeBackfillCursor({ mode: 'dry-normal', id: legacy._id.toString() }),
       hasMore: false,
     });
     expect(await Footprint.collection.findOne({ _id: legacy._id })).not.toHaveProperty('visibility');
@@ -1057,17 +1057,55 @@ describe('FootprintBackfillService', () => {
     const id = new mongoose.Types.ObjectId().toString();
     const normal = encodeBackfillCursor({ mode: 'normal', id });
     const retry = encodeBackfillCursor({ mode: 'retry', id });
-    const dry = encodeBackfillCursor({ mode: 'dry', id });
+    const dryNormal = encodeBackfillCursor({ mode: 'dry-normal', id });
+    const dryRetry = encodeBackfillCursor({ mode: 'dry-retry', id });
 
     expect(normal).not.toContain(id);
     expect(decodeBackfillCursor(normal)).toEqual({ version: 1, mode: 'normal', id });
     expect(() => validateBackfillOptions({ cursor: normal })).not.toThrow();
     expect(() => validateBackfillOptions({ cursor: retry, retryFailed: true })).not.toThrow();
-    expect(() => validateBackfillOptions({ cursor: dry, dryRun: true })).not.toThrow();
+    expect(() => validateBackfillOptions({ cursor: dryNormal, dryRun: true })).not.toThrow();
+    expect(() => validateBackfillOptions({
+      cursor: dryRetry,
+      dryRun: true,
+      retryFailed: true,
+    })).not.toThrow();
     expect(() => validateBackfillOptions({ cursor: normal, retryFailed: true }))
       .toThrow('cursor mode');
     expect(() => validateBackfillOptions({ cursor: retry })).toThrow('cursor mode');
-    expect(() => validateBackfillOptions({ cursor: dry })).toThrow('cursor mode');
+    expect(() => validateBackfillOptions({ cursor: dryNormal, dryRun: true, retryFailed: true }))
+      .toThrow('cursor mode');
+    expect(() => validateBackfillOptions({ cursor: dryRetry, dryRun: true }))
+      .toThrow('cursor mode');
+  });
+
+  test('rejects dry-normal cursor reuse that would skip a lower failed record', async () => {
+    const failed = rawFootprint({
+      regionBackfill: { status: 'failed', attempts: 1, error: 'reverse_geocode_failed' },
+    });
+    const higherPending = rawFootprint({ regionBackfill: { status: 'pending', attempts: 0 } });
+    await Footprint.collection.insertMany([failed, higherPending]);
+    const geocoder = jest.fn().mockResolvedValue(geography);
+    const service = serviceWith({ reverseGeocodeStructured: geocoder });
+
+    const normalDry = await service.run({ dryRun: true, limit: 1 });
+    expect(decodeBackfillCursor(normalDry.nextCursor)).toMatchObject({
+      mode: 'dry-normal',
+      id: higherPending._id.toString(),
+    });
+    await expect(service.run({
+      dryRun: true,
+      retryFailed: true,
+      limit: 1,
+      cursor: normalDry.nextCursor,
+    })).rejects.toThrow('cursor mode');
+
+    const retryDry = await service.run({ dryRun: true, retryFailed: true, limit: 1, cursor: null });
+    expect(decodeBackfillCursor(retryDry.nextCursor)).toMatchObject({
+      mode: 'dry-retry',
+      id: failed._id.toString(),
+    });
+    expect(geocoder).toHaveBeenCalledTimes(2);
   });
 
   test('rejects a terminal normal cursor when starting a retry sweep', async () => {
@@ -1095,7 +1133,7 @@ describe('FootprintBackfillService', () => {
 
 describe('footprint geography backfill CLI', () => {
   const cursor = encodeBackfillCursor({
-    mode: 'dry',
+    mode: 'dry-retry',
     id: new mongoose.Types.ObjectId().toString(),
   });
   const productionToken = 'BACKFILL_FOOTPRINT_GEOGRAPHY';
@@ -1120,6 +1158,19 @@ describe('footprint geography backfill CLI', () => {
     expect(() => parseArgs([
       '--execute', '--confirm-production', 'wrong-token',
     ], { NODE_ENV: 'production' })).toThrow('confirmation token');
+  });
+
+  test('CLI parser rejects dry cursor retry-mode mismatches in both directions', () => {
+    const { parseArgs } = require('../scripts/backfill-footprint-geography');
+    const id = new mongoose.Types.ObjectId().toString();
+    const dryNormal = encodeBackfillCursor({ mode: 'dry-normal', id });
+    const dryRetry = encodeBackfillCursor({ mode: 'dry-retry', id });
+
+    expect(() => parseArgs(['--dry-run', '--cursor', dryNormal])).not.toThrow();
+    expect(() => parseArgs(['--dry-run', '--retry-failed', '--cursor', dryRetry])).not.toThrow();
+    expect(() => parseArgs(['--dry-run', '--retry-failed', '--cursor', dryNormal]))
+      .toThrow('cursor mode');
+    expect(() => parseArgs(['--dry-run', '--cursor', dryRetry])).toThrow('cursor mode');
   });
 
   test('parses supported flags into validated service options', () => {
