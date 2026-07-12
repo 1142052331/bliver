@@ -1,5 +1,5 @@
 // @feature 打卡详情卡片 | Footprint Detail Modal | FootprintDetailModal
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import useUIStore from '../store/useUIStore';
 import { motion } from 'framer-motion';
@@ -8,41 +8,32 @@ import ReactionPicker from './ReactionPicker';
 import { CommentSection } from './CommentSection';
 import { useFootprintActionsContext } from '../contexts/FootprintActionsContext';
 import { apiClient } from '../api';
-import { invalidateFootprintLists } from '../hooks/socketHandlers';
+import { invalidateFootprintLists, setFootprintUnreadState } from '../hooks/socketHandlers';
 
-function timeStr(date) {
-  return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-}
-
-function setCachedUnread(queryClient, footprintId, isUnread) {
-  const update = (data) => {
-    if (Array.isArray(data)) {
-      return data.map((item) => item._id === footprintId ? { ...item, isUnread } : item);
-    }
-    if (Array.isArray(data?.footprints)) {
-      return {
-        ...data,
-        footprints: data.footprints.map((item) => (
-          item._id === footprintId ? { ...item, isUnread } : item
-        )),
-      };
-    }
-    return data;
-  };
-  queryClient.setQueriesData({ queryKey: ['footprints', 'map'] }, update);
-  queryClient.setQueriesData({ queryKey: ['footprints', 'activity'] }, update);
+function canKeepRealtimeFootprint(footprint, userId, isAdmin) {
+  const ownerId = footprint.userId?._id || footprint.userId;
+  if (isAdmin || (userId && String(ownerId) === String(userId))) return true;
+  if (!footprint.visibility) return true;
+  if (footprint.visibility === 'private') return false;
+  if (footprint.visibility === 'friends') return Boolean(userId);
+  if (footprint.visibility !== 'public') return false;
+  const expiresAt = new Date(footprint.discoveryExpiresAt).getTime();
+  return Number.isFinite(expiresAt) && (expiresAt > Date.now() || Boolean(userId));
 }
 
 export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onClose, allFootprints }) {
   const { handleReact: onReact, handleDelete: onDelete, handleShare: onShare, handleComment: onComment, handleDeleteComment: onDeleteComment } = useFootprintActionsContext();
-  const fp = allFootprints && fpProp ? allFootprints.find(f => f._id === fpProp._id) || fpProp : fpProp;
-  if (!fp) return null;
-
   const queryClient = useQueryClient();
+  const listedFp = allFootprints && fpProp
+    ? allFootprints.find((footprint) => footprint._id === fpProp._id) || fpProp
+    : fpProp;
+  const [realtimeFp, setRealtimeFp] = useState(null);
+  const fp = realtimeFp?._id === listedFp?._id ? realtimeFp : listedFp;
   const mountedRef = useRef(true);
+  const closedFootprintIdRef = useRef(null);
   const copyTimerRef = useRef(null);
   const attemptedReadRef = useRef(null);
-  const activeReadIdRef = useRef(fp._id);
+  const activeReadIdRef = useRef(fp?._id || null);
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -52,42 +43,69 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onCl
   }, []);
 
   const [copied, setCopied] = useState(false);
-  const [readState, setReadState] = useState('idle');
+  const [readState, setReadState] = useState({ footprintId: null, status: 'idle' });
+
+  useEffect(() => useUIStore.subscribe(
+    (state) => state.footprintEventId,
+    () => {
+      const event = useUIStore.getState().footprintEvent;
+      const eventId = event?.footprintId || event?.footprint?._id;
+      if (!event || !fpProp?._id || eventId !== fpProp._id) return;
+      if (event.type === 'deleted'
+        || (event.type === 'updated' && !canKeepRealtimeFootprint(event.footprint, userId, isAdmin))) {
+        if (closedFootprintIdRef.current !== eventId) {
+          closedFootprintIdRef.current = eventId;
+          onClose();
+        }
+        return;
+      }
+      if (event.footprint) {
+        setRealtimeFp((current) => ({ ...(current || listedFp), ...event.footprint }));
+      }
+    },
+  ), [fpProp?._id, isAdmin, listedFp, onClose, userId]);
 
   // ── Auto-mark backend notifications as read on view ──
   useEffect(() => {
-    if (fp._id) {
+    if (fp?._id) {
       useUIStore.getState().setViewedFootprintId(fp._id);
     }
-  }, [fp._id]);
+  }, [fp?._id]);
 
   // ── New-message section ──────────────────────────────
-  const submitRead = async () => {
+  const submitRead = useCallback(async () => {
+    if (!fp) return;
     const footprintId = fp._id;
     activeReadIdRef.current = footprintId;
-    setReadState('saving');
-    setCachedUnread(queryClient, footprintId, false);
+    setReadState({ footprintId, status: 'saving' });
+    setFootprintUnreadState(queryClient, footprintId, false);
     try {
       await apiClient.footprints.markRead(footprintId);
-      if (mountedRef.current && activeReadIdRef.current === footprintId) setReadState('success');
+      if (mountedRef.current && activeReadIdRef.current === footprintId) {
+        setReadState({ footprintId, status: 'success' });
+      }
     } catch {
-      setCachedUnread(queryClient, footprintId, true);
-      if (mountedRef.current && activeReadIdRef.current === footprintId) setReadState('error');
+      setFootprintUnreadState(queryClient, footprintId, true);
+      if (mountedRef.current && activeReadIdRef.current === footprintId) {
+        setReadState({ footprintId, status: 'error' });
+      }
     } finally {
       invalidateFootprintLists(queryClient);
     }
-  };
+  }, [fp, queryClient]);
 
   useEffect(() => {
+    if (!fp) return;
     activeReadIdRef.current = fp._id;
-    setReadState('idle');
     if (!userId || !fp.isUnread || attemptedReadRef.current === fp._id) return;
     attemptedReadRef.current = fp._id;
     void submitRead();
-  }, [fp._id, userId]);
+  }, [fp, submitRead, userId]);
 
-  const showUnreadSection = readState === 'error';
+  const showUnreadSection = readState.footprintId === fp?._id && readState.status === 'error';
   // ──────────────────────────────────────────────────────
+
+  if (!fp) return null;
 
   const user = fp.userId || {};
   const comments = fp.comments || [];

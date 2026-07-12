@@ -8,6 +8,8 @@ import FootprintDetailModal from '../FootprintDetailModal';
 const mocks = vi.hoisted(() => ({
   markRead: vi.fn(),
   setViewedFootprintId: vi.fn(),
+  storeState: { footprintEvent: null, footprintEventId: 0 },
+  footprintSubscribers: new Set(),
 }));
 
 vi.mock('../../api', () => ({
@@ -17,9 +19,14 @@ vi.mock('../../api', () => ({
 vi.mock('../../store/useUIStore', () => ({
   default: {
     getState: () => ({
+      ...mocks.storeState,
       openProfile: vi.fn(),
       setViewedFootprintId: mocks.setViewedFootprintId,
     }),
+    subscribe: (_selector, listener) => {
+      mocks.footprintSubscribers.add(listener);
+      return () => mocks.footprintSubscribers.delete(listener);
+    },
   },
 }));
 
@@ -44,18 +51,22 @@ const footprint = {
   comments: [],
 };
 
-function renderDetail({ userId = 'viewer-1', queryClient = new QueryClient(), strict = false } = {}) {
+function renderDetail({
+  userId = 'viewer-1', queryClient = new QueryClient(), strict = false,
+  fp = footprint, allFootprints = [fp], onClose = vi.fn(), isAdmin = false,
+} = {}) {
   const detail = (
     <FootprintDetailModal
-      fp={footprint}
-      allFootprints={[footprint]}
+      fp={fp}
+      allFootprints={allFootprints}
       userId={userId}
-      isAdmin={false}
-      onClose={vi.fn()}
+      isAdmin={isAdmin}
+      onClose={onClose}
     />
   );
   return {
     queryClient,
+    onClose,
     ...render(
       <QueryClientProvider client={queryClient}>
         {strict ? <StrictMode>{detail}</StrictMode> : detail}
@@ -68,7 +79,16 @@ describe('FootprintDetailModal authoritative read state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.markRead.mockResolvedValue({ data: { ok: true } });
+    mocks.storeState.footprintEvent = null;
+    mocks.storeState.footprintEventId = 0;
+    mocks.footprintSubscribers.clear();
   });
+
+  function emitFootprintEvent(event) {
+    mocks.storeState.footprintEvent = event;
+    mocks.storeState.footprintEventId += 1;
+    for (const listener of mocks.footprintSubscribers) listener();
+  }
 
   it('marks an unread footprint once and updates every list cache', async () => {
     const queryClient = new QueryClient();
@@ -110,5 +130,62 @@ describe('FootprintDetailModal authoritative read state', () => {
     renderDetail({ userId: null });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(mocks.markRead).not.toHaveBeenCalled();
+  });
+
+  it('renders nothing when the selected footprint disappears before mount', () => {
+    const { container } = renderDetail({ fp: null, allFootprints: [] });
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('updates the open detail from a realtime update that remains visible', async () => {
+    renderDetail({ userId: null, fp: { ...footprint, isUnread: false } });
+
+    emitFootprintEvent({
+      type: 'updated',
+      footprint: { ...footprint, isUnread: false, message: 'Fresh from the socket' },
+    });
+
+    expect(await screen.findByText('Fresh from the socket')).toBeInTheDocument();
+    expect(screen.queryByText('Hello from the map')).not.toBeInTheDocument();
+  });
+
+  it('closes an open detail when its footprint is deleted', async () => {
+    const onClose = vi.fn();
+    renderDetail({ userId: null, fp: { ...footprint, isUnread: false }, onClose });
+
+    emitFootprintEvent({ type: 'deleted', footprintId: 'fp-1' });
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it.each([
+    ['private', { visibility: 'private' }],
+    ['expired public', { visibility: 'public', discoveryExpiresAt: '2026-07-11T00:00:00.000Z' }],
+  ])('closes a guest detail after a realtime %s visibility update', async (_label, update) => {
+    vi.setSystemTime('2026-07-12T00:00:00.000Z');
+    const onClose = vi.fn();
+    renderDetail({ userId: null, fp: { ...footprint, isUnread: false }, onClose });
+
+    emitFootprintEvent({
+      type: 'updated', footprint: { ...footprint, isUnread: false, ...update },
+    });
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    vi.useRealTimers();
+  });
+
+  it('keeps an owner detail open and refreshes it when the footprint becomes private', async () => {
+    const onClose = vi.fn();
+    renderDetail({
+      userId: 'author-1', fp: { ...footprint, isUnread: false }, onClose,
+    });
+
+    emitFootprintEvent({
+      type: 'updated',
+      footprint: { ...footprint, isUnread: false, visibility: 'private', message: 'Only for me' },
+    });
+
+    expect(await screen.findByText('Only for me')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
