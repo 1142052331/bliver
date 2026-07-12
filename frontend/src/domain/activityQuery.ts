@@ -15,6 +15,8 @@ export interface ActivityViewerContext {
   user?: {
     _id?: unknown;
     id?: unknown;
+    role?: unknown;
+    isAdmin?: unknown;
   } | null;
 }
 
@@ -30,8 +32,12 @@ export function canonicalViewerIdentity(viewer: ActivityViewer = 'guest'): strin
 
   if (typeof viewer === 'string') {
     const id = viewer.trim();
-    if (!id || id === 'guest') return 'guest';
-    return `user:${id}`;
+    if (id === 'guest') return 'guest';
+    const match = /^(user|admin):(.+)$/.exec(id);
+    if (!match || !match[2].trim()) {
+      throw new TypeError('viewer context must use guest, user:<id>, or admin:<id>');
+    }
+    return `${match[1]}:${match[2].trim()}`;
   }
 
   const nestedUser = viewer.user;
@@ -39,7 +45,8 @@ export function canonicalViewerIdentity(viewer: ActivityViewer = 'guest'): strin
   const id = typeof rawId === 'string' ? rawId.trim() : '';
   if (!id || id === 'guest') return 'guest';
 
-  const isAdmin = viewer.isAdmin === true || viewer.role === 'admin';
+  const isAdmin = viewer.isAdmin === true || viewer.role === 'admin'
+    || nestedUser?.isAdmin === true || nestedUser?.role === 'admin';
   return `${isAdmin ? 'admin' : 'user'}:${id}`;
 }
 

@@ -5,10 +5,12 @@ import { normalizeActivityQuery } from '../../domain/activityQuery';
 import useActivityFeed from '../useActivityFeed';
 
 const mocks = vi.hoisted(() => ({ list: vi.fn() }));
+const authMocks = vi.hoisted(() => ({ getToken: vi.fn(), getUser: vi.fn() }));
 
 vi.mock('../../api', () => ({
   apiClient: { activity: { list: mocks.list } },
 }));
+vi.mock('../../auth', () => authMocks);
 
 describe('useActivityFeed', () => {
   let queryClient;
@@ -16,6 +18,8 @@ describe('useActivityFeed', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    authMocks.getToken.mockReturnValue(null);
+    authMocks.getUser.mockReturnValue(null);
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -24,7 +28,65 @@ describe('useActivityFeed', () => {
     );
   });
 
+  it('does not cache authenticated activity under guest when viewer is omitted', async () => {
+    authMocks.getToken.mockReturnValue('jwt-private');
+    authMocks.getUser.mockReturnValue({ _id: 'viewer-1', isAdmin: false });
+    mocks.list.mockResolvedValueOnce({ data: { items: [{ _id: 'private' }], hasMore: false } });
+
+    const { result } = renderHook(() => useActivityFeed({ scope: 'smart' }), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(queryClient.getQueryCache().getAll()[0].queryKey[2]).toBe('user:viewer-1');
+  });
+
+  it('rejects an explicit guest viewer while the request carries authentication', () => {
+    authMocks.getToken.mockReturnValue('jwt-private');
+    authMocks.getUser.mockReturnValue({ _id: 'viewer-1', isAdmin: false });
+
+    expect(() => renderHook(
+      () => useActivityFeed({ scope: 'smart' }, 'guest'),
+      { wrapper },
+    )).toThrow(/does not match/i);
+    expect(mocks.list).not.toHaveBeenCalled();
+  });
+
+  it('does not cache a response when authentication changes during the request', async () => {
+    mocks.list.mockImplementationOnce(async () => {
+      authMocks.getToken.mockReturnValue('jwt-private');
+      authMocks.getUser.mockReturnValue({ _id: 'viewer-1', isAdmin: false });
+      return { data: { items: [{ _id: 'private' }], hasMore: false } };
+    });
+
+    const hook = renderHook(() => useActivityFeed({ scope: 'smart' }), { wrapper });
+    await waitFor(() => expect(hook.result.current.isError).toBe(true));
+
+    expect(queryClient.getQueryData([
+      'footprints', 'activity', 'guest', normalizeActivityQuery({ scope: 'smart' }),
+    ])).toBeUndefined();
+  });
+
+  it('uses a separate guest cache after logout instead of reusing private activity', async () => {
+    authMocks.getToken.mockReturnValue('jwt-private');
+    authMocks.getUser.mockReturnValue({ _id: 'viewer-1', isAdmin: false });
+    mocks.list
+      .mockResolvedValueOnce({ data: { items: [{ _id: 'private' }], hasMore: false } })
+      .mockResolvedValueOnce({ data: { items: [{ _id: 'public' }], hasMore: false } });
+
+    const hook = renderHook(() => useActivityFeed({ scope: 'smart' }), { wrapper });
+    await waitFor(() => expect(hook.result.current.isSuccess).toBe(true));
+    authMocks.getToken.mockReturnValue(null);
+    authMocks.getUser.mockReturnValue(null);
+    hook.rerender();
+    await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(hook.result.current.data?.pages[0].items[0]._id).toBe('public'));
+
+    expect(queryClient.getQueryCache().getAll().map((query) => query.queryKey[2]))
+      .toEqual(['user:viewer-1', 'guest']);
+  });
+
   it('loads the first canonical page with a cancellation signal', async () => {
+    authMocks.getToken.mockReturnValue('jwt-user');
+    authMocks.getUser.mockReturnValue({ _id: 'viewer-1', isAdmin: false });
     const page = {
       items: [{ _id: 'fp-1' }], nextCursor: null, hasMore: false,
       scope: 'smart', usedScopes: ['global'], location: {},
@@ -32,7 +94,7 @@ describe('useActivityFeed', () => {
     mocks.list.mockResolvedValueOnce({ data: page });
 
     const { result } = renderHook(
-      () => useActivityFeed({ scope: 'smart', countryCode: 'cn', regionCode: 'cn-sh' }, 'viewer-1'),
+      () => useActivityFeed({ scope: 'smart', countryCode: 'cn', regionCode: 'cn-sh' }, 'user:viewer-1'),
       { wrapper },
     );
 
@@ -86,10 +148,15 @@ describe('useActivityFeed', () => {
 
   it('keeps all viewer variants compatible with prefix invalidation', async () => {
     mocks.list.mockResolvedValue({ data: { items: [], nextCursor: null, hasMore: false } });
-    const first = renderHook(() => useActivityFeed({ scope: 'smart' }, 'viewer-1'), { wrapper });
-    const second = renderHook(() => useActivityFeed({ scope: 'global' }, 'guest'), { wrapper });
-    await waitFor(() => expect(first.result.current.isSuccess && second.result.current.isSuccess).toBe(true));
+    authMocks.getToken.mockReturnValue('jwt-user');
+    authMocks.getUser.mockReturnValue({ _id: 'viewer-1', isAdmin: false });
+    const first = renderHook(() => useActivityFeed({ scope: 'smart' }, 'user:viewer-1'), { wrapper });
+    await waitFor(() => expect(first.result.current.isSuccess).toBe(true));
     first.unmount();
+    authMocks.getToken.mockReturnValue(null);
+    authMocks.getUser.mockReturnValue(null);
+    const second = renderHook(() => useActivityFeed({ scope: 'global' }, 'guest'), { wrapper });
+    await waitFor(() => expect(second.result.current.isSuccess).toBe(true));
     second.unmount();
 
     await queryClient.invalidateQueries({ queryKey: ['footprints', 'activity'] });
@@ -100,16 +167,22 @@ describe('useActivityFeed', () => {
 
   it('does not reuse a regular user cache for an admin with the same id', async () => {
     mocks.list.mockResolvedValue({ data: { items: [], nextCursor: null, hasMore: false } });
+    authMocks.getToken.mockReturnValue('jwt-user');
+    authMocks.getUser.mockReturnValue({ _id: 'viewer-1', isAdmin: false });
     const regular = renderHook(
       () => useActivityFeed({ scope: 'smart' }, { _id: 'viewer-1', isAdmin: false }),
       { wrapper },
     );
+    await waitFor(() => expect(regular.result.current.isSuccess).toBe(true));
+    regular.unmount();
+    authMocks.getToken.mockReturnValue('jwt-admin');
+    authMocks.getUser.mockReturnValue({ _id: 'viewer-1', isAdmin: true });
     const admin = renderHook(
       () => useActivityFeed({ scope: 'smart' }, { _id: 'viewer-1', isAdmin: true }),
       { wrapper },
     );
 
-    await waitFor(() => expect(regular.result.current.isSuccess && admin.result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(admin.result.current.isSuccess).toBe(true));
     expect(mocks.list).toHaveBeenCalledTimes(2);
     expect(queryClient.getQueryCache().getAll().map((query) => query.queryKey[2])).toEqual([
       'user:viewer-1', 'admin:viewer-1',

@@ -76,12 +76,23 @@ describe('activity query state', () => {
     expect(activityQueryKey(smart, 'guest')).toEqual([
       'footprints', 'activity', 'guest', smart,
     ]);
-    expect(activityQueryKey(smart, 'viewer-1')).toEqual([
+    expect(() => activityQueryKey(smart, 'viewer-1')).toThrow(/viewer context/i);
+    expect(() => activityQueryKey(smart, '  ')).toThrow(/viewer context/i);
+    expect(activityQueryKey(smart, 'user:viewer-1')).toEqual([
       'footprints', 'activity', 'user:viewer-1', smart,
     ]);
-    expect(activityQueryKey(smart, 'viewer-1')).not.toEqual(activityQueryKey(smart, 'guest'));
+    expect(activityQueryKey(smart, 'user:viewer-1')).not.toEqual(activityQueryKey(smart, 'guest'));
     expect(activityQueryKey(global, 'guest')).not.toEqual(activityQueryKey(smart, 'guest'));
     expect(activityQueryKey(smart, 'guest').slice(0, 2)).toEqual(['footprints', 'activity']);
+  });
+
+  it('preserves admin role for explicit and nested viewer contexts', () => {
+    const smart = normalizeActivityQuery();
+    expect(activityQueryKey(smart, 'admin:viewer-1')[2]).toBe('admin:viewer-1');
+    expect(activityQueryKey(smart, { user: { _id: 'viewer-1', role: 'admin' } })[2])
+      .toBe('admin:viewer-1');
+    expect(activityQueryKey(smart, { _id: 'viewer-1', role: 'admin' })[2]).toBe('admin:viewer-1');
+    expect(activityQueryKey(smart, { _id: 'viewer-1', role: 'user' })[2]).toBe('user:viewer-1');
   });
 
   it('keeps the same user id isolated between regular and admin viewer contexts', () => {
