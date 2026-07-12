@@ -1,280 +1,386 @@
-// @feature 打卡弹窗 | Check-in Modal | CheckInModal
-import { useState, useRef, useEffect } from 'react';
-import { apiClient } from '../api';
-import useUIStore from '../store/useUIStore';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import imageCompression from 'browser-image-compression';
-import { X, MapPin, Camera, Loader2 } from 'lucide-react';
+import {
+  Camera,
+  Check,
+  Loader2,
+  MapPin,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
+import { apiClient } from '../api';
+import { getUser } from '../auth';
+import LocationPermissionNotice from './LocationPermissionNotice';
+import { markLocationReminder } from '../domain/locationReminder';
 import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
+import useUIStore from '../store/useUIStore';
+
+const PREFERENCE_PREFIX = 'bliver_checkin_publication_v1:';
+const VALID_VISIBILITIES = new Set(['public', 'friends', 'private']);
+const VALID_PRECISIONS = new Set(['approximate', 'precise']);
+
+const AUDIENCE_OPTIONS = [
+  { value: 'public', label: '公开', detail: '所有人可见，24 小时内会进入公开动态' },
+  { value: 'friends', label: '仅好友', detail: '只有你和好友可以看到' },
+  { value: 'private', label: '仅自己', detail: '只有你可以看到' },
+];
+
+const PRECISION_OPTIONS = [
+  { value: 'approximate', label: '大致位置', detail: '地图上显示附近区域' },
+  { value: 'precise', label: '精确位置', detail: '地图上显示这个坐标' },
+];
+
+const MOODS = [
+  ['😊', '开心'],
+  ['😭', '难过'],
+  ['😋', '满足'],
+  ['🏋️', '活力'],
+  ['😴', '困倦'],
+  ['🍺', '放松'],
+];
+
+const PUBLISH_LABELS = {
+  public: '公开发布足迹',
+  friends: '向好友发布足迹',
+  private: '保存私人足迹',
+};
+
+function preferenceKey(viewerKey) {
+  return `${PREFERENCE_PREFIX}${encodeURIComponent(viewerKey || 'guest')}`;
+}
+
+function loadPublicationPreferences(viewerKey) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(preferenceKey(viewerKey)));
+    return {
+      visibility: VALID_VISIBILITIES.has(parsed?.visibility) ? parsed.visibility : 'public',
+      locationPrecision: VALID_PRECISIONS.has(parsed?.locationPrecision)
+        ? parsed.locationPrecision
+        : 'approximate',
+    };
+  } catch {
+    return { visibility: 'public', locationPrecision: 'approximate' };
+  }
+}
+
+function savePublicationPreferences(viewerKey, visibility, locationPrecision) {
+  try {
+    localStorage.setItem(preferenceKey(viewerKey), JSON.stringify({ visibility, locationPrecision }));
+  } catch {
+    // Publishing must still work when browser storage is unavailable.
+  }
+}
 
 export default function CheckInModal({ isOpen, onClose, presetLocation = null }) {
+  if (!isOpen) return null;
+  return <OpenCheckInModal onClose={onClose} presetLocation={presetLocation} />;
+}
+
+function OpenCheckInModal({ onClose, presetLocation }) {
+  const viewerKey = getUser()?._id || 'guest';
+  const initialPreferences = loadPublicationPreferences(viewerKey);
+  const hasPresetLocation = presetLocation?.lat != null && presetLocation?.lng != null;
   const [message, setMessage] = useState('');
   const [mood, setMood] = useState('');
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState('');
   const [loading, setLoading] = useState(false);
-  const [location, setLocation] = useState(null);
-  const [locating, setLocating] = useState(false);
-  const [locDenied, setLocDenied] = useState(false);
-  const [precise, setPrecise] = useState(false);
+  const [location, setLocation] = useState(() => (hasPresetLocation
+    ? { lat: presetLocation.lat, lng: presetLocation.lng }
+    : null));
+  const [locating, setLocating] = useState(!hasPresetLocation);
+  const [permissionState, setPermissionState] = useState(hasPresetLocation ? 'granted' : 'locating');
+  const [visibility, setVisibility] = useState(initialPreferences.visibility);
+  const [locationPrecision, setLocationPrecision] = useState(initialPreferences.locationPrecision);
+  const [submissionError, setSubmissionError] = useState('');
   const fileRef = useRef(null);
   const previewUrlRef = useRef(null);
   const dialogRef = useRef(null);
+  const mountedRef = useRef(true);
 
-  /** 安全释放上一个 Blob URL，防止内存泄漏 */
-  const revokePreview = () => {
+  const revokePreview = useCallback(() => {
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
       previewUrlRef.current = null;
     }
-  };
-
-  // 组件卸载时释放 Blob URL + 卸载守卫
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    return () => { mountedRef.current = false; revokePreview(); };
   }, []);
 
-  useEffect(() => {
-    if (isOpen) {
-      setMessage('');
-      setMood('');
-      setPhoto(null);
-      setPreview('');
-      setPrecise(false);
-      setLocDenied(false);
-
-      if (presetLocation && presetLocation.lat != null && presetLocation.lng != null) {
-        setLocation({ lat: presetLocation.lat, lng: presetLocation.lng });
-        setLocating(false);
-        return;
-      }
-
-      setLocating(true);
-      setLocation(null);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          setLocating(false);
-          setLocDenied(false);
-        },
-        (err) => {
-          setLocation({ lat: null, lng: null });
-          setLocating(false);
-          setLocDenied(err.code === 1); // PERMISSION_DENIED
-        },
-        { timeout: 15000, enableHighAccuracy: true }
-      );
-    }
-  }, [isOpen]);
-
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
-    setPhoto(compressed);
+  useEffect(() => () => {
+    mountedRef.current = false;
     revokePreview();
-    const url = URL.createObjectURL(compressed);
-    previewUrlRef.current = url;
-    setPreview(url);
+  }, [revokePreview]);
+
+  useEffect(() => {
+    if (hasPresetLocation) return undefined;
+    const now = Date.now();
+    markLocationReminder(viewerKey, now, localStorage, 'locating');
+
+    if (!navigator.geolocation) {
+      queueMicrotask(() => {
+        if (!mountedRef.current) return;
+        setLocating(false);
+        setPermissionState('unavailable');
+        markLocationReminder(viewerKey, now, localStorage, 'unavailable');
+      });
+      return undefined;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!mountedRef.current) return;
+        setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocating(false);
+        setPermissionState('granted');
+        markLocationReminder(viewerKey, now, localStorage, 'granted');
+      },
+      (error) => {
+        if (!mountedRef.current) return;
+        const nextState = error?.code === 1 ? 'denied' : 'error';
+        setLocation(null);
+        setLocating(false);
+        setPermissionState(nextState);
+        markLocationReminder(viewerKey, now, localStorage, nextState);
+      },
+      { timeout: 15000, enableHighAccuracy: true },
+    );
+    return undefined;
+  }, [hasPresetLocation, viewerKey]);
+
+  const requestLocation = useCallback(() => {
+    const now = Date.now();
+    setLocating(true);
+    setPermissionState('locating');
+    setSubmissionError('');
+    markLocationReminder(viewerKey, now, localStorage, 'locating');
+
+    if (!navigator.geolocation) {
+      setLocation(null);
+      setLocating(false);
+      setPermissionState('unavailable');
+      markLocationReminder(viewerKey, now, localStorage, 'unavailable');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!mountedRef.current) return;
+        setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocating(false);
+        setPermissionState('granted');
+        markLocationReminder(viewerKey, now, localStorage, 'granted');
+      },
+      (error) => {
+        if (!mountedRef.current) return;
+        const nextState = error?.code === 1 ? 'denied' : 'error';
+        setLocation(null);
+        setLocating(false);
+        setPermissionState(nextState);
+        markLocationReminder(viewerKey, now, localStorage, nextState);
+      },
+      { timeout: 15000, enableHighAccuracy: true },
+    );
+  }, [viewerKey]);
+
+  const handleFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSubmissionError('');
+    try {
+      const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
+      if (!mountedRef.current) return;
+      setPhoto(compressed);
+      revokePreview();
+      const url = URL.createObjectURL(compressed);
+      previewUrlRef.current = url;
+      setPreview(url);
+    } catch {
+      if (mountedRef.current) setSubmissionError('照片处理失败，请重新选择一张照片。');
+    }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!location || location.lat == null) return;
     setLoading(true);
+    setSubmissionError('');
+
     const form = new FormData();
-    form.append('lat', location.lat);
-    form.append('lng', location.lng);
+    form.append('lat', String(location.lat));
+    form.append('lng', String(location.lng));
     form.append('message', message);
     if (mood) form.append('mood', mood);
     if (photo) form.append('photo', photo);
-    form.append('precise', precise);
+    form.append('visibility', visibility);
+    form.append('locationPrecision', locationPrecision);
+    form.append('precise', String(locationPrecision === 'precise'));
 
     try {
       await apiClient.footprints.checkin(form);
-      setMessage('');
-      setMood('');
-      setPhoto(null);
+      savePublicationPreferences(viewerKey, visibility, locationPrecision);
       revokePreview();
-      setPreview('');
-      setLocation(null);
       onClose();
-      // Trigger feedback popup for first-time users
       if (!localStorage.getItem('feedback_submitted')) {
         setTimeout(() => useUIStore.getState().openFeedback(), 600);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
+      if (mountedRef.current) setSubmissionError('发布失败，你填写的内容已保留。请检查网络后重试。');
     } finally {
       if (mountedRef.current) setLoading(false);
     }
   };
 
   const handleClose = () => {
-    setMessage('');
-    setMood('');
-    setPhoto(null);
     revokePreview();
-    setPreview('');
-    setLocation(null);
-    setPrecise(false);
-    setLocDenied(false);
     onClose();
   };
 
-  useDialogFocusTrap(dialogRef, isOpen, handleClose);
+  useDialogFocusTrap(dialogRef, true, handleClose);
 
-  if (!isOpen) return null;
+  const audience = AUDIENCE_OPTIONS.find((option) => option.value === visibility);
+  const precision = PRECISION_OPTIONS.find((option) => option.value === locationPrecision);
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center pointer-events-none">
-      <div aria-hidden="true" className="ios-backdrop absolute inset-0 pointer-events-auto" onClick={handleClose} />
-      <div
+    <div className="bliver-checkin-layer">
+      <div aria-hidden="true" className="bliver-checkin-backdrop" onClick={handleClose} />
+      <section
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="check-in-modal-title"
         tabIndex={-1}
-        className="relative w-full sm:max-w-md mx-0 sm:mx-auto pointer-events-auto
-        ios-panel rounded-t-[28px] sm:rounded-[28px] p-6 animate-slide-up
-        max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto"
+        className="bliver-checkin"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h2 id="check-in-modal-title" className="text-lg font-bold text-white/90 flex items-center gap-2"
-            style={{ fontFamily: 'var(--font-body)' }}>
-            <div className="w-9 h-9 rounded-full ios-primary flex items-center justify-center">
-              <MapPin className="w-4 h-4" />
-            </div>
-            Check In Here
-          </h2>
+        <div className="bliver-checkin__handle" aria-hidden="true" />
+        <header className="bliver-checkin__header">
+          <div>
+            <h2 id="check-in-modal-title"><MapPin size={20} aria-hidden="true" />发布足迹</h2>
+            <p>记录这一刻，也决定谁能看到它。</p>
+          </div>
           <button
             type="button"
-            aria-label="Close check-in dialog"
+            aria-label="关闭发布足迹"
             data-dialog-initial-focus
             onClick={handleClose}
-            className="ios-icon-button w-11 h-11 min-w-11 min-h-11"
+            className="bliver-checkin__close"
           >
-            <X className="w-4 h-4 text-white/40" />
+            <X size={20} aria-hidden="true" />
           </button>
-        </div>
+        </header>
 
-        {/* Location status */}
-        <div className={`mb-4 p-3 rounded-xl text-sm flex items-start gap-2
-          ${locDenied
-            ? 'bg-amber-400/10 border border-amber-300/18 text-amber-200'
-            : 'bg-sky-400/10 border border-sky-300/18 text-sky-200'}`}>
+        <div className="bliver-checkin__location" aria-live="polite">
           {locating ? (
-            <Loader2 className="w-4 h-4 animate-spin mt-0.5" />
-          ) : location?.lat ? (
-            <>
-              <MapPin className="w-4 h-4 text-blue-500 mt-0.5" />
-              <span>{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span>
-            </>
-          ) : locDenied ? (
-            <>
-              <MapPin className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-amber-300 font-medium">位置权限已关闭</p>
-                <p className="text-amber-300/60 text-xs mt-0.5">请在浏览器设置 → 网站设置 → 位置 中开启</p>
-              </div>
-            </>
+            <><Loader2 size={18} className="bliver-checkin__spinner" aria-hidden="true" /><span>正在获取位置</span></>
+          ) : location?.lat != null ? (
+            <><MapPin size={18} aria-hidden="true" /><span>当前位置 {location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span></>
           ) : (
-            <>
-              <MapPin className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-              <span className="text-red-400">Location unavailable</span>
-            </>
+            <><MapPin size={18} aria-hidden="true" /><span>尚未取得可发布的位置</span></>
           )}
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Privacy toggle */}
-          <div className="mb-4">
-            <p className="text-xs text-white/30 mb-2" style={{ fontFamily: 'var(--font-body)' }}>定位精度</p>
-            <div className="ios-segment flex gap-1 p-1 rounded-full">
-              <button
-                type="button"
-                onClick={() => setPrecise(false)}
-                className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all duration-300
-                  ${!precise
-                    ? 'ios-segment-active'
-                    : 'text-white/42 hover:text-white/68'
-                  }`}
-              >
-                模糊定位
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrecise(true)}
-                className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all duration-300
-                  ${precise
-                    ? 'ios-segment-active'
-                    : 'text-white/42 hover:text-white/68'
-                  }`}
-              >
-                精确定位
-              </button>
-            </div>
-          </div>
+        {['denied', 'unavailable', 'error'].includes(permissionState) && (
+          <LocationPermissionNotice
+            permissionState={permissionState}
+            viewerKey={viewerKey}
+            onRequestLocation={requestLocation}
+          />
+        )}
 
-          {/* Message */}
+        <form onSubmit={handleSubmit} className="bliver-checkin__form">
+          <label className="bliver-checkin__message-label" htmlFor="checkin-message">这一刻</label>
           <textarea
-            className="w-full p-3 aurora-input rounded-xl resize-none text-sm mb-4 h-24"
-            placeholder="此刻在想什么？"
+            id="checkin-message"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="写下此刻的见闻或心情"
+            maxLength={1000}
           />
 
-          {/* Mood selector */}
-          <div className="mb-4">
-            <p className="text-xs text-white/30 mb-2" style={{ fontFamily: 'var(--font-body)' }}>此刻心情？</p>
-            <div className="flex gap-2">
-              {['😊','😭','😋','🏋️','😴','🍺'].map((emoji) => (
+          <fieldset className="bliver-checkin__moods">
+            <legend>此刻心情</legend>
+            <div>
+              {MOODS.map(([emoji, label]) => (
                 <button
                   key={emoji}
                   type="button"
+                  aria-label={label}
+                  aria-pressed={mood === emoji}
                   onClick={() => setMood(mood === emoji ? '' : emoji)}
-                  className={`w-11 h-11 text-xl rounded-xl flex items-center justify-center transition-all duration-300
-                    ${mood === emoji
-                      ? 'bg-white/18 border border-sky-300/28 scale-110 shadow-[0_10px_28px_rgba(100,210,255,0.14)]'
-                      : 'bg-white/[0.06] border border-white/[0.08] hover:bg-white/[0.10] hover:scale-105'
-                    }`}
                 >
-                  {emoji}
+                  <span aria-hidden="true">{emoji}</span>
                 </button>
               ))}
             </div>
-          </div>
+          </fieldset>
 
-          {/* Photo picker & preview */}
-          <input type="file" accept="image/*" ref={fileRef} onChange={handleFile} className="hidden" />
-          <div className="flex items-center gap-3 mb-5">
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="aurora-btn-glass flex items-center gap-2 px-4 py-2 rounded-full text-sm text-white/78"
-            >
-              <Camera className="w-4 h-4" />
-              {photo ? 'Change photo' : 'Add photo'}
+          <input type="file" accept="image/*" ref={fileRef} onChange={handleFile} className="bliver-checkin__file" hidden />
+          <div className="bliver-checkin__photo-row">
+            <button type="button" onClick={() => fileRef.current?.click()}>
+              <Camera size={18} aria-hidden="true" />
+              {photo ? '更换照片' : '添加照片'}
             </button>
-            {preview && (
-              <img src={preview} className="w-12 h-12 rounded-2xl object-cover border border-white/18" />
-            )}
+            {preview && <img src={preview} alt="待发布照片预览" />}
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading || locating || !location?.lat}
-            className="ios-primary w-full py-3.5 rounded-full font-extrabold
-              disabled:opacity-40 disabled:cursor-not-allowed
-              transition-all duration-300 flex items-center justify-center gap-2"
-          >
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            Post Footprint
-          </button>
+          <fieldset className="bliver-checkin__decision">
+            <legend>谁可以看到</legend>
+            <div className="bliver-checkin__choices bliver-checkin__choices--audience">
+              {AUDIENCE_OPTIONS.map((option) => (
+                <label key={option.value}>
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value={option.value}
+                    checked={visibility === option.value}
+                    onChange={() => setVisibility(option.value)}
+                  />
+                  <span><strong>{option.label}</strong><small>{option.detail}</small></span>
+                  <Check size={18} aria-hidden="true" />
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="bliver-checkin__decision">
+            <legend>位置显示</legend>
+            <div className="bliver-checkin__choices bliver-checkin__choices--precision">
+              {PRECISION_OPTIONS.map((option) => (
+                <label key={option.value}>
+                  <input
+                    type="radio"
+                    name="locationPrecision"
+                    value={option.value}
+                    checked={locationPrecision === option.value}
+                    onChange={() => setLocationPrecision(option.value)}
+                  />
+                  <span><strong>{option.label}</strong><small>{option.detail}</small></span>
+                  <Check size={18} aria-hidden="true" />
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {locationPrecision === 'precise' && (
+            <p className="bliver-checkin__precision-guidance">
+              <MapPin size={17} aria-hidden="true" />
+              精确位置会显示到地图上的具体坐标，请确认这符合你的分享意愿。
+            </p>
+          )}
+
+          {submissionError && <p className="bliver-checkin__error" role="alert">{submissionError}</p>}
+
+          <footer className="bliver-checkin__publish">
+            <div className="bliver-checkin__summary">
+              <ShieldCheck size={18} aria-hidden="true" />
+              <span><small>本次发布</small><strong>{audience.label} · {precision.label}</strong></span>
+            </div>
+            <button type="submit" disabled={loading || locating || location?.lat == null}>
+              {loading && <Loader2 size={18} className="bliver-checkin__spinner" aria-hidden="true" />}
+              {PUBLISH_LABELS[visibility]}
+            </button>
+          </footer>
         </form>
-      </div>
+      </section>
     </div>
   );
 }
