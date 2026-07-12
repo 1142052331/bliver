@@ -76,9 +76,21 @@ describe('activity query state', () => {
     expect(activityQueryKey(smart, 'guest')).toEqual([
       'footprints', 'activity', 'guest', smart,
     ]);
+    expect(activityQueryKey(smart, 'viewer-1')).toEqual([
+      'footprints', 'activity', 'user:viewer-1', smart,
+    ]);
     expect(activityQueryKey(smart, 'viewer-1')).not.toEqual(activityQueryKey(smart, 'guest'));
     expect(activityQueryKey(global, 'guest')).not.toEqual(activityQueryKey(smart, 'guest'));
     expect(activityQueryKey(smart, 'guest').slice(0, 2)).toEqual(['footprints', 'activity']);
+  });
+
+  it('keeps the same user id isolated between regular and admin viewer contexts', () => {
+    const smart = normalizeActivityQuery();
+
+    expect(activityQueryKey(smart, { _id: 'viewer-1', isAdmin: false })[2]).toBe('user:viewer-1');
+    expect(activityQueryKey(smart, { _id: 'viewer-1', isAdmin: true })[2]).toBe('admin:viewer-1');
+    expect(activityQueryKey(smart, { _id: 'viewer-1', isAdmin: false }))
+      .not.toEqual(activityQueryKey(smart, { _id: 'viewer-1', isAdmin: true }));
   });
 
   it('canonicalizes raw scope state before placing it in a cache key', () => {

@@ -7,10 +7,41 @@ export interface ActivityQuery {
   limit: number;
 }
 
+export interface ActivityViewerContext {
+  _id?: unknown;
+  id?: unknown;
+  role?: unknown;
+  isAdmin?: unknown;
+  user?: {
+    _id?: unknown;
+    id?: unknown;
+  } | null;
+}
+
+export type ActivityViewer = string | ActivityViewerContext | null | undefined;
+
 export const DEFAULT_ACTIVITY_QUERY: ActivityQuery = {
   scope: 'smart',
   limit: 20,
 };
+
+export function canonicalViewerIdentity(viewer: ActivityViewer = 'guest'): string {
+  if (viewer === null || viewer === undefined) return 'guest';
+
+  if (typeof viewer === 'string') {
+    const id = viewer.trim();
+    if (!id || id === 'guest') return 'guest';
+    return `user:${id}`;
+  }
+
+  const nestedUser = viewer.user;
+  const rawId = viewer._id ?? viewer.id ?? nestedUser?._id ?? nestedUser?.id;
+  const id = typeof rawId === 'string' ? rawId.trim() : '';
+  if (!id || id === 'guest') return 'guest';
+
+  const isAdmin = viewer.isAdmin === true || viewer.role === 'admin';
+  return `${isAdmin ? 'admin' : 'user'}:${id}`;
+}
 
 const SCOPES = new Set<ActivityScope>(['smart', 'region', 'country', 'global']);
 const COUNTRY_CODE = /^[A-Z]{2}$/;
@@ -84,6 +115,6 @@ export function activityRequestParams(input: object, cursor?: string) {
   return params;
 }
 
-export function activityQueryKey(input: object, viewerKey = 'guest') {
-  return ['footprints', 'activity', viewerKey, normalizeActivityQuery(input)] as const;
+export function activityQueryKey(input: object, viewer: ActivityViewer = 'guest') {
+  return ['footprints', 'activity', canonicalViewerIdentity(viewer), normalizeActivityQuery(input)] as const;
 }

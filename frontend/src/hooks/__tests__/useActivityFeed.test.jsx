@@ -46,7 +46,7 @@ describe('useActivityFeed', () => {
     );
     expect(result.current.data.pages).toEqual([page]);
     expect(queryClient.getQueryCache().getAll()[0].queryKey).toEqual([
-      'footprints', 'activity', 'viewer-1',
+      'footprints', 'activity', 'user:viewer-1',
       { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 20 },
     ]);
   });
@@ -96,6 +96,24 @@ describe('useActivityFeed', () => {
 
     expect(queryClient.getQueryCache().getAll()).toHaveLength(2);
     expect(queryClient.getQueryCache().getAll().every((query) => query.state.isInvalidated)).toBe(true);
+  });
+
+  it('does not reuse a regular user cache for an admin with the same id', async () => {
+    mocks.list.mockResolvedValue({ data: { items: [], nextCursor: null, hasMore: false } });
+    const regular = renderHook(
+      () => useActivityFeed({ scope: 'smart' }, { _id: 'viewer-1', isAdmin: false }),
+      { wrapper },
+    );
+    const admin = renderHook(
+      () => useActivityFeed({ scope: 'smart' }, { _id: 'viewer-1', isAdmin: true }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(regular.result.current.isSuccess && admin.result.current.isSuccess).toBe(true));
+    expect(mocks.list).toHaveBeenCalledTimes(2);
+    expect(queryClient.getQueryCache().getAll().map((query) => query.queryKey[2])).toEqual([
+      'user:viewer-1', 'admin:viewer-1',
+    ]);
   });
 
   it('rejects invalid fixed scopes before creating a query or calling the API', () => {
