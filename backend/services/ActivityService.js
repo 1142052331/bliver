@@ -9,6 +9,7 @@ const {
 } = require('./FootprintAccessService');
 const { populateFootprint } = require('./footprint');
 const { sanitizeLocation } = require('./location');
+const { createBackfillDiscoveryWindowService } = require('./BackfillDiscoveryWindowService');
 const {
   buildCursorFilter,
   decodeActivityCursor,
@@ -16,17 +17,24 @@ const {
 } = require('./ActivityCursor');
 
 const SOURCE_ORDER = ['friend', 'region', 'country', 'global'];
+const DAY_MS = 24 * 60 * 60 * 1000;
 const SOURCE_LABELS = {
   friend: '好友',
   region: '同省',
   country: '同国',
   global: '全球',
 };
-const DISCOVERY_INDEX_BY_SCOPE = {
-  global: 'activity_active_public_expiry_createdAt_id',
-  country: 'activity_active_country_expiry_createdAt_id',
-  region: 'activity_active_region_expiry_createdAt_id',
+const NORMAL_INDEX_BY_SCOPE = {
+  global: 'activity_public_createdAt_id_expiry',
+  country: 'activity_country_public_createdAt_id_expiry',
+  region: 'activity_region_public_createdAt_id_expiry',
 };
+const BACKFILL_WINDOW_INDEX_BY_SCOPE = {
+  global: 'activity_backfill_window_public_createdAt_id',
+  country: 'activity_backfill_window_country_createdAt_id',
+  region: 'activity_backfill_window_region_createdAt_id',
+};
+const backfillWindowService = createBackfillDiscoveryWindowService();
 
 function and(...conditions) {
   const values = conditions.filter((condition) => condition && Object.keys(condition).length > 0);
@@ -44,17 +52,38 @@ function geographyFilter(normalized) {
 }
 
 function discoveryTier({ scope, geography = {}, now }) {
+  const publicationCutoff = new Date(now.getTime() - DAY_MS);
   return {
     scope,
     kind: 'discovery',
-    hint: DISCOVERY_INDEX_BY_SCOPE[scope],
+    hint: NORMAL_INDEX_BY_SCOPE[scope],
+    normalHint: NORMAL_INDEX_BY_SCOPE[scope],
     filter: and(activePublicFilter(now), geography),
-    modernFilter: and(
-      { visibility: 'public', discoveryExpiresAt: { $gt: now } },
+    // Publication writes guarantee expiry === createdAt + 24h, so this branch is exact.
+    normalFilter: and(
+      { visibility: 'public' },
+      { discoveryOrigin: { $in: ['publication', null, ''] } },
+      { createdAt: { $gt: publicationCutoff } },
       geography,
     ),
     legacyFilter: and({ visibility: { $in: [null, ''] } }, geography),
   };
+}
+
+function backfillWindowTiers({ scope, geography = {}, windows, cursorFilter }) {
+  return windows.map((window) => ({
+    scope: 'global',
+    hint: BACKFILL_WINDOW_INDEX_BY_SCOPE[scope],
+    filter: and(
+      {
+        visibility: 'public',
+        discoveryOrigin: 'backfill',
+        discoveryWindowToken: window.token,
+      },
+      geography,
+      cursorFilter,
+    ),
+  }));
 }
 
 function buildSmartTiers({ access, now }) {
@@ -89,18 +118,24 @@ function buildSmartTiers({ access, now }) {
   return tiers;
 }
 
-function buildCandidateTiers({ access, normalized, now, cursor }) {
+function buildCandidateTiers({ access, normalized, now, cursor, backfillWindows = [] }) {
   const cursorFilter = cursor ? buildCursorFilter(cursor) : {};
   if (normalized.scope === 'smart') {
-    return buildSmartTiers({ access, now })
+    const tiers = buildSmartTiers({ access, now })
       .map((tier) => (tier.kind === 'discovery'
         ? {
           ...tier,
           filter: and(tier.filter, cursorFilter),
-          modernFilter: and(tier.modernFilter, cursorFilter),
+          normalFilter: and(tier.normalFilter, cursorFilter),
           legacyFilter: and(tier.legacyFilter, cursorFilter),
         }
         : { ...tier, filter: and(tier.filter, cursorFilter) }));
+    if (!access.isAdmin) {
+      tiers.push(...backfillWindowTiers({
+        scope: 'global', windows: backfillWindows, cursorFilter,
+      }));
+    }
+    return tiers;
   }
   if (!access.viewerId) {
     const tier = discoveryTier({
@@ -111,9 +146,14 @@ function buildCandidateTiers({ access, normalized, now, cursor }) {
     return [{
       ...tier,
       filter: and(tier.filter, cursorFilter),
-      modernFilter: and(tier.modernFilter, cursorFilter),
+      normalFilter: and(tier.normalFilter, cursorFilter),
       legacyFilter: and(tier.legacyFilter, cursorFilter),
-    }];
+    }, ...backfillWindowTiers({
+      scope: normalized.scope,
+      geography: geographyFilter(normalized),
+      windows: backfillWindows,
+      cursorFilter,
+    })];
   }
   if (!access.isAdmin) {
     const geography = geographyFilter(normalized);
@@ -133,9 +173,15 @@ function buildCandidateTiers({ access, normalized, now, cursor }) {
       {
         ...discovery,
         filter: and(discovery.filter, cursorFilter),
-        modernFilter: and(discovery.modernFilter, cursorFilter),
+        normalFilter: and(discovery.normalFilter, cursorFilter),
         legacyFilter: and(discovery.legacyFilter, cursorFilter),
       },
+      ...backfillWindowTiers({
+        scope: normalized.scope,
+        geography,
+        windows: backfillWindows,
+        cursorFilter,
+      }),
     ];
   }
   return [{
@@ -151,7 +197,7 @@ function buildCandidateTiers({ access, normalized, now, cursor }) {
 
 function buildDiscoveryPipeline(tier, limit, isAdmin) {
   const pipeline = [
-    { $match: tier.modernFilter },
+    { $match: tier.normalFilter },
     { $sort: { createdAt: -1, _id: -1 } },
     { $limit: limit },
     {
@@ -245,7 +291,10 @@ async function listActivity({ viewer, query, now = new Date() }) {
   const normalized = normalizeActivityQuery(query || {});
   const cursor = normalized.cursor ? decodeActivityCursor(normalized.cursor) : null;
   const access = await getViewerAccess(viewer);
-  const tiers = buildCandidateTiers({ access, normalized, now: requestNow, cursor });
+  const backfillWindows = access.isAdmin ? [] : await backfillWindowService.listActive(requestNow);
+  const tiers = buildCandidateTiers({
+    access, normalized, now: requestNow, cursor, backfillWindows,
+  });
   const candidates = await queryCandidates({
     tiers,
     perTierLimit: normalized.limit + 1,

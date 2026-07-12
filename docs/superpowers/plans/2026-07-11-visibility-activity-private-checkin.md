@@ -113,9 +113,14 @@ Task 6 must verify the named Activity sort indexes with representative MongoDB `
 
 **Files:**
 - Create: `backend/services/ActivityService.js`
+- Create: `backend/services/BackfillDiscoveryWindowService.js`
 - Create: `backend/__tests__/activity-service.test.js`
+- Create: `backend/__tests__/backfill-discovery-window.test.js`
 - Modify: `backend/__tests__/location-sanitizer.test.js`
 - Modify: `backend/models/Footprint.js`
+- Create: `backend/models/BackfillDiscoveryWindow.js`
+- Modify: `backend/services/FootprintBackfillService.js`
+- Modify: `backend/services/FootprintService.js`
 - Modify: `backend/services/location.js`
 - Reuse: `backend/services/FootprintQueryService.js`
 - Modify: `backend/services/FootprintAccessService.js`
@@ -127,7 +132,9 @@ Task 6 must verify the named Activity sort indexes with representative MongoDB `
 - [x] Derive relationship, source scope/label, interaction capability, used scopes, and resolved context on the server.
 - [x] Verify real `explain("executionStats")` plans for guest global/country/region, owner/friend authorization, and admin cursor queries; add only the named indexes justified by winning plans.
 - [x] Harden review findings: preserve chronological pagination, retain admin friend relationships, collapse smart selection to global plus optional related candidates, and strip comment IPs in the shared ordinary-response sanitizer.
-- [x] Bound modern-active and rollout-only legacy discovery branches inside one aggregate command; prove fixed/smart scans with 3,000 adversarial hidden, expired, and legacy records.
+- [x] Encode publication/backfill discovery origin explicitly; query normal publication by the enforced `createdAt + 24h` invariant without blocking sort.
+- [x] Materialize exact-expiry backfill run windows behind a database-enforced 32-slot cap; carry opaque window tokens across execute cursors and acquire before claims.
+- [x] Merge bounded per-window candidates with publication, rollout-only legacy, and related candidates; prove fixed/smart scans with active/expired/legacy adversarial data and all active slots.
 - [x] Run focused and full backend tests and self-review the diff.
 - [x] Commit the service without push or deployment.
 

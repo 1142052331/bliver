@@ -51,6 +51,13 @@ describe('FootprintBackfillService', () => {
       reverseGeocodeStructured: jest.fn().mockResolvedValue(geography),
       clock: () => now,
       sleep: jest.fn().mockResolvedValue(undefined),
+      windowService: {
+        acquire: jest.fn(async ({ token }) => ({
+          token: token || 'test-window',
+          createdAt: now,
+          expiresAt: new Date(+now + 24 * 60 * 60 * 1000),
+        })),
+      },
       ...overrides,
     });
   }
@@ -92,7 +99,9 @@ describe('FootprintBackfillService', () => {
       wouldFail: 0,
       wouldSkip: 0,
       deadLettered: 0,
-      nextCursor: encodeBackfillCursor({ mode: 'normal', id: friends._id.toString() }),
+      nextCursor: encodeBackfillCursor({
+        mode: 'normal', id: friends._id.toString(), windowToken: 'test-window',
+      }),
       hasMore: false,
     });
     expect(geocoder).toHaveBeenNthCalledWith(1, legacy.location.lat, legacy.location.lng);
@@ -106,6 +115,8 @@ describe('FootprintBackfillService', () => {
     ]);
     expect(savedLegacy).toMatchObject({
       visibility: 'public',
+      discoveryOrigin: 'backfill',
+      discoveryWindowToken: 'test-window',
       locationPrecision: 'approximate',
       placeName: geography.displayName,
       countryCode: 'CN',
@@ -189,6 +200,7 @@ describe('FootprintBackfillService', () => {
     }).sort({ _id: 1 }).toArray();
     expect(saved.map((doc) => doc.visibility).sort()).toEqual(['friends', 'private']);
     expect(saved.every((doc) => doc.discoveryExpiresAt === null)).toBe(true);
+    expect(saved.every((doc) => !doc.discoveryOrigin && doc.discoveryWindowToken === '')).toBe(true);
   });
 
   test('uses last scanned id for bounded resume even when a record fails', async () => {
@@ -215,7 +227,9 @@ describe('FootprintBackfillService', () => {
       wouldFail: 0,
       wouldSkip: 0,
       deadLettered: 0,
-      nextCursor: encodeBackfillCursor({ mode: 'normal', id: docs[1]._id.toString() }),
+      nextCursor: encodeBackfillCursor({
+        mode: 'normal', id: docs[1]._id.toString(), windowToken: 'test-window',
+      }),
       hasMore: true,
     });
 
@@ -224,7 +238,9 @@ describe('FootprintBackfillService', () => {
       processed: 1,
       succeeded: 1,
       failed: 0,
-      nextCursor: encodeBackfillCursor({ mode: 'normal', id: docs[2]._id.toString() }),
+      nextCursor: encodeBackfillCursor({
+        mode: 'normal', id: docs[2]._id.toString(), windowToken: 'test-window',
+      }),
       hasMore: false,
     });
 
@@ -232,6 +248,41 @@ describe('FootprintBackfillService', () => {
     expect(normalRerun).toMatchObject({ processed: 0, succeeded: 0, failed: 0, hasMore: false });
     const retry = await service.run({ limit: 10, retryFailed: true });
     expect(retry).toMatchObject({ processed: 1, succeeded: 1, failed: 0 });
+  });
+
+  test('reuses the execute discovery window across resumed batches', async () => {
+    const docs = [rawFootprint(), rawFootprint()]
+      .sort((a, b) => a._id.toString().localeCompare(b._id.toString()));
+    await Footprint.collection.insertMany(docs);
+    const acquire = jest.fn(async ({ token }) => ({
+      token: token || 'window-a',
+      createdAt: now,
+      expiresAt: new Date(+now + 24 * 60 * 60 * 1000),
+    }));
+    const service = serviceWith({ windowService: { acquire } });
+
+    const first = await service.run({ limit: 1 });
+    const second = await service.run({ limit: 1, cursor: first.nextCursor });
+
+    expect(decodeBackfillCursor(first.nextCursor).windowToken).toBe('window-a');
+    expect(acquire).toHaveBeenNthCalledWith(2, { token: 'window-a', now });
+    expect(decodeBackfillCursor(second.nextCursor).windowToken).toBe('window-a');
+    const saved = await Footprint.find({ _id: { $in: docs.map((doc) => doc._id) } }).lean();
+    expect(saved.every((doc) => doc.discoveryWindowToken === 'window-a')).toBe(true);
+    expect(saved.every((doc) => +doc.discoveryExpiresAt === +now + 24 * 60 * 60 * 1000)).toBe(true);
+  });
+
+  test('window acquisition failure happens before claims or completion', async () => {
+    const pending = rawFootprint({ regionBackfill: { status: 'pending', attempts: 0 } });
+    await Footprint.collection.insertOne(pending);
+    const service = serviceWith({
+      windowService: { acquire: jest.fn().mockRejectedValue(new Error('window unavailable')) },
+    });
+
+    await expect(service.run({ limit: 1 })).rejects.toThrow('window unavailable');
+    expect(await Footprint.collection.findOne({ _id: pending._id })).toMatchObject({
+      regionBackfill: { status: 'pending', attempts: 0 },
+    });
   });
 
   test('dry run geocodes and advances the cursor but writes nothing or claims success', async () => {
@@ -1077,6 +1128,15 @@ describe('FootprintBackfillService', () => {
       .toThrow('cursor mode');
     expect(() => validateBackfillOptions({ cursor: dryRetry, dryRun: true }))
       .toThrow('cursor mode');
+
+    const windowed = encodeBackfillCursor({ mode: 'normal', id, windowToken: 'opaque-window' });
+    expect(windowed).not.toContain('opaque-window');
+    expect(decodeBackfillCursor(windowed)).toEqual({
+      version: 1, mode: 'normal', id, windowToken: 'opaque-window',
+    });
+    expect(() => encodeBackfillCursor({
+      mode: 'dry-normal', id, windowToken: 'opaque-window',
+    })).toThrow('window token');
   });
 
   test('rejects dry-normal cursor reuse that would skip a lower failed record', async () => {

@@ -91,6 +91,8 @@ describe('FootprintService publication derivation', () => {
     ]);
     expect(saved).toMatchObject({
       visibility: 'public',
+      discoveryOrigin: 'publication',
+      discoveryWindowToken: '',
       locationPrecision: 'precise',
       location: { lat: 31.23, lng: 121.47 },
       discoveryExpiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),

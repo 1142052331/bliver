@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const { randomUUID } = require('crypto');
 const FootprintModel = require('../models/Footprint');
+const { createBackfillDiscoveryWindowService } = require('./BackfillDiscoveryWindowService');
 const { reverseGeocodeStructured: defaultReverseGeocode } = require('./nominatim');
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_LIMIT = 1000;
 const MAX_DELAY_MS = 60 * 1000;
 const REQUIRED_TEXT_FIELDS = ['placeName', 'countryCode', 'countryName', 'regionCode', 'regionName'];
@@ -19,12 +19,23 @@ function getCursorMode({ dryRun = false, retryFailed = false } = {}) {
   return retryFailed ? 'retry' : 'normal';
 }
 
-function encodeBackfillCursor({ mode, id }) {
+function validWindowToken(value) {
+  return typeof value === 'string' && value.length >= 1 && value.length <= 128
+    && /^[A-Za-z0-9_-]+$/.test(value);
+}
+
+function encodeBackfillCursor({ mode, id, windowToken = null }) {
   if (!CURSOR_MODES.has(mode)) throw new TypeError('cursor mode is invalid');
   if (typeof id !== 'string' || !mongoose.isObjectIdOrHexString(id)) {
     throw new TypeError('cursor id must be a valid ObjectId string');
   }
-  return Buffer.from(JSON.stringify({ v: CURSOR_VERSION, m: mode, i: id }), 'utf8')
+  const isDry = mode.startsWith('dry-');
+  if (windowToken !== null && (!validWindowToken(windowToken) || isDry)) {
+    throw new TypeError('window token is invalid for cursor mode');
+  }
+  const payload = { v: CURSOR_VERSION, m: mode, i: id };
+  if (windowToken) payload.w = windowToken;
+  return Buffer.from(JSON.stringify(payload), 'utf8')
     .toString('base64url');
 }
 
@@ -42,10 +53,16 @@ function decodeBackfillCursor(cursor) {
     throw new TypeError('cursor must be a valid opaque cursor');
   }
   if (!payload || payload.v !== CURSOR_VERSION || !CURSOR_MODES.has(payload.m)
-    || typeof payload.i !== 'string' || !mongoose.isObjectIdOrHexString(payload.i)) {
+    || typeof payload.i !== 'string' || !mongoose.isObjectIdOrHexString(payload.i)
+    || (payload.w !== undefined && (!validWindowToken(payload.w) || payload.m.startsWith('dry-')))) {
     throw new TypeError('cursor must be a valid opaque cursor');
   }
-  return { version: payload.v, mode: payload.m, id: payload.i };
+  return {
+    version: payload.v,
+    mode: payload.m,
+    id: payload.i,
+    ...(payload.w ? { windowToken: payload.w } : {}),
+  };
 }
 
 function retryableAttemptsBranch() {
@@ -237,6 +254,7 @@ function createFootprintBackfillService({
   clock = () => new Date(),
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   runTokenFactory = randomUUID,
+  windowService = createBackfillDiscoveryWindowService(),
   leaseMs = DEFAULT_LEASE_MS,
 } = {}) {
   if (!Footprint || typeof Footprint.find !== 'function') throw new TypeError('Footprint model is required');
@@ -244,6 +262,9 @@ function createFootprintBackfillService({
   if (typeof clock !== 'function') throw new TypeError('clock must be a function');
   if (typeof sleep !== 'function') throw new TypeError('sleep must be a function');
   if (typeof runTokenFactory !== 'function') throw new TypeError('runTokenFactory must be a function');
+  if (!windowService || typeof windowService.acquire !== 'function') {
+    throw new TypeError('windowService is required');
+  }
   if (!Number.isInteger(leaseMs) || leaseMs < 1) throw new RangeError('leaseMs must be a positive integer');
 
   async function inspect(id) {
@@ -463,7 +484,7 @@ function createFootprintBackfillService({
     totals.conflicted += 1;
   }
 
-  async function completeOwned(doc, runToken, completedAt, geography, totals) {
+  async function completeOwned(doc, runToken, completedAt, geography, totals, discoveryWindow) {
     const expectedAttempts = (doc.regionBackfill?.attempts || 0) + 1;
     const visibility = VALID_VISIBILITIES.has(doc.visibility) ? doc.visibility : 'public';
     const locationPrecision = VALID_PRECISIONS.has(doc.locationPrecision)
@@ -477,8 +498,10 @@ function createFootprintBackfillService({
             visibility,
             locationPrecision,
             ...geography,
+            discoveryOrigin: visibility === 'public' ? 'backfill' : null,
+            discoveryWindowToken: visibility === 'public' ? discoveryWindow.token : '',
             discoveryExpiresAt: visibility === 'public'
-              ? new Date(completedAt.getTime() + DAY_MS)
+              ? discoveryWindow.expiresAt
               : null,
             'regionBackfill.status': 'complete',
             'regionBackfill.leaseExpiresAt': null,
@@ -550,7 +573,8 @@ function createFootprintBackfillService({
   async function run(inputOptions = {}) {
     const options = validateBackfillOptions(inputOptions);
     const cursorMode = getCursorMode(options);
-    const cursorId = options.cursor ? decodeBackfillCursor(options.cursor).id : null;
+    const decodedCursor = options.cursor ? decodeBackfillCursor(options.cursor) : null;
+    const cursorId = decodedCursor?.id || null;
     const scanTime = new Date(clock());
     let hasMoreLegacy = false;
     if (!options.dryRun) {
@@ -573,6 +597,16 @@ function createFootprintBackfillService({
     const fetched = await query.exec();
     const hasMore = hasMoreLegacy || fetched.length > options.limit;
     const docs = fetched.slice(0, options.limit);
+    let discoveryWindow = null;
+    if (!options.dryRun && docs.some((doc) => {
+      const visibility = VALID_VISIBILITIES.has(doc.visibility) ? doc.visibility : 'public';
+      return visibility === 'public' && needsBackfill(doc, options.retryFailed);
+    })) {
+      discoveryWindow = await windowService.acquire({
+        token: decodedCursor?.windowToken || null,
+        now: scanTime,
+      });
+    }
     const totals = {
       mode: options.dryRun ? 'dry-run' : 'execute',
       cursorScope: options.dryRun
@@ -595,7 +629,11 @@ function createFootprintBackfillService({
 
     for (const candidate of docs) {
       totals.processed += 1;
-      totals.nextCursor = encodeBackfillCursor({ mode: cursorMode, id: candidate._id.toString() });
+      totals.nextCursor = encodeBackfillCursor({
+        mode: cursorMode,
+        id: candidate._id.toString(),
+        windowToken: options.dryRun ? null : discoveryWindow?.token || null,
+      });
       let doc = candidate;
       if (!options.dryRun) {
         try {
@@ -685,7 +723,14 @@ function createFootprintBackfillService({
         continue;
       }
 
-      await completeOwned(attemptDoc, runToken, new Date(clock()), classified.geography, totals);
+      await completeOwned(
+        attemptDoc,
+        runToken,
+        new Date(clock()),
+        classified.geography,
+        totals,
+        discoveryWindow,
+      );
     }
 
     return totals;

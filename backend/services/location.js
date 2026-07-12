@@ -34,7 +34,13 @@ function blurCoordinate(lat, lng) {
  * realLocation is always stripped from the response.
  */
 function sanitizeLocation(fp, isAdmin) {
-  const { realLocation, regionBackfill, ...rest } = fp;
+  const {
+    realLocation,
+    regionBackfill,
+    discoveryOrigin,
+    discoveryWindowToken,
+    ...rest
+  } = fp;
   const sanitized = Array.isArray(rest.comments)
     ? {
       ...rest,

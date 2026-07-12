@@ -22,6 +22,12 @@ const footprintSchema = new mongoose.Schema({
   regionCode: { type: String, default: '' },
   regionName: { type: String, default: '' },
   discoveryExpiresAt: { type: Date, default: null },
+  discoveryOrigin: {
+    type: String,
+    enum: ['publication', 'backfill'],
+    default: 'publication',
+  },
+  discoveryWindowToken: { type: String, default: '', maxlength: 128 },
   regionBackfill: {
     status: {
       type: String,
@@ -52,16 +58,31 @@ const footprintSchema = new mongoose.Schema({
 
 footprintSchema.index({ createdAt: -1 });
 footprintSchema.index(
-  { visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 },
-  { name: 'activity_active_public_expiry_createdAt_id' },
+  { visibility: 1, discoveryOrigin: 1, discoveryWindowToken: 1, createdAt: -1, _id: -1 },
+  { name: 'activity_backfill_window_public_createdAt_id' },
 );
 footprintSchema.index(
-  { countryCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 },
-  { name: 'activity_active_country_expiry_createdAt_id' },
+  {
+    countryCode: 1,
+    visibility: 1,
+    discoveryOrigin: 1,
+    discoveryWindowToken: 1,
+    createdAt: -1,
+    _id: -1,
+  },
+  { name: 'activity_backfill_window_country_createdAt_id' },
 );
 footprintSchema.index(
-  { countryCode: 1, regionCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 },
-  { name: 'activity_active_region_expiry_createdAt_id' },
+  {
+    countryCode: 1,
+    regionCode: 1,
+    visibility: 1,
+    discoveryOrigin: 1,
+    discoveryWindowToken: 1,
+    createdAt: -1,
+    _id: -1,
+  },
+  { name: 'activity_backfill_window_region_createdAt_id' },
 );
 footprintSchema.index(
   { visibility: 1, createdAt: -1, _id: -1, discoveryExpiresAt: 1 },

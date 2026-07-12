@@ -119,6 +119,8 @@ class FootprintService {
       countryName: geography.countryName || '',
       regionCode: geography.regionCode || '',
       regionName: geography.regionName || '',
+      discoveryOrigin: 'publication',
+      discoveryWindowToken: '',
       discoveryExpiresAt: effectiveVisibility === 'public'
         ? new Date(publicationTime.getTime() + 24 * 60 * 60 * 1000)
         : null,

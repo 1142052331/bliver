@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Footprint = require('../models/Footprint');
 const Friendship = require('../models/Friendship');
+const BackfillDiscoveryWindow = require('../models/BackfillDiscoveryWindow');
 const { encodeActivityCursor } = require('../services/ActivityCursor');
 const { normalizeActivityQuery } = require('../validators/activityQuery');
 const { getViewerAccess } = require('../services/FootprintAccessService');
@@ -363,6 +364,55 @@ describe('ActivityService.listActivity', () => {
     expect(second).toMatchObject({ hasMore: false, nextCursor: null });
   });
 
+  test('paginates publication, active backfill, and legacy in original chronology', async () => {
+    const author = await createUser('window-chronology-author');
+    await BackfillDiscoveryWindow.create({
+      token: 'chronology-window', createdAt: NOW, expiresAt: new Date(+NOW + DAY),
+    });
+    const publication = await createFootprint(author._id, {
+      discoveryOrigin: 'publication',
+      createdAt: new Date(+NOW - 60_000),
+      discoveryExpiresAt: new Date(+NOW - 60_000 + DAY),
+      message: 'publication',
+    });
+    const backfill = await createFootprint(author._id, {
+      discoveryOrigin: 'backfill',
+      discoveryWindowToken: 'chronology-window',
+      createdAt: new Date(+NOW - 2 * 60_000),
+      discoveryExpiresAt: new Date(+NOW + DAY),
+      message: 'backfill',
+    });
+    const legacyId = new mongoose.Types.ObjectId();
+    await Footprint.collection.insertOne({
+      _id: legacyId,
+      userId: author._id,
+      visibility: null,
+      location: { lat: 31, lng: 121 },
+      createdAt: new Date(+NOW - 3 * 60_000),
+      updatedAt: NOW,
+    });
+    await createFootprint(author._id, {
+      discoveryOrigin: 'backfill',
+      discoveryWindowToken: 'expired-window-not-registered',
+      createdAt: new Date(+NOW - 30_000),
+      discoveryExpiresAt: new Date(+NOW - DAY),
+      message: 'expired-backfill',
+    });
+
+    const first = await activityService.listActivity({
+      viewer: null, query: { scope: 'smart', limit: 2 }, now: NOW,
+    });
+    const second = await activityService.listActivity({
+      viewer: null, query: { scope: 'smart', limit: 2, cursor: first.nextCursor }, now: NOW,
+    });
+
+    expect([...ids(first), ...ids(second)]).toEqual([
+      publication.id, backfill.id, legacyId.toString(),
+    ]);
+    expect(first.hasMore).toBe(true);
+    expect(second).toMatchObject({ hasMore: false, nextCursor: null });
+  });
+
   test('candidate query count is bounded by applicable smart tiers or one fixed tier', async () => {
     const current = await createUser('query-count-current');
     const friend = await createUser('query-count-friend');
@@ -370,25 +420,29 @@ describe('ActivityService.listActivity', () => {
     await Friendship.create({ requester: current._id, recipient: friend._id, status: 'accepted' });
     const findSafe = jest.spyOn(Footprint, 'findSafe');
     const aggregate = jest.spyOn(Footprint, 'aggregate');
+    const findWindows = jest.spyOn(BackfillDiscoveryWindow, 'find');
 
     const cases = [
-      [null, { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 1],
-      [viewer(current), { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 2],
+      [null, { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 2],
+      [viewer(current), { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 3],
       [viewer(admin), { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 1],
-      [null, { scope: 'smart' }, 1],
-      [viewer(current), { scope: 'smart' }, 2],
-      [viewer(current), { scope: 'country', countryCode: 'CN' }, 2],
+      [null, { scope: 'smart' }, 2],
+      [viewer(current), { scope: 'smart' }, 3],
+      [viewer(current), { scope: 'country', countryCode: 'CN' }, 3],
     ];
     try {
       for (const [who, query, expectedCount] of cases) {
         findSafe.mockClear();
         aggregate.mockClear();
+        findWindows.mockClear();
         await activityService.listActivity({ viewer: who, query, now: NOW });
-        expect(findSafe.mock.calls.length + aggregate.mock.calls.length).toBe(expectedCount);
+        expect(findSafe.mock.calls.length + aggregate.mock.calls.length + findWindows.mock.calls.length)
+          .toBe(expectedCount);
       }
     } finally {
       findSafe.mockRestore();
       aggregate.mockRestore();
+      findWindows.mockRestore();
     }
   });
 
@@ -440,16 +494,68 @@ describe('ActivityService.listActivity', () => {
     const friend = await createUser('explain-friend');
     const admin = await createUser('explain-admin', { role: 'admin' });
     await Friendship.create({ requester: current._id, recipient: friend._id, status: 'accepted' });
+    const activeWindows = Array.from({ length: 32 }, (_, index) => ({
+      token: `active-window-${index}`,
+      createdAt: new Date(+NOW - (index + 1) * 1000),
+      expiresAt: new Date(+NOW + DAY),
+    }));
+    await BackfillDiscoveryWindow.create([
+      ...activeWindows,
+      { token: 'expired-window', createdAt: new Date(+NOW - 2 * DAY), expiresAt: new Date(+NOW - DAY) },
+    ]);
     const rows = [];
+    for (let index = 0; index < 2000; index += 1) {
+      const isPrivate = index < 1000;
+      rows.push({
+        userId: new mongoose.Types.ObjectId(),
+        location: { lat: 31, lng: 121 },
+        visibility: isPrivate ? 'private' : 'public',
+        discoveryExpiresAt: new Date(+NOW - DAY),
+        countryCode: 'CN',
+        regionCode: 'CN-SH',
+        createdAt: new Date(+NOW - (isPrivate ? index * 1000 : 2 * DAY + index * 1000)),
+        updatedAt: NOW,
+      });
+    }
     for (let index = 0; index < 2000; index += 1) {
       rows.push({
         userId: new mongoose.Types.ObjectId(),
         location: { lat: 31, lng: 121 },
-        visibility: index < 1000 ? 'private' : 'public',
+        visibility: 'public',
+        discoveryOrigin: 'backfill',
+        discoveryWindowToken: 'active-window-0',
+        discoveryExpiresAt: new Date(+NOW + DAY),
+        countryCode: 'CN',
+        regionCode: 'CN-SH',
+        createdAt: new Date(+NOW - 30 * DAY - index * 1000),
+        updatedAt: NOW,
+      });
+    }
+    for (let index = 1; index < activeWindows.length; index += 1) {
+      rows.push({
+        userId: new mongoose.Types.ObjectId(),
+        location: { lat: 31, lng: 121 },
+        visibility: 'public',
+        discoveryOrigin: 'backfill',
+        discoveryWindowToken: `active-window-${index}`,
+        discoveryExpiresAt: new Date(+NOW + DAY),
+        countryCode: 'CN',
+        regionCode: 'CN-SH',
+        createdAt: new Date(+NOW - 40 * DAY - index * 1000),
+        updatedAt: NOW,
+      });
+    }
+    for (let index = 0; index < 1000; index += 1) {
+      rows.push({
+        userId: new mongoose.Types.ObjectId(),
+        location: { lat: 31, lng: 121 },
+        visibility: 'public',
+        discoveryOrigin: 'backfill',
+        discoveryWindowToken: 'expired-window',
         discoveryExpiresAt: new Date(+NOW - DAY),
         countryCode: 'CN',
         regionCode: 'CN-SH',
-        createdAt: new Date(+NOW - index * 1000),
+        createdAt: new Date(+NOW - 60 * DAY - index * 1000),
         updatedAt: NOW,
       });
     }
@@ -462,6 +568,20 @@ describe('ActivityService.listActivity', () => {
         countryCode: 'CN',
         regionCode: 'CN-SH',
         createdAt: new Date(+NOW - index * 1000),
+        updatedAt: NOW,
+      });
+    }
+    for (let index = 0; index < 2000; index += 1) {
+      const createdAt = new Date(+NOW - (index + 20) * 1000);
+      rows.push({
+        userId: new mongoose.Types.ObjectId(),
+        location: { lat: 31, lng: 121 },
+        visibility: 'public',
+        discoveryOrigin: 'publication',
+        discoveryExpiresAt: new Date(+createdAt + DAY),
+        countryCode: 'CN',
+        regionCode: 'CN-SH',
+        createdAt,
         updatedAt: NOW,
       });
     }
@@ -499,7 +619,10 @@ describe('ActivityService.listActivity', () => {
       const cursor = normalized.cursor
         ? require('../services/ActivityCursor').decodeActivityCursor(normalized.cursor)
         : null;
-      const tiers = activityService.buildCandidateTiers({ access, normalized, now: NOW, cursor });
+      const backfillWindows = await BackfillDiscoveryWindow.find({ expiresAt: { $gt: NOW } }).lean();
+      const tiers = activityService.buildCandidateTiers({
+        access, normalized, now: NOW, cursor, backfillWindows,
+      });
       if (tiers[tierIndex].kind === 'discovery') {
         const explanation = await Footprint.aggregate(
           activityService.buildDiscoveryPipeline(tiers[tierIndex], 10, access.isAdmin),
@@ -527,19 +650,15 @@ describe('ActivityService.listActivity', () => {
       _id: new mongoose.Types.ObjectId(),
     });
     const cases = [
-      [null, { scope: 'global' }, [
-        'activity_active_public_expiry_createdAt_id', 'activity_public_createdAt_id_expiry',
-      ], false, 0],
-      [null, { scope: 'country', countryCode: 'CN' }, [
-        'activity_active_country_expiry_createdAt_id', 'activity_country_public_createdAt_id_expiry',
-      ], false, 0],
-      [null, { scope: 'region', countryCode: 'CN', regionCode: 'CN-SH' }, [
-        'activity_active_region_expiry_createdAt_id', 'activity_region_public_createdAt_id_expiry',
-      ], false, 0],
+      [null, { scope: 'global' }, ['activity_public_createdAt_id_expiry'], false, 0],
+      [null, { scope: 'global' }, ['activity_backfill_window_public_createdAt_id'], true, 1],
+      [null, { scope: 'country', countryCode: 'CN' }, ['activity_country_public_createdAt_id_expiry'], false, 0],
+      [null, { scope: 'country', countryCode: 'CN' }, ['activity_backfill_window_country_createdAt_id'], true, 1],
+      [null, { scope: 'region', countryCode: 'CN', regionCode: 'CN-SH' }, ['activity_region_public_createdAt_id_expiry'], false, 0],
+      [null, { scope: 'region', countryCode: 'CN', regionCode: 'CN-SH' }, ['activity_backfill_window_region_createdAt_id'], true, 1],
       [viewer(current), { scope: 'global' }, ['userId_1_createdAt_-1__id_-1'], false, 0],
-      [viewer(current), { scope: 'global' }, [
-        'activity_active_public_expiry_createdAt_id', 'activity_public_createdAt_id_expiry',
-      ], false, 1],
+      [viewer(current), { scope: 'global' }, ['activity_public_createdAt_id_expiry'], false, 1],
+      [viewer(current), { scope: 'global' }, ['activity_backfill_window_public_createdAt_id'], true, 2],
       [viewer(admin), { scope: 'global', cursor }, ['activity_createdAt_id'], true, 0],
     ];
 
@@ -553,15 +672,18 @@ describe('ActivityService.listActivity', () => {
       expect(Math.max(...plan.keysExamined)).toBeLessThanOrEqual(40);
     }
 
+    const backfillTierExpectations = activeWindows.map(() => ([
+      ['activity_backfill_window_public_createdAt_id'], true,
+    ]));
     const smartCases = [
-      [null, [[[
-        'activity_active_public_expiry_createdAt_id', 'activity_public_createdAt_id_expiry',
-      ], false]]],
+      [null, [
+        [['activity_public_createdAt_id_expiry'], false],
+        ...backfillTierExpectations,
+      ]],
       [viewer(current), [
         [['userId_1_createdAt_-1__id_-1'], false],
-        [[
-          'activity_active_public_expiry_createdAt_id', 'activity_public_createdAt_id_expiry',
-        ], false],
+        [['activity_public_createdAt_id_expiry'], false],
+        ...backfillTierExpectations,
       ]],
       [viewer(admin), [[['activity_createdAt_id'], true]]],
     ];
@@ -571,8 +693,9 @@ describe('ActivityService.listActivity', () => {
       });
       const access = await getViewerAccess(who);
       const decodedCursor = require('../services/ActivityCursor').decodeActivityCursor(cursor);
+      const backfillWindows = await BackfillDiscoveryWindow.find({ expiresAt: { $gt: NOW } }).lean();
       const tiers = activityService.buildCandidateTiers({
-        access, normalized, now: NOW, cursor: decodedCursor,
+        access, normalized, now: NOW, cursor: decodedCursor, backfillWindows,
       });
       expect(JSON.stringify(tiers)).not.toMatch(/\$(?:nin|ne)\b/);
       expect(tiers).toHaveLength(expectedTiers.length);
@@ -589,5 +712,21 @@ describe('ActivityService.listActivity', () => {
         expect(Math.max(...plan.keysExamined)).toBeLessThanOrEqual(40);
       }
     }
+
+    const guestAccess = await getViewerAccess(null);
+    const smart = normalizeActivityQuery({ scope: 'smart' });
+    const [normalTier] = activityService.buildCandidateTiers({
+      access: guestAccess, normalized: smart, now: NOW, cursor: null,
+    });
+    expect(normalTier.normalFilter).toBeDefined();
+    const normalPlan = await Footprint.find(normalTier.normalFilter)
+      .hint(normalTier.normalHint)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(10)
+      .explain('executionStats');
+    const normalDetails = collectPlanDetails(normalPlan.queryPlanner.winningPlan);
+    expect(normalDetails.stages).not.toContain('SORT');
+    expect(normalPlan.executionStats.totalDocsExamined).toBeLessThanOrEqual(20);
+    expect(normalPlan.executionStats.totalKeysExamined).toBeLessThanOrEqual(20);
   });
 });
