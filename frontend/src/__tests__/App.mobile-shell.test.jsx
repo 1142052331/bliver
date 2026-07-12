@@ -7,6 +7,8 @@ import useShellStore from '../store/useShellStore';
 const mocks = vi.hoisted(() => ({
   user: null,
   requireLogin: vi.fn(() => false),
+  setUser: vi.fn(),
+  pendingActionRef: { current: null },
   logout: vi.fn(),
   clearNotifications: vi.fn(),
   openCheckIn: vi.fn(),
@@ -116,12 +118,12 @@ vi.mock('leaflet', () => ({
 vi.mock('../hooks/useAuth', () => ({
   default: () => ({
     user: mocks.user,
-    setUser: vi.fn(),
+    setUser: mocks.setUser,
     isAdmin: false,
     isAsen: false,
     requireLogin: mocks.requireLogin,
     logout: mocks.logout,
-    pendingActionRef: { current: null },
+    pendingActionRef: mocks.pendingActionRef,
   }),
 }));
 vi.mock('../hooks/useNotifications', () => ({
@@ -248,7 +250,9 @@ vi.mock('../components/ProfileDrawer', () => ({
     return <button type="button" onClick={props.onClose}>Close profile surface</button>;
   },
 }));
-vi.mock('../components/FootprintDetailModal', () => ({ default: () => null }));
+vi.mock('../components/FootprintDetailModal', () => ({
+  default: ({ fp }) => <div data-testid="footprint-detail">{fp?._id}</div>,
+}));
 vi.mock('../components/MapPreviewCard', () => ({
   default: (props) => {
     mocks.mapPreviewProps(props);
@@ -260,7 +264,13 @@ vi.mock('../components/MapPreviewCard', () => ({
 vi.mock('../components/activity/ActivityPage', () => ({
   default: (props) => {
     mocks.activityPageProps(props);
-    return <div data-testid="activity-page">Activity destination</div>;
+    const item = { _id: 'activity-footprint', message: 'activity target' };
+    return (
+      <div data-testid="activity-page">
+        <button type="button" data-testid="activity-react" onClick={() => props.onReact?.(item)}>React activity</button>
+        <button type="button" data-testid="activity-guest-react" onClick={() => props.onRequireLogin?.({ type: 'react', footprintId: item._id }, item)}>Guest react activity</button>
+      </div>
+    );
   },
 }));
 vi.mock('../components/PhotoWall', () => ({ default: () => null }));
@@ -282,7 +292,10 @@ describe('App mobile shell integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.user = null;
+    mocks.closeAuth.mockImplementation(() => {});
     mocks.requireLogin.mockReturnValue(false);
+    mocks.setUser.mockImplementation((user) => { mocks.user = user; });
+    mocks.pendingActionRef.current = null;
     uiState.showAuth = false;
     uiState.showFriends = false;
     uiState.showTimeline = false;
@@ -458,7 +471,7 @@ describe('App mobile shell integration', () => {
     },
   );
 
-  it('renders Activity as a destination surface above the map and below bottom navigation', () => {
+  it('renders Activity as a destination surface above the map and below bottom navigation', async () => {
     const viewer = { _id: 'user-1' };
     const footprint = { _id: 'activity-footprint' };
     mocks.user = viewer;
@@ -479,7 +492,7 @@ describe('App mobile shell integration', () => {
     expect(props).toEqual(expect.objectContaining({
       viewer,
       requireLogin: mocks.requireLogin,
-      onRequireLogin: mocks.requireLogin,
+      onRequireLogin: expect.any(Function),
       locationContext: mocks.scopeContext,
       onRequestLocation: mocks.requestLocation,
       onReact: expect.any(Function),
@@ -488,8 +501,45 @@ describe('App mobile shell integration', () => {
 
     props.onReact(footprint);
     props.onComment(footprint);
-    expect(uiState.setFlyArrivedFp).toHaveBeenNthCalledWith(1, footprint);
-    expect(uiState.setFlyArrivedFp).toHaveBeenNthCalledWith(2, footprint);
+    expect(uiState.setFlyArrivedFp).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId('footprint-detail')).toHaveTextContent('activity-footprint'));
+  });
+
+  it('keeps Activity interaction detail mounted when the target is absent from map footprints', async () => {
+    const user = userEvent.setup();
+    mocks.user = { _id: 'user-1' };
+    useShellStore.setState({ activeDestination: 'activity' });
+    const { rerender } = render(<App />);
+
+    await user.click(screen.getByTestId('activity-react'));
+    expect(screen.getByTestId('footprint-detail')).toHaveTextContent('activity-footprint');
+
+    mocks.footprints = [];
+    rerender(<App />);
+    expect(screen.getByTestId('footprint-detail')).toHaveTextContent('activity-footprint');
+  });
+
+  it('returns a guest Activity interaction to Activity and opens its target after login', async () => {
+    const user = userEvent.setup();
+    uiState.showAuth = true;
+    useShellStore.setState({ activeDestination: 'activity' });
+    mocks.requireLogin.mockImplementation((action) => {
+      mocks.pendingActionRef.current = action;
+      return false;
+    });
+    mocks.closeAuth.mockImplementation(() => { uiState.showAuth = false; });
+    render(<App />);
+
+    await user.click(screen.getByTestId('activity-guest-react'));
+    expect(mocks.pendingActionRef.current).toEqual(expect.objectContaining({
+      type: 'react', footprintId: 'activity-footprint', source: 'activity',
+    }));
+    await user.click(screen.getByRole('button', { name: 'Complete auth' }));
+
+    expect(useShellStore.getState().activeDestination).toBe('activity');
+    expect(screen.getByTestId('activity-page')).toBeInTheDocument();
+    expect(screen.getByTestId('footprint-detail')).toHaveTextContent('activity-footprint');
+    expect(uiState.setActiveFootprintId).not.toHaveBeenCalled();
   });
 
   it.each(['messages', 'me'])(

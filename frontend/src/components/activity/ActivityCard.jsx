@@ -8,18 +8,22 @@ function relationshipLabel(value) {
   return '陌生人';
 }
 
-export default function ActivityCard({ item, requireLogin, onReact, onComment }) {
+export default function ActivityCard({ item, requireLogin, onRequireLogin, onReact, onComment }) {
   const [imageVisible, setImageVisible] = useState(Boolean(item.photoUrl));
   const author = item.userId || item.user || {};
   const authorName = author.name || '未知用户';
   const photoAlt = `${authorName}在${item.placeName || '此处'}的足迹照片`;
   const handleReact = () => {
     const payload = { type: 'react', footprintId: item._id };
-    if (item.canInteract || requireLogin?.(payload) === true) onReact?.(item);
+    const allowed = item.canInteract
+      || (onRequireLogin ? onRequireLogin(payload, item) : requireLogin?.(payload)) === true;
+    if (allowed) onReact?.(item);
   };
   const handleComment = () => {
     const payload = { type: 'comment', footprintId: item._id };
-    if (item.canInteract || requireLogin?.(payload) === true) onComment?.(item);
+    const allowed = item.canInteract
+      || (onRequireLogin ? onRequireLogin(payload, item) : requireLogin?.(payload)) === true;
+    if (allowed) onComment?.(item);
   };
   return (
     <article className="bliver-activity-card">

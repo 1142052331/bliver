@@ -16,6 +16,7 @@ interface AppUser {
 interface PendingAction {
   type: 'checkin' | 'comment' | 'react';
   footprintId?: string;
+  source?: 'activity' | 'map';
 }
 
 export default function useAuth() {
@@ -70,7 +71,7 @@ export default function useAuth() {
       pendingActionRef.current = null;
       if (action.type === 'checkin') {
         openCheckIn();
-      } else if (action.footprintId) {
+      } else if (action.footprintId && action.source !== 'activity') {
         setActiveFootprintId(action.footprintId);
       }
     }

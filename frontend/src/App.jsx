@@ -200,6 +200,8 @@ export default function App() {
     pendingCheckInLocation, setPendingCheckInLocation,
   } = useUIStore();
   const [pulseIds, setPulseIds] = useState(() => new Set());
+  const [activityDetailFp, setActivityDetailFp] = useState(null);
+  const activityPendingTargetRef = useRef(null);
 
   const addPulseId = useCallback((footprintId) => {
     if (!footprintId) return;
@@ -314,6 +316,10 @@ export default function App() {
     || (activeDestination === 'messages' && showFriends)
     || (activeDestination === 'me' && Boolean(viewingProfileId))
   );
+  const handleActivityRequireLogin = useCallback((action, item) => {
+    activityPendingTargetRef.current = item || null;
+    return requireLogin({ ...action, source: 'activity' });
+  }, [requireLogin]);
   const bottomNavigationLayer = destinationSurfaceBehindAuthIsOpen
     ? 'destination'
     : showAuth && activeDestination !== 'map'
@@ -517,11 +523,11 @@ export default function App() {
               <ActivityPage
                 viewer={user}
                 requireLogin={requireLogin}
-                onRequireLogin={requireLogin}
+                onRequireLogin={handleActivityRequireLogin}
                 locationContext={locationContext.scopeContext}
                 onRequestLocation={locationContext.requestLocation}
-                onReact={setFlyArrivedFp}
-                onComment={setFlyArrivedFp}
+                onReact={setActivityDetailFp}
+                onComment={setActivityDetailFp}
               />
             </div>
           )}
@@ -540,14 +546,17 @@ export default function App() {
           />
 
           <AnimatePresence>
-            {flyArrivedFp && (
+            {((activeDestination === 'activity' && activityDetailFp) || flyArrivedFp) && (
               <FootprintDetailModal
-                key={flyArrivedFp._id}
-                fp={flyArrivedFp}
+                key={(activeDestination === 'activity' && activityDetailFp ? activityDetailFp : flyArrivedFp)._id}
+                fp={activeDestination === 'activity' && activityDetailFp ? activityDetailFp : flyArrivedFp}
                 allFootprints={footprints}
                 userId={user?._id}
                 isAdmin={isAdmin}
-                onClose={() => { setFlyArrivedFp(null); setActiveFootprintId(null); }}
+                onClose={() => {
+                  if (activeDestination === 'activity' && activityDetailFp) setActivityDetailFp(null);
+                  else { setFlyArrivedFp(null); setActiveFootprintId(null); }
+                }}
               />
             )}
           </AnimatePresence>
@@ -588,7 +597,21 @@ export default function App() {
             initialTab={authTab}
             message={authMessage}
             reserveMobileNavigation={bottomNavigationLayer === 'destination-auth'}
-            onDone={(u) => { setUser(u); closeAuth(); if (!destinationSurfaceBehindAuthIsOpen) setActiveDestination('map'); setTimeout(() => broadcastLogin(u), 0); subscribeToPush().catch(() => {}); }}
+            onDone={(u) => {
+              const pendingAction = pendingActionRef.current;
+              const pendingActivity = pendingAction?.source === 'activity'
+                ? activityPendingTargetRef.current
+                : null;
+              activityPendingTargetRef.current = null;
+              setUser(u);
+              closeAuth();
+              if (pendingActivity) {
+                setActivityDetailFp(pendingActivity);
+                setActiveDestination('activity');
+              } else if (!destinationSurfaceBehindAuthIsOpen) setActiveDestination('map');
+              setTimeout(() => broadcastLogin(u), 0);
+              subscribeToPush().catch(() => {});
+            }}
             onClose={() => { closeAuth(); if (!destinationSurfaceBehindAuthIsOpen) setActiveDestination('map'); }}
           />
         )}

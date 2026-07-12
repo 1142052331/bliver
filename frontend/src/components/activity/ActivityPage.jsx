@@ -22,7 +22,9 @@ function queryForScope(scope, locationContext = {}) {
 }
 
 export default function ActivityPage({
+  viewer,
   requireLogin,
+  onRequireLogin,
   locationContext = {},
   initialScope = 'smart',
   onReact,
@@ -33,7 +35,7 @@ export default function ActivityPage({
   const [sheetOpen, setSheetOpen] = useState(false);
   const query = useMemo(() => queryForScope(scope, locationContext), [scope, locationContext]);
   const effectiveScope = query.scope;
-  const feed = useActivityFeed(query);
+  const feed = useActivityFeed(query, viewer);
   const items = useMemo(() => (feed.data?.pages || []).flatMap((page) => page.items || []).sort((a, b) => {
     const time = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     return time || String(b._id).localeCompare(String(a._id));
@@ -54,7 +56,7 @@ export default function ActivityPage({
           )}
         </aside>
       )}
-      {feed.isPending && !feed.data ? <ActivitySkeletons /> : feed.isError && !hasCached ? <ActivityError onRetry={feed.refetch} /> : items.length === 0 ? <ActivityEmpty scope={effectiveScope} onBroaden={() => setScope('smart')} /> : <div className="bliver-activity-list">{items.map((item) => <ActivityCard key={item._id} item={item} requireLogin={requireLogin} onReact={onReact} onComment={onComment} />)}</div>}
+      {feed.isPending && !feed.data ? <ActivitySkeletons /> : feed.isError && !hasCached ? <ActivityError onRetry={feed.refetch} /> : items.length === 0 ? <ActivityEmpty scope={effectiveScope} onBroaden={() => setScope('smart')} /> : <div className="bliver-activity-list">{items.map((item) => <ActivityCard key={item._id} item={item} requireLogin={requireLogin} onRequireLogin={onRequireLogin} onReact={onReact} onComment={onComment} />)}</div>}
       {feed.isError && hasCached && <ActivityError cached onRetry={feed.refetch} />}
       <ActivityScopeSheet
         open={sheetOpen}

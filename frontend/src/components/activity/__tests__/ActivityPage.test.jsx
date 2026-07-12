@@ -81,33 +81,42 @@ describe('ActivityPage', () => {
     expect(within(cards[1]).getByText('好友')).toBeInTheDocument();
   });
 
+  it('passes the authenticated viewer explicitly to the activity query hook', () => {
+    const viewer = { _id: 'viewer-1', role: 'user' };
+    renderPage({ viewer });
+
+    expect(useActivityFeed).toHaveBeenLastCalledWith({
+      scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 20,
+    }, viewer);
+  });
+
   it('uses smart location context and switches to fixed region, country, global, then smart scope', async () => {
     const user = userEvent.setup();
     renderPage();
 
     expect(useActivityFeed).toHaveBeenLastCalledWith({
       scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 20,
-    });
+    }, undefined);
     await user.click(screen.getByRole('button', { name: '选择动态范围' }));
     const sheet = screen.getByRole('dialog', { name: '选择动态范围' });
     await user.click(within(sheet).getByRole('button', { name: /本省/ }));
     expect(useActivityFeed).toHaveBeenLastCalledWith({
       scope: 'region', countryCode: 'CN', regionCode: 'CN-SH', limit: 20,
-    });
+    }, undefined);
 
     await user.click(screen.getByRole('button', { name: '选择动态范围' }));
     await user.click(screen.getByRole('button', { name: /本国/ }));
-    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'country', countryCode: 'CN', limit: 20 });
+    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'country', countryCode: 'CN', limit: 20 }, undefined);
 
     await user.click(screen.getByRole('button', { name: '选择动态范围' }));
     await user.click(screen.getByRole('button', { name: /全球/ }));
-    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 });
+    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 }, undefined);
 
     await user.click(screen.getByRole('button', { name: '选择动态范围' }));
     await user.click(screen.getByRole('button', { name: /智能范围/ }));
     expect(useActivityFeed).toHaveBeenLastCalledWith({
       scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 20,
-    });
+    }, undefined);
   });
 
   it('falls back explicitly to global discovery and offers a location action when context is unavailable', async () => {
@@ -118,7 +127,7 @@ describe('ActivityPage', () => {
       onRequestLocation,
     });
 
-    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 });
+    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 }, undefined);
     expect(screen.getByText('无法获取位置，当前显示全球公开动态。')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '开启定位' }));
     expect(onRequestLocation).toHaveBeenCalledWith({ explicit: true });
@@ -128,7 +137,7 @@ describe('ActivityPage', () => {
     useActivityFeed.mockReturnValue(feed({ data: { pages: [{ items: [], hasMore: false }] } }));
     renderPage({ initialScope: 'region', locationContext: { reason: 'permission-denied' } });
 
-    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 });
+    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 }, undefined);
     expect(screen.getByRole('button', { name: '选择动态范围' })).toHaveTextContent('全球');
     expect(screen.getByRole('heading', { name: '全球还没有新动态' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '返回智能范围' })).not.toBeInTheDocument();
@@ -138,7 +147,7 @@ describe('ActivityPage', () => {
     useActivityFeed.mockReturnValue(feed({ data: { pages: [{ items: [], hasMore: false }] } }));
     renderPage({ initialScope: 'country', locationContext: { regionCode: 'CN-SH', reason: 'unresolved' } });
 
-    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 });
+    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 }, undefined);
     expect(screen.getByRole('button', { name: '选择动态范围' })).toHaveTextContent('全球');
     expect(screen.getByRole('heading', { name: '全球还没有新动态' })).toBeInTheDocument();
   });
@@ -245,7 +254,7 @@ describe('ActivityPage', () => {
     await user.click(screen.getByRole('button', { name: '返回智能范围' }));
     expect(useActivityFeed).toHaveBeenLastCalledWith({
       scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 20,
-    });
+    }, undefined);
   });
 
   it('uses the country-specific empty state for an empty country scope', () => {
