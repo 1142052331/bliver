@@ -54,6 +54,25 @@ footprintSchema.index({ createdAt: -1 });
 footprintSchema.index({ visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
 footprintSchema.index({ countryCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
 footprintSchema.index({ countryCode: 1, regionCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
+footprintSchema.index(
+  { visibility: 1, createdAt: -1, _id: -1, discoveryExpiresAt: 1 },
+  { name: 'activity_public_createdAt_id_expiry' },
+);
+footprintSchema.index(
+  { countryCode: 1, visibility: 1, createdAt: -1, _id: -1, discoveryExpiresAt: 1 },
+  { name: 'activity_country_public_createdAt_id_expiry' },
+);
+footprintSchema.index(
+  {
+    countryCode: 1,
+    regionCode: 1,
+    visibility: 1,
+    createdAt: -1,
+    _id: -1,
+    discoveryExpiresAt: 1,
+  },
+  { name: 'activity_region_public_createdAt_id_expiry' },
+);
 footprintSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 footprintSchema.index({ 'reactions.userId': 1, 'reactions.createdAt': -1 });
 footprintSchema.index({ 'comments.userId': 1, 'comments.createdAt': -1 });

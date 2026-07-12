@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const AppError = require('../middleware/AppError');
+const Footprint = require('../models/Footprint');
 const { normalizeActivityQuery } = require('../validators/activityQuery');
 const {
   encodeActivityCursor,
@@ -11,6 +13,33 @@ const ID = '64b000000000000000000123';
 
 function rawCursor(payload) {
   return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+}
+
+function tokenFromJson(json) {
+  return Buffer.from(json, 'utf8').toString('base64url');
+}
+
+function expectInvalidQuery(input) {
+  let error;
+  try {
+    normalizeActivityQuery(input);
+  } catch (caught) {
+    error = caught;
+  }
+  expect(error).toBeInstanceOf(AppError);
+  expect(error.statusCode).toBe(400);
+  expect(error.message).toBe('Invalid activity query');
+}
+
+function expectInvalidCursor(cursor) {
+  let error;
+  try {
+    decodeActivityCursor(cursor);
+  } catch (caught) {
+    error = caught;
+  }
+  expect(error).toBeInstanceOf(TypeError);
+  expect(error.message).toBe('Invalid activity cursor');
 }
 
 describe('normalizeActivityQuery', () => {
@@ -40,8 +69,7 @@ describe('normalizeActivityQuery', () => {
   test('accepts country-only smart context but requires country for a smart region', () => {
     expect(normalizeActivityQuery({ countryCode: 'cn' }))
       .toEqual({ scope: 'smart', countryCode: 'CN', limit: 20 });
-    expect(() => normalizeActivityQuery({ regionCode: 'cn-sh' }))
-      .toThrow('Invalid activity query');
+    expectInvalidQuery({ regionCode: 'cn-sh' });
   });
 
   test('accepts a valid opaque cursor without exposing its payload', () => {
@@ -58,7 +86,7 @@ describe('normalizeActivityQuery', () => {
     [{ scope: 'global', countryCode: 'CN' }],
     [{ scope: 'global', regionCode: 'CN-SH' }],
   ])('rejects incomplete or contradictory fixed geography %#', (input) => {
-    expect(() => normalizeActivityQuery(input)).toThrow('Invalid activity query');
+    expectInvalidQuery(input);
   });
 
   test.each([
@@ -71,17 +99,34 @@ describe('normalizeActivityQuery', () => {
     { limit: 51 },
     { limit: Number.NaN },
     { limit: ['20'] },
+    { limit: [] },
+    { limit: ['20', '21'] },
+    { limit: '9'.repeat(1000) },
     { limit: 'twenty' },
     { cursor: 'not+base64url' },
     { cursor: 'a'.repeat(257) },
   ])('rejects invalid query values %#', (input) => {
-    expect(() => normalizeActivityQuery(input)).toThrow('Invalid activity query');
+    expectInvalidQuery(input);
+  });
+
+  test.each([
+    { countryCode: 'C1' },
+    { countryCode: 'CHN' },
+    { countryCode: '🇨🇳' },
+    { countryCode: 'C N' },
+    { countryCode: 'CN', regionCode: 'CN/SH' },
+    { countryCode: 'CN', regionCode: 'CN SH' },
+    { countryCode: 'CN', regionCode: 'CN--SH' },
+    { countryCode: 'CN', regionCode: '-CN-SH' },
+    { countryCode: 'CN', regionCode: 'CN-🌆' },
+  ])('rejects non-canonical geography codes %#', (input) => {
+    expectInvalidQuery(input);
   });
 
   test('rejects unknown and prototype-shaped input without polluting objects', () => {
     const input = JSON.parse('{"scope":"smart","__proto__":{"polluted":true}}');
 
-    expect(() => normalizeActivityQuery(input)).toThrow('Invalid activity query');
+    expectInvalidQuery(input);
     expect({}.polluted).toBeUndefined();
   });
 
@@ -89,7 +134,7 @@ describe('normalizeActivityQuery', () => {
     const inherited = Object.create({ scope: 'global' });
     const nullPrototype = Object.assign(Object.create(null), { scope: 'country', countryCode: 'cn' });
 
-    expect(() => normalizeActivityQuery(inherited)).toThrow('Invalid activity query');
+    expectInvalidQuery(inherited);
     expect(normalizeActivityQuery(nullPrototype))
       .toEqual({ scope: 'country', countryCode: 'CN', limit: 20 });
   });
@@ -128,7 +173,15 @@ describe('ActivityCursor', () => {
     [rawCursor({ v: 1, t: CREATED_AT.toISOString(), i: ID, extra: true }), 'extra field'],
     [`${rawCursor({ v: 1, t: CREATED_AT.toISOString(), i: ID })}=`, 'non-canonical base64'],
   ])('rejects malformed cursors: %s (%s)', (cursor) => {
-    expect(() => decodeActivityCursor(cursor)).toThrow('Invalid activity cursor');
+    expectInvalidCursor(cursor);
+  });
+
+  test.each([
+    tokenFromJson(`{"t":"${CREATED_AT.toISOString()}","v":1,"i":"${ID}"}`),
+    tokenFromJson(`{ "v": 1, "t": "${CREATED_AT.toISOString()}", "i": "${ID}" }`),
+    tokenFromJson(`{"v":1,"v":1,"t":"${CREATED_AT.toISOString()}","i":"${ID}"}`),
+  ])('rejects non-canonical semantic cursor encodings', (cursor) => {
+    expectInvalidCursor(cursor);
   });
 
   test('rejects prototype-shaped cursor payloads', () => {
@@ -137,7 +190,7 @@ describe('ActivityCursor', () => {
       'utf8',
     ).toString('base64url');
 
-    expect(() => decodeActivityCursor(cursor)).toThrow('Invalid activity cursor');
+    expectInvalidCursor(cursor);
     expect({}.polluted).toBeUndefined();
   });
 
@@ -146,7 +199,14 @@ describe('ActivityCursor', () => {
     { createdAt: CREATED_AT, _id: 'not-an-id' },
     { createdAt: CREATED_AT.toISOString(), _id: ID },
   ])('rejects invalid values while encoding %#', (value) => {
-    expect(() => encodeActivityCursor(value)).toThrow('Invalid activity cursor');
+    let error;
+    try {
+      encodeActivityCursor(value);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(TypeError);
+    expect(error.message).toBe('Invalid activity cursor');
   });
 
   test('builds strict descending pagination for older and equal-time smaller ids', () => {
@@ -173,5 +233,33 @@ describe('ActivityCursor', () => {
 
     filter.$or[0].createdAt.$lt.setUTCFullYear(2001);
     expect(filter.$or[1].createdAt).toEqual(CREATED_AT);
+  });
+});
+
+describe('Activity sort indexes', () => {
+  test.each([
+    [
+      'activity_public_createdAt_id_expiry',
+      { visibility: 1, createdAt: -1, _id: -1, discoveryExpiresAt: 1 },
+    ],
+    [
+      'activity_country_public_createdAt_id_expiry',
+      { countryCode: 1, visibility: 1, createdAt: -1, _id: -1, discoveryExpiresAt: 1 },
+    ],
+    [
+      'activity_region_public_createdAt_id_expiry',
+      {
+        countryCode: 1,
+        regionCode: 1,
+        visibility: 1,
+        createdAt: -1,
+        _id: -1,
+        discoveryExpiresAt: 1,
+      },
+    ],
+  ])('declares named %s index', (name, expectedFields) => {
+    const indexes = new Map(Footprint.schema.indexes().map(([fields, options]) => [options.name, fields]));
+
+    expect(indexes.get(name)).toEqual(expectedFields);
   });
 });

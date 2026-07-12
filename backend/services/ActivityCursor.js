@@ -63,6 +63,10 @@ function decodeActivityCursor(cursor) {
     throw invalidCursor();
   }
 
+  if (encodeActivityCursor({ createdAt, _id: payload.i }) !== cursor) {
+    throw invalidCursor();
+  }
+
   return {
     version: CURSOR_VERSION,
     createdAt,

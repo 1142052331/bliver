@@ -4,8 +4,11 @@ const { decodeActivityCursor } = require('../services/ActivityCursor');
 
 const ALLOWED_QUERY_FIELDS = new Set(['scope', 'countryCode', 'regionCode', 'limit', 'cursor']);
 
-const normalizedCode = (max) => z.string().trim().min(1).max(max)
+const normalizedCode = (max, pattern) => z.string().trim().min(1).max(max).regex(pattern)
   .transform((value) => value.toUpperCase());
+
+const countryCodeSchema = normalizedCode(2, /^[A-Za-z]{2}$/);
+const regionCodeSchema = normalizedCode(40, /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/);
 
 const limitSchema = z.union([
   z.number(),
@@ -22,8 +25,8 @@ const cursorSchema = z.string().max(256).superRefine((value, context) => {
 
 const activityQuerySchema = z.object({
   scope: z.enum(['smart', 'region', 'country', 'global']).default('smart'),
-  countryCode: normalizedCode(8).optional(),
-  regionCode: normalizedCode(40).optional(),
+  countryCode: countryCodeSchema.optional(),
+  regionCode: regionCodeSchema.optional(),
   limit: limitSchema,
   cursor: cursorSchema.optional(),
 }).strict().superRefine((value, context) => {

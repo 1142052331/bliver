@@ -99,12 +99,15 @@
 - Create: `backend/validators/activityQuery.js`
 - Create: `backend/services/ActivityCursor.js`
 - Create: `backend/__tests__/activity-query.test.js`
+- Modify: `backend/models/Footprint.js`
 
-- [ ] Write failing tests for scope codes, bounded limit, opaque cursor decoding, malformed cursor rejection, and equal-timestamp ordering.
-- [ ] Run the focused tests and confirm the contracts are absent.
-- [ ] Implement normalized activity input and a versioned `createdAt + _id` cursor.
-- [ ] Contract: `limit` defaults to 20 and caps at 50; fixed scopes reject stray geography; v1 base64url cursors are canonical and capped at 256 characters.
-- [ ] Run focused tests and commit the query contract.
+- [x] Write failing tests for scope codes, bounded limit, opaque cursor decoding, malformed cursor rejection, and equal-timestamp ordering.
+- [x] Run the focused tests and confirm the contracts are absent.
+- [x] Implement normalized activity input and a versioned `createdAt + _id` cursor.
+- [x] Contract: `limit` defaults to 20 and caps at 50; fixed scopes reject stray geography; v1 base64url cursors are canonical and capped at 256 characters.
+- [x] Run focused tests and commit the query contract.
+
+Task 6 must verify the named Activity sort indexes with representative MongoDB `explain()` plans after its candidate queries exist.
 
 ### Task 6: Build Server-Authoritative Activity Selection
 
