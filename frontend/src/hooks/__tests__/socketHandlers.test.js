@@ -210,4 +210,23 @@ describe('footprint socket cache invalidation', () => {
     setFootprintUnreadState(queryClient, 'fp-admin', false, 'admin:admin-1');
     expect(queryClient.getQueryData(mapKey).footprints[0].isUnread).toBe(false);
   });
+
+  it('bounds per-viewer deletion tombstones while retaining the newest reorder protection', () => {
+    const queryClient = { invalidateQueries: vi.fn() };
+    const viewer = 'user:tombstone-viewer';
+    for (let i = 0; i < 4097; i += 1) {
+      footprintDeleted(queryClient, viewer)({ footprintId: `old-${i}` });
+    }
+    vi.clearAllMocks();
+
+    footprintUpdated(queryClient, viewer)({ footprint: { _id: 'old-0', updatedAt: '2026-07-13T00:00:01.000Z' } });
+    footprintUpdated(queryClient, viewer)({ footprint: { _id: 'old-4096', updatedAt: '2026-07-13T00:00:01.000Z' } });
+
+    expect(emitFootprintEvent).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'updated', footprint: expect.objectContaining({ _id: 'old-0' }),
+    }));
+    expect(emitFootprintEvent).not.toHaveBeenCalledWith(expect.objectContaining({
+      type: 'updated', footprint: expect.objectContaining({ _id: 'old-4096' }),
+    }));
+  });
 });

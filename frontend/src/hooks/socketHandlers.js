@@ -3,6 +3,7 @@ import useUIStore from '../store/useUIStore';
 
 const eventStateByClient = new WeakMap();
 const MAX_EVENT_LEDGER_ENTRIES = 2048;
+const MAX_TOMBSTONES = 4096;
 
 function normalizeViewer(viewer) {
   if (!viewer) return 'guest';
@@ -105,9 +106,9 @@ function acceptFootprintEvent(queryClient, event, viewer = 'guest') {
 
   const state = getEventState(queryClient);
   const identity = normalizeViewer(viewer);
-  const tombstones = state.tombstones.get(identity) || new Set();
+  const tombstones = state.tombstones.get(identity) || { set: new Set(), queue: [] };
   state.tombstones.set(identity, tombstones);
-  if (tombstones.has(footprintId)) return false;
+  if (tombstones.set.has(footprintId)) return false;
   let ledger = state.ledgers.get(identity);
   if (!ledger) {
     ledger = new Map();
@@ -115,7 +116,11 @@ function acceptFootprintEvent(queryClient, event, viewer = 'guest') {
   }
   const previous = ledger.get(footprintId);
   if (event.type === 'deleted') {
-    tombstones.add(footprintId);
+    tombstones.set.add(footprintId);
+    tombstones.queue.push(footprintId);
+    while (tombstones.queue.length > MAX_TOMBSTONES) {
+      tombstones.set.delete(tombstones.queue.shift());
+    }
     ledger.delete(footprintId);
     return true;
   }
