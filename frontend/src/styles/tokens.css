@@ -510,6 +510,44 @@
 
 .bliver-map-sheet__header h2 { margin: 0; font-size: 18px; line-height: 1.35; }
 
+.bliver-location-permission-notice {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  margin: 2px 0 12px;
+  padding: 12px;
+  border: 1px solid var(--bliver-border);
+  border-radius: var(--bliver-radius-sm);
+  background: var(--bliver-sage-soft);
+  color: var(--bliver-forest);
+}
+
+.bliver-location-permission-notice > svg { margin-top: 2px; }
+.bliver-location-permission-notice__body { min-width: 0; }
+.bliver-location-permission-notice__body strong { display: block; font-size: 15px; line-height: 1.4; }
+.bliver-location-permission-notice__body p { margin: 3px 0 0; color: var(--bliver-ink); font-size: 15px; line-height: 1.5; }
+.bliver-location-permission-notice button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  grid-column: 2;
+  gap: 7px;
+  justify-self: start;
+  padding: 0 12px;
+  border: 1px solid var(--bliver-forest);
+  border-radius: 8px;
+  background: var(--bliver-surface);
+  color: var(--bliver-forest);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bliver-location-permission-notice button:hover { background: var(--bliver-paper); }
+.bliver-location-permission-notice button:focus-visible { outline: 3px solid var(--bliver-forest); outline-offset: 2px; }
+
 .bliver-map-filter-groups { display: flex; flex-direction: column; }
 
 .bliver-map-filter-group {

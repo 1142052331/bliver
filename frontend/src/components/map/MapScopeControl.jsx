@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Globe2, Map, Navigation, X } from 'lucide-react';
+import LocationPermissionNotice from '../LocationPermissionNotice';
 
 const LABELS = { smart: '智能', region: '本省', country: '本国', global: '全球' };
 
@@ -12,6 +13,7 @@ export default function MapScopeControl({
   onChange,
   onClose,
   onRequestLocation,
+  viewerKey = 'guest',
 }) {
   const closeRef = useRef(null);
   useEffect(() => {
@@ -78,6 +80,15 @@ export default function MapScopeControl({
                 <X size={20} />
               </button>
             </header>
+            <LocationPermissionNotice
+              permissionState={context.reason === 'permission-denied'
+                ? 'denied'
+                : context.reason === 'location-unavailable'
+                  ? 'unavailable'
+                  : context.reason === 'location-error' ? 'error' : 'idle'}
+              viewerKey={viewerKey}
+              onRequestLocation={onRequestLocation}
+            />
             <div className="bliver-map-scope-options">
               {options.map(([scope, label, detail, Icon]) => {
                 const unavailable = (scope === 'region' && !context.regionCode)

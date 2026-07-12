@@ -58,6 +58,68 @@ describe('useLocationContext', () => {
     expect(getCurrentPosition).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps reminder cooldown isolated between viewers', async () => {
+    const first = vi.fn((_success, reject) => reject({ code: 1 }));
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: first } });
+    const firstHook = renderHook(() => useLocationContext({ viewerKey: 'viewer-a' }));
+    await act(() => firstHook.result.current.requestLocation({ explicit: false, now: NOW }));
+
+    const second = vi.fn((_success, reject) => reject({ code: 1 }));
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: second } });
+    const secondHook = renderHook(() => useLocationContext({ viewerKey: 'viewer-b' }));
+    await act(() => secondHook.result.current.requestLocation({ explicit: false, now: NOW + 1 }));
+
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not request geolocation during passive hook startup', () => {
+    const getCurrentPosition = vi.fn();
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    });
+
+    renderHook(() => useLocationContext({ viewerKey: 'guest' }));
+
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+  });
+
+  it('restores denied guidance without prompting again on startup', () => {
+    localStorage.setItem('bliver_location_reminder_at_v2:viewer-a', JSON.stringify({
+      permissionState: 'denied',
+      remindedAt: NOW,
+    }));
+    const getCurrentPosition = vi.fn();
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    });
+
+    const { result } = renderHook(() => useLocationContext({ viewerKey: 'viewer-a' }));
+
+    expect(result.current.permissionState).toBe('denied');
+    expect(result.current.scopeContext).toEqual({ scope: 'global', reason: 'permission-denied' });
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+  });
+
+  it('switches permission guidance when the active viewer changes', () => {
+    localStorage.setItem('bliver_location_reminder_at_v2:viewer-a', JSON.stringify({
+      permissionState: 'denied',
+      remindedAt: NOW,
+    }));
+    const { result, rerender } = renderHook(
+      ({ viewerKey }) => useLocationContext({ viewerKey }),
+      { initialProps: { viewerKey: 'viewer-a' } },
+    );
+    expect(result.current.permissionState).toBe('denied');
+
+    rerender({ viewerKey: 'viewer-b' });
+
+    expect(result.current.permissionState).toBe('idle');
+    expect(result.current.scopeContext).toEqual({ scope: 'smart', reason: 'unresolved' });
+  });
+
   it('resolves structured location without persisting precise coordinates', async () => {
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,

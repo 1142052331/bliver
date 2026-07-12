@@ -110,6 +110,7 @@ export default function MapHomeControls({
             onClose={() => setActiveSheet(null)}
             onChange={changeScope}
             onRequestLocation={onRequestLocation || (() => locate())}
+            viewerKey={viewerKey}
           />
           <button
             type="button"

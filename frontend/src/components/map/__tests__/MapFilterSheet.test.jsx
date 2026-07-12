@@ -128,4 +128,20 @@ describe('MapScopeControl', () => {
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('shows actionable permission guidance after a denial', () => {
+    render(
+      <MapScopeControl
+        open
+        value="global"
+        context={{ scope: 'global', reason: 'permission-denied' }}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        onRequestLocation={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('定位权限已关闭')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /重新尝试定位/ })).toBeInTheDocument();
+  });
 });

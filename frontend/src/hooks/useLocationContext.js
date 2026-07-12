@@ -1,31 +1,46 @@
 import { useCallback, useMemo, useState } from 'react';
 import { apiClient } from '../api';
+import { getUser } from '../auth';
 import {
   loadFixedScope,
-  loadReminderAt,
   saveFixedScope,
-  saveReminderAt,
 } from '../domain/locationStorage';
+import {
+  loadLocationReminderState,
+  markLocationReminder,
+  shouldShowLocationReminder,
+} from '../domain/locationReminder';
 
-const REMINDER_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
-
-export default function useLocationContext() {
+export default function useLocationContext({ viewerKey } = {}) {
+  const currentViewerKey = viewerKey || getUser()?._id || 'guest';
   const [fixedScope, setFixedScopeState] = useState(loadFixedScope);
   const [resolvedLocation, setResolvedLocation] = useState(null);
-  const [permissionState, setPermissionState] = useState('idle');
+  const restorePermissionState = useCallback((key) => {
+    const restored = loadLocationReminderState(key).permissionState;
+    return ['denied', 'unavailable', 'error'].includes(restored) ? restored : 'idle';
+  }, []);
+  const [permissionStates, setPermissionStates] = useState(() => ({
+    [currentViewerKey]: restorePermissionState(currentViewerKey),
+  }));
+  const permissionState = permissionStates[currentViewerKey]
+    ?? restorePermissionState(currentViewerKey);
+  const setPermissionState = useCallback((nextState) => {
+    setPermissionStates((current) => ({ ...current, [currentViewerKey]: nextState }));
+  }, [currentViewerKey]);
 
   const shouldRemind = useCallback(({ explicit = false, now = Date.now() } = {}) => (
-    explicit || now - loadReminderAt() >= REMINDER_COOLDOWN_MS
-  ), []);
+    shouldShowLocationReminder(currentViewerKey, { explicit, now })
+  ), [currentViewerKey]);
 
   const requestLocation = useCallback(async ({ explicit = false, now = Date.now() } = {}) => {
     if (!shouldRemind({ explicit, now })) return { status: 'cooldown' };
-    saveReminderAt(now);
+    markLocationReminder(currentViewerKey, now, localStorage, 'locating');
     setPermissionState('locating');
 
     if (!navigator.geolocation) {
       setResolvedLocation(null);
       setPermissionState('unavailable');
+      markLocationReminder(currentViewerKey, now, localStorage, 'unavailable');
       return { status: 'unavailable' };
     }
 
@@ -42,14 +57,17 @@ export default function useLocationContext() {
       const location = response?.data?.location || null;
       setResolvedLocation(location);
       setPermissionState('granted');
+      markLocationReminder(currentViewerKey, now, localStorage, 'granted');
       return { status: 'granted', location, coords: { lat, lng } };
     } catch (error) {
       setResolvedLocation(null);
       const denied = error?.code === 1;
-      setPermissionState(denied ? 'denied' : 'error');
+      const nextState = denied ? 'denied' : 'error';
+      setPermissionState(nextState);
+      markLocationReminder(currentViewerKey, now, localStorage, nextState);
       return { status: denied ? 'denied' : 'error' };
     }
-  }, [shouldRemind]);
+  }, [currentViewerKey, setPermissionState, shouldRemind]);
 
   const setFixedScope = useCallback((value) => {
     saveFixedScope(value);
@@ -74,6 +92,7 @@ export default function useLocationContext() {
 
   return {
     permissionState,
+    viewerKey: currentViewerKey,
     scopeContext,
     requestLocation,
     setFixedScope,
