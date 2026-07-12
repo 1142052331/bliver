@@ -8,7 +8,7 @@ function relationshipLabel(value) {
   return '陌生人';
 }
 
-export default function ActivityCard({ item, requireLogin, onReact }) {
+export default function ActivityCard({ item, requireLogin, onReact, onComment }) {
   const [imageVisible, setImageVisible] = useState(Boolean(item.photoUrl));
   const author = item.userId || item.user || {};
   const authorName = author.name || '未知用户';
@@ -16,6 +16,10 @@ export default function ActivityCard({ item, requireLogin, onReact }) {
   const handleReact = () => {
     const payload = { type: 'react', footprintId: item._id };
     if (item.canInteract || requireLogin?.(payload) === true) onReact?.(item);
+  };
+  const handleComment = () => {
+    const payload = { type: 'comment', footprintId: item._id };
+    if (item.canInteract || requireLogin?.(payload) === true) onComment?.(item);
   };
   return (
     <article className="bliver-activity-card">
@@ -29,7 +33,7 @@ export default function ActivityCard({ item, requireLogin, onReact }) {
       {imageVisible && item.photoUrl && <img className="bliver-activity-card__media" src={item.photoUrl} alt={photoAlt} loading="lazy" onError={() => setImageVisible(false)} />}
       <footer className="bliver-activity-card__actions">
         <button type="button" aria-label={`喜欢 ${authorName}`} onClick={handleReact}><Heart size={18} aria-hidden="true" /><span>{item.reactions?.length || 0}</span></button>
-        <button type="button" aria-label="查看评论"><MessageCircle size={18} aria-hidden="true" /><span>{item.comments?.length || 0}</span></button>
+        <button type="button" aria-label="查看评论" onClick={handleComment}><MessageCircle size={18} aria-hidden="true" /><span>{item.comments?.length || 0}</span></button>
       </footer>
     </article>
   );

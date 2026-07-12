@@ -110,6 +110,33 @@ describe('ActivityPage', () => {
     });
   });
 
+  it('falls back explicitly to global discovery and offers a location action when context is unavailable', async () => {
+    const user = userEvent.setup();
+    const onRequestLocation = vi.fn();
+    renderPage({
+      locationContext: { reason: 'permission-denied' },
+      onRequestLocation,
+    });
+
+    expect(useActivityFeed).toHaveBeenLastCalledWith({ scope: 'global', limit: 20 });
+    expect(screen.getByText('无法获取位置，当前显示全球公开动态。')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '开启定位' }));
+    expect(onRequestLocation).toHaveBeenCalledWith({ explicit: true });
+  });
+
+  it('disables geographic scopes without location codes while keeping smart and global available', async () => {
+    const user = userEvent.setup();
+    renderPage({ locationContext: { reason: 'unresolved' } });
+
+    await user.click(screen.getByRole('button', { name: '选择动态范围' }));
+    const sheet = screen.getByRole('dialog', { name: '选择动态范围' });
+    expect(within(sheet).getByText('开启定位后可选择本省和本国动态。')).toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: /本省/ })).toBeDisabled();
+    expect(within(sheet).getByRole('button', { name: /本国/ })).toBeDisabled();
+    expect(within(sheet).getByRole('button', { name: /智能范围/ })).toBeEnabled();
+    expect(within(sheet).getByRole('button', { name: /全球/ })).toBeEnabled();
+  });
+
   it('opens authentication for a guest interaction without losing the selected footprint', async () => {
     const user = userEvent.setup();
     const requireLogin = vi.fn(() => false);
@@ -121,6 +148,41 @@ describe('ActivityPage', () => {
     expect(requireLogin).toHaveBeenCalledWith({ type: 'react', footprintId: 'fp-newer' });
     expect(onReact).not.toHaveBeenCalled();
     expect(screen.getByText('梧桐树下刚下过一阵雨。')).toBeInTheDocument();
+  });
+
+  it('gates guest comments and preserves the authenticated comment callback', async () => {
+    const user = userEvent.setup();
+    const requireLogin = vi.fn(() => false);
+    const onComment = vi.fn();
+    renderPage({ requireLogin, onComment });
+
+    const cards = screen.getAllByRole('article');
+    await user.click(within(cards[0]).getByRole('button', { name: /评论/ }));
+    expect(requireLogin).toHaveBeenCalledWith({ type: 'comment', footprintId: 'fp-newer' });
+    expect(onComment).not.toHaveBeenCalled();
+
+    await user.click(within(cards[1]).getByRole('button', { name: /评论/ }));
+    expect(onComment).toHaveBeenCalledWith(older);
+  });
+
+  it('traps focus in the scope dialog, closes with Escape, and restores the opener focus', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const opener = screen.getByRole('button', { name: '选择动态范围' });
+
+    await user.click(opener);
+    const sheet = screen.getByRole('dialog', { name: '选择动态范围' });
+    const close = within(sheet).getByRole('button', { name: '关闭范围选择' });
+    expect(close).toHaveFocus();
+
+    const globalOption = within(sheet).getByRole('button', { name: /全球/ });
+    globalOption.focus();
+    await user.tab();
+    expect(close).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: '选择动态范围' })).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
   });
 
   it('renders structural skeletons while the first page loads', () => {

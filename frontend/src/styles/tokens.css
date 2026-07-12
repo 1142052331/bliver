@@ -1258,6 +1258,9 @@
 .bliver-activity-page__eyebrow { margin: 0 0 4px; color: var(--bliver-muted); font-size: 13px; font-weight: 650; }
 .bliver-activity-page h1 { margin: 0; color: var(--bliver-forest); font-size: 28px; line-height: 1.2; }
 .bliver-activity-page__scope { min-height: 44px; padding: 8px 14px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-md); background: var(--bliver-surface); color: var(--bliver-forest); font: inherit; font-size: 15px; font-weight: 650; cursor: pointer; }
+.bliver-activity-location-notice { display: flex; max-width: 720px; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; margin: 0 auto 16px; padding: 8px 8px 8px 14px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-sage-soft); color: var(--bliver-ink); }
+.bliver-activity-location-notice p { margin: 0; font-size: 15px; line-height: 1.5; }
+.bliver-activity-location-notice button { min-height: 44px; flex: 0 0 auto; padding: 8px 12px; border: 0; border-radius: var(--bliver-radius-sm); background: var(--bliver-forest); color: var(--bliver-surface); font: inherit; font-size: 15px; font-weight: 650; cursor: pointer; }
 .bliver-activity-list { display: grid; gap: 14px; max-width: 720px; margin: 0 auto; }
 .bliver-activity-card { padding: 16px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-md); background: var(--bliver-surface); box-shadow: var(--bliver-shadow-card); }
 .bliver-activity-card__header, .bliver-activity-card__meta, .bliver-activity-card__actions { display: flex; align-items: center; gap: 10px; }
@@ -1290,9 +1293,11 @@
 .bliver-activity-sheet__handle { width: 36px; height: 4px; margin: 0 auto 10px; border-radius: 2px; background: var(--bliver-border); }
 .bliver-activity-sheet__header { display: flex; align-items: center; justify-content: space-between; }
 .bliver-activity-sheet__header h2 { margin: 0; color: var(--bliver-forest); font-size: 18px; }
+.bliver-activity-sheet__help { margin: 8px 0 0; color: var(--bliver-muted); font-size: 15px; line-height: 1.5; }
 .bliver-activity-sheet__options { display: grid; gap: 4px; margin-top: 8px; }
 .bliver-activity-sheet__options button { display: grid; min-height: 52px; grid-template-columns: 1fr auto; align-items: center; padding: 8px 10px; border: 1px solid transparent; border-radius: var(--bliver-radius-sm); background: transparent; color: var(--bliver-ink); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
 .bliver-activity-sheet__options button[aria-pressed="true"] { border-color: var(--bliver-forest); background: var(--bliver-sage-soft); color: var(--bliver-forest); font-weight: 700; }
+.bliver-activity-sheet__options button:disabled { color: var(--bliver-muted); cursor: not-allowed; opacity: 0.72; }
 .bliver-activity-sheet__options small { color: var(--bliver-muted); }
 
-@media (max-width: 480px) { .bliver-activity-card__meta time { margin-left: 0; } .bliver-activity-notice { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 480px) { .bliver-activity-card__meta time { margin-left: 0; } .bliver-activity-notice, .bliver-activity-location-notice { align-items: flex-start; flex-direction: column; } }
