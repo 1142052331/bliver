@@ -17,6 +17,12 @@ function resolveViewer(viewer) {
   }
 
   const authenticatedViewer = token ? user : 'guest';
+  if (token) {
+    const identity = canonicalViewerIdentity(authenticatedViewer);
+    if (!/^(user|admin):.+$/.test(identity)) {
+      throw new Error('Authenticated activity feed requires a valid viewer context');
+    }
+  }
   if (viewer !== undefined
     && canonicalViewerIdentity(viewer) !== canonicalViewerIdentity(authenticatedViewer)) {
     throw new Error('Activity viewer context does not match the current authentication state');

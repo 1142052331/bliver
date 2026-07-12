@@ -39,6 +39,20 @@ describe('useActivityFeed', () => {
     expect(queryClient.getQueryCache().getAll()[0].queryKey[2]).toBe('user:viewer-1');
   });
 
+  it.each([
+    ['an empty user object', {}],
+    ['a role-only user object', { role: 'user' }],
+    ['a user with a missing id', { isAdmin: false, name: 'missing-id' }],
+  ])('rejects token-backed %s without calling the API or creating a guest cache', (_label, user) => {
+    authMocks.getToken.mockReturnValue('jwt-private');
+    authMocks.getUser.mockReturnValue(user);
+
+    expect(() => renderHook(() => useActivityFeed({ scope: 'smart' }), { wrapper }))
+      .toThrow(/viewer context/i);
+    expect(mocks.list).not.toHaveBeenCalled();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
   it('rejects an explicit guest viewer while the request carries authentication', () => {
     authMocks.getToken.mockReturnValue('jwt-private');
     authMocks.getUser.mockReturnValue({ _id: 'viewer-1', isAdmin: false });
