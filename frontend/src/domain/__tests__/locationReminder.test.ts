@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   LOCATION_REMINDER_COOLDOWN_MS,
   loadLocationReminderAt,
+  consumeLocationReminder,
   loadLocationReminderState,
   markLocationReminder,
   shouldShowLocationReminder,
 } from '../locationReminder';
 
 const NOW = Date.parse('2026-07-12T12:00:00.000Z');
+const DAY = 24 * 60 * 60 * 1000;
 
 describe('location reminder contract', () => {
   beforeEach(() => localStorage.clear());
@@ -24,6 +26,13 @@ describe('location reminder contract', () => {
 
     expect(shouldShowLocationReminder('guest', { now: NOW + 1, explicit: true })).toBe(true);
     expect(LOCATION_REMINDER_COOLDOWN_MS).toBe(7 * 24 * 60 * 60 * 1000);
+  });
+
+  it('consumes an ordinary opportunity once and again after seven days', () => {
+    const storage = localStorage;
+    expect(consumeLocationReminder('viewer-a', { now: NOW, storage })).toBe(true);
+    expect(consumeLocationReminder('viewer-a', { now: NOW + DAY, storage })).toBe(false);
+    expect(consumeLocationReminder('viewer-a', { now: NOW + 7 * DAY, storage })).toBe(true);
   });
 
   it('recovers invalid storage without throwing', () => {
