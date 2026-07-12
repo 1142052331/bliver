@@ -78,14 +78,14 @@ export default function FootprintDetailModal({ fp: fpProp, userId, isAdmin, onCl
     const footprintId = fp._id;
     activeReadIdRef.current = footprintId;
     setReadState({ footprintId, status: 'saving' });
-    setFootprintUnreadState(queryClient, footprintId, false);
+    setFootprintUnreadState(queryClient, footprintId, false, userId ? (isAdmin ? `admin:${userId}` : `user:${userId}`) : 'guest');
     try {
       await apiClient.footprints.markRead(footprintId);
       if (mountedRef.current && activeReadIdRef.current === footprintId) {
         setReadState({ footprintId, status: 'success' });
       }
     } catch {
-      setFootprintUnreadState(queryClient, footprintId, true);
+      setFootprintUnreadState(queryClient, footprintId, true, userId ? (isAdmin ? `admin:${userId}` : `user:${userId}`) : 'guest');
       if (mountedRef.current && activeReadIdRef.current === footprintId) {
         setReadState({ footprintId, status: 'error' });
       }

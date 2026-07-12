@@ -14,12 +14,13 @@ import {
   userOnline,
   userOffline,
   forceLogout,
+  resetFootprintEventLedger,
 } from './socketHandlers';
 
 function getSocketURL() {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
   if (import.meta.env.VITE_API_URL) {
-    try { return new URL(import.meta.env.VITE_API_URL).origin; } catch {}
+    try { return new URL(import.meta.env.VITE_API_URL).origin; } catch { /* use the current origin */ }
   }
   return window.location.origin;
 }
@@ -40,6 +41,7 @@ export default function useSocket({
 }) {
   const socketRef = useRef(null);
   const queryClient = useQueryClient();
+  const viewerIdentity = user?.role === 'admin' ? `admin:${user._id}` : user?._id ? `user:${user._id}` : 'guest';
 
   useEffect(() => {
     if (!user) {
@@ -78,9 +80,9 @@ export default function useSocket({
     // ── Domain event handlers via registry ──
     const domainHandlers = {
       'online:count': onlineCount(setOnlineCount),
-      'footprint:new': footprintNew(queryClient),
-      'footprint:updated': footprintUpdated(queryClient),
-      'footprint:deleted': footprintDeleted(queryClient),
+      'footprint:new': footprintNew(queryClient, viewerIdentity),
+      'footprint:updated': footprintUpdated(queryClient, viewerIdentity),
+      'footprint:deleted': footprintDeleted(queryClient, viewerIdentity),
       'profile:updated': profileUpdated(),
       'new_notification': newNotification(appendNotification),
       'user_online': userOnline(),
@@ -99,8 +101,9 @@ export default function useSocket({
       clearSocket();
       socket.disconnect();
       socketRef.current = null;
+      resetFootprintEventLedger(queryClient, viewerIdentity);
     };
-  }, [user]);
+  }, [user, viewerIdentity]);
 
   return { socketRef };
 }
