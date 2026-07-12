@@ -73,6 +73,10 @@ footprintSchema.index(
   },
   { name: 'activity_region_public_createdAt_id_expiry' },
 );
+footprintSchema.index(
+  { createdAt: -1, _id: -1 },
+  { name: 'activity_createdAt_id' },
+);
 footprintSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 footprintSchema.index({ 'reactions.userId': 1, 'reactions.createdAt': -1 });
 footprintSchema.index({ 'comments.userId': 1, 'comments.createdAt': -1 });

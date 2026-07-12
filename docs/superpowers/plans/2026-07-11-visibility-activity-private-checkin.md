@@ -114,14 +114,18 @@ Task 6 must verify the named Activity sort indexes with representative MongoDB `
 **Files:**
 - Create: `backend/services/ActivityService.js`
 - Create: `backend/__tests__/activity-service.test.js`
+- Modify: `backend/models/Footprint.js`
 - Reuse: `backend/services/FootprintQueryService.js`
+- Reuse: `backend/services/FootprintAccessService.js`
 - Reuse: `backend/policies/FootprintVisibilityPolicy.js`
 
-- [ ] Write failing tests for guest visibility, owner/friend inclusion, smart region-country-global fill, fixed scopes, de-duplication, strict chronology, pagination, and source decoration.
-- [ ] Run the focused tests and capture the missing service failure.
-- [ ] Implement bounded candidate queries and merge results strictly by `createdAt DESC, _id DESC`.
-- [ ] Derive relationship, source scope/label, interaction capability, used scopes, and resolved context on the server.
-- [ ] Run focused tests and commit the service.
+- [x] Write failing tests for guest visibility, owner/friend/admin inclusion, smart region-country-global fill, fixed scopes, de-duplication, strict chronology, pagination, and source decoration.
+- [x] Run the focused tests and capture the missing service failure.
+- [x] Implement bounded candidate queries and merge selected results strictly by `createdAt DESC, _id DESC`.
+- [x] Derive relationship, source scope/label, interaction capability, used scopes, and resolved context on the server.
+- [x] Verify real `explain("executionStats")` plans for guest global/country/region, owner/friend authorization OR, and admin cursor queries; add the minimal named admin sort index.
+- [x] Run focused and full backend tests and self-review the diff.
+- [x] Commit the service without push or deployment.
 
 ### Task 7: Expose Guest-Readable Activity API
 
