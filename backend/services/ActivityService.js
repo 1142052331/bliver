@@ -27,6 +27,11 @@ const PUBLIC_INDEX_BY_SCOPE = {
   country: 'activity_country_public_createdAt_id_expiry',
   region: 'activity_region_public_createdAt_id_expiry',
 };
+const SMART_PUBLIC_INDEX_BY_SCOPE = {
+  global: 'activity_smart_public_createdAt_id',
+  country: 'activity_smart_country_createdAt_id',
+  region: 'activity_smart_region_createdAt_id',
+};
 
 function and(...conditions) {
   const values = conditions.filter((condition) => condition && Object.keys(condition).length > 0);
@@ -63,10 +68,9 @@ function buildSmartTiers({ access, normalized, now }) {
   const authorizedDiscovery = access.isAdmin
     ? authorizationFilter({ ...access, now })
     : activePublicFilter(now);
-  const unrelated = relatedIds.length > 0 ? { userId: { $nin: relatedIds } } : {};
   const discoveryHint = (scope) => (access.isAdmin
     ? 'activity_createdAt_id'
-    : PUBLIC_INDEX_BY_SCOPE[scope]);
+    : SMART_PUBLIC_INDEX_BY_SCOPE[scope]);
 
   if (normalized.regionCode) {
     tiers.push({
@@ -74,7 +78,6 @@ function buildSmartTiers({ access, normalized, now }) {
       hint: discoveryHint('region'),
       filter: and(
         authorizedDiscovery,
-        unrelated,
         { countryCode: normalized.countryCode, regionCode: normalized.regionCode },
       ),
     });
@@ -85,20 +88,14 @@ function buildSmartTiers({ access, normalized, now }) {
       hint: discoveryHint('country'),
       filter: and(
         authorizedDiscovery,
-        unrelated,
         { countryCode: normalized.countryCode },
-        normalized.regionCode ? { regionCode: { $ne: normalized.regionCode } } : {},
       ),
     });
   }
   tiers.push({
     scope: 'global',
     hint: discoveryHint('global'),
-    filter: and(
-      authorizedDiscovery,
-      unrelated,
-      normalized.countryCode ? { countryCode: { $ne: normalized.countryCode } } : {},
-    ),
+    filter: authorizedDiscovery,
   });
   return tiers;
 }
@@ -127,28 +124,22 @@ function compareFootprints(left, right) {
   return timestampDifference || id(right).localeCompare(id(left));
 }
 
-async function queryCandidates({ tiers, target, isAdmin }) {
+async function queryCandidates({ tiers, perTierLimit, isAdmin }) {
   const candidates = new Map();
-  let hasMore = false;
-  for (const tier of tiers) {
-    const remaining = target - candidates.size;
+  const tierResults = await Promise.all(tiers.map(async (tier) => {
     let query = Footprint.findSafe(tier.filter, { isAdmin })
       .sort({ createdAt: -1, _id: -1 })
-      .limit(remaining + 1);
+      .limit(perTierLimit);
     if (tier.hint) query = query.hint(tier.hint);
-    const docs = await populateFootprint(query);
+    return populateFootprint(query);
+  }));
+  for (const docs of tierResults) {
     for (const doc of docs) {
       const footprintId = id(doc);
-      if (candidates.has(footprintId)) continue;
-      if (candidates.size === target) {
-        hasMore = true;
-        break;
-      }
-      candidates.set(footprintId, doc);
+      if (!candidates.has(footprintId)) candidates.set(footprintId, doc);
     }
-    if (hasMore) break;
   }
-  return { candidates: [...candidates.values()], hasMore };
+  return [...candidates.values()];
 }
 
 function relationshipFor(footprint, access) {
@@ -189,16 +180,16 @@ async function listActivity({ viewer, query, now = new Date() }) {
   const cursor = normalized.cursor ? decodeActivityCursor(normalized.cursor) : null;
   const access = await getViewerAccess(viewer);
   const tiers = buildCandidateTiers({ access, normalized, now: requestNow, cursor });
-  const selection = await queryCandidates({
+  const candidates = await queryCandidates({
     tiers,
-    target: normalized.limit,
+    perTierLimit: normalized.limit + 1,
     isAdmin: access.isAdmin,
   });
-  const readable = selection.candidates
+  const readable = candidates
     .filter((doc) => canReadWithAccess(doc, access, requestNow))
     .sort(compareFootprints);
-  const hasMore = selection.hasMore;
-  const pageDocs = readable;
+  const hasMore = readable.length > normalized.limit;
+  const pageDocs = readable.slice(0, normalized.limit);
   const items = pageDocs.map((doc) => decorateActivityFootprint(doc, { access, normalized }));
   const sourceSet = new Set(items.map((item) => item.sourceScope));
 

@@ -116,7 +116,7 @@ Task 6 must verify the named Activity sort indexes with representative MongoDB `
 - Create: `backend/__tests__/activity-service.test.js`
 - Modify: `backend/models/Footprint.js`
 - Reuse: `backend/services/FootprintQueryService.js`
-- Reuse: `backend/services/FootprintAccessService.js`
+- Modify: `backend/services/FootprintAccessService.js`
 - Reuse: `backend/policies/FootprintVisibilityPolicy.js`
 
 - [x] Write failing tests for guest visibility, owner/friend/admin inclusion, smart region-country-global fill, fixed scopes, de-duplication, strict chronology, pagination, and source decoration.
@@ -124,6 +124,7 @@ Task 6 must verify the named Activity sort indexes with representative MongoDB `
 - [x] Implement bounded candidate queries and merge selected results strictly by `createdAt DESC, _id DESC`.
 - [x] Derive relationship, source scope/label, interaction capability, used scopes, and resolved context on the server.
 - [x] Verify real `explain("executionStats")` plans for guest global/country/region, owner/friend authorization OR, and admin cursor queries; add the minimal named admin sort index.
+- [x] Harden review findings: union every bounded smart tier before chronological pagination, retain admin friend relationships, and verify guest/auth smart cursor IXSCAN plans without blocking `SORT`.
 - [x] Run focused and full backend tests and self-review the diff.
 - [x] Commit the service without push or deployment.
 

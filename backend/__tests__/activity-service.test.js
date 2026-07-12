@@ -144,7 +144,7 @@ describe('ActivityService.listActivity', () => {
     expect(result.location).toEqual({ countryCode: 'CN', regionCode: 'CN-SH' });
   });
 
-  test('tier priority controls inclusion while chronology controls only selected item ordering', async () => {
+  test('smart pagination returns every tier exactly once in global chronological order', async () => {
     const current = await createUser('priority-current');
     const friend = await createUser('priority-friend');
     const stranger = await createUser('priority-stranger');
@@ -155,18 +155,34 @@ describe('ActivityService.listActivity', () => {
     const regionItem = await createFootprint(stranger._id, {
       message: 'region', createdAt: new Date(+NOW - 3 * 60_000),
     });
-    await createFootprint(stranger._id, {
+    const countryItem = await createFootprint(stranger._id, {
       message: 'newer-country', regionCode: 'CN-BJ', createdAt: new Date(+NOW - 2 * 60_000),
     });
+    const globalItem = await createFootprint(stranger._id, {
+      message: 'newest-global', countryCode: 'US', regionCode: 'US-CA',
+      createdAt: new Date(+NOW - 60_000),
+    });
 
-    const result = await activityService.listActivity({
+    const first = await activityService.listActivity({
       viewer: viewer(current),
       query: { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 2 },
       now: NOW,
     });
+    const second = await activityService.listActivity({
+      viewer: viewer(current),
+      query: {
+        scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 2,
+        cursor: first.nextCursor,
+      },
+      now: NOW,
+    });
 
-    expect(ids(result)).toEqual([regionItem.id, friendItem.id]);
-    expect(result.hasMore).toBe(true);
+    expect([...ids(first), ...ids(second)]).toEqual([
+      globalItem.id, countryItem.id, regionItem.id, friendItem.id,
+    ]);
+    expect(new Set([...ids(first), ...ids(second)]).size).toBe(4);
+    expect(first.hasMore).toBe(true);
+    expect(second).toMatchObject({ hasMore: false, nextCursor: null });
   });
 
   test('smart scope without location uses friend then global tiers', async () => {
@@ -246,6 +262,24 @@ describe('ActivityService.listActivity', () => {
     expect(result.items[0]).toMatchObject({ relationship: 'stranger', sourceScope: 'region', canInteract: true });
   });
 
+  test('admin keeps unrestricted access while accepted friends decorate as friend source', async () => {
+    const admin = await createUser('friend-admin', { role: 'admin' });
+    const friend = await createUser('admin-friend');
+    await Friendship.create({ requester: admin._id, recipient: friend._id, status: 'accepted' });
+    const friendItem = await createFootprint(friend._id, {
+      visibility: 'private', discoveryExpiresAt: null, message: 'admin-friend-private',
+    });
+
+    const result = await activityService.listActivity({
+      viewer: viewer(admin), query: { scope: 'smart' }, now: NOW,
+    });
+
+    expect(ids(result)).toEqual([friendItem.id]);
+    expect(result.items[0]).toMatchObject({
+      relationship: 'friend', sourceScope: 'friend', sourceLabel: '好友', canInteract: true,
+    });
+  });
+
   test('strict chronology and createdAt plus id cursor avoid equal-timestamp duplicates or omissions', async () => {
     const author = await createUser('cursor-author');
     const createdAt = new Date(+NOW - 60_000);
@@ -269,6 +303,65 @@ describe('ActivityService.listActivity', () => {
     expect(first).toMatchObject({ hasMore: true });
     expect(second).toMatchObject({ hasMore: true });
     expect(third).toMatchObject({ hasMore: false, nextCursor: null });
+  });
+
+  test('smart equal-timestamp pages dedupe overlapping tiers without omissions', async () => {
+    const current = await createUser('smart-equal-current');
+    const friend = await createUser('smart-equal-friend');
+    const stranger = await createUser('smart-equal-stranger');
+    await Friendship.create({ requester: current._id, recipient: friend._id, status: 'accepted' });
+    const createdAt = new Date(+NOW - 60_000);
+    const docs = [
+      await createFootprint(friend._id, { visibility: 'friends', createdAt, message: 'friend' }),
+      await createFootprint(stranger._id, { createdAt, message: 'region' }),
+      await createFootprint(stranger._id, { createdAt, regionCode: 'CN-BJ', message: 'country' }),
+      await createFootprint(stranger._id, {
+        createdAt, countryCode: 'US', regionCode: 'US-CA', message: 'global',
+      }),
+    ];
+    const expected = docs.map((doc) => doc.id).sort().reverse();
+
+    const first = await activityService.listActivity({
+      viewer: viewer(current),
+      query: { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 2 },
+      now: NOW,
+    });
+    const second = await activityService.listActivity({
+      viewer: viewer(current),
+      query: {
+        scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', limit: 2,
+        cursor: first.nextCursor,
+      },
+      now: NOW,
+    });
+
+    expect([...ids(first), ...ids(second)]).toEqual(expected);
+    expect(new Set([...ids(first), ...ids(second)]).size).toBe(expected.length);
+    expect(second).toMatchObject({ hasMore: false, nextCursor: null });
+  });
+
+  test('candidate query count is bounded by applicable smart tiers or one fixed tier', async () => {
+    const current = await createUser('query-count-current');
+    const friend = await createUser('query-count-friend');
+    await Friendship.create({ requester: current._id, recipient: friend._id, status: 'accepted' });
+    const findSafe = jest.spyOn(Footprint, 'findSafe');
+
+    const cases = [
+      [null, { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 3],
+      [viewer(current), { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 4],
+      [null, { scope: 'smart' }, 1],
+      [viewer(current), { scope: 'smart' }, 2],
+      [viewer(current), { scope: 'country', countryCode: 'CN' }, 1],
+    ];
+    try {
+      for (const [who, query, expectedCount] of cases) {
+        findSafe.mockClear();
+        await activityService.listActivity({ viewer: who, query, now: NOW });
+        expect(findSafe).toHaveBeenCalledTimes(expectedCount);
+      }
+    } finally {
+      findSafe.mockRestore();
+    }
   });
 
   test('hasMore and nextCursor are correct for exhausted, exact-limit, and over-limit results', async () => {
@@ -374,6 +467,43 @@ describe('ActivityService.listActivity', () => {
       const plan = await explainTier({ who, query, tierIndex });
       expect(plan.stages).not.toContain('SORT');
       expect(plan.indexes).toContain(expectedIndex);
+    }
+
+    const smartCases = [
+      [null, [
+        'activity_smart_region_createdAt_id',
+        'activity_smart_country_createdAt_id',
+        'activity_smart_public_createdAt_id',
+      ]],
+      [viewer(current), [
+        'userId_1_createdAt_-1__id_-1',
+        'activity_smart_region_createdAt_id',
+        'activity_smart_country_createdAt_id',
+        'activity_smart_public_createdAt_id',
+      ]],
+    ];
+    for (const [who, expectedIndexes] of smartCases) {
+      const normalized = normalizeActivityQuery({
+        scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', cursor,
+      });
+      const access = await getViewerAccess(who);
+      const decodedCursor = require('../services/ActivityCursor').decodeActivityCursor(cursor);
+      const tiers = activityService.buildCandidateTiers({
+        access, normalized, now: NOW, cursor: decodedCursor,
+      });
+      expect(JSON.stringify(tiers)).not.toMatch(/\$(?:nin|ne)\b/);
+      expect(tiers).toHaveLength(expectedIndexes.length);
+      for (let tierIndex = 0; tierIndex < expectedIndexes.length; tierIndex += 1) {
+        const plan = await explainTier({
+          who,
+          query: { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', cursor },
+          tierIndex,
+        });
+        if (plan.stages.includes('SORT')) {
+          throw new Error(`Blocking SORT for ${who ? who.role : 'guest'} smart tier ${tierIndex}: ${plan.indexes.join(',')}`);
+        }
+        expect(plan.indexes).toContain(expectedIndexes[tierIndex]);
+      }
     }
   });
 });

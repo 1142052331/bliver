@@ -33,7 +33,7 @@ function authorizationFilter({ viewerId = null, friendIds = new Set(), isAdmin =
 async function getViewerAccess(viewer) {
   return {
     viewerId: viewer?.id || null,
-    friendIds: viewer?.id && viewer?.role !== 'admin' ? await getFriendIds(viewer.id) : new Set(),
+    friendIds: viewer?.id ? await getFriendIds(viewer.id) : new Set(),
     isAdmin: viewer?.role === 'admin',
   };
 }
