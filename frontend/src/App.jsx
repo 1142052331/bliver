@@ -457,6 +457,7 @@ export default function App() {
           viewerKey={viewerKey}
           isAuthenticated={Boolean(user)}
           locationContext={locationContext.scopeContext}
+          locationReminder={locationContext}
           onQueryChange={handleMapQueryChange}
           onRequestLocation={locationContext.requestLocation}
           onSetFixedScope={locationContext.setFixedScope}

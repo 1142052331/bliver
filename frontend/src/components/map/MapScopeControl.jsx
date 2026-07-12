@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Globe2, Map, Navigation, X } from 'lucide-react';
 import LocationPermissionNotice from '../LocationPermissionNotice';
@@ -14,11 +14,33 @@ export default function MapScopeControl({
   onClose,
   onRequestLocation,
   viewerKey = 'guest',
+  locationReminder,
+  now,
 }) {
   const closeRef = useRef(null);
+  const reminderAttemptedRef = useRef(false);
+  const [showReminder, setShowReminder] = useState(false);
   useEffect(() => {
     if (open) requestAnimationFrame(() => closeRef.current?.focus());
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      reminderAttemptedRef.current = false;
+      return undefined;
+    }
+    if (reminderAttemptedRef.current) return undefined;
+    reminderAttemptedRef.current = true;
+    const failed = ['permission-denied', 'location-unavailable', 'location-error'].includes(context.reason);
+    if (!failed) {
+      return undefined;
+    }
+    const consumed = locationReminder?.consumeOrdinaryReminder
+      ? locationReminder.consumeOrdinaryReminder({ now: now ?? Date.now() })
+      : true;
+    setShowReminder(consumed);
+    return undefined;
+  }, [open, context.reason, locationReminder]);
 
   const choose = (scope) => {
     if (scope === 'region' && !context.regionCode) {
@@ -80,7 +102,7 @@ export default function MapScopeControl({
                 <X size={20} />
               </button>
             </header>
-            <LocationPermissionNotice
+            {showReminder && open && ['permission-denied', 'location-unavailable', 'location-error'].includes(context.reason) && <LocationPermissionNotice
               permissionState={context.reason === 'permission-denied'
                 ? 'denied'
                 : context.reason === 'location-unavailable'
@@ -88,7 +110,7 @@ export default function MapScopeControl({
                   : context.reason === 'location-error' ? 'error' : 'idle'}
               viewerKey={viewerKey}
               onRequestLocation={onRequestLocation}
-            />
+            />}
             <div className="bliver-map-scope-options">
               {options.map(([scope, label, detail, Icon]) => {
                 const unavailable = (scope === 'region' && !context.regionCode)

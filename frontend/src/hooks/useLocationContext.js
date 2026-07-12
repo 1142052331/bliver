@@ -8,6 +8,7 @@ import {
 import {
   loadLocationReminderState,
   markLocationReminder,
+  consumeLocationReminder,
   shouldShowLocationReminder,
 } from '../domain/locationReminder';
 
@@ -31,6 +32,9 @@ export default function useLocationContext({ viewerKey } = {}) {
 
   const shouldRemind = useCallback(({ explicit = false, now = Date.now() } = {}) => (
     shouldShowLocationReminder(currentViewerKey, { explicit, now })
+  ), [currentViewerKey]);
+  const consumeOrdinaryReminder = useCallback(({ now = Date.now() } = {}) => (
+    consumeLocationReminder(currentViewerKey, { now })
   ), [currentViewerKey]);
 
   const requestLocation = useCallback(async ({ explicit = false, now = Date.now() } = {}) => {
@@ -109,5 +113,6 @@ export default function useLocationContext({ viewerKey } = {}) {
     setFixedScope,
     clearFixedScope,
     shouldRemind,
+    consumeOrdinaryReminder,
   };
 }

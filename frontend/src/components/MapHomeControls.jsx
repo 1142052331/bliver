@@ -15,6 +15,7 @@ export default function MapHomeControls({
   viewerKey = 'guest',
   isAuthenticated = false,
   locationContext = { scope: 'smart', reason: 'unresolved' },
+  locationReminder,
   onQueryChange = () => {},
   onSelectPlace = () => {},
   onSelectFootprint = () => {},
@@ -106,6 +107,7 @@ export default function MapHomeControls({
             open={activeSheet === 'scope'}
             value={query.scope}
             context={locationContext}
+            locationReminder={locationReminder}
             onOpen={() => setActiveSheet('scope')}
             onClose={() => setActiveSheet(null)}
             onChange={changeScope}

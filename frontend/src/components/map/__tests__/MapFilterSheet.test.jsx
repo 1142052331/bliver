@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_MAP_QUERY } from '../../../domain/mapQuery';
+import { consumeLocationReminder } from '../../../domain/locationReminder';
 import MapFilterSheet from '../MapFilterSheet';
 import MapScopeControl from '../MapScopeControl';
 
@@ -82,6 +83,34 @@ describe('MapFilterSheet', () => {
 });
 
 describe('MapScopeControl', () => {
+  it('shows ordinary guidance once per seven-day cooldown and records only a real display', async () => {
+    localStorage.clear();
+    const day = 24 * 60 * 60 * 1000;
+    const startedAt = Date.parse('2026-07-12T12:00:00.000Z');
+    const locationReminder = {
+      consumeOrdinaryReminder: ({ now }) => consumeLocationReminder('viewer-a', { now }),
+    };
+    const props = {
+      value: 'global',
+      context: { scope: 'global', reason: 'permission-denied' },
+      onChange: vi.fn(),
+      onClose: vi.fn(),
+      onRequestLocation: vi.fn(),
+      locationReminder,
+    };
+    const { rerender } = render(<MapScopeControl {...props} open now={startedAt} />);
+
+    await waitFor(() => expect(document.body.querySelector('.bliver-location-permission-notice')).toBeInTheDocument());
+
+    rerender(<MapScopeControl {...props} open={false} now={startedAt + day} />);
+    rerender(<MapScopeControl {...props} open now={startedAt + day} />);
+    await waitFor(() => expect(document.body.querySelector('.bliver-location-permission-notice')).not.toBeInTheDocument());
+
+    rerender(<MapScopeControl {...props} open={false} now={startedAt + 7 * day} />);
+    rerender(<MapScopeControl {...props} open now={startedAt + 7 * day} />);
+    await waitFor(() => expect(document.body.querySelector('.bliver-location-permission-notice')).toBeInTheDocument());
+  });
+
   it('requests location when region context is unavailable', async () => {
     const user = userEvent.setup();
     const onRequestLocation = vi.fn();

@@ -61,4 +61,14 @@ export function shouldShowLocationReminder(
   return Number(now) - loadLocationReminderAt(viewerKey, storage) >= LOCATION_REMINDER_COOLDOWN_MS;
 }
 
+/** Atomically consumes an ordinary reminder opportunity when its cooldown has elapsed. */
+export function consumeLocationReminder(
+  viewerKey = 'guest',
+  { now = Date.now(), storage = localStorage }: { now?: number; storage?: Storage } = {},
+) {
+  if (!shouldShowLocationReminder(viewerKey, { now, storage })) return false;
+  markLocationReminder(viewerKey, now, storage);
+  return true;
+}
+
 export { storageKey as locationReminderStorageKey };

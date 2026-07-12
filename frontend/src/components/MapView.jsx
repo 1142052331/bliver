@@ -18,7 +18,7 @@ export default function MapView({
   setFlyArrivedFp, setTimelineTargetFpId,
   loading, fetching = false, error, onRetry,
   emptyReason = 'account', onClearFilters, onExpandScope,
-  query, queryContext, viewerKey, isAuthenticated, locationContext, onQueryChange,
+  query, queryContext, viewerKey, isAuthenticated, locationContext, locationReminder, onQueryChange,
   onRequestLocation, onSetFixedScope, onClearFixedScope, onSelectFootprint,
   pulseIds = new Set(), selectedId = null, onPulseComplete,
 }) {
@@ -103,6 +103,7 @@ export default function MapView({
         viewerKey={viewerKey}
         isAuthenticated={isAuthenticated}
         locationContext={locationContext}
+        locationReminder={locationReminder}
         onQueryChange={onQueryChange}
         onRequestLocation={onRequestLocation}
         onSetFixedScope={onSetFixedScope}
