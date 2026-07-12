@@ -257,6 +257,25 @@ describe('Activity sort indexes', () => {
         discoveryExpiresAt: 1,
       },
     ],
+    [
+      'activity_active_public_expiry_createdAt_id',
+      { visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 },
+    ],
+    [
+      'activity_active_country_expiry_createdAt_id',
+      { countryCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 },
+    ],
+    [
+      'activity_active_region_expiry_createdAt_id',
+      {
+        countryCode: 1,
+        regionCode: 1,
+        visibility: 1,
+        discoveryExpiresAt: 1,
+        createdAt: -1,
+        _id: -1,
+      },
+    ],
   ])('declares named %s index', (name, expectedFields) => {
     const indexes = new Map(Footprint.schema.indexes().map(([fields, options]) => [options.name, fields]));
 

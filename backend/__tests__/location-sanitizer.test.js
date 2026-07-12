@@ -38,6 +38,23 @@ describe('sanitizeLocation', () => {
       regionBackfill: footprint.regionBackfill,
     });
   });
+
+  test.each([false, true])('strips comment IP addresses from ordinary responses (admin=%s)', (isAdmin) => {
+    const comment = {
+      _id: 'comment-id',
+      userId: 'user-id',
+      username: 'commenter',
+      content: 'public comment',
+      ipAddress: '203.0.113.7',
+      createdAt: new Date('2026-07-12T10:00:00.000Z'),
+    };
+    const { ipAddress, ...publicComment } = comment;
+
+    const result = sanitizeLocation({ ...footprint, comments: [comment] }, isAdmin);
+
+    expect(result.comments).toEqual([publicComment]);
+    expect(result.comments[0]).not.toHaveProperty('ipAddress');
+  });
 });
 
 describe('blurCoordinate', () => {

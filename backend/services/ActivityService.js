@@ -22,15 +22,10 @@ const SOURCE_LABELS = {
   country: '同国',
   global: '全球',
 };
-const PUBLIC_INDEX_BY_SCOPE = {
-  global: 'activity_public_createdAt_id_expiry',
-  country: 'activity_country_public_createdAt_id_expiry',
-  region: 'activity_region_public_createdAt_id_expiry',
-};
-const SMART_PUBLIC_INDEX_BY_SCOPE = {
-  global: 'activity_smart_public_createdAt_id',
-  country: 'activity_smart_country_createdAt_id',
-  region: 'activity_smart_region_createdAt_id',
+const DISCOVERY_INDEX_BY_SCOPE = {
+  global: 'activity_active_public_expiry_createdAt_id',
+  country: 'activity_active_country_expiry_createdAt_id',
+  region: 'activity_active_region_expiry_createdAt_id',
 };
 
 function and(...conditions) {
@@ -48,7 +43,29 @@ function geographyFilter(normalized) {
   return {};
 }
 
-function buildSmartTiers({ access, normalized, now }) {
+function discoveryTier({ scope, geography = {}, now }) {
+  return {
+    scope,
+    kind: 'discovery',
+    hint: DISCOVERY_INDEX_BY_SCOPE[scope],
+    filter: and(activePublicFilter(now), geography),
+    modernFilter: and(
+      { visibility: 'public', discoveryExpiresAt: { $gt: now } },
+      geography,
+    ),
+    legacyFilter: and({ visibility: { $in: [null, ''] } }, geography),
+  };
+}
+
+function buildSmartTiers({ access, now }) {
+  if (access.isAdmin) {
+    return [{
+      scope: 'global',
+      hint: 'activity_createdAt_id',
+      filter: authorizationFilter({ ...access, now }),
+    }];
+  }
+
   const relatedIds = access.viewerId
     ? [access.viewerId, ...access.friendIds]
     : [];
@@ -65,37 +82,9 @@ function buildSmartTiers({ access, normalized, now }) {
     });
   }
 
-  const authorizedDiscovery = access.isAdmin
-    ? authorizationFilter({ ...access, now })
-    : activePublicFilter(now);
-  const discoveryHint = (scope) => (access.isAdmin
-    ? 'activity_createdAt_id'
-    : SMART_PUBLIC_INDEX_BY_SCOPE[scope]);
-
-  if (normalized.regionCode) {
-    tiers.push({
-      scope: 'region',
-      hint: discoveryHint('region'),
-      filter: and(
-        authorizedDiscovery,
-        { countryCode: normalized.countryCode, regionCode: normalized.regionCode },
-      ),
-    });
-  }
-  if (normalized.countryCode) {
-    tiers.push({
-      scope: 'country',
-      hint: discoveryHint('country'),
-      filter: and(
-        authorizedDiscovery,
-        { countryCode: normalized.countryCode },
-      ),
-    });
-  }
   tiers.push({
-    scope: 'global',
-    hint: discoveryHint('global'),
-    filter: authorizedDiscovery,
+    // Legacy-public visibility branches are rollout-only until mandatory backfill completes.
+    ...discoveryTier({ scope: 'global', now }),
   });
   return tiers;
 }
@@ -103,20 +92,100 @@ function buildSmartTiers({ access, normalized, now }) {
 function buildCandidateTiers({ access, normalized, now, cursor }) {
   const cursorFilter = cursor ? buildCursorFilter(cursor) : {};
   if (normalized.scope === 'smart') {
-    return buildSmartTiers({ access, normalized, now })
-      .map((tier) => ({ ...tier, filter: and(tier.filter, cursorFilter) }));
+    return buildSmartTiers({ access, now })
+      .map((tier) => (tier.kind === 'discovery'
+        ? {
+          ...tier,
+          filter: and(tier.filter, cursorFilter),
+          modernFilter: and(tier.modernFilter, cursorFilter),
+          legacyFilter: and(tier.legacyFilter, cursorFilter),
+        }
+        : { ...tier, filter: and(tier.filter, cursorFilter) }));
+  }
+  if (!access.viewerId) {
+    const tier = discoveryTier({
+      scope: normalized.scope,
+      geography: geographyFilter(normalized),
+      now,
+    });
+    return [{
+      ...tier,
+      filter: and(tier.filter, cursorFilter),
+      modernFilter: and(tier.modernFilter, cursorFilter),
+      legacyFilter: and(tier.legacyFilter, cursorFilter),
+    }];
+  }
+  if (!access.isAdmin) {
+    const geography = geographyFilter(normalized);
+    const relatedIds = [access.viewerId, ...access.friendIds];
+    const discovery = discoveryTier({ scope: normalized.scope, geography, now });
+    return [
+      {
+        scope: 'friend',
+        hint: 'userId_1_createdAt_-1__id_-1',
+        filter: and(
+          authorizationFilter({ ...access, now }),
+          { userId: { $in: relatedIds } },
+          geography,
+          cursorFilter,
+        ),
+      },
+      {
+        ...discovery,
+        filter: and(discovery.filter, cursorFilter),
+        modernFilter: and(discovery.modernFilter, cursorFilter),
+        legacyFilter: and(discovery.legacyFilter, cursorFilter),
+      },
+    ];
   }
   return [{
     scope: normalized.scope,
-    hint: !access.viewerId
-      ? PUBLIC_INDEX_BY_SCOPE[normalized.scope]
-      : (access.isAdmin ? 'activity_createdAt_id' : null),
+    hint: access.isAdmin ? 'activity_createdAt_id' : null,
     filter: and(
       authorizationFilter({ ...access, now }),
       geographyFilter(normalized),
       cursorFilter,
     ),
   }];
+}
+
+function buildDiscoveryPipeline(tier, limit, isAdmin) {
+  const pipeline = [
+    { $match: tier.modernFilter },
+    { $sort: { createdAt: -1, _id: -1 } },
+    { $limit: limit },
+    {
+      $unionWith: {
+        coll: Footprint.collection.name,
+        pipeline: [
+          { $match: tier.legacyFilter },
+          { $sort: { createdAt: -1, _id: -1 } },
+          { $limit: limit },
+        ],
+      },
+    },
+    { $sort: { createdAt: -1, _id: -1 } },
+    { $limit: limit },
+  ];
+  if (!isAdmin) pipeline.push({ $project: { realLocation: 0 } });
+  return pipeline;
+}
+
+async function queryTier({ tier, limit, isAdmin }) {
+  if (tier.kind !== 'discovery') {
+    let query = Footprint.findSafe(tier.filter, { isAdmin })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limit);
+    if (tier.hint) query = query.hint(tier.hint);
+    return populateFootprint(query);
+  }
+
+  const docs = await Footprint.aggregate(buildDiscoveryPipeline(tier, limit, isAdmin))
+    .hint(tier.hint);
+  return Footprint.populate(docs, {
+    path: 'userId',
+    select: 'name avatarUrl isOnline role checkinStreak',
+  });
 }
 
 function compareFootprints(left, right) {
@@ -126,13 +195,9 @@ function compareFootprints(left, right) {
 
 async function queryCandidates({ tiers, perTierLimit, isAdmin }) {
   const candidates = new Map();
-  const tierResults = await Promise.all(tiers.map(async (tier) => {
-    let query = Footprint.findSafe(tier.filter, { isAdmin })
-      .sort({ createdAt: -1, _id: -1 })
-      .limit(perTierLimit);
-    if (tier.hint) query = query.hint(tier.hint);
-    return populateFootprint(query);
-  }));
+  const tierResults = await Promise.all(tiers.map((tier) => queryTier({
+    tier, limit: perTierLimit, isAdmin,
+  })));
   for (const docs of tierResults) {
     for (const doc of docs) {
       const footprintId = id(doc);
@@ -159,7 +224,8 @@ function sourceScopeFor(footprint, relationship, normalized) {
 }
 
 function decorateActivityFootprint(doc, { access, normalized }) {
-  const sanitized = sanitizeLocation(doc.toObject(), access.isAdmin);
+  const plainDoc = typeof doc.toObject === 'function' ? doc.toObject() : doc;
+  const sanitized = sanitizeLocation(plainDoc, access.isAdmin);
   const { regionBackfill, ...plain } = sanitized;
   const relationship = relationshipFor(plain, access);
   const sourceScope = sourceScopeFor(plain, relationship, normalized);
@@ -208,6 +274,7 @@ async function listActivity({ viewer, query, now = new Date() }) {
 
 module.exports = {
   buildCandidateTiers,
+  buildDiscoveryPipeline,
   compareFootprints,
   listActivity,
 };

@@ -114,7 +114,9 @@ Task 6 must verify the named Activity sort indexes with representative MongoDB `
 **Files:**
 - Create: `backend/services/ActivityService.js`
 - Create: `backend/__tests__/activity-service.test.js`
+- Modify: `backend/__tests__/location-sanitizer.test.js`
 - Modify: `backend/models/Footprint.js`
+- Modify: `backend/services/location.js`
 - Reuse: `backend/services/FootprintQueryService.js`
 - Modify: `backend/services/FootprintAccessService.js`
 - Reuse: `backend/policies/FootprintVisibilityPolicy.js`
@@ -123,8 +125,9 @@ Task 6 must verify the named Activity sort indexes with representative MongoDB `
 - [x] Run the focused tests and capture the missing service failure.
 - [x] Implement bounded candidate queries and merge selected results strictly by `createdAt DESC, _id DESC`.
 - [x] Derive relationship, source scope/label, interaction capability, used scopes, and resolved context on the server.
-- [x] Verify real `explain("executionStats")` plans for guest global/country/region, owner/friend authorization OR, and admin cursor queries; add the minimal named admin sort index.
-- [x] Harden review findings: union every bounded smart tier before chronological pagination, retain admin friend relationships, and verify guest/auth smart cursor IXSCAN plans without blocking `SORT`.
+- [x] Verify real `explain("executionStats")` plans for guest global/country/region, owner/friend authorization, and admin cursor queries; add only the named indexes justified by winning plans.
+- [x] Harden review findings: preserve chronological pagination, retain admin friend relationships, collapse smart selection to global plus optional related candidates, and strip comment IPs in the shared ordinary-response sanitizer.
+- [x] Bound modern-active and rollout-only legacy discovery branches inside one aggregate command; prove fixed/smart scans with 3,000 adversarial hidden, expired, and legacy records.
 - [x] Run focused and full backend tests and self-review the diff.
 - [x] Commit the service without push or deployment.
 

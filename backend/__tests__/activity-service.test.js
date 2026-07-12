@@ -86,6 +86,29 @@ describe('ActivityService.listActivity', () => {
     });
   });
 
+  test('guest activity never exposes comment IP addresses', async () => {
+    const author = await createUser('comment-ip-author');
+    await createFootprint(author._id, {
+      comments: [{
+        userId: author._id,
+        username: author.name,
+        content: 'visible comment',
+        ipAddress: '203.0.113.9',
+        createdAt: new Date(+NOW - 30_000),
+      }],
+    });
+
+    const result = await activityService.listActivity({
+      viewer: null, query: { scope: 'global' }, now: NOW,
+    });
+
+    expect(result.items[0].comments[0]).toMatchObject({
+      username: author.name,
+      content: 'visible comment',
+    });
+    expect(result.items[0].comments[0]).not.toHaveProperty('ipAddress');
+  });
+
   test('authenticated viewers receive readable self and friend items while strangers require active public discovery', async () => {
     const current = await createUser('current');
     const friend = await createUser('friend');
@@ -343,24 +366,29 @@ describe('ActivityService.listActivity', () => {
   test('candidate query count is bounded by applicable smart tiers or one fixed tier', async () => {
     const current = await createUser('query-count-current');
     const friend = await createUser('query-count-friend');
+    const admin = await createUser('query-count-admin', { role: 'admin' });
     await Friendship.create({ requester: current._id, recipient: friend._id, status: 'accepted' });
     const findSafe = jest.spyOn(Footprint, 'findSafe');
+    const aggregate = jest.spyOn(Footprint, 'aggregate');
 
     const cases = [
-      [null, { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 3],
-      [viewer(current), { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 4],
+      [null, { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 1],
+      [viewer(current), { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 2],
+      [viewer(admin), { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH' }, 1],
       [null, { scope: 'smart' }, 1],
       [viewer(current), { scope: 'smart' }, 2],
-      [viewer(current), { scope: 'country', countryCode: 'CN' }, 1],
+      [viewer(current), { scope: 'country', countryCode: 'CN' }, 2],
     ];
     try {
       for (const [who, query, expectedCount] of cases) {
         findSafe.mockClear();
+        aggregate.mockClear();
         await activityService.listActivity({ viewer: who, query, now: NOW });
-        expect(findSafe).toHaveBeenCalledTimes(expectedCount);
+        expect(findSafe.mock.calls.length + aggregate.mock.calls.length).toBe(expectedCount);
       }
     } finally {
       findSafe.mockRestore();
+      aggregate.mockRestore();
     }
   });
 
@@ -406,22 +434,45 @@ describe('ActivityService.listActivity', () => {
     expect(result.location).toEqual({ countryCode: 'CN', regionCode: 'CN-SH' });
   });
 
-  test('candidate queries use Activity sort indexes without a blocking sort', async () => {
+  test('candidate queries use bounded Activity indexes on adversarial visibility data', async () => {
     await Footprint.syncIndexes();
     const current = await createUser('explain-current');
     const friend = await createUser('explain-friend');
     const admin = await createUser('explain-admin', { role: 'admin' });
     await Friendship.create({ requester: current._id, recipient: friend._id, status: 'accepted' });
     const rows = [];
-    for (let index = 0; index < 240; index += 1) {
+    for (let index = 0; index < 2000; index += 1) {
       rows.push({
-        userId: index % 7 === 0 ? friend._id : new mongoose.Types.ObjectId(),
+        userId: new mongoose.Types.ObjectId(),
         location: { lat: 31, lng: 121 },
-        visibility: index % 11 === 0 ? 'friends' : 'public',
-        discoveryExpiresAt: new Date(+NOW + DAY),
-        countryCode: index % 3 === 0 ? 'US' : 'CN',
-        regionCode: index % 5 === 0 ? 'CN-BJ' : 'CN-SH',
+        visibility: index < 1000 ? 'private' : 'public',
+        discoveryExpiresAt: new Date(+NOW - DAY),
+        countryCode: 'CN',
+        regionCode: 'CN-SH',
         createdAt: new Date(+NOW - index * 1000),
+        updatedAt: NOW,
+      });
+    }
+    for (let index = 0; index < 4; index += 1) {
+      rows.push({
+        userId: friend._id,
+        location: { lat: 31, lng: 121 },
+        visibility: 'public',
+        discoveryExpiresAt: new Date(+NOW + DAY),
+        countryCode: 'CN',
+        regionCode: 'CN-SH',
+        createdAt: new Date(+NOW - index * 1000),
+        updatedAt: NOW,
+      });
+    }
+    for (let index = 0; index < 1000; index += 1) {
+      rows.push({
+        userId: new mongoose.Types.ObjectId(),
+        location: { lat: 31, lng: 121 },
+        visibility: null,
+        countryCode: 'CN',
+        regionCode: 'CN-SH',
+        createdAt: new Date(+NOW - (index + 5) * 1000),
         updatedAt: NOW,
       });
     }
@@ -435,6 +486,13 @@ describe('ActivityService.listActivity', () => {
       return details;
     }
 
+    function collectMetric(value, key, values = []) {
+      if (!value || typeof value !== 'object') return values;
+      if (typeof value[key] === 'number') values.push(value[key]);
+      for (const child of Object.values(value)) collectMetric(child, key, values);
+      return values;
+    }
+
     async function explainTier({ who, query, tierIndex = 0 }) {
       const normalized = normalizeActivityQuery(query);
       const access = await getViewerAccess(who);
@@ -442,12 +500,26 @@ describe('ActivityService.listActivity', () => {
         ? require('../services/ActivityCursor').decodeActivityCursor(normalized.cursor)
         : null;
       const tiers = activityService.buildCandidateTiers({ access, normalized, now: NOW, cursor });
+      if (tiers[tierIndex].kind === 'discovery') {
+        const explanation = await Footprint.aggregate(
+          activityService.buildDiscoveryPipeline(tiers[tierIndex], 10, access.isAdmin),
+        ).hint(tiers[tierIndex].hint).explain('executionStats');
+        return {
+          ...collectPlanDetails(explanation),
+          docsExamined: collectMetric(explanation, 'totalDocsExamined'),
+          keysExamined: collectMetric(explanation, 'totalKeysExamined'),
+        };
+      }
       let mongoQuery = Footprint.find(tiers[tierIndex].filter)
         .sort({ createdAt: -1, _id: -1 })
         .limit(10);
       if (tiers[tierIndex].hint) mongoQuery = mongoQuery.hint(tiers[tierIndex].hint);
       const explanation = await mongoQuery.explain('executionStats');
-      return collectPlanDetails(explanation.queryPlanner.winningPlan);
+      return {
+        ...collectPlanDetails(explanation.queryPlanner.winningPlan),
+        docsExamined: [explanation.executionStats.totalDocsExamined],
+        keysExamined: [explanation.executionStats.totalKeysExamined],
+      };
     }
 
     const cursor = encodeActivityCursor({
@@ -455,34 +527,45 @@ describe('ActivityService.listActivity', () => {
       _id: new mongoose.Types.ObjectId(),
     });
     const cases = [
-      [null, { scope: 'global' }, 'activity_public_createdAt_id_expiry'],
-      [null, { scope: 'country', countryCode: 'CN' }, 'activity_country_public_createdAt_id_expiry'],
-      [null, { scope: 'region', countryCode: 'CN', regionCode: 'CN-SH' }, 'activity_region_public_createdAt_id_expiry'],
-      [viewer(current), { scope: 'global' }, 'userId_1_createdAt_-1__id_-1'],
-      [viewer(admin), { scope: 'global', cursor }, 'activity_createdAt_id'],
-      [viewer(admin), { scope: 'smart', cursor }, 'activity_createdAt_id', 1],
+      [null, { scope: 'global' }, [
+        'activity_active_public_expiry_createdAt_id', 'activity_public_createdAt_id_expiry',
+      ], false, 0],
+      [null, { scope: 'country', countryCode: 'CN' }, [
+        'activity_active_country_expiry_createdAt_id', 'activity_country_public_createdAt_id_expiry',
+      ], false, 0],
+      [null, { scope: 'region', countryCode: 'CN', regionCode: 'CN-SH' }, [
+        'activity_active_region_expiry_createdAt_id', 'activity_region_public_createdAt_id_expiry',
+      ], false, 0],
+      [viewer(current), { scope: 'global' }, ['userId_1_createdAt_-1__id_-1'], false, 0],
+      [viewer(current), { scope: 'global' }, [
+        'activity_active_public_expiry_createdAt_id', 'activity_public_createdAt_id_expiry',
+      ], false, 1],
+      [viewer(admin), { scope: 'global', cursor }, ['activity_createdAt_id'], true, 0],
     ];
 
-    for (const [who, query, expectedIndex, tierIndex = 0] of cases) {
+    for (const [who, query, expectedIndexes, requireNoSort, tierIndex] of cases) {
       const plan = await explainTier({ who, query, tierIndex });
-      expect(plan.stages).not.toContain('SORT');
-      expect(plan.indexes).toContain(expectedIndex);
+      if (requireNoSort) expect(plan.stages).not.toContain('SORT');
+      expect(plan.indexes).toEqual(expect.arrayContaining(expectedIndexes));
+      if (Math.max(...plan.docsExamined) > 40 || Math.max(...plan.keysExamined) > 40) {
+        throw new Error(`Unbounded ${who ? who.role : 'guest'} ${query.scope}: docs=${plan.docsExamined.join(',')} keys=${plan.keysExamined.join(',')} indexes=${plan.indexes.join(',')}`);
+      }
+      expect(Math.max(...plan.keysExamined)).toBeLessThanOrEqual(40);
     }
 
     const smartCases = [
-      [null, [
-        'activity_smart_region_createdAt_id',
-        'activity_smart_country_createdAt_id',
-        'activity_smart_public_createdAt_id',
-      ]],
+      [null, [[[
+        'activity_active_public_expiry_createdAt_id', 'activity_public_createdAt_id_expiry',
+      ], false]]],
       [viewer(current), [
-        'userId_1_createdAt_-1__id_-1',
-        'activity_smart_region_createdAt_id',
-        'activity_smart_country_createdAt_id',
-        'activity_smart_public_createdAt_id',
+        [['userId_1_createdAt_-1__id_-1'], false],
+        [[
+          'activity_active_public_expiry_createdAt_id', 'activity_public_createdAt_id_expiry',
+        ], false],
       ]],
+      [viewer(admin), [[['activity_createdAt_id'], true]]],
     ];
-    for (const [who, expectedIndexes] of smartCases) {
+    for (const [who, expectedTiers] of smartCases) {
       const normalized = normalizeActivityQuery({
         scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', cursor,
       });
@@ -492,17 +575,18 @@ describe('ActivityService.listActivity', () => {
         access, normalized, now: NOW, cursor: decodedCursor,
       });
       expect(JSON.stringify(tiers)).not.toMatch(/\$(?:nin|ne)\b/);
-      expect(tiers).toHaveLength(expectedIndexes.length);
-      for (let tierIndex = 0; tierIndex < expectedIndexes.length; tierIndex += 1) {
+      expect(tiers).toHaveLength(expectedTiers.length);
+      for (let tierIndex = 0; tierIndex < expectedTiers.length; tierIndex += 1) {
+        const [expectedIndexes, requireNoSort] = expectedTiers[tierIndex];
         const plan = await explainTier({
           who,
           query: { scope: 'smart', countryCode: 'CN', regionCode: 'CN-SH', cursor },
           tierIndex,
         });
-        if (plan.stages.includes('SORT')) {
-          throw new Error(`Blocking SORT for ${who ? who.role : 'guest'} smart tier ${tierIndex}: ${plan.indexes.join(',')}`);
-        }
-        expect(plan.indexes).toContain(expectedIndexes[tierIndex]);
+        if (requireNoSort) expect(plan.stages).not.toContain('SORT');
+        expect(plan.indexes).toEqual(expect.arrayContaining(expectedIndexes));
+        expect(Math.max(...plan.docsExamined)).toBeLessThanOrEqual(40);
+        expect(Math.max(...plan.keysExamined)).toBeLessThanOrEqual(40);
       }
     }
   });

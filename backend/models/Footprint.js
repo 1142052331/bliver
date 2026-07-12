@@ -51,9 +51,18 @@ const footprintSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 footprintSchema.index({ createdAt: -1 });
-footprintSchema.index({ visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
-footprintSchema.index({ countryCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
-footprintSchema.index({ countryCode: 1, regionCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 });
+footprintSchema.index(
+  { visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 },
+  { name: 'activity_active_public_expiry_createdAt_id' },
+);
+footprintSchema.index(
+  { countryCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 },
+  { name: 'activity_active_country_expiry_createdAt_id' },
+);
+footprintSchema.index(
+  { countryCode: 1, regionCode: 1, visibility: 1, discoveryExpiresAt: 1, createdAt: -1, _id: -1 },
+  { name: 'activity_active_region_expiry_createdAt_id' },
+);
 footprintSchema.index(
   { visibility: 1, createdAt: -1, _id: -1, discoveryExpiresAt: 1 },
   { name: 'activity_public_createdAt_id_expiry' },
@@ -76,25 +85,6 @@ footprintSchema.index(
 footprintSchema.index(
   { createdAt: -1, _id: -1 },
   { name: 'activity_createdAt_id' },
-);
-footprintSchema.index(
-  { createdAt: -1, _id: -1, visibility: 1, discoveryExpiresAt: 1 },
-  { name: 'activity_smart_public_createdAt_id' },
-);
-footprintSchema.index(
-  { countryCode: 1, createdAt: -1, _id: -1, visibility: 1, discoveryExpiresAt: 1 },
-  { name: 'activity_smart_country_createdAt_id' },
-);
-footprintSchema.index(
-  {
-    countryCode: 1,
-    regionCode: 1,
-    createdAt: -1,
-    _id: -1,
-    visibility: 1,
-    discoveryExpiresAt: 1,
-  },
-  { name: 'activity_smart_region_createdAt_id' },
 );
 footprintSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 footprintSchema.index({ 'reactions.userId': 1, 'reactions.createdAt': -1 });

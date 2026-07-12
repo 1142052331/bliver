@@ -35,11 +35,20 @@ function blurCoordinate(lat, lng) {
  */
 function sanitizeLocation(fp, isAdmin) {
   const { realLocation, regionBackfill, ...rest } = fp;
+  const sanitized = Array.isArray(rest.comments)
+    ? {
+      ...rest,
+      comments: rest.comments.map((comment) => {
+        const { ipAddress, ...publicComment } = comment;
+        return publicComment;
+      }),
+    }
+    : rest;
   if (isAdmin && realLocation) {
-    return { ...rest, location: realLocation, regionBackfill };
+    return { ...sanitized, location: realLocation, regionBackfill };
   }
-  if (isAdmin) return { ...rest, regionBackfill };
-  return rest;
+  if (isAdmin) return { ...sanitized, regionBackfill };
+  return sanitized;
 }
 
 module.exports = { blurCoordinate, sanitizeLocation };
