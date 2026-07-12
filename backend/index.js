@@ -24,6 +24,7 @@ const announcementRoutes = require('./routes/announcements');
 const friendRoutes = require('./routes/friends');
 const messageRoutes = require('./routes/messages');
 const profileRoutes = require('./routes/profile');
+const activityRoutes = require('./routes/activity');
 const errorHandler = require('./middleware/errorHandler');
 const { setupSocket } = require('./socket');
 const notification = require('./services/notification');
@@ -74,6 +75,7 @@ app.use('/api', announcementRoutes);
 app.use('/api', friendRoutes);
 app.use('/api', messageRoutes);
 app.use('/api', profileRoutes);
+app.use('/api', activityRoutes);
 
 // Serve frontend static files
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
