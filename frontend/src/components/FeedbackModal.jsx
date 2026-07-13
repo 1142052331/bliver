@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import { X, Star, MessageSquare, Loader2 } from 'lucide-react';
 import { apiClient } from '../api';
-import useUIStore from '../store/useUIStore';
 
 export default function FeedbackModal({ isOpen, onClose }) {
   const [rating, setRating] = useState(0);

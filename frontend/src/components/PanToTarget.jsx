@@ -8,23 +8,28 @@ import { useMap } from 'react-leaflet';
  */
 export default function PanToTarget({ targetId, footprints, onArrive }) {
   const map = useMap();
-  const fpRef = useRef(footprints);
-  fpRef.current = footprints;
+  const footprintsRef = useRef(footprints);
+  const onArriveRef = useRef(onArrive);
+
+  useEffect(() => {
+    footprintsRef.current = footprints;
+    onArriveRef.current = onArrive;
+  }, [footprints, onArrive]);
 
   useEffect(() => {
     if (!targetId) return;
-    const fp = fpRef.current.find((f) => f._id === targetId);
+    const fp = footprintsRef.current.find((footprint) => footprint._id === targetId);
     if (!fp?.location?.lat || !fp?.location?.lng) return;
 
     map.panTo([fp.location.lat, fp.location.lng], { animate: true, duration: 0.8 });
 
     const timer = setTimeout(() => {
-      const latest = fpRef.current.find((f) => f._id === targetId);
-      if (latest) onArrive(latest);
+      const latest = footprintsRef.current.find((footprint) => footprint._id === targetId);
+      if (latest) onArriveRef.current(latest);
     }, 900);
 
     return () => clearTimeout(timer);
-  }, [targetId]);
+  }, [targetId, map]);
 
   return null;
 }

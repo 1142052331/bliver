@@ -2,7 +2,7 @@
  * 固定于页面顶部中央的浮动提示框。
  * 收到新通知、用户上线/下线时弹出，几秒后自动消失。
  */
-export default function Toast({ message, onDone }) {
+export default function Toast({ message }) {
   if (!message) return null;
 
   return (

@@ -1,16 +1,11 @@
-import { useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useContext } from 'react';
+import { QueryClientContext } from '@tanstack/react-query';
 import { apiClient } from '../api';
 import useUIStore from '../store/useUIStore';
 import { replaceFootprintInCaches } from './socketHandlers';
 
 export default function useFootprintActions({ user, requireLogin, setFootprints }) {
-  let queryClient = null;
-  try {
-    queryClient = useQueryClient();
-  } catch {
-    // Legacy surfaces can render outside the React Query provider during rollback/tests.
-  }
+  const queryClient = useContext(QueryClientContext);
   const setFlyArrivedFp = useUIStore((s) => s.setFlyArrivedFp);
   const viewerIdentity = user?._id
     ? `${user.role === 'admin' ? 'admin' : 'user'}:${user._id}`
@@ -46,7 +41,7 @@ export default function useFootprintActions({ user, requireLogin, setFootprints 
     } catch (err) {
       console.error('Delete failed:', err);
     }
-  }, [user, requireLogin, setFootprints, setFlyArrivedFp]);
+  }, [requireLogin, setFootprints, setFlyArrivedFp]);
 
   const handleDeleteComment = useCallback(async (footprintId, commentId) => {
     try {

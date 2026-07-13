@@ -8,7 +8,7 @@ import { on, off } from '../hooks/socketRegistry';
 
 export default function ChatWindow({
   chatUserId, friendName, friendAvatar, isOnline,
-  user, socketRef, onOpen, onClose, onToast,
+  user, socketRef, onOpen, onClose,
 }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);

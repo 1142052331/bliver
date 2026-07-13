@@ -4,15 +4,18 @@ import { useMap } from 'react-leaflet';
 export default function FlyToFootprint({ footprints, activeFootprintId, onArrive }) {
   const map = useMap();
   const footprintsRef = useRef(footprints);
-  footprintsRef.current = footprints;
   const onArriveRef = useRef(onArrive);
-  onArriveRef.current = onArrive;
   const flyingRef = useRef(false);
+
+  useEffect(() => {
+    footprintsRef.current = footprints;
+    onArriveRef.current = onArrive;
+  }, [footprints, onArrive]);
 
   useEffect(() => {
     if (!activeFootprintId) return;
 
-    const fp = footprintsRef.current.find((f) => f._id === activeFootprintId);
+    const fp = footprintsRef.current.find((footprint) => footprint._id === activeFootprintId);
     if (!fp?.location?.lat || !fp?.location?.lng) return;
 
     flyingRef.current = true;
@@ -21,7 +24,7 @@ export default function FlyToFootprint({ footprints, activeFootprintId, onArrive
     const onMoveEnd = () => {
       if (flyingRef.current) {
         flyingRef.current = false;
-        const latest = footprintsRef.current.find((f) => f._id === activeFootprintId);
+        const latest = footprintsRef.current.find((footprint) => footprint._id === activeFootprintId);
         if (latest && onArriveRef.current) onArriveRef.current(latest);
       }
     };

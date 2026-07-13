@@ -14,7 +14,7 @@ const CENTER = [33.5597, 133.5311];
 
 export default function MapView({
   footprints, shareTarget, activeFootprintId, timelineTargetFpId,
-  user, isAdmin,
+  isAdmin,
   setFlyArrivedFp, setTimelineTargetFpId,
   loading, fetching = false, error, onRetry,
   emptyReason = 'account', onClearFilters, onExpandScope,
@@ -22,7 +22,7 @@ export default function MapView({
   onRequestLocation, onSetFixedScope, onClearFixedScope, onSelectFootprint,
   pulseIds = new Set(), selectedId = null, onPulseComplete,
 }) {
-  const [tileErrorCount, setTileErrorCount] = useState(0);
+  const [, setTileErrorCount] = useState(0);
   const [tileFailed, setTileFailed] = useState(false);
   const [tileGeneration, setTileGeneration] = useState(0);
   const [online, setOnline] = useState(() => navigator.onLine !== false);

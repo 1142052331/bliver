@@ -77,6 +77,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+const EMPTY_FOOTPRINTS = [];
+
 export default function App() {
   // ── Auth ───────────────────────────────────────────────
   const {
@@ -148,7 +150,7 @@ export default function App() {
   }, [locationContext.scopeContext, mapQuery]);
   const viewerKey = user?._id || 'guest';
   const mapFootprintsQuery = useMapFootprints(effectiveMapQuery, viewerKey);
-  const footprints = mapFootprintsQuery.data?.footprints || [];
+  const footprints = mapFootprintsQuery.data?.footprints || EMPTY_FOOTPRINTS;
   const footprintsLoading = mapFootprintsQuery.isLoading;
   const footprintsError = mapFootprintsQuery.error;
   const refetchFootprints = mapFootprintsQuery.refetch;
@@ -174,13 +176,14 @@ export default function App() {
   }, [mapQuery]);
 
   // ── Feedback trigger for returning users ───────────────
+  const openFeedback = useUIStore((state) => state.openFeedback);
   const feedbackChecked = useRef(false);
   useEffect(() => {
     if (user && footprints.length > 0 && !feedbackChecked.current && !localStorage.getItem('feedback_submitted')) {
       feedbackChecked.current = true;
       setTimeout(() => openFeedback(), 800);
     }
-  }, [user, footprints]);
+  }, [footprints, openFeedback, user]);
 
   // Stable cache updater for footprint mutations.
   const setFootprints = useCallback((updater) => {
@@ -202,15 +205,14 @@ export default function App() {
     shareTarget, samePlaceIds, activeFootprintId, mapPreviewId, flyArrivedFp, timelineTargetFpId,
     footprintEvent, footprintEventId,
     openCheckIn, closeCheckIn, openTimeline, closeTimeline,
-    toggleNotifs, closeNotifs, openAdmin, closeAdmin,
+    toggleNotifs, closeNotifs, closeAdmin,
     openAuth, closeAuth, openPhotoWall, closePhotoWall,
-    openAbout, closeAbout, openFeedback, closeFeedback, openAnnouncements, closeAnnouncements,
+    openAbout, closeAbout, closeFeedback, closeAnnouncements,
     openFriends, closeFriends,
     setActiveFootprintId, setMapPreviewId, setFlyArrivedFp, setTimelineTargetFpId,
     closeSamePlace, setShareTarget,
     openChat, closeChat, openProfile, closeProfile,
-    setAuthTab, setAuthMessage,
-    messageIsland, setMessageIsland, clearMessageIsland,
+    messageIsland, clearMessageIsland,
     pendingCheckInLocation, setPendingCheckInLocation,
   } = useUIStore();
   const [pulseIds, setPulseIds] = useState(() => new Set());
@@ -248,7 +250,7 @@ export default function App() {
   });
 
   const {
-    friends, onlineStatus, unreadCounts, pendingRequests,
+    friends, onlineStatus, unreadCounts,
     friendshipStatus, getPendingRequestId,
     sendFriendRequest, acceptRequest, rejectRequest, clearUnread,
   } = useFriends({ user, socketRef });
@@ -260,7 +262,7 @@ export default function App() {
     if (fpId) {
       setShareTarget(fpId);
     }
-  }, []);
+  }, [setShareTarget]);
 
   useEffect(() => {
     if (footprintEvent?.type === 'new') addPulseId(footprintEvent.footprint?._id);
@@ -295,7 +297,7 @@ export default function App() {
         setFlyArrivedFp(latest);
       }
     }
-  }, [footprints, flyArrivedFp]);
+  }, [flyArrivedFp, footprints, setFlyArrivedFp]);
 
   // ── Footprint actions are provided by FootprintActionsProvider below ──
 

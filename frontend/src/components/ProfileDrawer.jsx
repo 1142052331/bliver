@@ -1,7 +1,7 @@
 // @feature 个人主页抽屉 | Profile Drawer | ProfileDrawer
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { motion } from 'framer-motion';
-import { X, Camera, Loader2, Pencil, Check, MessageCircle, Clock, UserPlus, MapPin } from 'lucide-react';
+import { X, Camera, Loader2, Pencil, Check, MessageCircle, Clock, UserPlus } from 'lucide-react';
 import useProfileData from '../hooks/useProfileData';
 import ProfileSkeleton from './ProfileSkeleton';
 import ProfileStats from './ProfileStats';

@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, MapPin, Clock, Image, MessageCircle, Heart, Send } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, MessageCircle, Heart, Send } from 'lucide-react';
 import { apiClient } from '../api';
 import { getUser } from '../auth';
 import useUIStore from '../store/useUIStore';

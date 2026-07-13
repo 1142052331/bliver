@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { X, Megaphone, Send, Loader2 } from 'lucide-react';
 import { apiClient } from '../api';
 import { recordMetric } from '../observability';
-import { getLastRead, setLastRead } from '../domain/announcementRead';
+import { setLastRead } from '../domain/announcementRead';
 
 export { hasUnreadAnnouncements } from '../domain/announcementRead';
 

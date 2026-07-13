@@ -17,7 +17,7 @@ const subLabel = {
   profile_view: '浏览了你的主页',
 };
 
-export default function MessageIsland({ type, senderName, footprintId, senderId, onView, onDismiss }) {
+export default function MessageIsland({ type, senderName, onView, onDismiss }) {
   useEffect(() => {
     if (!senderName) return;
     const timer = setTimeout(onDismiss, 5000);

@@ -11,7 +11,7 @@ function timeAgo(value) {
   return `${Math.floor(hours / 24)} 天前`;
 }
 
-export default function MapPreviewCard({ footprint, userId, onClose, onOpenDetail, onOpenProfile }) {
+export default function MapPreviewCard({ footprint, onClose, onOpenDetail, onOpenProfile }) {
   const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => setImageFailed(false), [footprint?._id, footprint?.photoUrl]);
   if (!footprint) return null;

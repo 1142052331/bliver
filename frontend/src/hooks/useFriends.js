@@ -9,7 +9,7 @@ import { on, off } from './socketRegistry';
  *
  * 用法: const { friends, onlineStatus, friendshipStatus, ... } = useFriends({ user, socketRef });
  */
-export default function useFriends({ user, socketRef }) {
+export default function useFriends({ user }) {
   const [friends, setFriends] = useState([]);
   const [onlineStatus, setOnlineStatus] = useState({});  // { userId: true/false }
   const [unreadCounts, setUnreadCounts] = useState({});   // { senderId: count }

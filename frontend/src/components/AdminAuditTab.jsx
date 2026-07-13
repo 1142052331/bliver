@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Activity, Loader2, RefreshCw } from 'lucide-react';
 import { apiClient } from '../api';
 
@@ -36,8 +36,6 @@ export default function AdminAuditTab() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
-  const listRef = useRef(null);
-
   const fetchLogs = useCallback(async (beforeId) => {
     setLoading(true);
     try {

@@ -63,6 +63,23 @@ describe('useFootprintActions conversation mutations', () => {
     expect(harness.queryClient.getQueryData(mapKey).footprints[0]).toEqual(updated);
   });
 
+  it('keeps legacy local updates working outside a query provider', async () => {
+    const updated = { _id: 'fp-1', comments: [{ _id: 'comment-1' }] };
+    const setFootprints = vi.fn();
+    const requireLogin = vi.fn(() => true);
+    mocks.comment.mockResolvedValue({ data: { footprint: updated } });
+    const { result } = renderHook(() => useFootprintActions({
+      user: { _id: 'viewer-1' }, requireLogin, setFootprints,
+    }));
+
+    await act(async () => {
+      await result.current.handleComment('fp-1', 'hello');
+    });
+
+    expect(setFootprints).toHaveBeenCalledOnce();
+    expect(setFootprints.mock.calls[0][0]([{ _id: 'fp-1', comments: [] }])).toEqual([updated]);
+  });
+
   it('rethrows comment failures so the composer can preserve its draft', async () => {
     mocks.comment.mockRejectedValue(new Error('offline'));
     const harness = renderActions();

@@ -115,6 +115,7 @@ export default function ClusterMarkers({
   const pulseTimers = useRef(new Set());
 
   useEffect(() => {
+    const timers = pulseTimers.current;
     const group = L.markerClusterGroup({
       maxClusterRadius: 56,
       spiderfyOnMaxZoom: true,
@@ -142,8 +143,8 @@ export default function ClusterMarkers({
     clusterGroup.current = group;
     map.addLayer(group);
     return () => {
-      for (const timer of pulseTimers.current) clearTimeout(timer);
-      pulseTimers.current.clear();
+      for (const timer of timers) clearTimeout(timer);
+      timers.clear();
       map.removeLayer(group);
       clusterGroup.current = null;
     };

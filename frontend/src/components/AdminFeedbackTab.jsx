@@ -1,6 +1,6 @@
 // @feature 管理员反馈查看 | Admin Feedback Tab | AdminFeedbackTab
 import { useState, useEffect } from 'react';
-import { Star, MessageSquare, Loader2 } from 'lucide-react';
+import { Star, Loader2 } from 'lucide-react';
 import { apiClient } from '../api';
 
 function timeStr(date) {
