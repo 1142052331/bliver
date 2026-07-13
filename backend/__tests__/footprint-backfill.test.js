@@ -1236,11 +1236,14 @@ describe('footprint geography backfill CLI', () => {
   test('requires explicit execute mode and additional production confirmation', () => {
     const { parseArgs } = require('../scripts/backfill-footprint-geography');
 
-    expect(parseArgs(['--execute'], { NODE_ENV: 'test' })).toMatchObject({ dryRun: false });
+    expect(() => parseArgs(['--execute'], { NODE_ENV: 'test' })).toThrow('confirm-execute');
     expect(() => parseArgs(['--dry-run', '--execute'], { NODE_ENV: 'test' }))
       .toThrow('mutually exclusive');
     expect(() => parseArgs(['--execute'], { NODE_ENV: 'production' }))
       .toThrow('confirm-production');
+    expect(parseArgs([
+      '--execute', '--confirm-execute', productionToken,
+    ], { NODE_ENV: 'test' })).toMatchObject({ dryRun: false });
     expect(parseArgs([
       '--execute', '--confirm-production', productionToken,
     ], { NODE_ENV: 'production' })).toMatchObject({ dryRun: false });

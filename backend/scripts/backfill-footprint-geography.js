@@ -6,7 +6,8 @@ const mongoose = require('mongoose');
 const { connectDBOrThrow } = require('../config/db');
 const { createFootprintBackfillService, validateBackfillOptions } = require('../services/FootprintBackfillService');
 
-const PRODUCTION_CONFIRMATION = 'BACKFILL_FOOTPRINT_GEOGRAPHY';
+const EXECUTE_CONFIRMATION = 'BACKFILL_FOOTPRINT_GEOGRAPHY';
+const PRODUCTION_CONFIRMATION = EXECUTE_CONFIRMATION;
 
 function readValue(argv, index, flag) {
   const value = argv[index + 1];
@@ -29,7 +30,7 @@ function parseArgs(argv = [], env = process.env) {
   };
   let explicitDryRun = false;
   let execute = false;
-  let productionConfirmation = '';
+  let executeConfirmation = '';
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -38,8 +39,11 @@ function parseArgs(argv = [], env = process.env) {
     } else if (arg === '--execute') {
       execute = true;
       options.dryRun = false;
+    } else if (arg === '--confirm-execute') {
+      executeConfirmation = readValue(argv, index, arg);
+      index += 1;
     } else if (arg === '--confirm-production') {
-      productionConfirmation = readValue(argv, index, arg);
+      executeConfirmation = readValue(argv, index, arg);
       index += 1;
     } else if (arg === '--retry-failed') {
       options.retryFailed = true;
@@ -53,16 +57,18 @@ function parseArgs(argv = [], env = process.env) {
       options.delayMs = parseInteger(readValue(argv, index, arg), 'delayMs');
       index += 1;
     } else {
-      throw new TypeError(`unknown option: ${arg}`);
+      throw new TypeError('unknown option');
     }
   }
 
   if (explicitDryRun && execute) throw new TypeError('--dry-run and --execute are mutually exclusive');
-  if (execute && env.NODE_ENV === 'production' && productionConfirmation !== PRODUCTION_CONFIRMATION) {
-    if (!productionConfirmation) {
-      throw new TypeError(`--confirm-production ${PRODUCTION_CONFIRMATION} is required in production`);
+  if (execute && executeConfirmation !== EXECUTE_CONFIRMATION) {
+    if (!executeConfirmation) {
+      throw new TypeError(
+        `--confirm-execute ${EXECUTE_CONFIRMATION} is required; --confirm-production is a legacy alias`,
+      );
     }
-    throw new TypeError('invalid production confirmation token');
+    throw new TypeError('invalid execute confirmation token');
   }
 
   return validateBackfillOptions(options);
@@ -110,4 +116,9 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseArgs, runCli, PRODUCTION_CONFIRMATION };
+module.exports = {
+  parseArgs,
+  runCli,
+  EXECUTE_CONFIRMATION,
+  PRODUCTION_CONFIRMATION,
+};

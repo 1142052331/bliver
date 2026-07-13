@@ -72,7 +72,7 @@ function closeResource(resource, stage, logger) {
       const result = resource.close(finish);
       if (result && typeof result.then === 'function') {
         result.then(() => finish(), () => finish(new Error('close failed')));
-      } else if (resource.close.length === 0) {
+      } else if (typeof resource.listening !== 'boolean' && resource.close.length === 0) {
         finish();
       } else if (resource.listening === false) {
         // Node's un-listened HTTP server normally invokes the callback with

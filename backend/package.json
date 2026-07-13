@@ -7,7 +7,9 @@
     "start": "node index.js",
     "dev": "node --watch index.js",
     "test": "jest --forceExit --detectOpenHandles",
+    "backfill:footprint-geography:report": "node scripts/backfill-report.js",
     "backfill:footprint-geography:dry-run": "node scripts/backfill-footprint-geography.js --dry-run",
+    "backfill:footprint-geography:execute": "node scripts/backfill-footprint-geography.js --execute",
     "render-build": "npm install && cd ../frontend && npm install && npm run build"
   },
   "keywords": [],
