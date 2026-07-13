@@ -17,13 +17,17 @@ interface AppUser {
 }
 
 interface PendingAction {
-  type: 'checkin' | 'comment' | 'react';
+  type: 'checkin' | 'comment' | 'reply' | 'react' | 'report';
   footprintId?: string;
+  targetType?: 'footprint' | 'comment';
+  targetId?: string;
+  draft?: string;
   source?: 'activity' | 'map';
 }
 
 export default function useAuth() {
   const [user, setUser] = useState<AppUser | null>(null);
+  const [restoredAction, setRestoredAction] = useState<PendingAction | null>(null);
   const pendingActionRef = useRef<PendingAction | null>(null);
 
   const openCheckIn = useUIStore((s) => s.openCheckIn);
@@ -85,11 +89,20 @@ export default function useAuth() {
       pendingActionRef.current = null;
       if (action.type === 'checkin') {
         openCheckIn();
-      } else if (action.footprintId && action.source !== 'activity') {
-        setActiveFootprintId(action.footprintId);
+      } else {
+        setRestoredAction(action);
+        if (action.footprintId && action.source !== 'activity') {
+          setActiveFootprintId(action.footprintId);
+        }
       }
     }
   }, [user]);
+
+  const consumePendingAction = useCallback(() => {
+    const action = restoredAction;
+    setRestoredAction(null);
+    return action;
+  }, [restoredAction]);
 
   const requireLogin = useCallback((action: PendingAction) => {
     if (!user) {
@@ -120,5 +133,7 @@ export default function useAuth() {
     requireLogin,
     logout,
     pendingActionRef,
+    restoredAction,
+    consumePendingAction,
   };
 }

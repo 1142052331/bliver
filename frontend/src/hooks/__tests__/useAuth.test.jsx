@@ -121,3 +121,37 @@ describe('useAuth auto-login', () => {
     expect(mocks.clearAuth).not.toHaveBeenCalled();
   });
 });
+
+describe('useAuth pending conversation restoration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getUser.mockReturnValue(null);
+    mocks.getToken.mockReturnValue(null);
+    mocks.isAutoLogin.mockReturnValue(false);
+  });
+
+  test('restores the exact reply target and draft without submitting it', async () => {
+    let auth;
+    render(<Probe onUser={vi.fn()} onAuth={(value) => { auth = value; }} />);
+    const action = {
+      type: 'reply',
+      footprintId: 'fp-1',
+      targetId: 'comment-1',
+      targetType: 'comment',
+      draft: '继续聊',
+      source: 'activity',
+    };
+
+    act(() => auth.requireLogin(action));
+    expect(auth.pendingActionRef.current).toEqual(action);
+
+    await act(async () => auth.setUser({ _id: 'user-1', name: 'alice', role: 'user' }));
+    await vi.waitFor(() => expect(auth.restoredAction).toEqual(action));
+    expect(auth.pendingActionRef.current).toBeNull();
+
+    let consumed;
+    act(() => { consumed = auth.consumePendingAction(); });
+    expect(consumed).toEqual(action);
+    await vi.waitFor(() => expect(auth.restoredAction).toBeNull());
+  });
+});

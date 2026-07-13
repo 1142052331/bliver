@@ -75,7 +75,17 @@ L.Icon.Default.mergeOptions({
 
 export default function App() {
   // ── Auth ───────────────────────────────────────────────
-  const { user, setUser, isAdmin, isAsen, requireLogin, logout, pendingActionRef } = useAuth();
+  const {
+    user,
+    setUser,
+    isAdmin,
+    isAsen,
+    requireLogin,
+    logout,
+    pendingActionRef,
+    restoredAction,
+    consumePendingAction,
+  } = useAuth();
 
   // ── Notifications ─────────────────────────────────────
   const {
@@ -555,6 +565,12 @@ export default function App() {
                 allFootprints={footprints}
                 userId={user?._id}
                 isAdmin={isAdmin}
+                pendingAction={restoredAction?.footprintId === (
+                  activeDestination === 'activity' && activityDetailFp
+                    ? activityDetailFp._id
+                    : flyArrivedFp?._id
+                ) ? restoredAction : null}
+                onPendingActionConsumed={consumePendingAction}
                 onClose={() => {
                   if (activeDestination === 'activity' && activityDetailFp) setActivityDetailFp(null);
                   else { setFlyArrivedFp(null); setActiveFootprintId(null); }

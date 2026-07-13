@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   requireLogin: vi.fn(() => false),
   setUser: vi.fn(),
   pendingActionRef: { current: null },
+  restoredAction: null,
+  consumePendingAction: vi.fn(),
   logout: vi.fn(),
   clearNotifications: vi.fn(),
   openCheckIn: vi.fn(),
@@ -25,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   authModalProps: vi.fn(),
   timelineDrawerProps: vi.fn(),
   activityPageProps: vi.fn(),
+  detailProps: vi.fn(),
   friendsPanelProps: vi.fn(),
   profileDrawerProps: vi.fn(),
   mapPreviewProps: vi.fn(),
@@ -124,6 +127,8 @@ vi.mock('../hooks/useAuth', () => ({
     requireLogin: mocks.requireLogin,
     logout: mocks.logout,
     pendingActionRef: mocks.pendingActionRef,
+    restoredAction: mocks.restoredAction,
+    consumePendingAction: mocks.consumePendingAction,
   }),
 }));
 vi.mock('../hooks/useNotifications', () => ({
@@ -251,7 +256,10 @@ vi.mock('../components/ProfileDrawer', () => ({
   },
 }));
 vi.mock('../components/FootprintDetailModal', () => ({
-  default: ({ fp }) => <div data-testid="footprint-detail">{fp?._id}</div>,
+  default: (props) => {
+    mocks.detailProps(props);
+    return <div data-testid="footprint-detail">{props.fp?._id}</div>;
+  },
 }));
 vi.mock('../components/MapPreviewCard', () => ({
   default: (props) => {
@@ -296,6 +304,7 @@ describe('App mobile shell integration', () => {
     mocks.requireLogin.mockReturnValue(false);
     mocks.setUser.mockImplementation((user) => { mocks.user = user; });
     mocks.pendingActionRef.current = null;
+    mocks.restoredAction = null;
     uiState.showAuth = false;
     uiState.showFriends = false;
     uiState.showTimeline = false;
@@ -557,6 +566,24 @@ describe('App mobile shell integration', () => {
     expect(screen.getByTestId('activity-page')).toBeInTheDocument();
     expect(screen.getByTestId('footprint-detail')).toHaveTextContent('activity-footprint');
     expect(uiState.setActiveFootprintId).not.toHaveBeenCalled();
+  });
+
+  it('passes a restored reply draft to the matching detail without submitting it', async () => {
+    const user = userEvent.setup();
+    mocks.user = { _id: 'user-1' };
+    mocks.restoredAction = {
+      type: 'reply', footprintId: 'activity-footprint', targetType: 'comment',
+      targetId: 'comment-1', draft: '继续聊', source: 'activity',
+    };
+    useShellStore.setState({ activeDestination: 'activity' });
+    render(<App />);
+
+    await user.click(screen.getByTestId('activity-react'));
+
+    expect(mocks.detailProps).toHaveBeenLastCalledWith(expect.objectContaining({
+      pendingAction: mocks.restoredAction,
+      onPendingActionConsumed: mocks.consumePendingAction,
+    }));
   });
 
   it.each(['messages', 'me'])(
