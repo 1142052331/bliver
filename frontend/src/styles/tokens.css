@@ -30,7 +30,7 @@
   --bliver-nav-height: 64px;
   --bliver-motion-fast: 150ms;
   --bliver-motion-base: 220ms;
-  font-family: Inter, "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bliver-paper);
   color: var(--bliver-ink);
 }
@@ -1657,4 +1657,117 @@
   .bliver-checkin__choices--precision { grid-template-columns: 1fr; }
   .bliver-checkin__publish { grid-template-columns: 1fr; }
   .bliver-checkin__publish > button { width: 100%; }
+}
+
+.bliver-detail-layer {
+  position: fixed;
+  z-index: 1800;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bliver-detail-scrim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: rgb(23 59 49 / 22%);
+  pointer-events: auto;
+}
+
+.bliver-detail-sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  height: 72dvh;
+  max-height: 72dvh;
+  overflow: hidden;
+  border: 1px solid var(--bliver-border);
+  border-bottom: 0;
+  border-radius: var(--bliver-radius-lg) var(--bliver-radius-lg) 0 0;
+  background: var(--bliver-surface);
+  box-shadow: var(--bliver-shadow-float);
+  color: var(--bliver-ink);
+  pointer-events: auto;
+}
+
+.bliver-detail-sheet[data-snap="expanded"] { height: 94dvh; max-height: 94dvh; }
+.bliver-detail-sheet:focus { outline: none; }
+.bliver-detail-sheet__handle { width: 42px; height: 4px; flex: 0 0 auto; margin: 9px auto 3px; border-radius: 99px; background: var(--bliver-border); }
+.bliver-detail-sheet__header { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--bliver-border); }
+.bliver-detail-sheet__title { color: var(--bliver-forest); font-size: 15px; font-weight: 800; }
+.bliver-detail-sheet__header-actions { display: flex; align-items: center; gap: 4px; }
+.bliver-icon-button { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: 0; border-radius: var(--bliver-radius-sm); background: transparent; color: var(--bliver-forest); cursor: pointer; }
+.bliver-icon-button:hover, .bliver-icon-button:focus-visible { background: var(--bliver-sage-soft); }
+.bliver-icon-button svg { width: 19px; height: 19px; }
+.bliver-detail-sheet__scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(20px + var(--bliver-safe-bottom)); }
+.bliver-detail-photo { display: block; width: 100%; max-height: 34dvh; object-fit: cover; background: var(--bliver-sage-soft); }
+.bliver-detail-photo-placeholder { display: grid; height: 130px; place-items: center; background: var(--bliver-sage-soft); color: var(--bliver-forest-soft); }
+.bliver-detail-photo-placeholder svg { width: 30px; height: 30px; }
+.bliver-detail-content { padding: 16px; }
+.bliver-detail-author { display: flex; min-height: 48px; align-items: center; gap: 10px; }
+.bliver-detail-author > img, .bliver-detail-author > span { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 50%; object-fit: cover; }
+.bliver-detail-author > span { display: grid; place-items: center; background: var(--bliver-sage-soft); color: var(--bliver-forest); font-weight: 800; }
+.bliver-detail-author > div { min-width: 0; flex: 1; }
+.bliver-detail-author strong, .bliver-detail-author small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bliver-detail-author strong { color: var(--bliver-forest); font-size: 15px; }
+.bliver-detail-author small { display: flex; align-items: center; gap: 4px; margin-top: 3px; color: var(--bliver-muted); font-size: 12px; }
+.bliver-detail-author small svg { width: 13px; height: 13px; }
+.bliver-detail-location { display: flex; align-items: center; gap: 5px; margin-top: 14px; color: var(--bliver-muted); font-size: 13px; }
+.bliver-detail-location svg { width: 16px; height: 16px; color: var(--bliver-forest); }
+.bliver-detail-location span { margin-left: auto; font-size: 22px; }
+.bliver-detail-message { margin: 12px 0 0; white-space: pre-wrap; color: var(--bliver-ink); font-size: 15px; line-height: 1.55; }
+.bliver-detail-actions { display: flex; min-height: 52px; align-items: center; justify-content: space-between; margin-top: 14px; padding: 8px 0; border-top: 1px solid var(--bliver-border); border-bottom: 1px solid var(--bliver-border); }
+.bliver-text-button { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--bliver-forest); font: inherit; font-size: 13px; cursor: pointer; }
+.bliver-text-button svg { width: 17px; height: 17px; }
+.bliver-detail-read-error, .bliver-conversation-error { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--bliver-danger) 35%, var(--bliver-border)); border-radius: var(--bliver-radius-sm); background: color-mix(in srgb, var(--bliver-danger) 7%, var(--bliver-surface)); color: var(--bliver-danger); font-size: 13px; }
+.bliver-detail-read-error button, .bliver-conversation-error button { min-height: 36px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+
+.bliver-conversation { margin-top: 16px; }
+.bliver-conversation h2 { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; color: var(--bliver-forest); font-size: 15px; }
+.bliver-conversation h2 svg { width: 17px; height: 17px; }
+.bliver-conversation-list { display: grid; gap: 8px; }
+.bliver-conversation-comment { padding: 10px 0 0; border-top: 1px solid var(--bliver-border); }
+.bliver-conversation-comment.is-reply { margin-left: 20px; padding-top: 8px; border-top-style: dashed; }
+.bliver-conversation-comment__body { position: relative; min-height: 44px; padding-right: 44px; }
+.bliver-conversation-comment__body strong { color: var(--bliver-forest); font-size: 13px; }
+.bliver-conversation-comment__body p { margin: 4px 0 5px; color: var(--bliver-ink); font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.bliver-conversation-comment__body > button { display: inline-flex; min-height: 32px; align-items: center; gap: 4px; padding: 0; border: 0; background: transparent; color: var(--bliver-muted); font: inherit; font-size: 12px; cursor: pointer; }
+.bliver-conversation-comment__body > button svg { width: 14px; height: 14px; }
+.bliver-conversation-empty { margin: 0; color: var(--bliver-muted); font-size: 14px; }
+.bliver-conversation-replying { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 8px 10px; border-radius: var(--bliver-radius-sm); background: var(--bliver-sage-soft); color: var(--bliver-forest); font-size: 13px; }
+.bliver-conversation-replying button { border: 0; background: transparent; color: var(--bliver-muted); font: inherit; cursor: pointer; }
+.bliver-conversation-composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 12px; }
+.bliver-conversation-composer label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.bliver-conversation-composer textarea { min-height: 44px; resize: vertical; padding: 10px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-paper); color: var(--bliver-ink); font: inherit; font-size: 15px; line-height: 1.4; }
+.bliver-conversation-composer textarea:focus-visible { outline: 3px solid color-mix(in srgb, var(--bliver-forest) 35%, white); outline-offset: 1px; }
+.bliver-conversation-composer > button { display: inline-flex; min-width: 88px; min-height: 44px; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: var(--bliver-radius-sm); background: var(--bliver-forest); color: var(--bliver-surface); font: inherit; font-weight: 700; cursor: pointer; }
+.bliver-conversation-composer > button:disabled { cursor: not-allowed; opacity: .45; }
+.bliver-conversation-composer > button svg { width: 16px; height: 16px; }
+.bliver-moderation-menu { position: relative; flex: 0 0 auto; }
+.bliver-moderation-popover { position: absolute; z-index: 5; top: calc(100% + 4px); right: 0; min-width: 150px; padding: 5px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); box-shadow: var(--bliver-shadow-card); }
+.bliver-moderation-popover > button { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--bliver-ink); font: inherit; text-align: left; cursor: pointer; }
+.bliver-moderation-popover > button:hover, .bliver-moderation-popover > button:focus-visible { background: var(--bliver-sage-soft); }
+.bliver-moderation-popover svg { width: 16px; height: 16px; }
+.bliver-moderation-form { display: grid; gap: 8px; padding: 8px; color: var(--bliver-ink); font-size: 13px; }
+.bliver-moderation-form label { display: grid; gap: 4px; }
+.bliver-moderation-form select, .bliver-moderation-form textarea { width: 100%; padding: 7px; border: 1px solid var(--bliver-border); border-radius: 6px; background: var(--bliver-paper); color: var(--bliver-ink); font: inherit; }
+.bliver-moderation-form > button { min-height: 40px; border: 0; border-radius: 6px; background: var(--bliver-forest); color: var(--bliver-surface); font: inherit; font-weight: 700; cursor: pointer; }
+.bliver-moderation-form [role="alert"] { margin: 0; color: var(--bliver-danger); }
+.bliver-reaction-trigger { min-width: 44px; min-height: 44px; padding: 6px; border: 0; border-radius: var(--bliver-radius-sm); background: transparent; color: var(--bliver-forest); cursor: pointer; }
+.bliver-reaction-trigger:hover, .bliver-reaction-trigger:focus-visible { background: var(--bliver-sage-soft); }
+.bliver-reaction-picker { border: 1px solid var(--bliver-border); background: var(--bliver-surface); box-shadow: var(--bliver-shadow-card); }
+.bliver-reaction-picker button { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
+.bliver-reaction-picker button:hover, .bliver-reaction-picker button:focus-visible { background: var(--bliver-sage-soft); }
+
+@media (min-width: 768px) {
+  .bliver-detail-sheet { right: 24px; bottom: 24px; left: auto; width: min(520px, calc(100vw - 48px)); height: min(82dvh, 760px); max-height: min(82dvh, 760px); border-bottom: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-lg); }
+  .bliver-detail-sheet[data-snap="expanded"] { height: min(92dvh, 860px); max-height: min(92dvh, 860px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bliver-detail-sheet { transition: none; }
 }

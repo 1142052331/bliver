@@ -41,7 +41,7 @@ export default function ReactionPicker({ fp, userId, onReact }) {
       {/* Emoji picker popup */}
       {showPicker && (
         <div
-          className="absolute bottom-full left-0 mb-2 flex gap-1.5 p-2 aurora-glass rounded-xl shadow-2xl z-50"
+          className="bliver-reaction-picker absolute bottom-full left-0 mb-2 flex gap-1.5 p-2 rounded-xl z-50"
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           style={{ background: 'var(--aurora-surface)' }}>
@@ -51,6 +51,7 @@ export default function ReactionPicker({ fp, userId, onReact }) {
               <button
                 key={emoji}
                 onClick={() => handleReact(emoji)}
+                aria-label={`选择${emoji}`}
                 className={`text-xl p-1.5 rounded-lg transition-all hover:scale-125
                   ${isMine
                     ? 'bg-teal-400/15 scale-110 ring-2 ring-teal-400/50 shadow-[0_0_10px_rgba(45,212,191,0.2)]'
@@ -71,7 +72,8 @@ export default function ReactionPicker({ fp, userId, onReact }) {
       >
         <button
           onClick={() => setShowPicker((v) => !v)}
-          className={`flex items-center gap-1.5 transition-transform hover:scale-110
+          aria-label="表态"
+          className={`bliver-reaction-trigger flex items-center gap-1.5 transition-transform hover:scale-105
             ${myReaction ? 'text-rose-400' : 'text-white/40 hover:text-white/60'}`}
         >
           {myReaction ? (
