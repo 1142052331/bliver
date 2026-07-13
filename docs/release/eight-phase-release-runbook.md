@@ -106,6 +106,20 @@ Separately inspect `/healthz`, `/readyz`, and `/versionz` headers and JSON. All 
 
 Stop on a SHA mismatch, non-JSON health response, readiness failure, missing request IDs, guest API failure, unauthenticated route not returning 401, Socket polling failure, or secret-bearing output.
 
+Before creating the disposable candidate admin or calling `/api/admin/setup`, verify and remove any
+legacy bootstrap TTL index. Run the dry-run first, execute only when the exact named index is
+reported present, then run the dry-run again and record both redacted status objects:
+
+```powershell
+node backend/scripts/remove-admin-bootstrap-ttl-index.js
+node backend/scripts/remove-admin-bootstrap-ttl-index.js --execute --confirm-execute DROP_ADMIN_BOOTSTRAP_TTL_INDEX
+node backend/scripts/remove-admin-bootstrap-ttl-index.js
+```
+
+The migration is index-only and must report `index`/`dropped` status fields without database URIs,
+secrets, account identifiers, or other PII. Stop if any other index is changed or the final status
+is not `absent`.
+
 ## G4 - Candidate browser and Socket acceptance
 
 Use the matrix in `docs/qa/eight-phase-release-checklist.md` at 360x800, 390x844, 430x932, and 1440x1000.
@@ -139,7 +153,7 @@ Stop on unexpected failed/dead/conflict counts, provider 429s, readiness loss, S
 3. Restore that snapshot into a new non-production database. Compare collection names, document counts, representative application reads, and required indexes. A snapshot without a successful restore test does not pass.
 4. List indexes and run representative `explain('executionStats')` checks for activity windows and region backfill selection. Record winning index names and bounded scan counts, not query data.
 5. Run the production backfill report and dry-run only. Do not execute yet.
-6. Read-only verify there is exactly one intended founder candidate and no conflicting `systemIdentity: 'asen'`. After the snapshot, run the guarded founder migration only if the controlled founder lacks the immutable identity or admin role.
+6. Read-only verify there is exactly one intended founder candidate and no conflicting `systemIdentity: 'asen'`. Record whether the controlled founder already has the immutable identity and admin role; do not migrate or otherwise write at this gate.
 
 Stop for missing/invalid unique indexes, non-restorable backup, unexpected founder count, identity conflict, unhealthy database, or any production mutation before this gate passes.
 
@@ -154,6 +168,20 @@ git push origin "$($env:RELEASE_SHA):refs/heads/main"
 ```
 
 Align production Render root/build/start/health settings with `render.yaml`, then manually deploy the accepted SHA. Verify `/versionz` before any write.
+
+Before any production admin bootstrap or founder/admin login cutover, run the bootstrap TTL-index
+migration against the production database after the snapshot/restore evidence is recorded: dry-run, then (only if
+`index: present`) `--execute --confirm-execute DROP_ADMIN_BOOTSTRAP_TTL_INDEX`, then dry-run again.
+Record both status objects and the exact index result in the checklist; do not include URIs, secrets,
+account identifiers, or PII.
+
+If the G6 read-only check found that the controlled founder lacks the immutable identity or admin
+role, run the guarded founder migration against the production database now, before the first
+controlled write, and record only its sanitized status:
+
+```powershell
+node backend/scripts/migrate-founder-identity.js --execute --confirm-execute MIGRATE_BLIVER_FOUNDER
+```
 
 Run a small canary with disposable accounts: register/login/logout, admin setup or existing admin login, public/friends/private precise/approximate check-ins, comment/reply/reaction, report/resolve, message/block/unblock, and forced logout. Delete disposable content only through normal product/admin APIs.
 
