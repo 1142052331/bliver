@@ -92,6 +92,38 @@ function closeResource(resource, stage, logger, timeoutMs = DEFAULT_SHUTDOWN_TIM
   });
 }
 
+function awaitBounded(operation, stage, logger, timeoutMs = DEFAULT_SHUTDOWN_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) logShutdownFailure(logger, stage);
+      resolve(Boolean(error));
+    };
+
+    const boundedTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? timeoutMs
+      : DEFAULT_SHUTDOWN_TIMEOUT_MS;
+    timer = setTimeout(() => finish(new Error(`${stage} timed out`)), boundedTimeout);
+
+    let result;
+    try {
+      result = typeof operation === 'function' ? operation() : undefined;
+    } catch (error) {
+      finish(error || new Error(`${stage} failed`));
+      return;
+    }
+
+    Promise.resolve(result).then(
+      () => finish(),
+      (error) => finish(error || new Error(`${stage} failed`)),
+    );
+  });
+}
+
 function createGracefulShutdown({
   server,
   io,
@@ -113,20 +145,21 @@ function createGracefulShutdown({
       const deadline = Date.now() + boundedTimeout;
       const remaining = () => Math.max(1, deadline - Date.now());
 
-      // Calling server.close() stops new HTTP connections immediately, while
-      // its callback waits for active requests. Start Socket.IO teardown now
-      // so long-lived transports can drain before the shared deadline.
-      const serverClose = closeResource(server, 'server', logger, remaining());
-      const ioClose = closeResource(io, 'io', logger, remaining());
-      const [serverFailed, ioFailed] = await Promise.all([serverClose, ioClose]);
+      let serverFailed = false;
+      let ioFailed = false;
+      if (io?.httpServer && io.httpServer === server) {
+        // Socket.IO owns this HTTP server and closes it as part of io.close().
+        ioFailed = await closeResource(io, 'io', logger, remaining());
+      } else {
+        // Independent resources can close concurrently while sharing the deadline.
+        const serverClose = closeResource(server, 'server', logger, remaining());
+        const ioClose = closeResource(io, 'io', logger, remaining());
+        [serverFailed, ioFailed] = await Promise.all([serverClose, ioClose]);
+      }
       failed = serverFailed || ioFailed || failed;
 
-      try {
-        await Promise.resolve(disconnect?.());
-      } catch (_error) {
-        failed = true;
-        logShutdownFailure(logger, 'mongo');
-      }
+      const mongoFailed = await awaitBounded(disconnect, 'mongo', logger, remaining());
+      failed = mongoFailed || failed;
 
       try {
         exit(failed ? 1 : 0);

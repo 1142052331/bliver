@@ -142,6 +142,7 @@ export function runVerifier({
   releaseSha = process.env.RELEASE_SHA || '',
   nodePath = process.execPath,
   spawnSyncImpl = spawnSync,
+  hashArtifactsImpl = hashArtifacts,
   logger = console.log,
 } = {}) {
   const normalizedRoot = path.resolve(rootDir);
@@ -181,7 +182,7 @@ export function runVerifier({
     if (exitCode !== 0) return { ok: false, failedStep: step.name };
   }
 
-  const artifactsOk = hashArtifacts(normalizedRoot, logger);
+  const artifactsOk = hashArtifactsImpl(normalizedRoot, logger);
   logger(`STEP artifact-hash exit=${artifactsOk ? 0 : 1}`);
   return artifactsOk
     ? { ok: true }

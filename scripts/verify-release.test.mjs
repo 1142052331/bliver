@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { runVerifier } from './verify-release.mjs';
 
 const RELEASE_SHA = '0123456789abcdef0123456789abcdef01234567';
@@ -41,27 +44,34 @@ test('release verifier is ordered and stops at the first failing command', () =>
 
 test('release verifier self-tests release tools before backend and frontend gates', () => {
   const calls = [];
-  const result = runVerifier({
-    rootDir: process.cwd(),
-    platform: 'linux',
-    releaseSha: RELEASE_SHA,
-    spawnSyncImpl(command, args, options) {
-      calls.push({ command, args, options });
-      if (command === 'git' && args[0] === 'rev-parse') {
-        return { status: 0, stdout: `${RELEASE_SHA}\n` };
-      }
-      return { status: 0, stdout: '' };
-    },
-    logger: () => {},
-  });
+  const rootDir = mkdtempSync(path.join(tmpdir(), 'bliver-release-verifier-'));
 
-  assert.equal(result.ok, true);
-  const releaseToolsIndex = calls.findIndex((call) => call.args.includes('test:release-tools'));
-  const backendIndex = calls.findIndex((call) => call.args.includes('backend'));
-  const frontendIndex = calls.findIndex((call) => call.options?.cwd?.endsWith('frontend') && call.args.includes('test'));
-  assert.ok(releaseToolsIndex > 0);
-  assert.ok(backendIndex > releaseToolsIndex);
-  assert.ok(frontendIndex > releaseToolsIndex);
+  try {
+    const result = runVerifier({
+      rootDir,
+      platform: 'linux',
+      releaseSha: RELEASE_SHA,
+      spawnSyncImpl(command, args, options) {
+        calls.push({ command, args, options });
+        if (command === 'git' && args[0] === 'rev-parse') {
+          return { status: 0, stdout: `${RELEASE_SHA}\n` };
+        }
+        return { status: 0, stdout: '' };
+      },
+      hashArtifactsImpl: () => true,
+      logger: () => {},
+    });
+
+    assert.equal(result.ok, true);
+    const releaseToolsIndex = calls.findIndex((call) => call.args.includes('test:release-tools'));
+    const backendIndex = calls.findIndex((call) => call.args.includes('backend'));
+    const frontendIndex = calls.findIndex((call) => call.options?.cwd?.endsWith('frontend') && call.args.includes('test'));
+    assert.ok(releaseToolsIndex > 0);
+    assert.ok(backendIndex > releaseToolsIndex);
+    assert.ok(frontendIndex > releaseToolsIndex);
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
 });
 
 test('release verifier rejects missing RELEASE_SHA before spawning commands', () => {

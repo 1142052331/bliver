@@ -6,6 +6,7 @@ process.env.DEPLOY_ENV = 'candidate';
 
 const request = require('supertest');
 const http = require('http');
+const { Server: SocketIOServer } = require('socket.io');
 
 describe('runtime health endpoints', () => {
   let app;
@@ -152,6 +153,95 @@ describe('runtime status and graceful shutdown', () => {
 
     expect(events).toEqual(['request', 'io', 'response', 'mongo', 'exit']);
     expect(server.listening).toBe(false);
+  });
+
+  test('closes a Socket.IO-owned HTTP server once after an in-flight response', async () => {
+    const { createGracefulShutdown } = require('../services/runtimeStatus');
+    const events = [];
+    let releaseResponse;
+    let requestSeen;
+    const requestStarted = new Promise((resolve) => { requestSeen = resolve; });
+    const server = http.createServer((_req, res) => {
+      events.push('request');
+      requestSeen();
+      releaseResponse = () => {
+        events.push('response');
+        res.end('ok');
+      };
+    });
+    const io = new SocketIOServer(server);
+    await new Promise((resolve) => server.listen(0, resolve));
+
+    const response = new Promise((resolve, reject) => {
+      http.get({
+        hostname: '127.0.0.1',
+        port: server.address().port,
+        headers: { Connection: 'close' },
+      }, (res) => {
+        res.resume();
+        res.on('end', resolve);
+      }).on('error', reject);
+    });
+    await requestStarted;
+
+    const shutdown = createGracefulShutdown({
+      server,
+      io,
+      disconnect: async () => { events.push('mongo'); },
+      exit: (code) => { events.push(`exit:${code}`); },
+      timeoutMs: 500,
+      logger: { error: () => {} },
+    });
+    const shutdownPromise = shutdown();
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(events).toEqual(['request']);
+
+    releaseResponse();
+    await response;
+    await shutdownPromise;
+
+    expect(events).toEqual(['request', 'response', 'mongo', 'exit:0']);
+    expect(server.listening).toBe(false);
+  });
+
+  test('bounds a hung MongoDB disconnect and swallows a late rejection', async () => {
+    const { createGracefulShutdown } = require('../services/runtimeStatus');
+    const events = [];
+    const failures = [];
+    let rejectDisconnect;
+    const disconnectPromise = new Promise((_resolve, reject) => {
+      rejectDisconnect = reject;
+    });
+    const unhandled = [];
+    const onUnhandled = (error) => unhandled.push(error);
+    process.on('unhandledRejection', onUnhandled);
+
+    try {
+      const shutdown = createGracefulShutdown({
+        server: { close: (done) => { events.push('server'); done(); } },
+        io: { close: (done) => { events.push('io'); done(); } },
+        disconnect: () => disconnectPromise,
+        exit: (code) => { events.push(`exit:${code}`); },
+        timeoutMs: 10,
+        logger: { error: (message) => failures.push(message) },
+      });
+      const shutdownPromise = shutdown();
+
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const exitedBeforeDisconnect = events.includes('exit:1');
+      if (!exitedBeforeDisconnect) rejectDisconnect(new Error('late disconnect failure'));
+      await shutdownPromise;
+      if (exitedBeforeDisconnect) rejectDisconnect(new Error('late disconnect failure'));
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(exitedBeforeDisconnect).toBe(true);
+      expect(events).toEqual(['server', 'io', 'exit:1']);
+      expect(failures).toEqual(['[shutdown] mongo failed']);
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.removeListener('unhandledRejection', onUnhandled);
+    }
   });
 
   test('times out a resource close, records failure, and remains one-shot', async () => {
