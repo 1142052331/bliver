@@ -47,7 +47,7 @@ function readUnreadCount(userId: string | null) {
 
 function writeUnreadCount(userId: string | null, count: number) {
   if (!userId) return;
-  try { localStorage.setItem(`${READ_COUNT_KEY_PREFIX}${userId}`, String(count)); } catch {}
+  try { localStorage.setItem(`${READ_COUNT_KEY_PREFIX}${userId}`, String(count)); } catch { /* Ignore storage failures. */ }
 }
 
 export default function useNotifications(userId?: string | null) {

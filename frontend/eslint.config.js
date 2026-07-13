@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
@@ -10,6 +11,19 @@ export default defineConfig([
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      globals: globals.browser,
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommended,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
@@ -36,6 +50,7 @@ export default defineConfig([
       'src/hooks/useAnnounceUnread.js',
       'src/hooks/useChatFriendMeta.js',
       'src/hooks/useFriends.js',
+      'src/hooks/useNotifications.ts',
       'src/hooks/useProfileData.js',
     ],
     rules: {
@@ -49,7 +64,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/*.{test,spec}.{js,jsx}', 'src/test-setup.js'],
+    files: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}', 'src/test-setup.js'],
     languageOptions: {
       globals: {
         ...globals.node,

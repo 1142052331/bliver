@@ -32,6 +32,27 @@ interface ClusterPayload {
   [key: string]: unknown;
 }
 
+interface RealtimeFootprint {
+  _id?: string;
+  userId?: string | { _id?: string };
+  [key: string]: unknown;
+}
+
+interface RealtimeProfile {
+  [key: string]: unknown;
+}
+
+interface FootprintEvent {
+  type: 'new' | 'updated' | 'deleted';
+  footprint?: RealtimeFootprint;
+  footprintId?: string;
+}
+
+interface ProfileEvent {
+  userId: string;
+  user: RealtimeProfile;
+}
+
 // ── Store ───────────────────────────────────────────
 
 interface UIStore {
@@ -75,13 +96,9 @@ interface UIStore {
 
   // Real-time event bus (replaces window CustomEvent)
   markReadVersion: number;
-  footprintEvent: {
-    type: 'new' | 'updated' | 'deleted';
-    footprint?: any;
-    footprintId?: string;
-  } | null;
+  footprintEvent: FootprintEvent | null;
   footprintEventId: number;
-  profileEvent: { userId: string; user: any } | null;
+  profileEvent: ProfileEvent | null;
   profileEventId: number;
   viewedFootprintId: string | null;
 
@@ -134,12 +151,8 @@ interface UIStore {
   setPendingCheckInLocation: (loc: PendingLocation | null) => void;
 
   incrementMarkReadVersion: () => void;
-  emitFootprintEvent: (event: {
-    type: 'new' | 'updated' | 'deleted';
-    footprint?: any;
-    footprintId?: string;
-  }) => void;
-  emitProfileEvent: (event: { userId: string; user: any }) => void;
+  emitFootprintEvent: (event: FootprintEvent) => void;
+  emitProfileEvent: (event: ProfileEvent) => void;
   setViewedFootprintId: (id: string | null) => void;
 }
 
