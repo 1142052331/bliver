@@ -1,11 +1,12 @@
 const { parseArgs, runCli, PRODUCTION_CONFIRMATION } = require('../scripts/backfill-footprint-geography');
 const mongoose = require('mongoose');
 const Footprint = require('../models/Footprint');
+const { encodeBackfillCursor } = require('../services/FootprintBackfillService');
 const { connectDB, disconnectDB, clearDB } = require('./setup');
 
 describe('release backfill CLI guards', () => {
   test('requires the exact execute confirmation token in every environment', () => {
-    for (const env of [{ NODE_ENV: 'test' }, { NODE_ENV: 'development' }, { NODE_ENV: 'production' }]) {
+    for (const env of [{ NODE_ENV: 'test' }, { NODE_ENV: 'development' }]) {
       expect(() => parseArgs(['--execute'], env)).toThrow('confirm-execute');
       expect(parseArgs(['--execute', '--confirm-production', PRODUCTION_CONFIRMATION], env))
         .toMatchObject({ dryRun: false });
@@ -14,6 +15,51 @@ describe('release backfill CLI guards', () => {
       expect(parseArgs(['--execute', '--confirm-execute', PRODUCTION_CONFIRMATION], env))
         .toMatchObject({ dryRun: false });
     }
+
+    const productionArgs = ['--limit', '5', '--delay', '1000'];
+    expect(() => parseArgs(['--execute', ...productionArgs], { NODE_ENV: 'production' }))
+      .toThrow('confirm-execute');
+    expect(parseArgs([
+      '--execute', '--confirm-production', PRODUCTION_CONFIRMATION, ...productionArgs,
+    ], { NODE_ENV: 'production' })).toMatchObject({ dryRun: false });
+    expect(() => parseArgs([
+      '--execute', '--confirm-production', 'wrong-token', ...productionArgs,
+    ], { NODE_ENV: 'production' })).toThrow('confirmation');
+    expect(parseArgs([
+      '--execute', '--confirm-execute', PRODUCTION_CONFIRMATION, ...productionArgs,
+    ], { NODE_ENV: 'production' })).toMatchObject({ dryRun: false });
+  });
+
+  test('bounds production execution delay and batch sizes before connecting', () => {
+    const executeArgs = ['--execute', '--confirm-execute', PRODUCTION_CONFIRMATION];
+    const production = { NODE_ENV: 'production' };
+    const cursor = encodeBackfillCursor({
+      mode: 'normal',
+      id: new mongoose.Types.ObjectId().toString(),
+      windowToken: 'release-window',
+    });
+
+    expect(() => parseArgs([...executeArgs, '--limit', '5', '--delay', '999'], production))
+      .toThrow('delay');
+    expect(() => parseArgs([...executeArgs, '--limit', '4', '--delay', '1000'], production))
+      .toThrow('first');
+    expect(() => parseArgs([...executeArgs, '--limit', '11', '--delay', '1000'], production))
+      .toThrow('first');
+    expect(parseArgs([...executeArgs, '--limit', '5', '--delay', '1000'], production))
+      .toMatchObject({ dryRun: false, limit: 5, cursor: null, delayMs: 1000 });
+    expect(parseArgs([...executeArgs, '--limit', '10', '--delay', '1000'], production))
+      .toMatchObject({ dryRun: false, limit: 10, cursor: null, delayMs: 1000 });
+    expect(parseArgs([
+      ...executeArgs, '--cursor', cursor, '--limit', '100', '--delay', '1000',
+    ], production)).toMatchObject({ dryRun: false, limit: 100, cursor, delayMs: 1000 });
+    expect(() => parseArgs([
+      ...executeArgs, '--cursor', cursor, '--limit', '101', '--delay', '1000',
+    ], production)).toThrow('limit');
+
+    expect(parseArgs([...executeArgs, '--limit', '100', '--delay', '0'], { NODE_ENV: 'test' }))
+      .toMatchObject({ dryRun: false, limit: 100, delayMs: 0 });
+    expect(parseArgs(['--dry-run', '--limit', '100'], production))
+      .toMatchObject({ dryRun: true, limit: 100, delayMs: 0 });
   });
 
   test('default invocation remains dry-run and never invokes a write-capable option', async () => {

@@ -1245,7 +1245,7 @@ describe('footprint geography backfill CLI', () => {
       '--execute', '--confirm-execute', productionToken,
     ], { NODE_ENV: 'test' })).toMatchObject({ dryRun: false });
     expect(parseArgs([
-      '--execute', '--confirm-production', productionToken,
+      '--execute', '--confirm-production', productionToken, '--limit', '5', '--delay', '1000',
     ], { NODE_ENV: 'production' })).toMatchObject({ dryRun: false });
     expect(() => parseArgs([
       '--execute', '--confirm-production', 'wrong-token',

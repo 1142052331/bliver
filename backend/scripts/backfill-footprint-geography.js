@@ -71,7 +71,20 @@ function parseArgs(argv = [], env = process.env) {
     throw new TypeError('invalid execute confirmation token');
   }
 
-  return validateBackfillOptions(options);
+  const validated = validateBackfillOptions(options);
+  if (!validated.dryRun && env.NODE_ENV === 'production') {
+    if (validated.delayMs < 1000) {
+      throw new RangeError('production execute delayMs must be at least 1000');
+    }
+    if (!validated.cursor && (validated.limit < 5 || validated.limit > 10)) {
+      throw new RangeError('first production execute batch limit must be between 5 and 10');
+    }
+    if (validated.cursor && validated.limit > 100) {
+      throw new RangeError('resumed production execute batch limit must not exceed 100');
+    }
+  }
+
+  return validated;
 }
 
 async function runCli(argv = process.argv.slice(2), dependencies = {}) {
