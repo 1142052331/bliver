@@ -28,8 +28,20 @@ const checkin = z.object({
   }
 });
 
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid identifier');
+
 const comment = z.object({
   content: z.string().trim().min(1, messageSchema.empty).max(500, messageSchema.tooLong(500)),
+  parentCommentId: objectId.optional(),
+  replyToCommentId: objectId.optional(),
+}).strict().superRefine((value, ctx) => {
+  if (value.replyToCommentId && !value.parentCommentId) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['parentCommentId'],
+      message: 'Reply parent is required',
+    });
+  }
 });
 
 const message = z.object({

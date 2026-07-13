@@ -53,6 +53,14 @@ const footprintSchema = new mongoose.Schema({
     content:   { type: String, required: true },
     ipAddress: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now },
+    parentCommentId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    replyToCommentId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    replyToUser: {
+      userId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      username: { type: String, default: '', maxlength: 30 },
+    },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   }],
 }, { timestamps: true });
 
