@@ -1,6 +1,9 @@
 const AuditLog = require('../models/AuditLog');
 
-const AUDIT_TYPES = ['login', 'register', 'delete', 'footprint_delete', 'kick', 'user_edit'];
+const AUDIT_TYPES = [
+  'login', 'register', 'delete', 'footprint_delete', 'kick', 'user_edit',
+  'report_action', 'report_dismiss',
+];
 
 /**
  * Write a meaningful admin audit event to MongoDB.
