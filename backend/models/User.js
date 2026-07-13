@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
   avatarUrl:{ type: String, default: '' },
   profileBannerUrl: { type: String, default: '' },
   isOnline: { type: Boolean, default: false },
+  allowStrangerMessages: { type: Boolean, default: true },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
   profileComments: [{
     senderName: { type: String, required: true },
