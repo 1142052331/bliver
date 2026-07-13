@@ -23,6 +23,7 @@ function parseArgs(argv = []) {
   let execute = false;
   let explicitDryRun = false;
   let confirmation = null;
+  let expectedDatabase = null;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -32,6 +33,12 @@ function parseArgs(argv = []) {
       execute = true;
     } else if (arg === '--confirm-execute') {
       confirmation = readValue(argv, index, arg);
+      index += 1;
+    } else if (arg === '--expected-database') {
+      if (expectedDatabase !== null) {
+        throw new TypeError('--expected-database may only be provided once');
+      }
+      expectedDatabase = readValue(argv, index, arg).trim();
       index += 1;
     } else {
       throw new TypeError('unknown option');
@@ -47,8 +54,11 @@ function parseArgs(argv = []) {
   if (execute && confirmation !== EXECUTE_CONFIRMATION) {
     throw new TypeError('valid execution confirmation is required');
   }
+  if (!expectedDatabase) {
+    throw new TypeError('--expected-database requires a non-empty value');
+  }
 
-  return { execute };
+  return { execute, expectedDatabase };
 }
 
 function sanitizeStatus(status) {
@@ -58,10 +68,27 @@ function sanitizeStatus(status) {
   };
 }
 
-async function hasObsoleteIndex(collection) {
+function isExpectedLegacyIndex(index) {
+  const keyEntries = Object.entries(index?.key || {});
+  const partialEntries = Object.entries(index?.partialFilterExpression || {});
+  return keyEntries.length === 1
+    && keyEntries[0][0] === 'leaseExpiresAt'
+    && keyEntries[0][1] === 1
+    && index?.expireAfterSeconds === 0
+    && partialEntries.length === 1
+    && partialEntries[0][0] === 'state'
+    && partialEntries[0][1] === 'pending';
+}
+
+async function getObsoleteIndex(collection) {
   try {
     const indexes = await collection.listIndexes().toArray();
-    return indexes.some((index) => index.name === INDEX_NAME);
+    const index = indexes.find((candidate) => candidate.name === INDEX_NAME);
+    if (!index) return null;
+    if (!isExpectedLegacyIndex(index)) {
+      throw new Error('admin bootstrap TTL index has an unexpected definition');
+    }
+    return index;
   } catch (error) {
     if (error?.code === 26 || error?.codeName === 'NamespaceNotFound') return false;
     throw error;
@@ -69,23 +96,25 @@ async function hasObsoleteIndex(collection) {
 }
 
 async function removeAdminBootstrapTtlIndex({ collection = AdminBootstrap.collection, execute = false } = {}) {
-  const present = await hasObsoleteIndex(collection);
+  const present = Boolean(await getObsoleteIndex(collection));
   if (!present || !execute) {
     return { index: present ? 'present' : 'absent', dropped: 0 };
   }
 
+  let dropped = false;
   try {
     await collection.dropIndex(INDEX_NAME);
+    dropped = true;
   } catch (error) {
     // A concurrent operator may have removed it; the post-check makes this
     // operation idempotent without ever touching another index.
     if (error?.code !== 27 && error?.codeName !== 'IndexNotFound') throw error;
   }
 
-  if (await hasObsoleteIndex(collection)) {
+  if (await getObsoleteIndex(collection)) {
     throw new Error('admin bootstrap TTL index still exists');
   }
-  return { index: 'absent', dropped: 1 };
+  return { index: 'absent', dropped: dropped ? 1 : 0 };
 }
 
 async function runCli(argv = process.argv.slice(2), dependencies = {}) {
@@ -100,6 +129,8 @@ async function runCli(argv = process.argv.slice(2), dependencies = {}) {
 
   const connect = dependencies.connectDB || connectDBOrThrow;
   const disconnect = dependencies.disconnect || (() => mongoose.disconnect());
+  const getDatabaseName = dependencies.getDatabaseName
+    || (() => mongoose.connection.db?.databaseName);
   const removeIndex = dependencies.removeIndex || removeAdminBootstrapTtlIndex;
   const collection = dependencies.collection || AdminBootstrap.collection;
   let connectionAttempted = false;
@@ -108,6 +139,9 @@ async function runCli(argv = process.argv.slice(2), dependencies = {}) {
   try {
     connectionAttempted = true;
     await connect();
+    if (getDatabaseName() !== options.expectedDatabase) {
+      throw new Error('connected database does not match --expected-database');
+    }
     const result = await removeIndex({ collection, execute: options.execute });
     logger.log(JSON.stringify(sanitizeStatus(result)));
   } catch {

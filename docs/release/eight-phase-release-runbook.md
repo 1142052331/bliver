@@ -120,14 +120,17 @@ legacy bootstrap TTL index. Run the dry-run first, execute only when the exact n
 reported present, then run the dry-run again and record both redacted status objects:
 
 ```powershell
-node backend/scripts/remove-admin-bootstrap-ttl-index.js
-node backend/scripts/remove-admin-bootstrap-ttl-index.js --execute --confirm-execute DROP_ADMIN_BOOTSTRAP_TTL_INDEX
-node backend/scripts/remove-admin-bootstrap-ttl-index.js
+$env:EXPECTED_DATABASE_NAME = 'bliver_candidate'
+node backend/scripts/remove-admin-bootstrap-ttl-index.js --expected-database $env:EXPECTED_DATABASE_NAME
+node backend/scripts/remove-admin-bootstrap-ttl-index.js --expected-database $env:EXPECTED_DATABASE_NAME --execute --confirm-execute DROP_ADMIN_BOOTSTRAP_TTL_INDEX
+node backend/scripts/remove-admin-bootstrap-ttl-index.js --expected-database $env:EXPECTED_DATABASE_NAME
 ```
 
 The migration is index-only and must report `index`/`dropped` status fields without database URIs,
-secrets, account identifiers, or other PII. Stop if any other index is changed or the final status
-is not `absent`.
+secrets, account identifiers, or other PII. `--expected-database` is mandatory and must be the
+independent candidate database name reported by the connected Mongo client. Stop on an identity
+mismatch, an unexpected definition for the named legacy index, any other index change, or a final
+status other than `absent`.
 
 ## G4 - Candidate browser and Socket acceptance
 
@@ -178,9 +181,12 @@ git push origin "$($env:RELEASE_SHA):refs/heads/main"
 
 Align production Render root/build/start/health settings with `render.yaml`, then manually deploy the accepted SHA. Verify `/versionz` before any write.
 
-Before any production admin bootstrap or founder/admin login cutover, run the bootstrap TTL-index
-migration against the production database after the snapshot/restore evidence is recorded: dry-run, then (only if
-`index: present`) `--execute --confirm-execute DROP_ADMIN_BOOTSTRAP_TTL_INDEX`, then dry-run again.
+Before any production admin bootstrap or founder/admin login cutover, set
+`EXPECTED_DATABASE_NAME` to the production database name and run the bootstrap TTL-index migration
+against the production database after the snapshot/restore evidence is recorded: dry-run with
+`--expected-database $env:EXPECTED_DATABASE_NAME`, then (only if `index: present`) execute with
+`--expected-database $env:EXPECTED_DATABASE_NAME --execute --confirm-execute DROP_ADMIN_BOOTSTRAP_TTL_INDEX`,
+then repeat the guarded dry-run.
 Record both status objects and the exact index result in the checklist; do not include URIs, secrets,
 account identifiers, or PII.
 
