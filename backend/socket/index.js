@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { JWT_SECRET } = require('../middleware/auth');
 const { areFriends } = require('../services/FriendsService');
 const messageService = require('../services/MessageService');
+const interactionPolicy = require('../services/InteractionPolicy');
 const { getBroadcastTargets } = require('../services/SuperuserPolicy');
 const bus = require('../events/bus');
 const { registerFootprintPublisher } = require('./footprintPublisher');
@@ -117,6 +118,11 @@ function _setupSocket(io) {
     socket.on('send_message', async ({ receiverId, content, tempId }) => {
       try {
         if (!content || !receiverId) return;
+        const decision = await interactionPolicy.canSendText(socket.userId, receiverId);
+        if (!decision.allowed) {
+          socket.emit('message:error', { tempId, error: decision.reason || 'conversation_locked' });
+          return;
+        }
         const result = await messageService.socketSend(socket.userId, receiverId, content, io);
         socket.emit('message:sent', { tempId, message: result.msgWithSender });
         io.to(receiverId).emit('receive_message', { message: result.msgWithSender });
