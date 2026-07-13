@@ -50,7 +50,7 @@ const footprintSchema = new mongoose.Schema({
   comments:  [{
     userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     username:  { type: String, required: true },
-    content:   { type: String, required: true },
+    content:   { type: String, default: '' },
     ipAddress: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now },
     parentCommentId: { type: mongoose.Schema.Types.ObjectId, default: null },

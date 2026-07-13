@@ -77,7 +77,7 @@ const router = express.Router();
 
   // POST /api/footprints/:id/comment
   router.post('/footprints/:id/comment', auth, contentLimiter, validate(commentSchema), async (req, res) => {
-    const { content } = req.body;
+    const { content, parentCommentId, replyToCommentId } = req.body;
     const ip = req.headers['x-forwarded-for']?.split(',')[0].trim()
       || req.ip
       || req.socket.remoteAddress
@@ -85,7 +85,7 @@ const router = express.Router();
 
     const result = await footprintService.comment(
       req.params.id, req.user.id, req.user.name, content, ip,
-      { viewer: req.user }
+      { viewer: req.user, parentCommentId, replyToCommentId }
     );
     if (!result) return res.status(404).json({ error: 'Not found' });
 

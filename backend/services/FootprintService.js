@@ -16,6 +16,16 @@ const {
   getViewerAccess,
 } = require('./FootprintAccessService');
 
+function compareComments(left, right) {
+  const timeDifference = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+  return timeDifference || String(left._id).localeCompare(String(right._id));
+}
+
+function sortConversationComments(footprint) {
+  if (!Array.isArray(footprint?.comments)) return footprint;
+  return { ...footprint, comments: [...footprint.comments].sort(compareComments) };
+}
+
 class FootprintService {
   // ═══════════════════════════════════════════════════════
   //  Public: read
@@ -68,7 +78,7 @@ class FootprintService {
     if (!readable) return null;
     const isAdmin = viewer?.role === 'admin';
     const fp = await populateFootprint(Footprint.findByIdSafe(readable._id, { isAdmin }));
-    return sanitizeLocation(fp.toObject(), isAdmin);
+    return sortConversationComments(sanitizeLocation(fp.toObject(), isAdmin));
   }
 
   // ═══════════════════════════════════════════════════════
@@ -208,17 +218,54 @@ class FootprintService {
     return { footprint: fpObj, isToggleOff };
   }
 
-  async comment(footprintId, userId, username, content, ip, { viewer } = {}) {
+  async comment(
+    footprintId,
+    userId,
+    username,
+    content,
+    ip,
+    { viewer, parentCommentId, replyToCommentId } = {}
+  ) {
     const fp = await getReadableFootprint({ viewer, footprintId });
     if (!fp) return null;
     const isAdmin = viewer?.role === 'admin';
 
-    fp.comments.push({ userId, username, content, ipAddress: ip });
+    let parent = null;
+    let replyTarget = null;
+    if (parentCommentId) {
+      parent = fp.comments.id(parentCommentId);
+      if (!parent || parent.isDeleted) throw new AppError(404, 'Parent comment not found');
+      if (parent.parentCommentId) throw new AppError(400, 'Replies are limited to two levels');
+
+      replyTarget = fp.comments.id(replyToCommentId || parentCommentId);
+      const targetBelongsToParent = replyTarget && (
+        String(replyTarget._id) === String(parent._id)
+        || String(replyTarget.parentCommentId || '') === String(parent._id)
+      );
+      if (!targetBelongsToParent || replyTarget.isDeleted) {
+        throw new AppError(404, 'Reply target not found');
+      }
+    } else if (replyToCommentId) {
+      throw new AppError(400, 'Reply parent is required');
+    }
+
+    fp.comments.push({
+      userId,
+      username,
+      content,
+      ipAddress: ip,
+      parentCommentId: parent?._id || null,
+      replyToCommentId: replyTarget?._id || null,
+      replyToUser: replyTarget ? {
+        userId: replyTarget.userId || null,
+        username: replyTarget.username,
+      } : undefined,
+    });
     await fp.save();
 
     const populated = await populateFootprint(Footprint.findById(fp._id));
     const plain = populated.toObject();
-    const fpObj = sanitizeLocation(plain, isAdmin);
+    const fpObj = sortConversationComments(sanitizeLocation(plain, isAdmin));
     const footprintOwnerId = fp.userId.toString();
 
     bus.emit('footprint:updated', { footprint: sanitizeLocation(plain, false) });
@@ -257,16 +304,31 @@ class FootprintService {
     if (!comment) throw new AppError(404, 'Comment not found');
 
     const isAuthor = comment.userId?.toString() === userId;
-    const isAsen = isSuperuserName(userName);
-    if (!isAuthor && !isAsen) {
+    const isModerator = viewer?.role === 'admin' || isSuperuserName(userName);
+    if (!isAuthor && !isModerator) {
       throw new AppError(403, '无权删除此评论');
     }
 
-    fp.comments.pull({ _id: commentId });
+    const hasReplies = !comment.parentCommentId && fp.comments.some(
+      (candidate) => String(candidate.parentCommentId || '') === String(comment._id)
+    );
+    if (hasReplies) {
+      comment.userId = undefined;
+      comment.username = '已删除用户';
+      comment.content = '';
+      comment.ipAddress = '';
+      comment.isDeleted = true;
+      comment.deletedAt = new Date();
+    } else {
+      fp.comments.pull({ _id: commentId });
+    }
     await fp.save();
 
     const populated = await populateFootprint(Footprint.findById(fp._id));
-    const fpObj = sanitizeLocation(populated.toObject(), false);
+    const fpObj = sortConversationComments(sanitizeLocation(
+      populated.toObject(),
+      viewer?.role === 'admin'
+    ));
 
     bus.emit('footprint:updated', { footprint: fpObj });
 
