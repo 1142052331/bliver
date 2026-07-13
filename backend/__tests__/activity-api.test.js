@@ -10,7 +10,7 @@ const { connectDB, disconnectDB, clearDB } = require('./setup');
 
 describe('GET /api/activity', () => {
   let app;
-  const now = new Date('2026-07-12T12:00:00.000Z');
+  const now = new Date(Date.now());
 
   beforeAll(async () => {
     await connectDB();
