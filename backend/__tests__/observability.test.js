@@ -16,7 +16,10 @@ describe('request observability', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers['x-request-id']).toBe(requestId);
+    expect(response.headers['cache-control']).toBe('no-store');
     expect(response.body.status).toBe('ok');
+    expect(response.body.release).toEqual(expect.any(String));
+    expect(response.body.node).toBe(process.version);
     expect(response.body.uptime).toEqual(expect.any(Number));
     expect(response.body.requests).toEqual(expect.any(Array));
     expect(JSON.stringify(response.body)).not.toContain('should-not-appear');

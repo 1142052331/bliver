@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const Sentry = require('@sentry/node');
@@ -27,12 +28,14 @@ const errorHandler = require('./middleware/errorHandler');
 const { requestContext, getRequestMetrics, getUptimeSeconds } = require('./middleware/requestContext');
 const { setupSocket } = require('./socket');
 const notification = require('./services/notification');
+const { createRuntimeStatus, registerShutdownSignals } = require('./services/runtimeStatus');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' }
 });
+const runtimeStatus = createRuntimeStatus();
 
 app.set('trust proxy', true);
 app.use(cors());
@@ -68,8 +71,29 @@ app.use((req, res, next) => {
   next();
 });
 
+const setNoStore = (res) => res.set('Cache-Control', 'no-store');
+
 app.get('/healthz', (_req, res) => {
-  res.json({ status: 'ok', uptime: getUptimeSeconds(), requests: getRequestMetrics() });
+  setNoStore(res);
+  res.status(200).json({
+    status: 'ok',
+    release: runtimeStatus.release(),
+    node: runtimeStatus.node(),
+    environment: runtimeStatus.environment(),
+    uptime: getUptimeSeconds(),
+    requests: getRequestMetrics(),
+  });
+});
+
+app.get('/readyz', (_req, res) => {
+  setNoStore(res);
+  const status = runtimeStatus.readiness();
+  res.status(status.ready ? 200 : 503).json(status);
+});
+
+app.get('/versionz', (_req, res) => {
+  setNoStore(res);
+  res.status(200).json(runtimeStatus.version());
 });
 
 app.use('/api', apiRoutes);
@@ -97,6 +121,11 @@ notification.init(io);
 
 // Only auto-start when run directly (node index.js), not when imported for tests
 if (require.main === module) {
+  registerShutdownSignals({
+    server,
+    io,
+    disconnect: () => mongoose.disconnect(),
+  });
   connectDB().then(async () => {
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
@@ -112,7 +141,7 @@ if (process.env.SENTRY_DSN) {
 }
 app.use(errorHandler);
 
-module.exports = { app, server, io };
+module.exports = { app, server, io, runtimeStatus };
 
 
 
