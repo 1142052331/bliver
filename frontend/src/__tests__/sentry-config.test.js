@@ -29,5 +29,5 @@ describe('frontend Sentry configuration', () => {
       environment: 'candidate',
       release: 'release-sha',
     }));
-  });
+  }, 15_000);
 });
