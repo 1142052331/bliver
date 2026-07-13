@@ -1762,6 +1762,32 @@
 .bliver-reaction-picker { border: 1px solid var(--bliver-border); background: var(--bliver-surface); box-shadow: var(--bliver-shadow-card); }
 .bliver-reaction-picker button { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
 .bliver-reaction-picker button:hover, .bliver-reaction-picker button:focus-visible { background: var(--bliver-sage-soft); }
+.bliver-admin-reports { min-height: 240px; padding: 20px; color: var(--bliver-ink); }
+.bliver-admin-reports__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.bliver-admin-reports__heading h3 { margin: 0; color: var(--bliver-forest); font-size: 18px; }
+.bliver-admin-reports__heading p { margin: 5px 0 0; color: var(--bliver-muted); font-size: 13px; }
+.bliver-admin-reports__list { display: grid; gap: 10px; margin-top: 16px; }
+.bliver-admin-report-row { padding: 14px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-md); background: var(--bliver-surface); }
+.bliver-admin-report-row__meta { display: flex; align-items: center; gap: 7px; color: var(--bliver-forest); }
+.bliver-admin-report-row__meta svg { width: 16px; height: 16px; color: var(--bliver-danger); }
+.bliver-admin-report-row__meta span { margin-left: auto; color: var(--bliver-muted); font-size: 12px; }
+.bliver-admin-report-row p { margin: 8px 0 2px; font-size: 14px; }
+.bliver-admin-report-row small { color: var(--bliver-muted); font-size: 12px; }
+.bliver-admin-report-row__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.bliver-admin-report-row__actions button { min-height: 40px; padding: 8px 11px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); color: var(--bliver-forest); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.bliver-admin-report-row__actions button:last-child { border-color: color-mix(in srgb, var(--bliver-danger) 38%, var(--bliver-border)); color: var(--bliver-danger); }
+.bliver-admin-reports-state { display: grid; min-height: 180px; place-items: center; gap: 8px; align-content: center; padding: 20px; color: var(--bliver-muted); font-size: 14px; }
+.bliver-admin-reports-state button { display: inline-flex; min-height: 40px; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); color: var(--bliver-forest); font: inherit; cursor: pointer; }
+.bliver-admin-reports-state svg { width: 19px; height: 19px; }
+.bliver-admin-reports__error { margin: 12px 0 0; color: var(--bliver-danger); font-size: 13px; }
+.bliver-admin-report-dialog-layer { position: fixed; z-index: 3200; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(23 59 49 / 28%); }
+.bliver-admin-report-dialog { width: min(380px, 100%); padding: 20px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-md); background: var(--bliver-surface); box-shadow: var(--bliver-shadow-card); }
+.bliver-admin-report-dialog > svg { width: 22px; height: 22px; color: var(--bliver-danger); }
+.bliver-admin-report-dialog h3 { margin: 10px 0 0; color: var(--bliver-forest); font-size: 17px; }
+.bliver-admin-report-dialog p { margin: 7px 0 16px; color: var(--bliver-muted); font-size: 14px; line-height: 1.5; }
+.bliver-admin-report-dialog > div { display: flex; justify-content: flex-end; gap: 8px; }
+.bliver-admin-report-dialog button { min-height: 44px; padding: 8px 13px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); color: var(--bliver-forest); font: inherit; font-weight: 700; cursor: pointer; }
+.bliver-admin-report-dialog button:last-child { border-color: var(--bliver-danger); background: var(--bliver-danger); color: var(--bliver-surface); }
 
 @media (min-width: 768px) {
   .bliver-detail-sheet { right: 24px; bottom: 24px; left: auto; width: min(520px, calc(100vw - 48px)); height: min(82dvh, 760px); max-height: min(82dvh, 760px); border-bottom: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-lg); }

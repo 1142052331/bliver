@@ -8,6 +8,7 @@ import AdminUsersTab from './AdminUsersTab';
 import AdminClonesTab from './AdminClonesTab';
 import AdminAuditTab from './AdminAuditTab';
 import AdminFeedbackTab from './AdminFeedbackTab';
+import AdminReportsTab from './admin/AdminReportsTab';
 
 export default function AdminPanel({ onClose, socketRef }) {
   const [tab, setTab] = useState('users');
@@ -193,6 +194,10 @@ export default function AdminPanel({ onClose, socketRef }) {
             <MessageSquare className="w-3.5 h-3.5 inline mr-1.5" />
             反馈
           </button>
+          <button onClick={() => setTab('reports')} className={tabClass('reports')}>
+            <AlertTriangle className="w-3.5 h-3.5 inline mr-1.5" />
+            举报
+          </button>
         </div>
 
         {/* Content */}
@@ -236,6 +241,9 @@ export default function AdminPanel({ onClose, socketRef }) {
               {/* ── FEEDBACK TAB ── */}
               {tab === 'feedback' && (
                 <AdminFeedbackTab />
+              )}
+              {tab === 'reports' && (
+                <AdminReportsTab />
               )}
             </>
           )}

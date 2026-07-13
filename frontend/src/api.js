@@ -123,6 +123,10 @@ export const apiClient = {
       return api.get(`/api/admin/audit${qs ? '?' + qs : ''}`, opts);
     },
     feedback(opts) { return api.get('/api/admin/feedback', opts); },
+    reports(opts) { return api.get('/api/admin/reports', opts); },
+    resolveReport(reportId, resolution) {
+      return api.put(`/api/admin/reports/${reportId}`, { resolution });
+    },
   },
 
   push: {
