@@ -9,12 +9,14 @@ import AdminClonesTab from './AdminClonesTab';
 import AdminAuditTab from './AdminAuditTab';
 import AdminFeedbackTab from './AdminFeedbackTab';
 import AdminReportsTab from './admin/AdminReportsTab';
+import { recordMetric } from '../observability';
 
 export default function AdminPanel({ onClose, socketRef }) {
   const [tab, setTab] = useState('users');
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
   // Edit state
@@ -31,6 +33,7 @@ export default function AdminPanel({ onClose, socketRef }) {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const [onlineRes, usersRes] = await Promise.all([
         apiClient.admin.online(),
@@ -38,13 +41,17 @@ export default function AdminPanel({ onClose, socketRef }) {
       ]);
       setOnlineUsers(onlineRes.data.online);
       setAllUsers(usersRes.data.users);
+      recordMetric('legacy_surface_load', { surface: 'admin', status: 'ok' });
     } catch (err) {
       console.error(err);
+      setLoadError('管理数据加载失败，请重试');
+      recordMetric('legacy_surface_load', { surface: 'admin', status: 'error', reason: err?.name || 'request' });
     }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { recordMetric('legacy_surface_open', { surface: 'admin', status: 'ok' }); }, []);
 
   const showMsg = (msg) => {
     setActionMsg(msg);
@@ -124,10 +131,15 @@ export default function AdminPanel({ onClose, socketRef }) {
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 pointer-events-none">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm pointer-events-auto bliver-legacy-surface__scrim" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative bg-black/80 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col pointer-events-auto">
+      <div
+        className="relative bg-black/80 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col pointer-events-auto bliver-legacy-surface bliver-admin-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-panel-title"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/[0.03]">
           <div className="flex items-center gap-3">
@@ -135,7 +147,7 @@ export default function AdminPanel({ onClose, socketRef }) {
               <Shield className="w-4 h-4 text-red-400" />
             </div>
             <div>
-              <h2 className="font-bold text-lg text-white tracking-tight">后台管理</h2>
+              <h2 id="admin-panel-title" className="font-bold text-lg text-white tracking-tight">后台管理</h2>
               <p className="text-[10px] text-gray-600 font-mono tracking-wider">ADMIN CONSOLE // SECURE CHANNEL</p>
             </div>
           </div>
@@ -160,11 +172,11 @@ export default function AdminPanel({ onClose, socketRef }) {
               onClick={fetchData}
               disabled={loading}
               className="p-1.5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40"
-              title="Refresh"
+              aria-label="刷新管理数据"
             >
               <RefreshCw className="w-4 h-4 text-gray-300" />
             </button>
-            <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+            <button onClick={onClose} aria-label="关闭管理面板" className="p-1.5 hover:bg-white/10 rounded-lg transition-colors bliver-icon-button">
               <X className="w-5 h-5 text-gray-300" />
             </button>
           </div>
@@ -172,29 +184,29 @@ export default function AdminPanel({ onClose, socketRef }) {
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 px-6 gap-1">
-          <button onClick={() => setTab('online')} className={tabClass('online')}>
+          <button type="button" role="tab" aria-selected={tab === 'online'} onClick={() => setTab('online')} className={tabClass('online')}>
             <Radio className="w-3.5 h-3.5 inline mr-1.5" />
             在线人员 ({onlineUsers.length})
           </button>
-          <button onClick={() => setTab('users')} className={tabClass('users')}>
+          <button type="button" role="tab" aria-selected={tab === 'users'} onClick={() => setTab('users')} className={tabClass('users')}>
             <Users className="w-3.5 h-3.5 inline mr-1.5" />
             所有用户 ({allUsers.length})
           </button>
           {cloneData && (
-            <button onClick={() => setTab('clones')} className={cloneTabClass('clones')}>
+            <button type="button" role="tab" aria-selected={tab === 'clones'} onClick={() => setTab('clones')} className={cloneTabClass('clones')}>
               <AlertTriangle className="w-3.5 h-3.5 inline mr-1.5" />
               风控报告 ({cloneData.groups.length})
             </button>
           )}
-          <button onClick={() => setTab('audit')} className={tabClass('audit')}>
+          <button type="button" role="tab" aria-selected={tab === 'audit'} onClick={() => setTab('audit')} className={tabClass('audit')}>
             <Activity className="w-3.5 h-3.5 inline mr-1.5" />
             审计日志
           </button>
-          <button onClick={() => setTab('feedback')} className={tabClass('feedback')}>
+          <button type="button" role="tab" aria-selected={tab === 'feedback'} onClick={() => setTab('feedback')} className={tabClass('feedback')}>
             <MessageSquare className="w-3.5 h-3.5 inline mr-1.5" />
             反馈
           </button>
-          <button onClick={() => setTab('reports')} className={tabClass('reports')}>
+          <button type="button" role="tab" aria-selected={tab === 'reports'} onClick={() => setTab('reports')} className={tabClass('reports')}>
             <AlertTriangle className="w-3.5 h-3.5 inline mr-1.5" />
             举报
           </button>
@@ -202,6 +214,12 @@ export default function AdminPanel({ onClose, socketRef }) {
 
         {/* Content */}
         <div className="overflow-y-auto flex-1">
+          {loadError && (
+            <div className="bliver-admin-panel__error" role="alert">
+              <span>{loadError}</span>
+              <button type="button" onClick={fetchData}>重试</button>
+            </div>
+          )}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <div className="w-8 h-8 border-4 border-red-500/30 border-t-red-500 rounded-full animate-spin" />

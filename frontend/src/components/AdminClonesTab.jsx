@@ -53,7 +53,7 @@ function CloneGroup({ group, onViewProfile }) {
                 <td className="px-5 py-2.5">
                   <div className="flex items-center gap-2.5">
                     {u.avatarUrl ? (
-                      <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover ring-1 ring-white/10" />
+                      <img src={u.avatarUrl} alt="" decoding="async" className="w-6 h-6 rounded-full object-cover ring-1 ring-white/10" />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center text-white text-[9px] font-bold">
                         {(u.name || '?')[0].toUpperCase()}

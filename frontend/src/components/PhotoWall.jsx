@@ -1,9 +1,11 @@
 // @feature 照片墙 | Photo Wall | PhotoWall
-import { useMemo, useEffect, useState } from 'react';
+import { memo, useMemo, useEffect, useState } from 'react';
 import { X, MapPin, Heart, MessageCircle, Sparkles } from 'lucide-react';
+import { recordMetric } from '../observability';
 
-function PhotoCard({ fp, index, onSelect }) {
+export const PhotoCard = memo(function PhotoCard({ fp, index, onSelect }) {
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   return (
     <div
@@ -18,19 +20,25 @@ function PhotoCard({ fp, index, onSelect }) {
       }}
       onClick={() => onSelect && onSelect(fp._id)}
     >
-      <img
-        src={fp.photoUrl}
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-        className="w-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-        alt={fp.placeName || 'Photo'}
-      />
+      {failed ? (
+        <div className="bliver-photo-wall__placeholder" role="img" aria-label="照片暂时无法加载">照片暂时无法加载</div>
+      ) : (
+        <img
+          src={fp.photoUrl}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => { setFailed(true); recordMetric('legacy_surface_error', { surface: 'photo', status: 'error', reason: 'image-load' }); }}
+          className="w-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+          alt={fp.placeName || '照片'}
+        />
+      )}
 
       {/* Always-visible info strip */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-8 pb-3 px-3">
         <div className="flex items-center gap-2 mb-1">
           {fp.userId?.avatarUrl ? (
-            <img src={fp.userId.avatarUrl} className="w-5 h-5 rounded-full object-cover ring-1 ring-white/30" />
+            <img src={fp.userId.avatarUrl} alt="" decoding="async" className="w-5 h-5 rounded-full object-cover ring-1 ring-white/30" />
           ) : (
             <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-[9px] font-bold ring-1 ring-white/30">
               {(fp.userId?.name || '?')[0]}
@@ -61,10 +69,11 @@ function PhotoCard({ fp, index, onSelect }) {
       </div>
     </div>
   );
-}
+});
 
 export default function PhotoWall({ footprints, onClose, onSelect }) {
   const [visible, setVisible] = useState(false);
+  const [heroFailed, setHeroFailed] = useState(false);
 
   const photos = useMemo(() => {
     return footprints
@@ -76,27 +85,32 @@ export default function PhotoWall({ footprints, onClose, onSelect }) {
   const gridPhotos = photos.slice(1);
 
   useEffect(() => {
+    recordMetric('legacy_surface_open', { surface: 'photo', status: 'ok' });
     requestAnimationFrame(() => setVisible(true));
     return () => setVisible(false);
   }, []);
 
   return (
     <div
-      className={`fixed inset-0 z-[2000] flex flex-col transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
-      style={{ background: 'var(--aurora-deep)' }}>
+      className={`fixed inset-0 z-[2000] flex flex-col transition-opacity duration-300 bliver-legacy-surface bliver-photo-wall ${visible ? 'opacity-100' : 'opacity-0'}`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="photo-wall-title"
+      style={{ background: 'var(--bliver-paper)' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 flex-shrink-0
         bg-gradient-to-b from-black/60 to-transparent absolute top-0 left-0 right-0 z-10">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-amber-400" />
-          <h2 className="font-bold text-lg text-white tracking-tight">照片墙</h2>
+          <h2 id="photo-wall-title" className="font-bold text-lg text-white tracking-tight">照片墙</h2>
           <span className="text-xs text-white/40 bg-white/10 rounded-full px-2 py-0.5 ml-1">
             {photos.length}
           </span>
         </div>
         <button
           onClick={onClose}
-          className="p-2 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all"
+          className="p-2 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all bliver-icon-button"
+          aria-label="关闭照片墙"
         >
           <X className="w-5 h-5" />
         </button>
@@ -122,18 +136,25 @@ export default function PhotoWall({ footprints, onClose, onSelect }) {
               className="relative w-full h-[50vh] md:h-[60vh] cursor-pointer group overflow-hidden"
               onClick={() => onSelect && onSelect(heroPhoto._id)}
             >
-              <img
-                src={heroPhoto.photoUrl}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
-                alt="Featured"
-              />
+              {heroFailed ? (
+                <div className="bliver-photo-wall__placeholder bliver-photo-wall__placeholder--hero" role="img" aria-label="照片暂时无法加载">照片暂时无法加载</div>
+              ) : (
+                <img
+                  src={heroPhoto.photoUrl}
+                  loading="eager"
+                  decoding="async"
+                  onError={() => { setHeroFailed(true); recordMetric('legacy_surface_error', { surface: 'photo', status: 'error', reason: 'image-load' }); }}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
+                  alt={`${heroPhoto.placeName || '地点'}照片`}
+                />
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-black/20 to-transparent" />
 
               {/* Hero info */}
               <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
                 <div className="flex items-center gap-3 mb-3">
                   {heroPhoto.userId?.avatarUrl ? (
-                    <img src={heroPhoto.userId.avatarUrl} className="w-10 h-10 rounded-full object-cover ring-2 ring-white/30" />
+                    <img src={heroPhoto.userId.avatarUrl} alt="" decoding="async" className="w-10 h-10 rounded-full object-cover ring-2 ring-white/30" />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white/30">
                       {(heroPhoto.userId?.name || '?')[0]}

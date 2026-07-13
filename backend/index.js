@@ -27,6 +27,7 @@ const conversationRoutes = require('./routes/conversations');
 const profileRoutes = require('./routes/profile');
 const activityRoutes = require('./routes/activity');
 const errorHandler = require('./middleware/errorHandler');
+const { requestContext, getRequestMetrics, getUptimeSeconds } = require('./middleware/requestContext');
 const { setupSocket } = require('./socket');
 const notification = require('./services/notification');
 
@@ -54,6 +55,7 @@ app.use(helmet({
   },
 }));
 app.use(express.json({ limit: '1mb' }));
+app.use(requestContext);
 
 // ── Global rate limit: 200 req/min per IP ──
 app.use(rateLimit({
@@ -67,6 +69,10 @@ app.use(rateLimit({
 app.use((req, res, next) => {
   res.charset = 'utf-8';
   next();
+});
+
+app.get('/healthz', (_req, res) => {
+  res.json({ status: 'ok', uptime: getUptimeSeconds(), requests: getRequestMetrics() });
 });
 
 app.use('/api', apiRoutes);

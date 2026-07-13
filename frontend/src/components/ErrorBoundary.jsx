@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { recordMetric } from '../observability';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -8,6 +9,10 @@ export default class ErrorBoundary extends Component {
 
   static getDerivedStateFromError(error) {
     return { error };
+  }
+
+  componentDidCatch(error) {
+    recordMetric('legacy_surface_load_error', { surface: this.props.surface || 'legacy', status: 'error', reason: error?.name || 'render' });
   }
 
   render() {

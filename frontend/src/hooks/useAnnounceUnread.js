@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '../api';
-import { hasUnreadAnnouncements } from '../components/AnnouncementPanel';
+import { hasUnreadAnnouncements } from '../domain/announcementRead';
 
 export default function useAnnounceUnread(user) {
   const [hasUnread, setHasUnread] = useState(false);

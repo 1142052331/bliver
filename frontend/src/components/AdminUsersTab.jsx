@@ -2,7 +2,7 @@ import { PencilLine, Zap, Trash2, Check, X } from 'lucide-react';
 
 function UserAvatar({ user }) {
   if (user.avatarUrl) {
-    return <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10" />;
+    return <img src={user.avatarUrl} alt="" decoding="async" className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10" />;
   }
   return (
     <div className="w-7 h-7 rounded-full bg-blue-500/60 flex items-center justify-center text-white text-[10px] font-bold ring-1 ring-blue-500/30">

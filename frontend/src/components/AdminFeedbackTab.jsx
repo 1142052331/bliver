@@ -33,7 +33,7 @@ export default function AdminFeedbackTab() {
         <div key={fb._id} className="px-6 py-4">
           <div className="flex items-center gap-3 mb-2">
             {fb.userId?.avatarUrl ? (
-              <img src={fb.userId.avatarUrl} className="w-7 h-7 rounded-full object-cover" alt="" />
+              <img src={fb.userId.avatarUrl} className="w-7 h-7 rounded-full object-cover" alt="" decoding="async" />
             ) : (
               <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white text-[10px] font-bold">
                 {(fb.userId?.name || '?')[0]}

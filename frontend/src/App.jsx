@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react';
@@ -11,6 +11,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     environment: import.meta.env.MODE,
   });
 }
+if (typeof window !== 'undefined') window.__bliverSentry = Sentry;
 import { broadcastLogin } from './authSync';
 import { getPeriod, setPeriod } from './auth';
 import useAuth from './hooks/useAuth';
@@ -26,7 +27,7 @@ import CheckInModal from './components/CheckInModal';
 import TimelineDrawer from './components/TimelineDrawer';
 import MapView from './components/MapView';
 import NotificationPanel from './components/NotificationPanel';
-import AdminPanel from './components/AdminPanel';
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
 import GlobalToaster from './components/GlobalToaster';
 import AboutModal from './components/AboutModal';
 import FeedbackModal from './components/FeedbackModal';
@@ -34,8 +35,8 @@ import ProfileDrawer from './components/ProfileDrawer';
 import MeExperience from './components/MeExperience';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
-import PhotoWall from './components/PhotoWall';
-import AnnouncementPanel from './components/AnnouncementPanel';
+const PhotoWall = lazy(() => import('./components/PhotoWall'));
+const AnnouncementPanel = lazy(() => import('./components/AnnouncementPanel'));
 import FriendsPanel from './components/FriendsPanel';
 import ChatWindow from './components/ChatWindow';
 import MessageIsland from './components/MessageIsland';
@@ -44,6 +45,7 @@ import MobileTopBar from './components/shell/MobileTopBar';
 import BottomNavigation from './components/shell/BottomNavigation';
 import CheckInAction from './components/shell/CheckInAction';
 import LegacyDestinationBridge from './components/shell/LegacyDestinationBridge';
+import LegacySurfaceFallback from './components/shell/LegacySurfaceFallback';
 import MapPreviewCard from './components/MapPreviewCard';
 import SamePlaceSheet from './components/map/SamePlaceSheet';
 import ActivityPage from './components/activity/ActivityPage';
@@ -410,13 +412,15 @@ export default function App() {
 
         <AnimatePresence>
           {showAnnouncements && (
-            <AnnouncementPanel
-              key="announcements"
-              isOpen={showAnnouncements}
-              onClose={() => { closeAnnouncements(); clearAnnounceUnread(); }}
-              isAsen={isAsen}
-              onToast={(msg) => useUIStore.getState().addToast({ type: 'announcement', content: msg })}
-            />
+            <Suspense fallback={<LegacySurfaceFallback surface="announcement" />}>
+              <AnnouncementPanel
+                key="announcements"
+                isOpen={showAnnouncements}
+                onClose={() => { closeAnnouncements(); clearAnnounceUnread(); }}
+                isAsen={isAsen}
+                onToast={(msg) => useUIStore.getState().addToast({ type: 'announcement', content: msg })}
+              />
+            </Suspense>
           )}
         </AnimatePresence>
 
@@ -612,14 +616,22 @@ export default function App() {
           </div>
         )}
 
-        {showAdmin && <ErrorBoundary><AdminPanel onClose={() => closeAdmin()} socketRef={socketRef} /></ErrorBoundary>}
+        {showAdmin && (
+          <ErrorBoundary surface="admin">
+            <Suspense fallback={<LegacySurfaceFallback surface="admin" />}>
+              <AdminPanel onClose={() => closeAdmin()} socketRef={socketRef} />
+            </Suspense>
+          </ErrorBoundary>
+        )}
 
         {showPhotoWall && (
-          <PhotoWall
-            footprints={footprints}
-            onClose={() => closePhotoWall()}
-            onSelect={(fpId) => { closePhotoWall(); setTimelineTargetFpId(fpId); }}
-          />
+          <Suspense fallback={<LegacySurfaceFallback surface="photo" />}>
+            <PhotoWall
+              footprints={footprints}
+              onClose={() => closePhotoWall()}
+              onSelect={(fpId) => { closePhotoWall(); setTimelineTargetFpId(fpId); }}
+            />
+          </Suspense>
         )}
 
         <AboutModal isOpen={showAbout} onClose={() => closeAbout()} user={user} />

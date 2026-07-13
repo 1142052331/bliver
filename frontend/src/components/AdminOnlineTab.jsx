@@ -31,6 +31,8 @@ export default function AdminOnlineTab({ onlineUsers, onViewProfile }) {
                 {u.avatarUrl ? (
                   <img
                     src={u.avatarUrl}
+                    alt=""
+                    decoding="async"
                     className="w-9 h-9 rounded-full object-cover ring-2 ring-emerald-500/30"
                     onError={(e) => { e.target.style.display = 'none'; }}
                     loading="lazy"

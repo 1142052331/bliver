@@ -56,6 +56,17 @@ describe('AdminPanel', () => {
     });
   });
 
+  test('exposes an accessible Natural City dialog shell', async () => {
+    render(<AdminPanel onClose={mockOnClose} socketRef={mockSocketRef} />);
+
+    const dialog = await screen.findByRole('dialog', { name: '后台管理' });
+    expect(dialog).toHaveClass('bliver-legacy-surface');
+    const close = screen.getByRole('button', { name: '关闭管理面板' });
+    expect(close).toHaveClass('bliver-icon-button');
+    expect(screen.getByRole('tab', { name: /在线人员/ })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('tab', { name: /所有用户/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
   test('shows loading state initially', () => {
     render(<AdminPanel onClose={mockOnClose} socketRef={mockSocketRef} />);
     expect(screen.getByText('LOADING...')).toBeInTheDocument();

@@ -1817,6 +1817,58 @@
 .bliver-admin-report-dialog button { min-height: 44px; padding: 8px 13px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); color: var(--bliver-forest); font: inherit; font-weight: 700; cursor: pointer; }
 .bliver-admin-report-dialog button:last-child { border-color: var(--bliver-danger); background: var(--bliver-danger); color: var(--bliver-surface); }
 
+.bliver-legacy-surface-fallback {
+  position: fixed;
+  z-index: 2000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  align-content: center;
+  padding: calc(24px + var(--bliver-safe-top)) calc(24px + var(--bliver-safe-right)) calc(24px + var(--bliver-safe-bottom)) calc(24px + var(--bliver-safe-left));
+  background: var(--bliver-paper);
+  color: var(--bliver-forest);
+  font-size: 14px;
+  font-weight: 700;
+}
+.bliver-legacy-surface-fallback__spinner { width: 24px; height: 24px; border: 3px solid var(--bliver-sage-soft); border-top-color: var(--bliver-coral); border-radius: 50%; animation: tourner 800ms linear infinite; }
+@media (prefers-reduced-motion: reduce) { .bliver-legacy-surface-fallback__spinner { animation: none; } }
+
+.bliver-legacy-surface { color: var(--bliver-ink); font-family: inherit; }
+.bliver-legacy-surface__scrim { background: rgb(23 59 49 / 28%) !important; backdrop-filter: none !important; }
+.bliver-admin-panel { width: min(1120px, 100%); background: var(--bliver-surface) !important; border: 1px solid var(--bliver-border) !important; border-radius: var(--bliver-radius-lg) !important; box-shadow: var(--bliver-shadow-float) !important; }
+.bliver-admin-panel .text-white, .bliver-admin-panel .text-gray-200, .bliver-admin-panel .text-gray-300, .bliver-admin-panel .text-gray-400 { color: var(--bliver-ink) !important; }
+.bliver-admin-panel .text-gray-500, .bliver-admin-panel .text-gray-600, .bliver-admin-panel .text-gray-700 { color: var(--bliver-muted) !important; }
+.bliver-admin-panel [class*="bg-black"], .bliver-admin-panel [class*="bg-white/"] { background: var(--bliver-paper) !important; }
+.bliver-admin-panel [class*="border-white"] { border-color: var(--bliver-border) !important; }
+.bliver-admin-panel .border-b { border-bottom-color: var(--bliver-border) !important; }
+.bliver-admin-panel [class*="hover:bg-white"]:hover { background: var(--bliver-sage-soft) !important; }
+.bliver-admin-panel [class*="text-red"], .bliver-admin-panel [class*="text-orange"] { color: var(--bliver-coral) !important; }
+.bliver-admin-panel [class*="bg-red"], .bliver-admin-panel [class*="bg-orange"] { background: color-mix(in srgb, var(--bliver-coral) 10%, var(--bliver-surface)) !important; }
+.bliver-admin-panel [role="tab"] { min-height: 44px; color: var(--bliver-muted); }
+.bliver-admin-panel [role="tab"][aria-selected="true"] { border-color: var(--bliver-forest) !important; color: var(--bliver-forest) !important; }
+.bliver-admin-panel .bliver-icon-button { width: 44px; height: 44px; color: var(--bliver-forest); }
+.bliver-admin-panel .bliver-icon-button:hover, .bliver-admin-panel .bliver-icon-button:focus-visible { background: var(--bliver-sage-soft) !important; }
+.bliver-admin-panel :focus-visible { outline: 3px solid var(--bliver-forest); outline-offset: 2px; }
+.bliver-admin-panel__error { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 20px 0; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--bliver-danger) 35%, var(--bliver-border)); border-radius: var(--bliver-radius-sm); color: var(--bliver-danger); font-size: 13px; }
+.bliver-admin-panel__error button { min-height: 40px; padding: 6px 12px; border: 1px solid var(--bliver-danger); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); color: var(--bliver-danger); font: inherit; font-weight: 700; cursor: pointer; }
+.bliver-photo-wall { color: var(--bliver-ink); overflow: hidden; }
+.bliver-photo-wall .bliver-icon-button { width: 44px; height: 44px; color: var(--bliver-forest); }
+.bliver-photo-wall__placeholder { display: grid; min-height: 140px; place-items: center; padding: 16px; background: var(--bliver-sage-soft); color: var(--bliver-muted); font-size: 13px; font-weight: 700; text-align: center; }
+.bliver-photo-wall__placeholder--hero { width: 100%; height: 100%; }
+.bliver-photo-wall .break-inside-avoid { content-visibility: auto; contain-intrinsic-size: 180px; }
+.bliver-announcement { color: var(--bliver-ink); }
+.bliver-announcement::before { content: ''; position: absolute; inset: 0; background: rgb(23 59 49 / 28%); pointer-events: none; }
+.bliver-announcement > .bliver-announcement-panel { position: relative; z-index: 1; background: var(--bliver-surface) !important; border-color: var(--bliver-border) !important; border-radius: var(--bliver-radius-lg) var(--bliver-radius-lg) 0 0; box-shadow: var(--bliver-shadow-float) !important; }
+.bliver-announcement-panel { color: var(--bliver-ink); }
+.bliver-announcement-panel .text-white, .bliver-announcement-panel .text-white\/80, .bliver-announcement-panel .text-white\/60 { color: var(--bliver-ink) !important; }
+.bliver-announcement-panel .text-white\/40, .bliver-announcement-panel .text-white\/30, .bliver-announcement-panel .text-white\/20, .bliver-announcement-panel .text-white\/15 { color: var(--bliver-muted) !important; }
+.bliver-announcement-panel [class*="bg-black"], .bliver-announcement-panel [class*="bg-white/"] { background: var(--bliver-paper) !important; }
+.bliver-announcement-panel [class*="border-white"] { border-color: var(--bliver-border) !important; }
+.bliver-announcement-panel .bliver-icon-button { width: 44px; height: 44px; color: var(--bliver-forest); }
+.bliver-announcement__error { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--bliver-danger) 35%, var(--bliver-border)); border-radius: var(--bliver-radius-sm); color: var(--bliver-danger); font-size: 13px; }
+.bliver-announcement__error button { min-height: 40px; padding: 6px 12px; border: 1px solid var(--bliver-danger); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); color: var(--bliver-danger); font: inherit; font-weight: 700; cursor: pointer; }
+
 @media (min-width: 768px) {
   .bliver-detail-sheet { right: 24px; bottom: 24px; left: auto; width: min(520px, calc(100vw - 48px)); height: min(82dvh, 760px); max-height: min(82dvh, 760px); border-bottom: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-lg); }
   .bliver-detail-sheet[data-snap="expanded"] { height: min(92dvh, 860px); max-height: min(92dvh, 860px); }
