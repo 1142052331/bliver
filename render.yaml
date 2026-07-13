@@ -2,6 +2,7 @@ services:
   - type: web
     name: bliver-candidate
     runtime: node
+    plan: free
     autoDeploy: false
     buildCommand: VITE_RELEASE_SHA=$RENDER_GIT_COMMIT npm run render-build
     startCommand: npm start
