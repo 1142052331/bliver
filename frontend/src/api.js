@@ -33,7 +33,10 @@ export const apiClient = {
     get(id, opts) { return api.get(`/api/footprints/${id}`, opts); },
     checkin(data) { return api.post('/api/checkin', data); },
     react(id, emoji) { return api.post(`/api/footprints/${id}/react`, { emoji }); },
-    comment(id, content) { return api.post(`/api/footprints/${id}/comment`, { content }); },
+    comment(id, input) {
+      const body = typeof input === 'string' ? { content: input } : input;
+      return api.post(`/api/footprints/${id}/comment`, body);
+    },
     delete(id) { return api.delete(`/api/footprints/${id}`); },
     deleteComment(footprintId, commentId) {
       return api.delete(`/api/footprints/${footprintId}/comments/${commentId}`);
@@ -54,6 +57,10 @@ export const apiClient = {
     list(query = {}, cursor, opts) {
       return api.get(qs('/api/activity', activityRequestParams(query, cursor)), opts);
     },
+  },
+
+  reports: {
+    create(data) { return api.post('/api/reports', data); },
   },
 
   auth: {

@@ -9,6 +9,7 @@ import {
   forceLogout,
   newNotification,
   resetFootprintEventLedger,
+  replaceFootprintInCaches,
 } from '../socketHandlers';
 
 const setMessageIsland = vi.fn();
@@ -55,6 +56,23 @@ describe('footprint socket cache invalidation', () => {
       [{ queryKey: ['footprints', 'map'] }],
       [{ queryKey: ['footprints', 'activity'] }],
     ]);
+  });
+
+  it('replaces a footprint across map, activity, and detail caches', () => {
+    const queryClient = new QueryClient();
+    const mapKey = ['footprints', 'map', { scope: 'global' }, 'viewer-1'];
+    const activityKey = ['footprints', 'activity', 'user:viewer-1', { scope: 'smart' }];
+    const detailKey = ['footprints', 'detail', 'fp-1', 'user:viewer-1'];
+    queryClient.setQueryData(mapKey, { footprints: [{ _id: 'fp-1', comments: [] }] });
+    queryClient.setQueryData(activityKey, { pages: [{ items: [{ _id: 'fp-1', comments: [] }] }] });
+    queryClient.setQueryData(detailKey, { _id: 'fp-1', comments: [] });
+
+    const updated = { _id: 'fp-1', comments: [{ _id: 'c-1' }] };
+    replaceFootprintInCaches(queryClient, updated, 'user:viewer-1');
+
+    expect(queryClient.getQueryData(mapKey).footprints[0]).toEqual(updated);
+    expect(queryClient.getQueryData(activityKey).pages[0].items[0]).toEqual(updated);
+    expect(queryClient.getQueryData(detailKey)).toEqual(updated);
   });
 
   it.each([

@@ -160,6 +160,33 @@ export function setFootprintUnreadState(queryClient, footprintId, isUnread, view
   updateCachedFootprints(queryClient, ['footprints', 'activity'], footprintId, updateItem, viewer);
 }
 
+export function replaceFootprintInCaches(queryClient, footprint, viewer = 'guest') {
+  if (!footprint?._id) return;
+  const replaceItem = () => footprint;
+  updateCachedFootprints(
+    queryClient,
+    ['footprints', 'map'],
+    footprint._id,
+    replaceItem,
+    viewer,
+  );
+  updateCachedFootprints(
+    queryClient,
+    ['footprints', 'activity'],
+    footprint._id,
+    replaceItem,
+    viewer,
+  );
+  const identity = normalizeViewer(viewer);
+  queryClient.setQueriesData?.(
+    {
+      queryKey: ['footprints', 'detail', footprint._id],
+      predicate: (query) => !query.queryKey[3] || normalizeViewer(query.queryKey[3]) === identity,
+    },
+    () => footprint,
+  );
+}
+
 function reconcileFootprintEvent(queryClient, event, viewer = 'guest') {
   if (!acceptFootprintEvent(queryClient, event, viewer)) return false;
   const footprintId = event.footprintId || event.footprint._id;
