@@ -8,6 +8,8 @@ const userSchema = new mongoose.Schema({
   isOnline: { type: Boolean, default: false },
   allowStrangerMessages: { type: Boolean, default: true },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
+  systemIdentity: { type: String, enum: ['asen'], unique: true, sparse: true },
+  sessionVersion: { type: Number, default: 0, min: 0 },
   profileComments: [{
     senderName: { type: String, required: true },
     content:    { type: String, required: true },

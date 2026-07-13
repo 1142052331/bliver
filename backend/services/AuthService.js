@@ -1,10 +1,7 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { JWT_SECRET } = require('../middleware/auth');
-const { isSuperuserName } = require('./authorization');
-const bus = require('../events/bus');
 const AppError = require('../middleware/AppError');
+const sessionService = require('./SessionService');
 
 const CURRENT_USER_FIELDS = 'name avatarUrl profileBannerUrl role lastFootprintVisibility';
 
@@ -42,7 +39,7 @@ async function register({ name, password, avatarUrl, ip }) {
     lastLoginAt: now,
   });
 
-  const token = jwt.sign({ id: user._id, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+  const token = sessionService.issueToken(user);
   return { user: toCurrentUserDto(user), token };
 }
 
@@ -55,30 +52,17 @@ async function login(name, password, ip) {
   if (!user || !match) throw new AppError(400, 'Invalid credentials');
 
   const now = new Date();
-  if (isSuperuserName(user.name) && user.role !== 'admin') {
-    user.role = 'admin';
-  }
-
   user.lastLoginIp = ip;
   user.lastLoginAt = now;
-  if (user.role === 'admin' && isSuperuserName(user.name)) {
-    await user.save();
-  } else {
-    await User.findByIdAndUpdate(user._id, { lastLoginIp: ip, lastLoginAt: now });
-  }
+  await User.findByIdAndUpdate(user._id, { lastLoginIp: ip, lastLoginAt: now });
 
-  const token = jwt.sign({ id: user._id, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+  const token = sessionService.issueToken(user);
   return { user: toCurrentUserDto(user), token };
 }
 
 async function getMe(userId) {
   const user = await User.findById(userId).select(CURRENT_USER_FIELDS);
   if (!user) return null;
-
-  if (isSuperuserName(user.name) && user.role !== 'admin') {
-    user.role = 'admin';
-    await user.save();
-  }
 
   return toCurrentUserDto(user);
 }

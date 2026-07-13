@@ -3,6 +3,7 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key-for-jest';
 process.env.PORT = '0';
 
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { connectDB, disconnectDB, clearDB } = require('./setup');
 
@@ -103,6 +104,11 @@ describe('POST /api/auth/login', () => {
     expect(res.body.user.name).toBe('loginuser');
     expect(res.body.user.lastFootprintVisibility).toBe('public');
     expectCurrentUserDto(res.body.user);
+
+    const payload = jwt.verify(res.body.token, process.env.JWT_SECRET);
+    expect(payload).toMatchObject({ id: expect.any(String), sessionVersion: 0 });
+    expect(payload).not.toHaveProperty('name');
+    expect(payload).not.toHaveProperty('role');
   });
 
   test('login preserves an existing lastFootprintVisibility preference', async () => {
@@ -146,7 +152,7 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(400);
   });
 
-  test('阿森 is auto-promoted to admin on login', async () => {
+  test('login and current-user lookup do not infer admin role from the name 阿森', async () => {
     const bcrypt = require('bcryptjs');
     const hash = await bcrypt.hash('asenpass', 10);
     await User.create({
@@ -160,10 +166,17 @@ describe('POST /api/auth/login', () => {
       .send({ name: '阿森', password: 'asenpass' });
 
     expect(res.status).toBe(200);
-    expect(res.body.user.role).toBe('admin');
+    expect(res.body.user.role).toBe('user');
+
+    const me = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${res.body.token}`);
+
+    expect(me.status).toBe(200);
+    expect(me.body.user.role).toBe('user');
 
     const user = await User.findOne({ name: '阿森' });
-    expect(user.role).toBe('admin');
+    expect(user.role).toBe('user');
   });
 });
 

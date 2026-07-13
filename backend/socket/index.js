@@ -1,9 +1,8 @@
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { JWT_SECRET } = require('../middleware/auth');
 const { areFriends } = require('../services/FriendsService');
 const messageService = require('../services/MessageService');
 const interactionPolicy = require('../services/InteractionPolicy');
+const sessionService = require('../services/SessionService');
 const { getBroadcastTargets } = require('../services/SuperuserPolicy');
 const bus = require('../events/bus');
 const { registerFootprintPublisher } = require('./footprintPublisher');
@@ -22,19 +21,20 @@ function _setupSocket(io) {
 
   const pendingOffline = new Map();
 
-  // ── JWT authentication middleware — runs before every connection ──
-  io.use((socket, next) => {
+  // ── Versioned session authentication — runs before every connection ──
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) {
       return next(new Error('Authentication required'));
     }
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      socket.userId = decoded.id;
-      socket.join(decoded.id); // ← room binding: socket.join(userId)
+      const user = await sessionService.hydrateToken(token);
+      socket.user = user;
+      socket.userId = user.id;
+      await socket.join(user.id); // ← room binding: socket.join(userId)
       next();
-    } catch {
-      next(new Error('Invalid token'));
+    } catch (error) {
+      next(new Error(error.statusCode === 401 ? 'Invalid session' : 'Authentication failed'));
     }
   });
 

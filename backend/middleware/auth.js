@@ -1,54 +1,61 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { JWT_SECRET } = require('../config/auth');
+const sessionService = require('../services/SessionService');
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) throw new Error('FATAL: JWT_SECRET environment variable is required');
-
-// ── Mechanism: pure JWT verification ──
-
-function _verifyToken(header) {
-  if (!header || !header.startsWith('Bearer ')) return null;
-  try {
-    return jwt.verify(header.split(' ')[1], JWT_SECRET);
-  } catch {
-    return null;
-  }
+function bearerToken(header) {
+  if (typeof header !== 'string') return null;
+  const match = header.match(/^Bearer\s+(\S+)$/);
+  return match?.[1] || null;
 }
 
 // ── Policy: require valid token ──
 
-const auth = (req, res, next) => {
-  const user = _verifyToken(req.headers.authorization);
-  if (!user) return res.status(401).json({ error: 'No token' });
-  req.user = user;
-  next();
-};
+const auth = async (req, res, next) => {
+  const header = req.headers.authorization;
+  if (!header) return res.status(401).json({ error: 'No token' });
 
-// ── Policy: soft auth — sets req.user + req.isAdmin if token valid, always passes ──
+  const token = bearerToken(header);
+  if (!token) return res.status(401).json({ error: 'Invalid session' });
 
-const optionalAuth = (req, res, next) => {
-  const user = _verifyToken(req.headers.authorization);
-  if (user) {
-    req.user = user;
-    req.isAdmin = user.role === 'admin';
-  }
-  next();
-};
-
-// ── Policy: admin guard — trusts JWT role first, falls back to DB for stale tokens ──
-
-const admin = async (req, res, next) => {
   try {
-    if (req.user.role === 'admin') return next();
-    // Stale JWT: user was promoted but token still has old role
-    const user = await User.findById(req.user.id);
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin only' });
-    }
+    req.user = await sessionService.hydrateToken(token);
+    req.isAdmin = req.user.role === 'admin';
     next();
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    if (error.statusCode === 401) {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+    next(error);
   }
+};
+
+// ── Policy: optional auth — only requests without a header remain guests ──
+
+const optionalAuth = async (req, res, next) => {
+  const header = req.headers.authorization;
+  if (!header) return next();
+
+  const token = bearerToken(header);
+  if (!token) return res.status(401).json({ error: 'Invalid session' });
+
+  try {
+    req.user = await sessionService.hydrateToken(token);
+    req.isAdmin = req.user.role === 'admin';
+    next();
+  } catch (error) {
+    if (error.statusCode === 401) {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+    next(error);
+  }
+};
+
+// ── Policy: admin guard — req.user was already hydrated from the database ──
+
+const admin = (req, res, next) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin only' });
+  }
+  next();
 };
 
 module.exports = { auth, admin, optionalAuth, JWT_SECRET };
