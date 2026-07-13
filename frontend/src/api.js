@@ -94,6 +94,23 @@ export const apiClient = {
     send(friendId, content) { return api.post(`/api/messages/${friendId}`, { content }); },
   },
 
+  conversations: {
+    list(opts) { return api.get('/api/conversations', opts); },
+    history(id, before, opts) {
+      const q = before ? `?before=${before}` : '';
+      return api.get(`/api/conversations/${id}/messages${q}`, opts);
+    },
+    greeting(userId, content) { return api.post(`/api/users/${userId}/greetings`, { content }); },
+    reply(id, content) { return api.post(`/api/conversations/${id}/reply`, { content }); },
+    send(id, content) { return api.post(`/api/conversations/${id}/messages`, { content }); },
+    ignore(id) { return api.post(`/api/conversations/${id}/ignore`); },
+    remove(id) { return api.delete(`/api/conversations/${id}`); },
+    block(userId) { return api.post(`/api/users/${userId}/block`); },
+    unblock(userId) { return api.delete(`/api/users/${userId}/block`); },
+    settings() { return api.get('/api/me/message-settings'); },
+    updateSettings(allowStrangerMessages) { return api.patch('/api/me/message-settings', { allowStrangerMessages }); },
+  },
+
   notifications: {
     list(opts) { return api.get('/api/notifications', opts); },
     markRead(id) { return api.put(`/api/notifications/${id}/read`); },

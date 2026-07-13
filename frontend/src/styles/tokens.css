@@ -1747,6 +1747,23 @@
 .bliver-conversation-composer > button { display: inline-flex; min-width: 88px; min-height: 44px; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: var(--bliver-radius-sm); background: var(--bliver-forest); color: var(--bliver-surface); font: inherit; font-weight: 700; cursor: pointer; }
 .bliver-conversation-composer > button:disabled { cursor: not-allowed; opacity: .45; }
 .bliver-conversation-composer > button svg { width: 16px; height: 16px; }
+.bliver-greeting-card { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-paper); }
+.bliver-greeting-card__copy strong { color: var(--bliver-forest); font-size: 14px; }
+.bliver-greeting-card__copy p { margin: 5px 0 0; color: var(--bliver-ink); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.bliver-greeting-card__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.bliver-greeting-card__actions button { display: inline-flex; min-height: 44px; align-items: center; gap: 5px; padding: 0 10px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); color: var(--bliver-forest); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.bliver-greeting-card__actions button:disabled { opacity: .5; cursor: wait; }
+.bliver-greeting-card__actions svg { width: 15px; height: 15px; }
+.bliver-message-settings { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 56px; color: var(--bliver-ink); }
+.bliver-message-settings > span { display: flex; align-items: center; gap: 10px; }
+.bliver-message-settings > span > svg { width: 20px; height: 20px; color: var(--bliver-forest); }
+.bliver-message-settings strong, .bliver-message-settings small { display: block; }
+.bliver-message-settings small { margin-top: 3px; color: var(--bliver-muted); font-size: 12px; }
+.bliver-message-settings button { position: relative; width: 48px; height: 28px; padding: 0; border: 0; border-radius: 999px; background: var(--bliver-border); cursor: pointer; }
+.bliver-message-settings button[aria-checked="true"] { background: var(--bliver-forest); }
+.bliver-message-settings button > span { position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--bliver-paper); transition: transform 150ms ease; }
+.bliver-message-settings button[aria-checked="true"] > span { transform: translateX(20px); }
+.bliver-message-settings button .is-loading { width: 16px; height: 16px; margin: 6px 16px; color: var(--bliver-paper); animation: tourner 900ms linear infinite; }
 .bliver-moderation-menu { position: relative; flex: 0 0 auto; }
 .bliver-moderation-popover { position: absolute; z-index: 5; top: calc(100% + 4px); right: 0; min-width: 150px; padding: 5px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); box-shadow: var(--bliver-shadow-card); }
 .bliver-moderation-popover > button { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--bliver-ink); font: inherit; text-align: left; cursor: pointer; }
