@@ -10,6 +10,7 @@ const { checkin: checkinSchema, comment: commentSchema, reaction: reactionSchema
 const authRoutes = require('./auth');
 const notificationRoutes = require('./notifications');
 const mapRoutes = require('./map');
+const reportRoutes = require('./reports');
 
 const router = express.Router();
 
@@ -17,6 +18,7 @@ const router = express.Router();
   router.use(authRoutes);
   router.use(notificationRoutes);
   router.use(mapRoutes);
+  router.use(reportRoutes);
 
   // ── Footprints ────────────────────────────────────────
 

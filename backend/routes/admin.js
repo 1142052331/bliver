@@ -2,6 +2,9 @@ const express = require('express');
 const { auth, admin } = require('../middleware/auth');
 const adminService = require('../services/AdminService');
 const auditService = require('../services/AuditService');
+const reportService = require('../services/ReportService');
+const validate = require('../middleware/validate');
+const { reportResolution } = require('../validators/schemas');
 
 const router = express.Router();
 
@@ -44,6 +47,20 @@ router.get('/admin/audit', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const docs = await auditService.query({ limit, before: req.query.before || null });
   res.json({ logs: docs });
+});
+
+router.get('/admin/reports', async (req, res) => {
+  const reports = await reportService.listPending({ limit: req.query.limit });
+  res.json({ reports });
+});
+
+router.put('/admin/reports/:id', validate(reportResolution), async (req, res) => {
+  const result = await reportService.resolve({
+    reportId: req.params.id,
+    reviewer: req.user,
+    resolution: req.body.resolution,
+  });
+  res.json({ report: result.report });
 });
 
 // POST /api/admin/kick/:userId

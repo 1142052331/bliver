@@ -52,6 +52,18 @@ const reaction = z.object({
   emoji: z.string().min(1, '请选择表情').max(10, '表情过长'),
 });
 
+const report = z.object({
+  targetType: z.enum(['footprint', 'comment']),
+  targetId: objectId,
+  footprintId: objectId.optional(),
+  reason: z.enum(['spam', 'harassment', 'privacy', 'illegal', 'other']),
+  details: z.string().trim().max(500).optional(),
+}).strict();
+
+const reportResolution = z.object({
+  resolution: z.enum(['dismiss', 'delete']),
+}).strict();
+
 const register = z.object({
   name: z.string().trim().min(1, '请提供用户名').max(30, '用户名过长'),
   password: z.string().min(1, '请提供密码').max(128, '密码过长'),
@@ -76,6 +88,8 @@ module.exports = {
   comment,
   message,
   reaction,
+  report,
+  reportResolution,
   register,
   login,
   profileUpdate,
