@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { expect, it, vi } from 'vitest';
 import FriendsPanel from '../FriendsPanel';
 import ProfileDrawer from '../ProfileDrawer';
@@ -43,9 +44,13 @@ it.each([
   ['FriendsPanel', FriendsPanel, friendsProps],
   ['ProfileDrawer', ProfileDrawer, profileProps],
 ])('%s applies the reservation class only when requested', (_name, Component, props) => {
-  const { container, rerender } = render(<Component {...props} />);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const renderComponent = (extra = {}) => (
+    <QueryClientProvider client={queryClient}><Component {...props} {...extra} /></QueryClientProvider>
+  );
+  const { container, rerender } = render(renderComponent());
   expect(container.querySelector('.ios-panel')).not.toHaveClass('bliver-destination-surface');
 
-  rerender(<Component {...props} reserveMobileNavigation />);
+  rerender(renderComponent({ reserveMobileNavigation: true }));
   expect(container.querySelector('.ios-panel')).toHaveClass('bliver-destination-surface');
 });
