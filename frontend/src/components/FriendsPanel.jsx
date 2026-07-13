@@ -2,6 +2,8 @@
 import { motion } from 'framer-motion';
 import { X, Users, MessageCircle } from 'lucide-react';
 import { isSuperuser } from '../domain/superuser';
+import useConversations from '../hooks/useConversations';
+import StrangerGreetingCard from './StrangerGreetingCard';
 
 export default function FriendsPanel({
   isOpen, onClose,
@@ -9,7 +11,10 @@ export default function FriendsPanel({
   onOpenProfile, onOpenChat,
   reserveMobileNavigation = false,
 }) {
+  const { conversations, reply, ignore, block } = useConversations({ enabled: isOpen });
   if (!isOpen) return null;
+
+  const greetingRequests = conversations.filter((item) => item.state === 'greeting_pending');
 
   const onlineFirst = [...friends].sort((a, b) => {
     const aOn = onlineStatus[a._id] ? 1 : 0;
@@ -65,6 +70,21 @@ export default function FriendsPanel({
         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 aurora-scroll"
           style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
         >
+          {greetingRequests.length > 0 && (
+            <section className="bliver-message-requests" aria-label="陌生人问候">
+              <h2>陌生人问候</h2>
+              {greetingRequests.map((request) => (
+                <StrangerGreetingCard
+                  key={request._id}
+                  request={{ ...request, senderName: request.otherUser?.name, content: request.lastMessagePreview }}
+                  busy={reply.isPending || ignore.isPending || block.isPending}
+                  onReply={() => onOpenChat(request.otherUser?._id, request)}
+                  onIgnore={() => ignore.mutate(request._id)}
+                  onBlock={() => block.mutate(request.otherUser?._id)}
+                />
+              ))}
+            </section>
+          )}
           {onlineFirst.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-white/20">
               <Users className="w-10 h-10 mb-3 opacity-30" />

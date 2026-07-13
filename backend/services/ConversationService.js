@@ -62,7 +62,21 @@ async function hideForUser(conversationId, userId) {
 }
 
 async function list(userId) {
-  return Conversation.find({ $or: [{ userA: userId }, { userB: userId }] }).sort({ lastMessageAt: -1 }).lean();
+  const conversations = await Conversation.find({ $or: [{ userA: userId }, { userB: userId }] })
+    .sort({ lastMessageAt: -1 })
+    .populate('userA userB', 'name avatarUrl isOnline')
+    .lean();
+  const visible = [];
+  for (const conversation of conversations) {
+    const isA = String(conversation.userA?._id || conversation.userA) === String(userId);
+    const other = isA ? conversation.userB : conversation.userA;
+    const hiddenAt = isA ? conversation.hiddenAtA : conversation.hiddenAtB;
+    if (hiddenAt && (!conversation.lastMessageAt || new Date(conversation.lastMessageAt) <= new Date(hiddenAt))) continue;
+    const decision = await policy.canReadConversation(userId, other?._id || other);
+    if (!decision.allowed) continue;
+    visible.push({ ...conversation, otherUser: other });
+  }
+  return visible;
 }
 
 async function history(userId, conversationId, before) {

@@ -1,6 +1,6 @@
 // @feature 打卡详情卡片 | Footprint Detail Modal | FootprintDetailModal
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Clock, Image, MapPin, Share2 } from 'lucide-react';
+import { Check, Clock, Image, MapPin, Send, Share2, ShieldOff } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import useUIStore from '../store/useUIStore';
 import ReactionPicker from './ReactionPicker';
@@ -11,6 +11,7 @@ import { footprintPermissions } from '../domain/footprintConversation';
 import FootprintDetailSheet from './footprint/FootprintDetailSheet';
 import FootprintConversation from './footprint/FootprintConversation';
 import ModerationMenu from './footprint/ModerationMenu';
+import useConversations from '../hooks/useConversations';
 
 function canKeepRealtimeFootprint(footprint, userId, isAdmin) {
   const ownerId = footprint.userId?._id || footprint.userId;
@@ -52,7 +53,10 @@ export default function FootprintDetailModal({
   const activeReadIdRef = useRef(fp?._id || null);
   const copyTimerRef = useRef(null);
   const [copied, setCopied] = useState(false);
+  const [greetingDraft, setGreetingDraft] = useState('');
+  const [showGreeting, setShowGreeting] = useState(false);
   const [readState, setReadState] = useState({ footprintId: null, status: 'idle' });
+  const { sendGreeting, block } = useConversations({ enabled: Boolean(userId) });
 
   useEffect(() => {
     mountedRef.current = true;
@@ -121,8 +125,10 @@ export default function FootprintDetailModal({
   if (!fp) return null;
 
   const user = fp.userId || {};
+  const ownerId = user._id || user;
   const permissions = footprintPermissions({ footprint: fp, viewerId: userId, isAdmin });
   const showUnreadError = readState.footprintId === fp._id && readState.status === 'error';
+  const canGreet = Boolean(userId && String(ownerId) !== String(userId) && fp.visibility === 'public' && fp.relationship !== 'friend');
 
   return (
     <FootprintDetailSheet onClose={onClose}>
@@ -158,6 +164,25 @@ export default function FootprintDetailModal({
             {copied ? <Check aria-hidden="true" /> : <Share2 aria-hidden="true" />} {copied ? '已复制' : '分享'}
           </button>
         </div>
+        {canGreet && (
+          <section className="bliver-detail-greeting" aria-label="私信问候">
+            {showGreeting ? (
+              <>
+                <label htmlFor={`greeting-${fp._id}`}>与作者打个招呼</label>
+                <textarea id={`greeting-${fp._id}`} value={greetingDraft} onChange={(event) => setGreetingDraft(event.target.value)} maxLength={1000} placeholder="写下一句友好的问候" />
+                <div>
+                  <button type="button" disabled={!greetingDraft.trim() || sendGreeting.isPending} onClick={() => sendGreeting.mutate({ userId: ownerId, content: greetingDraft.trim() }, { onSuccess: () => { setGreetingDraft(''); setShowGreeting(false); } })}><Send aria-hidden="true" />发送问候</button>
+                  <button type="button" onClick={() => setShowGreeting(false)}>取消</button>
+                </div>
+              </>
+            ) : (
+              <div>
+                <button type="button" onClick={() => setShowGreeting(true)}><Send aria-hidden="true" />发问候</button>
+                <button type="button" className="is-danger" disabled={block.isPending} onClick={() => block.mutate(ownerId, { onSuccess: onClose })}><ShieldOff aria-hidden="true" />屏蔽此用户</button>
+              </div>
+            )}
+          </section>
+        )}
         {showUnreadError && (
           <div className="bliver-detail-read-error" role="alert">
             <span>已读状态同步失败</span>

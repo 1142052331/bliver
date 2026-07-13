@@ -1748,6 +1748,8 @@
 .bliver-conversation-composer > button:disabled { cursor: not-allowed; opacity: .45; }
 .bliver-conversation-composer > button svg { width: 16px; height: 16px; }
 .bliver-greeting-card { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-paper); }
+.bliver-message-requests { display: grid; gap: 8px; margin: 0 0 16px; }
+.bliver-message-requests h2 { margin: 0; color: var(--bliver-muted); font-size: 13px; }
 .bliver-greeting-card__copy strong { color: var(--bliver-forest); font-size: 14px; }
 .bliver-greeting-card__copy p { margin: 5px 0 0; color: var(--bliver-ink); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .bliver-greeting-card__actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1764,6 +1766,15 @@
 .bliver-message-settings button > span { position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--bliver-paper); transition: transform 150ms ease; }
 .bliver-message-settings button[aria-checked="true"] > span { transform: translateX(20px); }
 .bliver-message-settings button .is-loading { width: 16px; height: 16px; margin: 6px 16px; color: var(--bliver-paper); animation: tourner 900ms linear infinite; }
+.bliver-detail-greeting { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bliver-border); }
+.bliver-detail-greeting label { display: block; margin-bottom: 7px; color: var(--bliver-forest); font-size: 13px; font-weight: 700; }
+.bliver-detail-greeting textarea { width: 100%; min-height: 76px; resize: vertical; padding: 10px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-paper); color: var(--bliver-ink); font: inherit; }
+.bliver-detail-greeting > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.bliver-detail-greeting button { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); color: var(--bliver-forest); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.bliver-detail-greeting button:first-child { border-color: var(--bliver-forest); background: var(--bliver-forest); color: var(--bliver-surface); }
+.bliver-detail-greeting button.is-danger { border-color: color-mix(in srgb, var(--bliver-danger) 35%, var(--bliver-border)); background: var(--bliver-surface); color: var(--bliver-danger); }
+.bliver-detail-greeting button:disabled { opacity: .5; cursor: not-allowed; }
+.bliver-detail-greeting svg { width: 16px; height: 16px; }
 .bliver-moderation-menu { position: relative; flex: 0 0 auto; }
 .bliver-moderation-popover { position: absolute; z-index: 5; top: calc(100% + 4px); right: 0; min-width: 150px; padding: 5px; border: 1px solid var(--bliver-border); border-radius: var(--bliver-radius-sm); background: var(--bliver-surface); box-shadow: var(--bliver-shadow-card); }
 .bliver-moderation-popover > button { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--bliver-ink); font: inherit; text-align: left; cursor: pointer; }

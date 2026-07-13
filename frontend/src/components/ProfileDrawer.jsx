@@ -8,8 +8,11 @@ import ProfileStats from './ProfileStats';
 import ProfileVisitors from './ProfileVisitors';
 import FootprintCardList from './FootprintCardList';
 import { isSuperuser } from '../domain/superuser';
+import useConversations from '../hooks/useConversations';
+import MessageSettings from './MessageSettings';
 
 export default function ProfileDrawer({ userId, onClose, onLogout, friendshipStatus, pendingRequestId, onSendFriendRequest, onAcceptRequest, onRejectRequest, onOpenChat, onSelectFootprint, reserveMobileNavigation = false }) {
+  const { settings, updateSettings } = useConversations({ enabled: Boolean(userId) });
   const {
     profile,
     footprints,
@@ -279,10 +282,13 @@ export default function ProfileDrawer({ userId, onClose, onLogout, friendshipSta
             {/* ── Action footer ──────────────────────────── */}
             <div className="flex-shrink-0 px-5 py-3 space-y-2">
               {isOwnProfile && (
-                <button onClick={onLogout} className="w-full py-3 rounded-xl text-sm font-medium text-aurora-danger/80 hover:text-aurora-danger hover:bg-white/[0.06] transition-colors"
-                  style={{ fontFamily: 'var(--font-body)' }}>
-                  退出登录
-                </button>
+                <>
+                  <MessageSettings value={settings?.allowStrangerMessages} disabled={updateSettings.isPending} onChange={(value) => updateSettings.mutateAsync(value)} />
+                  <button onClick={onLogout} className="w-full py-3 rounded-xl text-sm font-medium text-aurora-danger/80 hover:text-aurora-danger hover:bg-white/[0.06] transition-colors"
+                    style={{ fontFamily: 'var(--font-body)' }}>
+                    退出登录
+                  </button>
+                </>
               )}
             </div>
           </>
