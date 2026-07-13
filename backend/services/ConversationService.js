@@ -1,5 +1,7 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const Block = require('../models/Block');
+const User = require('../models/User');
 const AppError = require('../middleware/AppError');
 const policy = require('./InteractionPolicy');
 
@@ -36,6 +38,7 @@ async function replyAndUnlock(conversationId, receiverId, content) {
 
 async function sendText(senderId, receiverId, conversationId, content) {
   const conversation = await Conversation.findById(conversationId).lean();
+  if (!receiverId && conversation) receiverId = String(conversation.userA) === String(senderId) ? conversation.userB : conversation.userA;
   const decision = await policy.canSendText(senderId, receiverId, { conversationState: conversation?.state });
   if (!decision.allowed) throw new AppError(403, decision.reason);
   const message = await Message.create({ conversationId, senderId, receiverId, content, kind: 'text' });
@@ -78,4 +81,27 @@ async function history(userId, conversationId, before) {
   return { messages, hasMore: messages.length === PAGE_SIZE };
 }
 
-module.exports = { createGreeting, replyAndUnlock, sendText, ignoreGreeting, hideForUser, list, history, PAGE_SIZE };
+async function blockUser(blockerId, blockedId) {
+  if (String(blockerId) === String(blockedId)) throw new AppError(400, 'cannot_block_self');
+  await Block.updateOne({ blockerId, blockedId }, { $setOnInsert: { blockerId, blockedId } }, { upsert: true });
+  return { ok: true };
+}
+
+async function unblockUser(blockerId, blockedId) {
+  await Block.deleteOne({ blockerId, blockedId });
+  return { ok: true };
+}
+
+async function getMessageSettings(userId) {
+  const user = await User.findById(userId).select('allowStrangerMessages').lean();
+  if (!user) throw new AppError(404, 'user_not_found');
+  return { allowStrangerMessages: user.allowStrangerMessages !== false };
+}
+
+async function updateMessageSettings(userId, allowStrangerMessages) {
+  const user = await User.findByIdAndUpdate(userId, { $set: { allowStrangerMessages } }, { new: true }).select('allowStrangerMessages').lean();
+  if (!user) throw new AppError(404, 'user_not_found');
+  return { allowStrangerMessages: user.allowStrangerMessages !== false };
+}
+
+module.exports = { createGreeting, replyAndUnlock, sendText, ignoreGreeting, hideForUser, list, history, blockUser, unblockUser, getMessageSettings, updateMessageSettings, PAGE_SIZE };
