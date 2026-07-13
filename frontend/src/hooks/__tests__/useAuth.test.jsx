@@ -71,6 +71,18 @@ describe('useAuth auto-login', () => {
     expect(mocks.getToken).toHaveBeenCalled();
   });
 
+  test('restores a valid session without consulting the legacy auto-login flag', async () => {
+    const serverUser = { _id: 'user-1', name: 'alice', role: 'user' };
+    mocks.isAutoLogin.mockReturnValue(false);
+    mocks.me.mockResolvedValueOnce({ data: { user: serverUser } });
+    const onUser = vi.fn();
+
+    render(<Probe onUser={onUser} />);
+
+    await vi.waitFor(() => expect(onUser).toHaveBeenCalledWith(serverUser));
+    expect(mocks.isAutoLogin).not.toHaveBeenCalled();
+  });
+
   test('does not let a stale /me success overwrite a newer local session', async () => {
     const requestA = deferred();
     mocks.me.mockReturnValueOnce(requestA.promise);

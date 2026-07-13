@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { apiClient } from '../../api';
 import AuthModal from '../AuthModal';
 import TimelineDrawer from '../TimelineDrawer';
 
@@ -63,7 +64,9 @@ function NestedDialogsHarness() {
 
 describe('AuthModal accessibility', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('exposes a labelled modal dialog and meaningful form labels', () => {
@@ -81,7 +84,7 @@ describe('AuthModal accessibility', () => {
     render(<AuthModal initialTab="login" onDone={vi.fn()} onClose={vi.fn()} />);
 
     const closeButton = screen.getByRole('button', { name: 'Close authentication dialog' });
-    const lastCheckbox = screen.getByRole('checkbox', { name: '自动登录' });
+    const lastCheckbox = screen.getByRole('checkbox', { name: '保持登录' });
 
     closeButton.focus();
     await user.tab({ shift: true });
@@ -136,8 +139,61 @@ describe('AuthModal accessibility', () => {
     expect(closeButton).toHaveClass('h-11', 'min-h-11', 'w-11', 'min-w-11');
     expect(screen.getAllByRole('button', { name: 'Login' })[0]).toHaveClass('min-h-11');
     expect(screen.getByRole('button', { name: 'Register' })).toHaveClass('min-h-11');
-    expect(screen.getByText('记住账号密码').closest('label')).toHaveClass('min-h-11');
-    expect(screen.getByText('自动登录').closest('label')).toHaveClass('min-h-11');
+    const keepSignedIn = screen.getByRole('checkbox', { name: '保持登录' });
+    expect(keepSignedIn.closest('label')).toHaveClass('min-h-11');
+    expect(keepSignedIn).toHaveClass('focus:ring-blue-500');
+  });
+
+  it('never prefills a password from legacy saved credentials', () => {
+    const legacyCredentials = JSON.stringify({ name: 'legacy-user', pw: btoa('stored-password') });
+    localStorage.setItem('bliver_cred', legacyCredentials);
+    sessionStorage.setItem('bliver_cred', legacyCredentials);
+
+    render(<AuthModal initialTab="login" onDone={vi.fn()} onClose={vi.fn()} />);
+
+    expect(screen.getByRole('textbox', { name: 'Username' })).toHaveValue('');
+    expect(screen.getByLabelText('Password')).toHaveValue('');
+  });
+
+  it('stores a successful kept login without persisting the submitted password', async () => {
+    const user = userEvent.setup();
+    const onDone = vi.fn();
+    apiClient.auth.login.mockResolvedValueOnce({
+      data: { user: { _id: 'user-1', name: 'alice' }, token: 'login-token' },
+    });
+    render(<AuthModal initialTab="login" onDone={onDone} onClose={vi.fn()} />);
+
+    await user.type(screen.getByRole('textbox', { name: 'Username' }), 'alice');
+    await user.type(screen.getByLabelText('Password'), 'never-store-this-password');
+    await user.click(screen.getByRole('checkbox', { name: '保持登录' }));
+    await user.click(screen.getAllByRole('button', { name: 'Login' }).at(-1));
+
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalledWith({ _id: 'user-1', name: 'alice' }));
+    expect(localStorage.getItem('bliver_token')).toBe('login-token');
+    expect(sessionStorage.getItem('bliver_token')).toBeNull();
+    expect(JSON.stringify(localStorage)).not.toContain('never-store-this-password');
+    expect(JSON.stringify(sessionStorage)).not.toContain('never-store-this-password');
+  });
+
+  it('keeps registration temporary by default and never persists its password', async () => {
+    const user = userEvent.setup();
+    const onDone = vi.fn();
+    apiClient.auth.register.mockResolvedValueOnce({
+      data: { user: { _id: 'user-2', name: 'bob' }, token: 'register-token' },
+    });
+    render(<AuthModal initialTab="register" onDone={onDone} onClose={vi.fn()} />);
+
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+    expect(screen.getByRole('checkbox', { name: '保持登录' })).not.toBeChecked();
+    await user.type(screen.getByRole('textbox', { name: 'Username' }), 'bob');
+    await user.type(screen.getByLabelText('Password'), 'another-private-password');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalledWith({ _id: 'user-2', name: 'bob' }));
+    expect(sessionStorage.getItem('bliver_token')).toBe('register-token');
+    expect(localStorage.getItem('bliver_token')).toBeNull();
+    expect(JSON.stringify(localStorage)).not.toContain('another-private-password');
+    expect(JSON.stringify(sessionStorage)).not.toContain('another-private-password');
   });
 
   it.each([

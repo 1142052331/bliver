@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import imageCompression from 'browser-image-compression';
 import { apiClient } from '../api';
-import { saveAuth, saveCredentials, getCredentials, setAutoLogin } from '../auth';
+import { saveAuth } from '../auth';
 import { MapPin, Camera, Loader2, X } from 'lucide-react';
 import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
 
@@ -14,8 +14,7 @@ export default function AuthModal({ onDone, initialTab, message, onClose, reserv
   const [preview, setPreview] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-  const [autoLoginCheck, setAutoLoginCheck] = useState(false);
+  const [rememberSession, setRememberSession] = useState(false);
   const fileRef = useRef(null);
   const previewUrlRef = useRef(null);
   const dialogRef = useRef(null);
@@ -29,17 +28,6 @@ export default function AuthModal({ onDone, initialTab, message, onClose, reserv
   };
 
   useEffect(() => () => revokePreview(), []);
-
-  // Sync tab and load saved credentials
-  useEffect(() => {
-    if (initialTab) setTab(initialTab);
-    const cred = getCredentials();
-    if (cred) {
-      setName(cred.name);
-      setPassword(cred.password);
-      setRememberMe(true);
-    }
-  }, [initialTab]);
 
   const handleAvatar = async (e) => {
     const file = e.target.files[0];
@@ -65,15 +53,11 @@ export default function AuthModal({ onDone, initialTab, message, onClose, reserv
         form.append('password', password);
         if (avatar) form.append('avatar', avatar);
         const { data } = await apiClient.auth.register(form);
-        saveAuth(data.user, data.token);
-        if (rememberMe) saveCredentials(name.trim(), password);
-        setAutoLogin(autoLoginCheck);
+        saveAuth(data.user, data.token, { persistent: rememberSession });
         onDone(data.user);
       } else {
         const { data } = await apiClient.auth.login({ name: name.trim(), password });
-        saveAuth(data.user, data.token);
-        if (rememberMe) saveCredentials(name.trim(), password);
-        setAutoLogin(autoLoginCheck);
+        saveAuth(data.user, data.token, { persistent: rememberSession });
         onDone(data.user);
       }
     } catch (err) {
@@ -190,29 +174,17 @@ export default function AuthModal({ onDone, initialTab, message, onClose, reserv
             </div>
           )}
 
-          {/* Remember me & Auto-login checkboxes (login tab only) */}
-          {tab === 'login' && (
-            <div className="space-y-2 mb-3">
-              <label className="flex min-h-11 items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-300">记住账号密码</span>
-              </label>
-              <label className="flex min-h-11 items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoLoginCheck}
-                  onChange={(e) => setAutoLoginCheck(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-300">自动登录</span>
-              </label>
-            </div>
-          )}
+          <div className="mb-3">
+            <label className="flex min-h-11 items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberSession}
+                onChange={(e) => setRememberSession(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-300">保持登录</span>
+            </label>
+          </div>
 
           {error && <p className="text-red-500 text-sm mb-3 text-center">{error}</p>}
 

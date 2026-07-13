@@ -191,6 +191,7 @@ describe('CheckInModal', () => {
   test('initializes from authenticated user visibility and removes a selected photo', async () => {
     const user = userEvent.setup();
     localStorage.setItem('bliver_user', JSON.stringify({ _id: 'user-1', lastFootprintVisibility: 'friends' }));
+    localStorage.setItem('bliver_token', 'token');
     const { container } = render(<CheckInModal isOpen onClose={mockOnClose} presetLocation={{ lat: 31.2304, lng: 121.4737 }} />);
     expect(screen.getByDisplayValue('friends')).toBeChecked();
     const file = new File(['image'], 'place.jpg', { type: 'image/jpeg' });
@@ -229,6 +230,7 @@ describe('CheckInModal', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     localStorage.setItem('bliver_user', JSON.stringify({ _id: 'user-1', lastFootprintVisibility: 'public' }));
+    localStorage.setItem('bliver_token', 'token');
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('blocked', 'SecurityError'); });
 
     try {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiClient } from '../api';
-import { getUser, getToken, clearAuth, isAutoLogin, saveUser } from '../auth';
+import { getUser, getToken, clearAuth, saveUser } from '../auth';
 import { broadcastLogout, listenAuthSync } from '../authSync';
 import { subscribeToPush } from '../push';
 import useUIStore from '../store/useUIStore';
@@ -49,7 +49,7 @@ export default function useAuth() {
         && currentUser?._id === requestViewerId;
     };
 
-    if (saved && requestToken && isAutoLogin()) {
+    if (saved && requestToken) {
       apiClient.auth.me({ signal: controller.signal }).then((res) => {
         if (!isCurrentSession()) return;
         const u: AppUser = res.data.user;

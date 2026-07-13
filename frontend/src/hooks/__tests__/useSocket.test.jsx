@@ -31,6 +31,7 @@ vi.mock('../../api', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  localStorage.setItem('bliver_user', JSON.stringify({ _id: 'user-1', name: 'alice' }));
   localStorage.setItem('bliver_token', 'token');
 });
 
