@@ -11,6 +11,7 @@
     "render-build": "npm run check:node && npm --prefix backend ci --omit=dev --no-audit --no-fund && npm --prefix frontend ci --include=dev --no-audit --no-fund && npm --prefix frontend run build",
     "verify:release": "node scripts/verify-release.mjs",
     "smoke:release": "node scripts/release-smoke.mjs",
+    "test:release-tools": "node --test scripts/*.test.mjs",
     "prepare": "husky"
   },
   "lint-staged": {

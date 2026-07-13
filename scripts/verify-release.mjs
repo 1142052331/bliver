@@ -6,12 +6,20 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
+const RELEASE_SHA_PATTERN = /^[0-9a-f]{40}$/i;
+
 function commandSteps({ npmCommand, npmPrefixArgs, rootDir }) {
   const backendDir = path.join(rootDir, 'backend');
   const frontendDir = path.join(rootDir, 'frontend');
   const npmArgs = (args) => [...npmPrefixArgs, ...args];
   const steps = [
     { name: 'check-node', command: npmCommand, args: npmArgs(['run', 'check:node']), cwd: rootDir },
+    {
+      name: 'release-tools',
+      command: npmCommand,
+      args: npmArgs(['run', 'test:release-tools']),
+      cwd: rootDir,
+    },
     {
       name: 'backend-jest',
       command: npmCommand,
@@ -100,15 +108,52 @@ function hashArtifacts(rootDir, logger) {
   return true;
 }
 
+function verifyReleaseSha({ releaseSha, rootDir, spawnSyncImpl, logger }) {
+  if (typeof releaseSha !== 'string' || !RELEASE_SHA_PATTERN.test(releaseSha)) {
+    logger('STEP release-sha exit=1');
+    return false;
+  }
+
+  let result;
+  try {
+    result = spawnSyncImpl('git', ['rev-parse', 'HEAD'], {
+      cwd: rootDir,
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: 1024 * 1024,
+    });
+  } catch (_error) {
+    logger('STEP release-sha exit=1');
+    return false;
+  }
+
+  const head = String(result?.stdout || '').trim();
+  const matches = result?.status === 0
+    && RELEASE_SHA_PATTERN.test(head)
+    && head === releaseSha;
+  logger(`STEP release-sha exit=${matches ? 0 : 1}`);
+  return matches;
+}
+
 export function runVerifier({
   rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
   platform = process.platform,
   npmExecPath = process.env.npm_execpath || '',
+  releaseSha = process.env.RELEASE_SHA || '',
   nodePath = process.execPath,
   spawnSyncImpl = spawnSync,
   logger = console.log,
 } = {}) {
   const normalizedRoot = path.resolve(rootDir);
+  if (!verifyReleaseSha({
+    releaseSha,
+    rootDir: normalizedRoot,
+    spawnSyncImpl,
+    logger,
+  })) {
+    return { ok: false, failedStep: 'release-sha' };
+  }
+
   if (platform === 'win32' && !npmExecPath) {
     logger('STEP npm-invocation exit=1');
     return { ok: false, failedStep: 'npm-invocation' };

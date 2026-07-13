@@ -12,8 +12,10 @@ function requestContext(req, res, next) {
 
   res.on('finish', () => {
     const durationMs = Number(process.hrtime.bigint() - started) / 1e6;
-    const key = `${req.method} ${req.path} ${res.statusCode}`;
-    const previous = metrics.get(key) || { method: req.method, path: req.path, status: res.statusCode, count: 0, durationMs: 0 };
+    // Keep health output aggregate-only: dynamic URL segments can contain IDs
+    // or opaque tokens that must never become publicly observable metrics.
+    const key = `${req.method} ${res.statusCode}`;
+    const previous = metrics.get(key) || { method: req.method, status: res.statusCode, count: 0, durationMs: 0 };
     previous.count += 1;
     previous.durationMs = Math.round((previous.durationMs + durationMs) * 100) / 100;
     metrics.set(key, previous);

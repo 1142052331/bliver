@@ -58,7 +58,10 @@ git show --no-patch --format='%H %cI %s' $env:RELEASE_SHA
 
 ## G1 - Verify and hash the build
 
-Run on Node 24.16.0 and npm 11.13.0 from the repository root.
+Run on Node 24.16.0 and npm 11.13.0 from the repository root. `RELEASE_SHA` is
+required and must be the exact 40-character hexadecimal SHA returned by
+`git rev-parse HEAD`; `npm run verify:release` fails before build/test work when
+it is missing, malformed, or does not match the current commit.
 
 ```powershell
 node --version
@@ -101,6 +104,12 @@ $env:BASE_URL = $env:CANDIDATE_URL
 $env:EXPECTED_RELEASE = $env:RELEASE_SHA
 npm.cmd run smoke:release
 ```
+
+`EXPECTED_RELEASE` is required for smoke and must be the same 40-character
+hexadecimal SHA as `RELEASE_SHA`. Smoke fails before making HTTP requests when
+the variable is missing or invalid, and it compares `/healthz` and `/versionz`
+releases exactly. Commands print only check names and statuses; never print
+response bodies, SHA values, URIs, or secrets.
 
 Separately inspect `/healthz`, `/readyz`, and `/versionz` headers and JSON. All must be `Cache-Control: no-store`; readiness must be 200 with both database and frontend true; release must equal the frozen SHA. Record the Render deploy ID and smoke timestamp.
 

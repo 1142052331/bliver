@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 const DEFAULT_BASE_URL = 'http://localhost:5000';
 const DEFAULT_TIMEOUT_MS = 10_000;
+const RELEASE_SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 function getHeader(response, name) {
   return response.headers?.get?.(name) || '';
@@ -62,6 +63,11 @@ export async function runSmoke({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   logger = console.log,
 } = {}) {
+  if (typeof expectedRelease !== 'string' || !RELEASE_SHA_PATTERN.test(expectedRelease)) {
+    logger('FAIL configuration status=ERR');
+    return { ok: false, checks: [{ name: 'configuration', pass: false, status: 'ERR' }] };
+  }
+
   let origin;
   try {
     origin = new URL(baseUrl).origin;
@@ -83,7 +89,7 @@ export async function runSmoke({
     requestId: true,
     ...extras,
   });
-  const releaseMatches = (body) => !expectedRelease || body?.release === expectedRelease;
+  const releaseMatches = (body) => body?.release === expectedRelease;
   const checks = [
     {
       name: 'root-html',

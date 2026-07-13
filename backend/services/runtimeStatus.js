@@ -3,6 +3,9 @@ const path = require('path');
 const mongoose = require('mongoose');
 
 const DEFAULT_FRONTEND_INDEX_PATH = path.resolve(__dirname, '../../frontend/dist/index.html');
+// Render gives a service a bounded grace period after SIGTERM. Keep the
+// shutdown deadline below that window so the process can finish its cleanup.
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 25_000;
 
 function createRuntimeStatus({
   connection = mongoose.connection,
@@ -55,32 +58,36 @@ function logShutdownFailure(logger, stage) {
   }
 }
 
-function closeResource(resource, stage, logger) {
+function closeResource(resource, stage, logger, timeoutMs = DEFAULT_SHUTDOWN_TIMEOUT_MS) {
   if (!resource || typeof resource.close !== 'function') return Promise.resolve(false);
 
   return new Promise((resolve) => {
     let settled = false;
+    let timer;
     const finish = (error) => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       const benign = error?.code === 'ERR_SERVER_NOT_RUNNING';
       if (error && !benign) logShutdownFailure(logger, stage);
       resolve(Boolean(error && !benign));
     };
 
+    const boundedTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? timeoutMs
+      : DEFAULT_SHUTDOWN_TIMEOUT_MS;
+    timer = setTimeout(() => finish(new Error('close timed out')), boundedTimeout);
+
     try {
       const result = resource.close(finish);
       if (result && typeof result.then === 'function') {
-        result.then(() => finish(), () => finish(new Error('close failed')));
-      } else if (typeof resource.listening !== 'boolean' && resource.close.length === 0) {
+        result.then(() => finish(), (error) => finish(error || new Error('close failed')));
+      } else if (resource.close.length === 0 && typeof resource.listening !== 'boolean') {
+        // Synchronous test doubles and adapters may not accept a callback.
         finish();
-      } else if (resource.listening === false) {
-        // Node's un-listened HTTP server normally invokes the callback with
-        // ERR_SERVER_NOT_RUNNING; keep a fallback for injected test doubles.
-        setImmediate(() => finish());
       }
-    } catch (_error) {
-      finish(new Error('close failed'));
+    } catch (error) {
+      finish(error || new Error('close failed'));
     }
   });
 }
@@ -91,6 +98,7 @@ function createGracefulShutdown({
   disconnect = () => mongoose.disconnect(),
   exit = (code) => process.exit(code),
   logger = console,
+  timeoutMs = DEFAULT_SHUTDOWN_TIMEOUT_MS,
 } = {}) {
   let shutdownPromise;
 
@@ -99,8 +107,19 @@ function createGracefulShutdown({
 
     shutdownPromise = (async () => {
       let failed = false;
-      failed = (await closeResource(server, 'server', logger)) || failed;
-      failed = (await closeResource(io, 'io', logger)) || failed;
+      const boundedTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0
+        ? timeoutMs
+        : DEFAULT_SHUTDOWN_TIMEOUT_MS;
+      const deadline = Date.now() + boundedTimeout;
+      const remaining = () => Math.max(1, deadline - Date.now());
+
+      // Calling server.close() stops new HTTP connections immediately, while
+      // its callback waits for active requests. Start Socket.IO teardown now
+      // so long-lived transports can drain before the shared deadline.
+      const serverClose = closeResource(server, 'server', logger, remaining());
+      const ioClose = closeResource(io, 'io', logger, remaining());
+      const [serverFailed, ioFailed] = await Promise.all([serverClose, ioClose]);
+      failed = serverFailed || ioFailed || failed;
 
       try {
         await Promise.resolve(disconnect?.());
