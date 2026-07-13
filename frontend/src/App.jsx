@@ -31,6 +31,7 @@ import GlobalToaster from './components/GlobalToaster';
 import AboutModal from './components/AboutModal';
 import FeedbackModal from './components/FeedbackModal';
 import ProfileDrawer from './components/ProfileDrawer';
+import MeExperience from './components/MeExperience';
 import FootprintDetailModal from './components/FootprintDetailModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import PhotoWall from './components/PhotoWall';
@@ -324,7 +325,7 @@ export default function App() {
   const destinationSurfaceBehindAuthIsOpen = (
     activeDestination === 'activity'
     || (activeDestination === 'messages' && showFriends)
-    || (activeDestination === 'me' && Boolean(viewingProfileId))
+    || (activeDestination === 'me' && Boolean(user))
   );
   const handleActivityRequireLogin = useCallback((action, item) => {
     activityPendingTargetRef.current = item || null;
@@ -596,6 +597,20 @@ export default function App() {
           openProfile={openProfile}
           openAuth={openAuth}
         />
+
+        {activeDestination === 'me' && user && !viewingProfileId && (
+          <div className="bliver-me-destination fixed inset-0 z-[1200] overflow-hidden">
+            <MeExperience
+              userId={user._id}
+              onClose={() => setActiveDestination('map')}
+              onLogout={() => { setActiveDestination('map'); handleLogout(); }}
+              onSelectFootprint={(fpId) => { setActiveDestination('map'); setActiveFootprintId(fpId); }}
+              onOpenTimeline={openTimeline}
+              onOpenPhotoWall={openPhotoWall}
+              onOpenSettings={openFriends}
+            />
+          </div>
+        )}
 
         {showAdmin && <ErrorBoundary><AdminPanel onClose={() => closeAdmin()} socketRef={socketRef} /></ErrorBoundary>}
 

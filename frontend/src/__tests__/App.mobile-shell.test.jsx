@@ -737,7 +737,7 @@ describe('App mobile shell integration', () => {
     expect(mapDestination).toHaveAttribute('aria-current', 'page');
   });
 
-  it('keeps Me current until the Profile surface closes', async () => {
+  it('keeps Me current while the dedicated personal surface is active', async () => {
     const user = userEvent.setup();
     mocks.user = { _id: 'user-1' };
     uiState.viewingProfileId = 'user-1';
@@ -746,10 +746,10 @@ describe('App mobile shell integration', () => {
     const mapDestination = screen.getByRole('button', { name: '地图' });
     const meDestination = screen.getByRole('button', { name: '我的' });
     await user.click(meDestination);
-    await waitFor(() => expect(mocks.openProfile).toHaveBeenCalledWith('user-1'));
+    await waitFor(() => expect(mocks.openProfile).not.toHaveBeenCalled());
     expect(meDestination).toHaveAttribute('aria-current', 'page');
 
-    await user.click(screen.getByRole('button', { name: 'Close profile surface' }));
+    await user.click(mapDestination);
 
     expect(mapDestination).toHaveAttribute('aria-current', 'page');
   });

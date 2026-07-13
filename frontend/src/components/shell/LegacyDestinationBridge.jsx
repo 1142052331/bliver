@@ -39,7 +39,7 @@ export default function LegacyDestinationBridge({
         : callRequiredAction(openAuth, 'openAuth', destination, 'login', '登录后查看消息');
     } else if (destination === 'me') {
       handled = user?._id
-        ? callRequiredAction(openProfile, 'openProfile', destination, user._id)
+        ? true
         : callRequiredAction(openAuth, 'openAuth', destination, 'login', '登录后查看个人主页');
     } else {
       console.error(`LegacyDestinationBridge received an unknown destination: ${destination}.`);

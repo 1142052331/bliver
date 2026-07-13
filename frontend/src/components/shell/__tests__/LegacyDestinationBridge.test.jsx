@@ -56,10 +56,10 @@ describe('LegacyDestinationBridge', () => {
     expect(actions.onHandled).not.toHaveBeenCalled();
   });
 
-  it('opens the current user profile for logged-in Me', () => {
+  it('leaves logged-in Me for the dedicated personal experience', () => {
     const actions = createActions();
     render(<LegacyDestinationBridge destination="me" user={{ _id: 'u1' }} {...actions} />);
-    expect(actions.openProfile).toHaveBeenCalledWith('u1');
+    expect(actions.openProfile).not.toHaveBeenCalled();
     expect(actions.openAuth).not.toHaveBeenCalled();
     expect(actions.onHandled).not.toHaveBeenCalled();
   });
