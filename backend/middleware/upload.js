@@ -17,11 +17,11 @@ const uploadToCloudinary = (req, res, next) => {
   if (!req.file) return next();
 
   const uploadStream = cloudinary.uploader.upload_stream(
-    { folder: 'bliver_footprints' },
+    { folder: process.env.CLOUDINARY_FOLDER || 'bliver_footprints' },
     (err, result) => {
       if (err) {
-        console.error('Cloudinary error:', err.message);
-        return res.status(500).json({ error: 'Upload failed: ' + err.message });
+        console.error('Cloudinary upload failed');
+        return res.status(500).json({ error: 'Upload failed' });
       }
       req.cloudinaryUrl = result.secure_url;
       next();

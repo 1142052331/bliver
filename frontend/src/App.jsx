@@ -8,7 +8,8 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     dsn: import.meta.env.VITE_SENTRY_DSN,
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: 0.1,
-    environment: import.meta.env.MODE,
+    environment: import.meta.env.VITE_DEPLOY_ENV || import.meta.env.MODE,
+    ...(import.meta.env.VITE_RELEASE_SHA ? { release: import.meta.env.VITE_RELEASE_SHA } : {}),
   });
 }
 if (typeof window !== 'undefined') window.__bliverSentry = Sentry;

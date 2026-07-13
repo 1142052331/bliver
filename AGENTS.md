@@ -35,15 +35,28 @@ Bliver/
 
 ## 本地开发
 
+Node.js 24.16.0 and npm 11.13.0 are the release toolchain (`.nvmrc`, Node range `>=24 <25`).
+
 ```bash
 npm run dev          # 前端(:5173) + 后端(:5000) 同时启动
 npm run dev:frontend # 仅前端
 npm run dev:backend  # 仅后端
 ```
 
+Release verification runs from the repository root:
+
+```bash
+npm run check:node
+npm run render-build
+test -f frontend/dist/index.html
+```
+
 ## 环境变量（Render）
 
 MONGODB_URI, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, OPENWEATHERMAP_API_KEY, JWT_SECRET, PORT=5000
+
+API and Socket.IO are same-origin by default. Only deployment environments may inject optional
+`VITE_API_URL` / `VITE_SOCKET_URL` overrides and other real environment values; do not commit them.
 
 ## Token 优化规则
 

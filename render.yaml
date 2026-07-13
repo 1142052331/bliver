@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: bliver-candidate
+    runtime: node
+    autoDeploy: false
+    buildCommand: VITE_RELEASE_SHA=$RENDER_GIT_COMMIT npm run render-build
+    startCommand: npm start
+    healthCheckPath: /readyz
+    envVars:
+      - key: NODE_VERSION
+        value: 24.16.0
+      - key: NODE_ENV
+        value: production
+      - key: DEPLOY_ENV
+        value: candidate
+      - key: VITE_DEPLOY_ENV
+        value: candidate
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_SETUP_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        sync: false
+      - key: OPENWEATHERMAP_API_KEY
+        sync: false
+      - key: VITE_OWM_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: VITE_SENTRY_DSN
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false

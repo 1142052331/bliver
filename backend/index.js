@@ -8,12 +8,9 @@ const helmet = require('helmet');
 require('dotenv').config();
 
 const Sentry = require('@sentry/node');
+const { getSentryOptions } = require('./config/sentry');
 if (process.env.SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    tracesSampleRate: 0.1,
-    environment: process.env.NODE_ENV || 'production',
-  });
+  Sentry.init(getSentryOptions(process.env.SENTRY_DSN));
 }
 
 const connectDB = require('./config/db');
