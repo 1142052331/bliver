@@ -6,7 +6,6 @@ const authLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false },
   message: { error: '登录尝试过于频繁，请15分钟后再试' },
 });
 
@@ -16,7 +15,6 @@ const contentLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false },
   message: { error: '操作过于频繁，请稍后再试' },
 });
 
@@ -25,7 +23,6 @@ const adminSetupLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false },
   message: { error: '管理员设置尝试过于频繁，请稍后再试' },
 });
 

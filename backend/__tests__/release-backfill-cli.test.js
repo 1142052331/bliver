@@ -74,6 +74,38 @@ describe('release backfill CLI guards', () => {
     });
     expect(JSON.stringify(report)).not.toMatch(/31\.234|secret|private content|raw provider|runToken/i);
   });
+
+  test('counts only pending, unknown, and stale pending-origin processing as default eligible', () => {
+    const { buildReport } = require('../scripts/backfill-report');
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const report = buildReport([
+      { regionBackfill: { status: 'failed', attempts: 1 } },
+      {
+        regionBackfill: {
+          status: 'processing',
+          claimedFromStatus: 'pending',
+          leaseExpiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      },
+      {
+        regionBackfill: {
+          status: 'processing',
+          claimedFromStatus: 'failed',
+          leaseExpiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      },
+      {
+        regionBackfill: {
+          status: 'processing',
+          claimedFromStatus: 0,
+          leaseExpiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      },
+      { regionBackfill: { status: 'mystery' } },
+    ], now);
+
+    expect(report.eligible).toBe(2);
+  });
 });
 
 describe('read-only backfill report aggregation', () => {
@@ -130,5 +162,61 @@ describe('read-only backfill report aggregation', () => {
       /31\.234|private report fixture|private-run-token|runToken|realLocation|"location"/i,
     );
     expect(await Footprint.collection.find({}).toArray()).toEqual(before);
+  });
+
+  test('keeps aggregation eligible counts aligned for retryable failed, stale pending, and stale failed-origin states', async () => {
+    const userId = new mongoose.Types.ObjectId();
+    await Footprint.collection.insertMany([
+      {
+        userId,
+        location: { lat: 10, lng: 20 },
+        visibility: 'public',
+        regionBackfill: { status: 'failed', attempts: 1 },
+      },
+      {
+        userId,
+        location: { lat: 11, lng: 21 },
+        visibility: 'public',
+        regionBackfill: {
+          status: 'processing',
+          claimedFromStatus: 'pending',
+          leaseExpiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      },
+      {
+        userId,
+        location: { lat: 12, lng: 22 },
+        visibility: 'public',
+        regionBackfill: {
+          status: 'processing',
+          claimedFromStatus: 'failed',
+          leaseExpiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      },
+      {
+        userId,
+        location: { lat: 14, lng: 24 },
+        visibility: 'public',
+        regionBackfill: {
+          status: 'processing',
+          claimedFromStatus: 0,
+          leaseExpiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      },
+      {
+        userId,
+        location: { lat: 13, lng: 23 },
+        visibility: 'public',
+        regionBackfill: { status: 'mystery' },
+      },
+    ]);
+
+    const { createBackfillReport } = require('../scripts/backfill-report');
+    const report = await createBackfillReport({
+      Footprint,
+      now: new Date('2026-01-01T00:00:00.000Z'),
+    }).run();
+
+    expect(report.eligible).toBe(2);
   });
 });

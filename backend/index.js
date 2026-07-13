@@ -37,7 +37,9 @@ const io = new Server(server, {
 });
 const runtimeStatus = createRuntimeStatus();
 
-app.set('trust proxy', true);
+// Render terminates one proxy hop before the Node process. Trust only that hop
+// so Express resolves the client IP from the rightmost forwarded address.
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(helmet({
   contentSecurityPolicy: {
@@ -63,7 +65,6 @@ app.use(rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false },
   message: { error: '请求过于频繁，请稍后再试' },
 }));
 app.use((req, res, next) => {

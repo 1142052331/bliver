@@ -2,10 +2,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const User = require('../models/User');
 const AdminBootstrap = require('../models/AdminBootstrap');
-const {
-  ADMIN_BOOTSTRAP_KEY,
-  ADMIN_BOOTSTRAP_LEASE_MS,
-} = AdminBootstrap;
+const { ADMIN_BOOTSTRAP_KEY } = AdminBootstrap;
 const Footprint = require('../models/Footprint');
 const Notification = require('../models/Notification');
 const { getOnlineUsers, disconnectUser } = require('../socket');
@@ -159,6 +156,7 @@ async function releaseBootstrapLock(lock) {
     await AdminBootstrap.deleteOne({
       _id: lock._id,
       key: ADMIN_BOOTSTRAP_KEY,
+      state: 'pending',
       ownerToken: lock.ownerToken,
     });
   } catch (error) {
@@ -194,7 +192,6 @@ async function completeBootstrapLock(lock) {
       $set: {
         state: 'completed',
         completedAt,
-        leaseExpiresAt: completedAt,
       },
     },
   );
@@ -204,38 +201,31 @@ async function completeBootstrapLock(lock) {
 }
 
 async function acquireBootstrapLock(userId) {
-  const now = new Date();
   const ownerToken = crypto.randomUUID();
-  const leaseExpiresAt = new Date(now.getTime() + ADMIN_BOOTSTRAP_LEASE_MS);
   const lockData = {
     _id: ADMIN_BOOTSTRAP_KEY,
     key: ADMIN_BOOTSTRAP_KEY,
     userId,
     ownerToken,
-    leaseExpiresAt,
   };
 
   try {
     return await AdminBootstrap.create(lockData);
   } catch (error) {
     if (error?.code !== 11000) throw error;
-
-    const reclaimed = await AdminBootstrap.findOneAndUpdate(
-      {
-        _id: ADMIN_BOOTSTRAP_KEY,
-        key: ADMIN_BOOTSTRAP_KEY,
-        state: 'pending',
-        leaseExpiresAt: { $lte: now },
-      },
-      { $set: { userId, ownerToken, leaseExpiresAt } },
-      { returnDocument: 'after' },
-    );
-    if (reclaimed) return reclaimed;
     throw new AppError(409, 'Administrator already configured');
   }
 }
 
 async function setupAdmin(userId, secret) {
+  const [existingAdmin, existingBootstrap] = await Promise.all([
+    User.exists({ role: 'admin' }),
+    AdminBootstrap.exists({ _id: ADMIN_BOOTSTRAP_KEY, key: ADMIN_BOOTSTRAP_KEY }),
+  ]);
+  if (existingAdmin || existingBootstrap) {
+    throw new AppError(409, 'Administrator already configured');
+  }
+
   const adminSecret = process.env.ADMIN_SETUP_SECRET;
   if (!adminSecret) throw new AppError(500, 'Not configured');
   const suppliedDigest = crypto.createHash('sha256').update(String(secret || '')).digest();

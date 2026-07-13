@@ -29,6 +29,9 @@ jest.mock('../middleware/upload', () => {
 
 jest.mock('../services/FootprintService', () => ({
   create: jest.fn(async (_userId, payload) => ({ id: 'footprint-id', ...payload })),
+  comment: jest.fn(async (_footprintId, _userId, _userName, _content, ip) => ({
+    footprint: { id: 'footprint-id', commentIp: ip },
+  })),
 }));
 
 const express = require('express');
@@ -38,6 +41,8 @@ const footprintService = require('../services/FootprintService');
 
 describe('POST /api/checkin middleware order', () => {
   const app = express();
+  app.set('trust proxy', 1);
+  app.use(express.json());
   app.use('/api', require('../routes/api'));
 
   beforeEach(() => {
@@ -98,5 +103,22 @@ describe('POST /api/checkin middleware order', () => {
       visibility: 'private',
       locationPrecision: 'precise',
     }), { isAdmin: false });
+  });
+
+  test('stores the Express-resolved rightmost client IP for comments', async () => {
+    const response = await request(app)
+      .post('/api/footprints/footprint-id/comment')
+      .set('X-Forwarded-For', '203.0.113.43, 198.51.100.43')
+      .send({ content: 'hello' });
+
+    expect(response.status).toBe(201);
+    expect(footprintService.comment).toHaveBeenCalledWith(
+      'footprint-id',
+      'user-id',
+      'publisher',
+      'hello',
+      '198.51.100.43',
+      expect.objectContaining({ viewer: expect.any(Object) }),
+    );
   });
 });

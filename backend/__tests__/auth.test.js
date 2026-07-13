@@ -29,11 +29,11 @@ function expectCurrentUserDto(user) {
 }
 
 describe('POST /api/auth/register', () => {
-  test('registers a new user and records IP', async () => {
+  test('registers a new user and records the Express-resolved client IP', async () => {
     const res = await request(app)
       .post('/api/auth/register')
       .send({ name: 'newuser', password: 'secret123' })
-      .set('X-Forwarded-For', '1.2.3.4');
+      .set('X-Forwarded-For', '203.0.113.41, 198.51.100.41');
 
     expect(res.status).toBe(201);
     expect(res.body.token).toBeDefined();
@@ -45,8 +45,8 @@ describe('POST /api/auth/register', () => {
     // Verify IP fields in DB
     const user = await User.findOne({ name: 'newuser' });
     expect(user).toBeTruthy();
-    expect(user.registerIp).toBe('1.2.3.4');
-    expect(user.lastLoginIp).toBe('1.2.3.4');
+    expect(user.registerIp).toBe('198.51.100.41');
+    expect(user.lastLoginIp).toBe('198.51.100.41');
     expect(user.lastLoginAt).toBeInstanceOf(Date);
   });
 
@@ -67,6 +67,20 @@ describe('POST /api/auth/register', () => {
       .send({ name: '' });
 
     expect(res.status).toBe(400);
+  });
+
+  test('does not let rotating a forged XFF left value bypass the auth limiter', async () => {
+    const stableClientIp = '198.51.100.42';
+    const responses = [];
+    for (let attempt = 0; attempt < 11; attempt += 1) {
+      responses.push(await request(app)
+        .post('/api/auth/login')
+        .send({ name: 'missing-rate-limit-user', password: 'wrong-password' })
+        .set('X-Forwarded-For', `203.0.113.${attempt + 1}, ${stableClientIp}`));
+    }
+
+    expect(responses.slice(0, 10).every((response) => response.status === 400)).toBe(true);
+    expect(responses[10].status).toBe(429);
   });
 
   test('rejects the trimmed founder display name for new accounts', async () => {

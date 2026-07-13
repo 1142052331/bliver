@@ -47,6 +47,13 @@ function setupRequest(token, body = { secret: 'bootstrap-secret-value' }) {
     .send(body);
 }
 
+function unauthenticatedSetupRequest(ip) {
+  return request(app)
+    .post('/api/admin/setup')
+    .set('X-Forwarded-For', `203.0.113.44, ${ip}`)
+    .send({ secret: 'bootstrap-secret-value' });
+}
+
 describe('POST /api/admin/setup', () => {
   test('uses a strict schema for missing, empty, and extra setup fields', async () => {
     const { token } = await createUser('strict-setup');
@@ -81,6 +88,31 @@ describe('POST /api/admin/setup', () => {
     expect(res.status).toBe(409);
     expect((await User.findById(user._id)).role).toBe('user');
     expect(await bootstrapCollection.countDocuments()).toBe(0);
+  });
+
+  test('checks an existing admin before validating the setup secret', async () => {
+    await createUser('existing-admin-secret-order', { role: 'admin' });
+    const { user } = await createUser('candidate-secret-order');
+
+    await expect(adminService.setupAdmin(user._id, 'wrong-secret'))
+      .rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  test('checks an existing bootstrap lock before validating the setup secret', async () => {
+    const { user } = await createUser('candidate-locked-secret-order');
+    await bootstrapCollection.insertOne({
+      _id: 'admin-setup',
+      key: 'admin-setup',
+      state: 'pending',
+      userId: new mongoose.Types.ObjectId(),
+      ownerToken: 'existing-owner',
+      leaseExpiresAt: new Date(0),
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+    });
+
+    await expect(adminService.setupAdmin(user._id, 'wrong-secret'))
+      .rejects.toMatchObject({ statusCode: 409 });
   });
 
   test('promotes once, revokes the old token, and returns a fresh admin token', async () => {
@@ -120,6 +152,34 @@ describe('POST /api/admin/setup', () => {
     expect(first.status).toBe(200);
     expect(second.status).toBe(409);
     expect(await User.countDocuments({ role: 'admin' })).toBe(1);
+  });
+
+  test('returns 409 after completion even when the setup secret is removed', async () => {
+    const { token } = await createUser('removed-secret-setup');
+    const first = await setupRequest(token);
+    expect(first.status).toBe(200);
+
+    delete process.env.ADMIN_SETUP_SECRET;
+    const second = await setupRequest(first.body.token);
+
+    expect(second.status).toBe(409);
+  });
+
+  test('does not consume the authenticated setup quota for unauthenticated requests', async () => {
+    const ip = '198.51.100.44';
+    const unauthenticated = await Promise.all(
+      Array.from({ length: 6 }, () => unauthenticatedSetupRequest(ip)),
+    );
+    expect(unauthenticated.every((response) => response.status === 401)).toBe(true);
+
+    const { token } = await createUser('setup-after-unauthenticated');
+    const authenticated = await request(app)
+      .post('/api/admin/setup')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Forwarded-For', `203.0.113.45, ${ip}`)
+      .send({ secret: 'bootstrap-secret-value' });
+
+    expect(authenticated.status).toBe(200);
   });
 
   test('allows at most one concurrent setup request to succeed', async () => {
@@ -214,7 +274,7 @@ describe('POST /api/admin/setup', () => {
     expect(await bootstrapCollection.countDocuments({ key: 'admin-setup', state: 'completed' })).toBe(1);
   });
 
-  test('reclaims an expired pending bootstrap lock after a crashed attempt', async () => {
+  test('does not reclaim a pending bootstrap lock left by a crashed attempt', async () => {
     const abandoned = await createUser('abandoned-bootstrap');
     await bootstrapCollection.insertOne({
       _id: 'admin-setup',
@@ -227,9 +287,11 @@ describe('POST /api/admin/setup', () => {
       updatedAt: new Date(0),
     });
 
-    const result = await adminService.setupAdmin(abandoned.user._id, process.env.ADMIN_SETUP_SECRET);
+    await expect(adminService.setupAdmin(abandoned.user._id, process.env.ADMIN_SETUP_SECRET))
+      .rejects.toMatchObject({ statusCode: 409 });
 
-    expect(result.token).toEqual(expect.any(String));
-    expect((await User.findById(abandoned.user._id)).role).toBe('admin');
+    expect((await User.findById(abandoned.user._id)).role).toBe('user');
+    expect(await bootstrapCollection.findOne({ _id: 'admin-setup' }))
+      .toMatchObject({ ownerToken: 'abandoned-owner', state: 'pending' });
   });
 });

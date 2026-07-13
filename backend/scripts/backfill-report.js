@@ -36,10 +36,14 @@ function buildReport(documents, now = new Date()) {
     }
 
     const claimedFromStatus = document.regionBackfill?.claimedFromStatus;
+    const pendingOrigin = claimedFromStatus === undefined
+      || claimedFromStatus === null
+      || claimedFromStatus === ''
+      || claimedFromStatus === 'pending';
     const eligibleStaleLease = status === 'processing'
       && lease instanceof Date
       && lease.getTime() <= now.getTime()
-      && (!claimedFromStatus || claimedFromStatus === 'pending');
+      && pendingOrigin;
     if (status === 'pending' || status === 'unknown' || eligibleStaleLease) {
       eligible += 1;
     }
@@ -117,7 +121,18 @@ function createBackfillReport({
           },
           eligible: {
             $or: [
-              { $in: [{ $ifNull: ['$regionBackfill.status', 'unknown'] }, ['pending', 'unknown']] },
+              {
+                $in: [
+                  {
+                    $cond: [
+                      { $in: ['$regionBackfill.status', STATUS_KEYS] },
+                      '$regionBackfill.status',
+                      'unknown',
+                    ],
+                  },
+                  ['pending', 'unknown'],
+                ],
+              },
               {
                 $and: [
                   { $eq: ['$regionBackfill.status', 'processing'] },

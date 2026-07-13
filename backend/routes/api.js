@@ -85,9 +85,8 @@ const router = express.Router();
   // POST /api/footprints/:id/comment
   router.post('/footprints/:id/comment', auth, contentLimiter, validate(commentSchema), async (req, res) => {
     const { content, parentCommentId, replyToCommentId } = req.body;
-    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim()
-      || req.ip
-      || req.socket.remoteAddress
+    const ip = req.ip
+      || req.socket?.remoteAddress
       || '';
 
     const result = await footprintService.comment(
@@ -118,7 +117,7 @@ const router = express.Router();
 
   // ── Admin setup ───────────────────────────────────────
 
-  router.post('/admin/setup', adminSetupLimiter, auth, validate(adminSetupSchema), async (req, res) => {
+  router.post('/admin/setup', auth, adminSetupLimiter, validate(adminSetupSchema), async (req, res) => {
     const adminService = require('../services/AdminService');
     const result = await adminService.setupAdmin(req.user.id, req.body.secret);
     res.json({ ok: true, message: result.message, token: result.token });
