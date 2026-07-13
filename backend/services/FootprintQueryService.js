@@ -3,6 +3,7 @@ const User = require('../models/User');
 const AppError = require('../middleware/AppError');
 const { normalizeMapQuery } = require('../validators/mapQuery');
 const { getFriendIds } = require('./SuperuserPolicy');
+const Block = require('../models/Block');
 const { populateFootprint } = require('./footprint');
 const { sanitizeLocation } = require('./location');
 const { getUnreadByFootprintId } = require('./FootprintReadService');
@@ -62,7 +63,7 @@ function fixedGeographyFilter(normalized) {
   return {};
 }
 
-function buildCandidateFilters({ viewer, friendIds, normalized, now, authorIds = [] }) {
+function buildCandidateFilters({ viewer, friendIds, blockedIds = new Set(), normalized, now, authorIds = [] }) {
   const common = and(
     authorizationFilter({
       viewerId: viewer?.id || null,
@@ -74,6 +75,7 @@ function buildCandidateFilters({ viewer, friendIds, normalized, now, authorIds =
     periodFilter(normalized.period, now),
     contentFilter(normalized.content),
     textFilter(normalized.query, authorIds),
+    blockedIds.size ? { userId: { $nin: [...blockedIds] } } : {},
   );
 
   if (normalized.scope !== 'smart') {
@@ -171,12 +173,14 @@ async function listMap({ viewer, query, now = new Date() }) {
   }
 
   const friendIds = viewer ? await getFriendIds(viewer.id) : new Set();
+  const blockRows = viewer ? await Block.find({ $or: [{ blockerId: viewer.id }, { blockedId: viewer.id }] }).select('blockerId blockedId').lean() : [];
+  const blockedIds = new Set(blockRows.map((block) => String(block.blockerId) === String(viewer.id) ? block.blockedId : block.blockerId));
   const authorIds = normalized.query
     ? (await User.find({ name: new RegExp(escapeRegex(normalized.query), 'i') })
       .select('_id').limit(50).lean()).map((user) => user._id)
     : [];
   const candidateFilters = buildCandidateFilters({
-    viewer, friendIds, normalized, now, authorIds,
+    viewer, friendIds, blockedIds, normalized, now, authorIds,
   });
   const docs = await listCandidateLayers({
     candidateFilters,

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Footprint = require('../models/Footprint');
 const { getFriendIds } = require('./SuperuserPolicy');
 const { canReadFootprint } = require('../policies/FootprintVisibilityPolicy');
+const Block = require('../models/Block');
 
 function activePublicFilter(now) {
   return {
@@ -31,14 +32,22 @@ function authorizationFilter({ viewerId = null, friendIds = new Set(), isAdmin =
 }
 
 async function getViewerAccess(viewer) {
+  let blockedIds = new Set();
+  if (viewer?.id) {
+    const blocks = await Block.find({ $or: [{ blockerId: viewer.id }, { blockedId: viewer.id }] }).select('blockerId blockedId').lean();
+    blockedIds = new Set(blocks.map((block) => String(block.blockerId) === String(viewer.id) ? String(block.blockedId) : String(block.blockerId)));
+  }
   return {
     viewerId: viewer?.id || null,
     friendIds: viewer?.id ? await getFriendIds(viewer.id) : new Set(),
+    blockedIds,
     isAdmin: viewer?.role === 'admin',
   };
 }
 
 function canReadWithAccess(footprint, access, now = new Date()) {
+  const ownerId = footprint?.userId?._id || footprint?.userId;
+  if (ownerId && access.blockedIds?.has(String(ownerId))) return false;
   return canReadFootprint({ footprint, ...access, now });
 }
 

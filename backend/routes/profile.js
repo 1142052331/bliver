@@ -3,12 +3,17 @@ const { auth, optionalAuth } = require('../middleware/auth');
 const { contentLimiter } = require('../middleware/rateLimiter');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
 const profileService = require('../services/ProfileService');
+const interactionPolicy = require('../services/InteractionPolicy');
 
 const router = express.Router();
 
 // GET /api/users/:id/profile
 router.get('/users/:id/profile', optionalAuth, async (req, res) => {
   const viewer = req.user || null;
+  if (viewer) {
+    const decision = await interactionPolicy.canViewProfile(viewer.id, req.params.id);
+    if (!decision.allowed) return res.status(404).json({ error: 'User not found' });
+  }
   const result = await profileService.getProfile(req.params.id, viewer);
   if (!result) return res.status(404).json({ error: 'User not found' });
   res.json(result);
@@ -16,12 +21,16 @@ router.get('/users/:id/profile', optionalAuth, async (req, res) => {
 
 // POST /api/users/:id/profile/comment
 router.post('/users/:id/profile/comment', auth, contentLimiter, async (req, res) => {
+  const decision = await interactionPolicy.canViewProfile(req.user.id, req.params.id);
+  if (!decision.allowed) return res.status(403).json({ error: decision.reason });
   const result = await profileService.addComment(req.params.id, req.user.name, req.body.content);
   res.status(201).json({ user: result.user });
 });
 
 // POST /api/users/:id/profile/react
 router.post('/users/:id/profile/react', auth, contentLimiter, async (req, res) => {
+  const decision = await interactionPolicy.canViewProfile(req.user.id, req.params.id);
+  if (!decision.allowed) return res.status(403).json({ error: decision.reason });
   const result = await profileService.toggleReaction(req.params.id, req.user.id, req.body.emoji);
   res.json({ user: result.user });
 });
