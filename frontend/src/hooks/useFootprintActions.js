@@ -5,7 +5,12 @@ import useUIStore from '../store/useUIStore';
 import { replaceFootprintInCaches } from './socketHandlers';
 
 export default function useFootprintActions({ user, requireLogin, setFootprints }) {
-  const queryClient = useQueryClient();
+  let queryClient = null;
+  try {
+    queryClient = useQueryClient();
+  } catch {
+    // Legacy surfaces can render outside the React Query provider during rollback/tests.
+  }
   const setFlyArrivedFp = useUIStore((s) => s.setFlyArrivedFp);
   const viewerIdentity = user?._id
     ? `${user.role === 'admin' ? 'admin' : 'user'}:${user._id}`
@@ -13,7 +18,7 @@ export default function useFootprintActions({ user, requireLogin, setFootprints 
 
   const applyFootprint = useCallback((footprint) => {
     if (!footprint?._id) return;
-    replaceFootprintInCaches(queryClient, footprint, viewerIdentity);
+    if (queryClient) replaceFootprintInCaches(queryClient, footprint, viewerIdentity);
     setFootprints((previous) => previous.map((item) => (
       item._id === footprint._id ? footprint : item
     )));
