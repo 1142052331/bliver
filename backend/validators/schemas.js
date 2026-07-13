@@ -66,7 +66,7 @@ const reportResolution = z.object({
 
 const register = z.object({
   name: z.string().trim().min(1, '请提供用户名').max(30, '用户名过长'),
-  password: z.string().min(1, '请提供密码').max(128, '密码过长'),
+  password: z.string().min(8, '密码至少需要8个字符').max(128, '密码过长'),
 });
 
 const login = z.object({
@@ -76,7 +76,18 @@ const login = z.object({
 
 const profileUpdate = z.object({
   name: z.string().trim().min(1, '用户名不能为空').max(30, '用户名过长').optional(),
+}).strict();
+
+const adminUserUpdate = z.object({
+  name: z.string().trim().min(1, '用户名不能为空').max(30, '用户名过长').optional(),
+  password: z.string().min(8, '密码至少需要8个字符').max(128, '密码过长').optional(),
+}).strict().refine((value) => value.name !== undefined || value.password !== undefined, {
+  message: 'Nothing to update',
 });
+
+const adminSetup = z.object({
+  secret: z.string().min(1, '请提供管理员设置密钥').max(512, '管理员设置密钥过长'),
+}).strict();
 
 const announcement = z.object({
   title: z.string().trim().max(100, '标题过长').optional(),
@@ -93,5 +104,7 @@ module.exports = {
   register,
   login,
   profileUpdate,
+  adminUserUpdate,
+  adminSetup,
   announcement,
 };

@@ -1,11 +1,16 @@
 const express = require('express');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
 const { auth, admin, optionalAuth } = require('../middleware/auth');
-const { contentLimiter } = require('../middleware/rateLimiter');
+const { contentLimiter, adminSetupLimiter } = require('../middleware/rateLimiter');
 const footprintService = require('../services/FootprintService');
 const footprintReadService = require('../services/FootprintReadService');
 const validate = require('../middleware/validate');
-const { checkin: checkinSchema, comment: commentSchema, reaction: reactionSchema } = require('../validators/schemas');
+const {
+  checkin: checkinSchema,
+  comment: commentSchema,
+  reaction: reactionSchema,
+  adminSetup: adminSetupSchema,
+} = require('../validators/schemas');
 
 const authRoutes = require('./auth');
 const notificationRoutes = require('./notifications');
@@ -113,10 +118,10 @@ const router = express.Router();
 
   // ── Admin setup ───────────────────────────────────────
 
-  router.post('/admin/setup', auth, async (req, res) => {
+  router.post('/admin/setup', adminSetupLimiter, auth, validate(adminSetupSchema), async (req, res) => {
     const adminService = require('../services/AdminService');
     const result = await adminService.setupAdmin(req.user.id, req.body.secret);
-    res.json({ ok: true, message: result.message });
+    res.json({ ok: true, message: result.message, token: result.token });
   });
 
   // ── Feedback ──────────────────────────────────────────

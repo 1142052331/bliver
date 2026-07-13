@@ -41,7 +41,7 @@ async function hydrateToken(token) {
     name: user.name,
     role: user.role,
     sessionVersion,
-    systemIdentity: user.systemIdentity,
+    systemIdentity: user.systemIdentity || null,
   };
 }
 

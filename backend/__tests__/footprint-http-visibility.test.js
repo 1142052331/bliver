@@ -229,7 +229,7 @@ describe('legacy footprint HTTP visibility', () => {
     expect((await Footprint.findById(hidden._id)).comments).toHaveLength(1);
   });
 
-  test('readable comment deletion preserves author and superuser rules', async () => {
+  test('readable comment deletion preserves author and role-based moderation rules', async () => {
     const owner = await createUser('owner');
     const author = await createUser('author');
     const other = await createUser('other');
@@ -254,7 +254,14 @@ describe('legacy footprint HTTP visibility', () => {
     const superuserDelete = await request(app)
       .delete(`/api/footprints/${footprint.id}/comments/${footprint.comments[1]._id}`)
       .set(auth(superuser));
-    expect(superuserDelete.status).toBe(200);
+    expect(superuserDelete.status).toBe(403);
+    expect((await Footprint.findById(footprint._id)).comments).toHaveLength(1);
+
+    const admin = await createUser('renamed-admin', { role: 'admin' });
+    const adminDelete = await request(app)
+      .delete(`/api/footprints/${footprint.id}/comments/${footprint.comments[1]._id}`)
+      .set(auth(admin));
+    expect(adminDelete.status).toBe(200);
     expect((await Footprint.findById(footprint._id)).comments).toHaveLength(0);
   });
 

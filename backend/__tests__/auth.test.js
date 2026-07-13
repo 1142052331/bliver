@@ -20,6 +20,7 @@ const CURRENT_USER_KEYS = [
   'name',
   'profileBannerUrl',
   'role',
+  'systemIdentity',
 ];
 
 function expectCurrentUserDto(user) {
@@ -66,6 +67,27 @@ describe('POST /api/auth/register', () => {
       .send({ name: '' });
 
     expect(res.status).toBe(400);
+  });
+
+  test('rejects the trimmed founder display name for new accounts', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ name: '  阿森  ', password: 'secret123' })
+      .set('X-Forwarded-For', '203.0.113.71');
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/reserved/i);
+    expect(await User.countDocuments()).toBe(0);
+  });
+
+  test('requires at least eight characters for new passwords', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ name: 'short-password', password: 'short7' })
+      .set('X-Forwarded-For', '203.0.113.72');
+
+    expect(res.status).toBe(400);
+    expect(await User.findOne({ name: 'short-password' })).toBeNull();
   });
 
   test('falls back to remoteAddress when x-forwarded-for absent', async () => {
@@ -150,6 +172,22 @@ describe('POST /api/auth/login', () => {
       .send({ name: 'nobody', password: 'whatever' });
 
     expect(res.status).toBe(400);
+  });
+
+  test('remains compatible with legacy passwords shorter than eight characters', async () => {
+    const bcrypt = require('bcryptjs');
+    await User.create({
+      name: 'legacy-short-password',
+      password: await bcrypt.hash('old123', 10),
+    });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ name: 'legacy-short-password', password: 'old123' })
+      .set('X-Forwarded-For', '203.0.113.73');
+
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeDefined();
   });
 
   test('login and current-user lookup do not infer admin role from the name 阿森', async () => {

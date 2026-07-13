@@ -2,8 +2,9 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const AppError = require('../middleware/AppError');
 const sessionService = require('./SessionService');
+const { assertNameClaimAllowed } = require('./UserIdentityPolicy');
 
-const CURRENT_USER_FIELDS = 'name avatarUrl profileBannerUrl role lastFootprintVisibility';
+const CURRENT_USER_FIELDS = 'name avatarUrl profileBannerUrl role systemIdentity lastFootprintVisibility';
 
 function toCurrentUserDto(user) {
   const id = String(user._id);
@@ -14,6 +15,7 @@ function toCurrentUserDto(user) {
     avatarUrl: user.avatarUrl || '',
     profileBannerUrl: user.profileBannerUrl || '',
     role: user.role,
+    systemIdentity: user.systemIdentity || null,
     lastFootprintVisibility: user.lastFootprintVisibility || 'public',
   };
 }
@@ -25,6 +27,7 @@ function getClientIp(req) {
 }
 
 async function register({ name, password, avatarUrl, ip }) {
+  assertNameClaimAllowed(name);
   const exists = await User.findOne({ name });
   if (exists) throw new AppError(400, 'Name already taken');
 

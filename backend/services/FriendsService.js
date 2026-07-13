@@ -1,11 +1,9 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Friendship = require('../models/Friendship');
-const Message = require('../models/Message');
-const { SUPERUSER_NAME } = require('./superuser');
-const { isSuperuserName } = require('./authorization');
 const AppError = require('../middleware/AppError');
 const { getEffectiveFriends, areFriends: policyAreFriends } = require('./SuperuserPolicy');
+const { isFounder } = require('./UserIdentityPolicy');
 
 // ═══════════════════════════════════════════════════════════
 //  Read
@@ -61,7 +59,7 @@ async function sendRequest(requesterId, recipientId) {
   const recipient = await User.findById(recipientId).lean();
   if (!recipient) throw new AppError(404, '用户不存在');
 
-  if (isSuperuserName(recipient.name)) {
+  if (isFounder(recipient)) {
     throw new AppError(400, '管理员已是您的好友，无需申请');
   }
 
@@ -117,7 +115,9 @@ async function rejectRequest(friendshipId, userId) {
 async function removeFriend(userId, targetUserId) {
   const targetUser = await User.findById(targetUserId).lean();
   if (!targetUser) throw new AppError(404, '用户不存在');
-  if (isSuperuserName(targetUser.name)) throw new AppError(403, '不能删除管理员好友');
+  if (isFounder(targetUser)) {
+    throw new AppError(403, '不能删除管理员好友');
+  }
 
   const result = await Friendship.deleteMany({
     $or: [

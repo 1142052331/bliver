@@ -5,6 +5,7 @@ const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const sessionService = require('../services/SessionService');
 const { connectDB, disconnectDB, clearDB } = require('./setup');
 
 let app;
@@ -179,6 +180,52 @@ describe('PUT /api/admin/users/:id', () => {
     expect(match).toBe(true);
   });
 
+  test('rejects admin password changes shorter than eight characters', async () => {
+    const token = await createAdmin();
+    const user = await createUser('short-admin-password');
+
+    const res = await request(app)
+      .put(`/api/admin/users/${user._id}`)
+      .set(authHeader(token))
+      .send({ password: 'short7' });
+
+    expect(res.status).toBe(400);
+  });
+
+  test('revokes existing sessions when an admin changes a password', async () => {
+    const token = await createAdmin();
+    const user = await createUser('revoke-on-password');
+    const oldToken = sessionService.issueToken(user);
+
+    const update = await request(app)
+      .put(`/api/admin/users/${user._id}`)
+      .set(authHeader(token))
+      .send({ password: 'replacement-password' });
+
+    expect(update.status).toBe(200);
+    const updated = await User.findById(user._id);
+    expect(updated.sessionVersion).toBe(1);
+
+    const me = await request(app)
+      .get('/api/auth/me')
+      .set(authHeader(oldToken));
+    expect(me.status).toBe(401);
+  });
+
+  test('does not let an admin assign the founder display name to an ordinary user', async () => {
+    const token = await createAdmin();
+    const user = await createUser('rename-takeover');
+
+    const res = await request(app)
+      .put(`/api/admin/users/${user._id}`)
+      .set(authHeader(token))
+      .send({ name: '  阿森  ' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/reserved/i);
+    expect((await User.findById(user._id)).name).toBe('rename-takeover');
+  });
+
   test('rejects empty update body', async () => {
     const token = await createAdmin();
     const user = await createUser('emptyupdate');
@@ -254,5 +301,43 @@ describe('POST /api/admin/kick/:userId', () => {
       .set(authHeader(token));
 
     expect(res.status).toBe(403);
+  });
+
+  test('revokes HTTP sessions and disconnects the active socket', async () => {
+    const token = await createAdmin();
+    const user = await createUser('kick-session');
+    const oldToken = sessionService.issueToken(user);
+    const originalSocketIO = global.__socketIO;
+    const sockets = [1, 2].map(() => ({
+      userId: user.id,
+      emit: jest.fn(),
+      disconnect: jest.fn(),
+    }));
+    global.__socketIO = { fetchSockets: jest.fn().mockResolvedValue(sockets) };
+
+    try {
+      const res = await request(app)
+        .post(`/api/admin/kick/${user._id}`)
+        .set(authHeader(token));
+
+      expect(res.status).toBe(200);
+      expect(global.__socketIO.fetchSockets).toHaveBeenCalled();
+      for (const socket of sockets) {
+        expect(socket.emit).toHaveBeenCalledWith('force_logout', expect.objectContaining({ reason: expect.any(String) }));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      for (const socket of sockets) {
+        expect(socket.disconnect).toHaveBeenCalledWith(true);
+      }
+
+      const updated = await User.findById(user._id);
+      expect(updated.sessionVersion).toBe(1);
+      const me = await request(app)
+        .get('/api/auth/me')
+        .set(authHeader(oldToken));
+      expect(me.status).toBe(401);
+    } finally {
+      global.__socketIO = originalSocketIO;
+    }
   });
 });

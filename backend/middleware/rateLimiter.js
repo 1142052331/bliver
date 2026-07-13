@@ -20,4 +20,13 @@ const contentLimiter = rateLimit({
   message: { error: '操作过于频繁，请稍后再试' },
 });
 
-module.exports = { authLimiter, contentLimiter };
+const adminSetupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  message: { error: '管理员设置尝试过于频繁，请稍后再试' },
+});
+
+module.exports = { authLimiter, contentLimiter, adminSetupLimiter };

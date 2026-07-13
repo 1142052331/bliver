@@ -4,7 +4,7 @@ const adminService = require('../services/AdminService');
 const auditService = require('../services/AuditService');
 const reportService = require('../services/ReportService');
 const validate = require('../middleware/validate');
-const { reportResolution } = require('../validators/schemas');
+const { reportResolution, adminUserUpdate } = require('../validators/schemas');
 
 const router = express.Router();
 
@@ -24,7 +24,7 @@ router.get('/admin/users', async (req, res) => {
 });
 
 // PUT /api/admin/users/:id
-router.put('/admin/users/:id', async (req, res) => {
+router.put('/admin/users/:id', validate(adminUserUpdate), async (req, res) => {
   const result = await adminService.updateUser(req.params.id, req.body);
   res.json({ user: result.user });
   auditService.log({ type: 'user_edit', actor: req.user.name, target: result.user.name });

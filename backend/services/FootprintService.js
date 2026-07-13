@@ -5,7 +5,6 @@ const { getWeather } = require('./weather');
 const { blurCoordinate, sanitizeLocation } = require('./location');
 const { notify } = require('./notification');
 const { populateFootprint } = require('./footprint');
-const { isSuperuserName } = require('./authorization');
 const bus = require('../events/bus');
 const auditService = require('./AuditService');
 const AppError = require('../middleware/AppError');
@@ -304,7 +303,7 @@ class FootprintService {
     if (!comment) throw new AppError(404, 'Comment not found');
 
     const isAuthor = comment.userId?.toString() === userId;
-    const isModerator = viewer?.role === 'admin' || isSuperuserName(userName);
+    const isModerator = viewer?.role === 'admin';
     if (!isAuthor && !isModerator) {
       throw new AppError(403, '无权删除此评论');
     }

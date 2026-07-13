@@ -12,6 +12,7 @@ jest.mock('../middleware/auth', () => ({
 jest.mock('../middleware/rateLimiter', () => ({
   authLimiter: (_req, _res, next) => next(),
   contentLimiter: (_req, _res, next) => next(),
+  adminSetupLimiter: (_req, _res, next) => next(),
 }));
 
 jest.mock('../middleware/upload', () => {

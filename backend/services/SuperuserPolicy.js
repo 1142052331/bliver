@@ -2,16 +2,16 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Friendship = require('../models/Friendship');
 const Message = require('../models/Message');
-const { SUPERUSER_NAME } = require('./superuser');
-const { isSuperuserName } = require('./authorization');
+const { FOUNDER_SYSTEM_IDENTITY, isFounder } = require('./UserIdentityPolicy');
 
 /**
  * Inject superuser (or chat-history users for superuser) into a friend list.
  * Replaces duplicated logic in FriendsService.getFriends().
  */
-async function getEffectiveFriends(userId, userName, friends) {
-  if (!isSuperuserName(userName)) {
-    const asen = await User.findOne({ name: SUPERUSER_NAME })
+async function getEffectiveFriends(userId, _userName, friends) {
+  const user = await User.findById(userId).select('systemIdentity').lean();
+  if (!isFounder(user)) {
+    const asen = await User.findOne({ systemIdentity: FOUNDER_SYSTEM_IDENTITY })
       .select('name avatarUrl isOnline role').lean();
     if (asen) {
       const asenId = asen._id.toString();
@@ -39,12 +39,13 @@ async function getEffectiveFriends(userId, userName, friends) {
  * Get broadcast targets for online/offline events.
  * Returns { mode: 'all' } for superuser, or { mode: 'friends+superuser', friendIds, superuserId }.
  */
-async function getBroadcastTargets(userId, userName) {
-  if (isSuperuserName(userName)) {
+async function getBroadcastTargets(userId, _userName) {
+  const user = await User.findById(userId).select('systemIdentity').lean();
+  if (isFounder(user)) {
     return { mode: 'all' };
   }
   const friendIds = await getFriendIds(userId);
-  const asen = await User.findOne({ name: SUPERUSER_NAME, isOnline: true })
+  const asen = await User.findOne({ systemIdentity: FOUNDER_SYSTEM_IDENTITY, isOnline: true })
     .select('_id').lean();
   return { mode: 'friends+superuser', friendIds, superuserId: asen?._id };
 }
@@ -74,12 +75,15 @@ async function getFriendIds(userId) {
 async function areFriends(userId, targetId) {
   if (userId.toString() === targetId.toString()) return false;
 
-  const target = await User.findById(targetId).select('name').lean();
+  const target = await User.findById(targetId).select('systemIdentity').lean();
   if (!target) return false;
-  if (isSuperuserName(target.name)) return true;
+  if (isFounder(target)) return true;
 
-  const sender = await User.findById(userId).select('name role').lean();
-  if (sender && (sender.role === 'admin' || isSuperuserName(sender.name))) return true;
+  const sender = await User.findById(userId).select('role systemIdentity').lean();
+  if (sender && (
+    sender.role === 'admin'
+    || isFounder(sender)
+  )) return true;
 
   const friendship = await Friendship.findOne({
     status: 'accepted',

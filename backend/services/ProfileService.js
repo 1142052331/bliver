@@ -6,6 +6,7 @@ const { populateFootprint } = require('./footprint');
 const { notify } = require('./notification');
 const bus = require('../events/bus');
 const AppError = require('../middleware/AppError');
+const { assertNameClaimAllowed } = require('./UserIdentityPolicy');
 const {
   authorizationFilter,
   filterReadableFootprints,
@@ -272,6 +273,9 @@ class ProfileService {
 
     if (name && name.trim()) {
       const trimmed = name.trim();
+      const currentUser = await User.findById(userId).select('systemIdentity');
+      if (!currentUser) throw new AppError(404, 'User not found');
+      assertNameClaimAllowed(trimmed, currentUser);
       const exists = await User.findOne({ name: trimmed, _id: { $ne: userId } });
       if (exists) throw new AppError(400, 'Name already taken');
       updates.name = trimmed;

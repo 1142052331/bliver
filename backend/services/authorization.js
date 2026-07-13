@@ -1,11 +1,12 @@
 const { SUPERUSER_NAME } = require('./superuser');
+const { isFounder } = require('./UserIdentityPolicy');
 
 function isAdmin(user) {
   return user?.role === 'admin';
 }
 
 function isSuperuser(user) {
-  return user?.name === SUPERUSER_NAME;
+  return isFounder(user);
 }
 
 function isSuperuserName(name) {
@@ -14,7 +15,7 @@ function isSuperuserName(name) {
 
 function canDeleteComment(actor, commentUserId, commentUserName) {
   if (actor.id === commentUserId?.toString()) return true;
-  if (isSuperuser(actor)) return true;
+  if (isAdmin(actor)) return true;
   return false;
 }
 

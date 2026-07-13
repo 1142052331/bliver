@@ -1,11 +1,19 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const User = require('../models/User');
+const AdminBootstrap = require('../models/AdminBootstrap');
+const {
+  ADMIN_BOOTSTRAP_KEY,
+  ADMIN_BOOTSTRAP_LEASE_MS,
+} = AdminBootstrap;
 const Footprint = require('../models/Footprint');
 const Notification = require('../models/Notification');
 const { getOnlineUsers, disconnectUser } = require('../socket');
 const bus = require('../events/bus');
 const auditService = require('./AuditService');
 const AppError = require('../middleware/AppError');
+const sessionService = require('./SessionService');
+const { assertNameClaimAllowed } = require('./UserIdentityPolicy');
 
 /**
  * Enrich raw socket online data with user names/avatars.
@@ -44,11 +52,22 @@ async function listUsers() {
  * Update a user's name and/or password.
  */
 async function updateUser(userId, { name, password }) {
-  const update = {};
-  if (name) update.name = name;
-  if (password) update.password = await bcrypt.hash(password, 10);
-  if (Object.keys(update).length === 0) throw new AppError(400, 'Nothing to update');
+  const currentUser = await User.findById(userId).select('name role systemIdentity');
+  if (!currentUser) throw new AppError(404, 'User not found');
 
+  const set = {};
+  if (name) {
+    const trimmed = name.trim();
+    assertNameClaimAllowed(trimmed, currentUser);
+    const exists = await User.exists({ name: trimmed, _id: { $ne: userId } });
+    if (exists) throw new AppError(400, 'Name already taken');
+    set.name = trimmed;
+  }
+  if (password) set.password = await bcrypt.hash(password, 10);
+  if (Object.keys(set).length === 0) throw new AppError(400, 'Nothing to update');
+
+  const update = { $set: set };
+  if (password) update.$inc = { sessionVersion: 1 };
   const user = await User.findByIdAndUpdate(userId, update, { returnDocument: 'after', runValidators: true }).select('-password');
   if (!user) throw new AppError(404, 'User not found');
   // Audit emitted separately by the route handler (needs actorName from req)
@@ -118,7 +137,10 @@ async function kickUser(userId, actorName) {
   if (!user) throw new AppError(404, 'User not found');
   if (user.role === 'admin') throw new AppError(403, 'Cannot kick another admin');
 
-  await User.findByIdAndUpdate(userId, { isOnline: false });
+  await User.findByIdAndUpdate(userId, {
+    $set: { isOnline: false },
+    $inc: { sessionVersion: 1 },
+  });
   const disconnected = await disconnectUser(userId, '您已被管理员踢出');
 
   auditService.log({ type: 'kick', actor: actorName, target: user.name });
@@ -128,13 +150,163 @@ async function kickUser(userId, actorName) {
     : `User ${user.name} is not online, marked offline` };
 }
 
+function matchedCount(result) {
+  return result?.matchedCount ?? result?.n ?? result?.nModified ?? 0;
+}
+
+async function releaseBootstrapLock(lock) {
+  try {
+    await AdminBootstrap.deleteOne({
+      _id: lock._id,
+      key: ADMIN_BOOTSTRAP_KEY,
+      ownerToken: lock.ownerToken,
+    });
+  } catch (error) {
+    console.error('[AdminService] bootstrap lock cleanup failed:', error.message);
+  }
+}
+
+async function rollbackPromotion(user, lock) {
+  const result = await User.updateOne(
+    { _id: user._id, role: 'admin', sessionVersion: user.sessionVersion },
+    {
+      $set: { role: 'user' },
+      // Keep the version moving forward so a token minted before promotion
+      // cannot become valid again after compensation.
+      $inc: { sessionVersion: 1 },
+    },
+  );
+  if (matchedCount(result) !== 1) return false;
+  await releaseBootstrapLock(lock);
+  return true;
+}
+
+async function completeBootstrapLock(lock) {
+  const completedAt = new Date();
+  const result = await AdminBootstrap.updateOne(
+    {
+      _id: lock._id,
+      key: ADMIN_BOOTSTRAP_KEY,
+      state: 'pending',
+      ownerToken: lock.ownerToken,
+    },
+    {
+      $set: {
+        state: 'completed',
+        completedAt,
+        leaseExpiresAt: completedAt,
+      },
+    },
+  );
+  if (matchedCount(result) !== 1) {
+    throw new Error('Admin bootstrap lock completion failed');
+  }
+}
+
+async function acquireBootstrapLock(userId) {
+  const now = new Date();
+  const ownerToken = crypto.randomUUID();
+  const leaseExpiresAt = new Date(now.getTime() + ADMIN_BOOTSTRAP_LEASE_MS);
+  const lockData = {
+    _id: ADMIN_BOOTSTRAP_KEY,
+    key: ADMIN_BOOTSTRAP_KEY,
+    userId,
+    ownerToken,
+    leaseExpiresAt,
+  };
+
+  try {
+    return await AdminBootstrap.create(lockData);
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+
+    const reclaimed = await AdminBootstrap.findOneAndUpdate(
+      {
+        _id: ADMIN_BOOTSTRAP_KEY,
+        key: ADMIN_BOOTSTRAP_KEY,
+        state: 'pending',
+        leaseExpiresAt: { $lte: now },
+      },
+      { $set: { userId, ownerToken, leaseExpiresAt } },
+      { returnDocument: 'after' },
+    );
+    if (reclaimed) return reclaimed;
+    throw new AppError(409, 'Administrator already configured');
+  }
+}
+
 async function setupAdmin(userId, secret) {
   const adminSecret = process.env.ADMIN_SETUP_SECRET;
   if (!adminSecret) throw new AppError(500, 'Not configured');
-  if (secret !== adminSecret) throw new AppError(403, 'Wrong secret');
+  const suppliedDigest = crypto.createHash('sha256').update(String(secret || '')).digest();
+  const expectedDigest = crypto.createHash('sha256').update(adminSecret).digest();
+  if (!crypto.timingSafeEqual(suppliedDigest, expectedDigest)) {
+    throw new AppError(403, 'Wrong secret');
+  }
 
-  await User.findByIdAndUpdate(userId, { role: 'admin' });
-  return { message: 'Admin role granted' };
+  if (await User.exists({ role: 'admin' })) {
+    throw new AppError(409, 'Administrator already configured');
+  }
+
+  let lock;
+  try {
+    lock = await acquireBootstrapLock(userId);
+  } catch (error) {
+    throw error;
+  }
+
+  let user;
+  try {
+    if (await User.exists({ role: 'admin' })) {
+      throw new AppError(409, 'Administrator already configured');
+    }
+
+    user = await User.findOneAndUpdate({ _id: userId, role: { $ne: 'admin' } }, {
+      $set: { role: 'admin' },
+      $inc: { sessionVersion: 1 },
+    }, { returnDocument: 'after' });
+    if (!user) {
+      const existing = await User.findById(userId).select('role');
+      if (existing?.role === 'admin') {
+        throw new AppError(409, 'Administrator already configured');
+      }
+      throw new AppError(404, 'User not found');
+    }
+  } catch (error) {
+    await releaseBootstrapLock(lock);
+    throw error;
+  }
+
+  let token;
+  try {
+    token = sessionService.issueToken(user);
+    await completeBootstrapLock(lock);
+  } catch (error) {
+    let rolledBack = false;
+    try {
+      rolledBack = await rollbackPromotion(user, lock);
+    } catch (rollbackError) {
+      console.error('[AdminService] bootstrap promotion rollback failed:', rollbackError.message);
+    }
+    if (rolledBack) throw error;
+
+    // The role update is durable but compensation lost its race. Preserve
+    // the valid admin state and make a best-effort second lock completion.
+    try {
+      await completeBootstrapLock(lock);
+    } catch (completionError) {
+      console.error('[AdminService] bootstrap lock finalization failed:', completionError.message);
+    }
+    if (!token) token = sessionService.issueToken(user);
+  }
+
+  try {
+    await auditService.log({ type: 'admin_setup', actor: user.name, target: user.name });
+  } catch (error) {
+    console.error('[AdminService] admin setup audit failed:', error.message);
+  }
+
+  return { message: 'Admin role granted', token };
 }
 
 module.exports = { listOnlineUsers, listUsers, updateUser, deleteUser, detectClones, kickUser, setupAdmin };

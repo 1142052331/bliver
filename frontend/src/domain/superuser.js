@@ -13,5 +13,5 @@ export function isAdminUser(user) {
 }
 
 export function canBypassFriendship(user) {
-  return isAdminUser(user) || isSuperuser(user);
+  return isAdminUser(user);
 }

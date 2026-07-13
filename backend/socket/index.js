@@ -216,14 +216,15 @@ async function getOnlineUsers() {
 
 async function disconnectUser(userId, reason) {
   const sockets = await global.__socketIO.fetchSockets();
+  let disconnected = false;
   for (const s of sockets) {
-    if (s.userId === userId) {
+    if (String(s.userId) === String(userId)) {
       s.emit('force_logout', { reason });
       setTimeout(() => s.disconnect(true), 200);
-      return true;
+      disconnected = true;
     }
   }
-  return false;
+  return disconnected;
 }
 
 // Store io reference globally so getOnlineUsers/disconnectUser can access it

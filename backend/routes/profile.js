@@ -4,6 +4,8 @@ const { contentLimiter } = require('../middleware/rateLimiter');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
 const profileService = require('../services/ProfileService');
 const interactionPolicy = require('../services/InteractionPolicy');
+const validate = require('../middleware/validate');
+const { profileUpdate } = require('../validators/schemas');
 
 const router = express.Router();
 
@@ -42,7 +44,7 @@ router.post('/users/profile/banner', auth, upload.single('banner'), uploadToClou
 });
 
 // PUT /api/users/profile
-router.put('/users/profile', auth, upload.single('avatar'), uploadToCloudinary, async (req, res) => {
+router.put('/users/profile', auth, upload.single('avatar'), uploadToCloudinary, validate(profileUpdate), async (req, res) => {
   const result = await profileService.updateProfile(req.user.id, {
     name: req.body.name,
     cloudinaryUrl: req.cloudinaryUrl,
