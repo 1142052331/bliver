@@ -81,6 +81,13 @@ test -f frontend/dist/index.html
 
 `render-build` performs lockfile-based production installs and builds the frontend from the repo root.
 
+Release operations use an immutable candidate SHA:
+
+- [Eight-phase release runbook](docs/release/eight-phase-release-runbook.md)
+- [Release acceptance checklist](docs/qa/eight-phase-release-checklist.md)
+- [Profile and memories checklist](docs/qa/profile-memories-checklist.md)
+- [Legacy hardening checklist](docs/qa/legacy-hardening-checklist.md)
+
 ---
 
 ## 项目结构
