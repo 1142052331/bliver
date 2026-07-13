@@ -38,7 +38,13 @@ const reverseGeocodeStructured = async (lat, lng) => {
         || address['ISO3166-2-lvl6']
         || ''
       ).toUpperCase(),
-      regionName: address.state || address.province || address.region || '',
+      regionName: address.state
+        || address.province
+        || address.region
+        || address.city
+        || address.municipality
+        || address.county
+        || '',
     };
     geocodeCache.set(key, result);
     return result;

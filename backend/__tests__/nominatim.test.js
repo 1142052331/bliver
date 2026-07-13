@@ -34,6 +34,26 @@ describe('structured Nominatim reverse geocoding', () => {
     expect(axios.get).toHaveBeenCalledTimes(1);
   });
 
+  test('falls back to city when a coded region has no state name', async () => {
+    axios.get.mockResolvedValueOnce({
+      data: {
+        display_name: 'Beijing, China',
+        address: {
+          country_code: 'cn',
+          country: 'China',
+          city: 'Beijing',
+          'ISO3166-2-lvl4': 'CN-BJ',
+        },
+      },
+    });
+
+    await expect(reverseGeocodeStructured(39.9, 116.4)).resolves.toMatchObject({
+      countryCode: 'CN',
+      regionCode: 'CN-BJ',
+      regionName: 'Beijing',
+    });
+  });
+
   test('returns a stable empty context when reverse geocoding fails', async () => {
     axios.get.mockRejectedValueOnce(new Error('network'));
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
