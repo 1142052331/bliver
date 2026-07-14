@@ -4,7 +4,7 @@ Status: **DONE WITH CONCERNS - Docker/PostGIS exit gate blocked**
 
 Date: 2026-07-15 (Asia/Shanghai)
 Branch: `codex/bliver-v2`
-Implementation commit: `9c83fb7aecc19b42e23a57a98208b2f3b2137d2b`
+Implementation commit: `cca67cdaccb1ff8dc89aa0a3d23da111de02d29f`
 Rollback boundary: `d6f1452` (the last planning-only commit before Phase 1 implementation)
 
 ## Toolchain and workspaces
@@ -40,7 +40,7 @@ rerun. No frozen V1 source or lockfile was changed.
 - Dependency Cruiser: 65 modules and 65 dependencies, zero violations.
 - ESLint: all seven V2 workspaces passed with zero warnings.
 - TypeScript: all seven V2 workspaces passed the strict compiler baseline.
-- Vitest: 10 files passed, 38 tests passed.
+- Vitest: 10 files passed, 39 tests passed.
 - Skipped: one real Testcontainers/PostGIS migration test because `docker info` was unavailable.
 - Web: Vite 8.1.4 production build completed and `apps/web/dist/index.html` exists.
 - API network smoke: health and version contracts passed; readiness correctly failed closed when the
