@@ -6,6 +6,15 @@
   "engines": {
     "node": ">=24 <25"
   },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.16.0",
+    "drizzle-kit": "^0.31.10"
+  },
   "scripts": {
     "dev": "tsx watch src/bootstrap/server.ts --port 5100",
     "build": "tsc -p tsconfig.json",

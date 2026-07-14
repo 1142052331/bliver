@@ -24,6 +24,9 @@
     "typecheck:v2": "npm run typecheck --workspaces --if-present",
     "lint:v2": "npm run lint --workspaces --if-present",
     "architecture:check": "tsx scripts/v2-architecture-check.ts",
+    "db:v2:up": "docker compose -f infra/docker-compose.postgres.yml up -d",
+    "db:v2:migrate": "tsx apps/api/src/platform/db/migrate.ts",
+    "db:v2:seed": "tsx apps/api/src/platform/db/seed.ts",
     "verify:v2-foundation": "npm run architecture:check && npm run typecheck:v2 && npm run lint:v2 && npm run test:v2 && npm run build:v2"
   },
   "lint-staged": {
@@ -38,6 +41,7 @@
   "license": "ISC",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@testcontainers/postgresql": "^12.0.4",
     "@types/node": "^24.10.1",
     "concurrently": "^9.2.1",
     "dependency-cruiser": "^16.10.4",
@@ -46,6 +50,7 @@
     "globals": "^17.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.4",
+    "testcontainers": "^12.0.4",
     "tsx": "^4.19.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.63.0",
