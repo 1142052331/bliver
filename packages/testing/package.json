@@ -1,0 +1,19 @@
+{
+  "name": "@bliver/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./test-env": "./src/test-env.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings 0"
+  }
+}

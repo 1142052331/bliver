@@ -1,0 +1,16 @@
+{
+  "name": "@bliver/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "tsx watch src/bootstrap/server.ts --port 5100",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings 0"
+  }
+}
