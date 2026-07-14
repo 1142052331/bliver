@@ -11,6 +11,6 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint --config ../../packages/config/eslint.base.mjs . --max-warnings 0"
   }
 }
