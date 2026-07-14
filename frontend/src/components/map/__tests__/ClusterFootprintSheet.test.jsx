@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ClusterFootprintSheet from '../ClusterFootprintSheet';
@@ -117,10 +117,9 @@ describe('ClusterFootprintSheet', () => {
     const onClose = vi.fn();
     render(<ClusterFootprintSheet selection={selection} footprints={locatableFootprints} onClose={onClose} onSelect={onSelect} />);
 
-    const locationCommands = screen.getAllByRole('button', { name: '定位到此位置' });
-    expect(locationCommands).toHaveLength(2);
-    expect(locationCommands[0]).toHaveAttribute('title', '定位到此位置');
-    await user.click(locationCommands[0]);
+    const locationCommand = screen.getByRole('button', { name: '定位到阿青在中山公园的位置' });
+    expect(locationCommand).toHaveAttribute('title', '定位到此位置');
+    await user.click(locationCommand);
 
     expect(mocks.map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 17, { duration: 0.7 });
     expect(mocks.map.flyTo.mock.invocationCallOrder[0])
@@ -132,7 +131,11 @@ describe('ClusterFootprintSheet', () => {
   it('omits the location command for footprints without finite coordinates', () => {
     render(<ClusterFootprintSheet selection={selection} footprints={locatableFootprints} onClose={vi.fn()} onSelect={vi.fn()} />);
 
-    expect(screen.getAllByRole('button', { name: '定位到此位置' })).toHaveLength(2);
+    const invalidFootprint = screen.getByRole('button', { name: /查看阿森/ })
+      .closest('.bliver-cluster-footprint-list__item');
+
+    expect(invalidFootprint).not.toBeNull();
+    expect(within(invalidFootprint).queryByRole('button', { name: /定位到/ })).not.toBeInTheDocument();
   });
 
   it('closes on Escape and restores focus after unmount', () => {

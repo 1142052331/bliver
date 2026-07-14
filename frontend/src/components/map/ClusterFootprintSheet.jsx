@@ -108,7 +108,7 @@ export default function ClusterFootprintSheet({ selection, footprints, onClose, 
                   <button
                     type="button"
                     className="bliver-cluster-footprint-list__locate"
-                    aria-label="定位到此位置"
+                    aria-label={`定位到${author.name || '用户'}在${footprint.placeName || '未命名地点'}的位置`}
                     title="定位到此位置"
                     onClick={() => {
                       map.flyTo([footprint.location.lat, footprint.location.lng], CLUSTER_EXPANSION_ZOOM, { duration: 0.7 });
