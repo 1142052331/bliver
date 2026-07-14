@@ -1155,30 +1155,78 @@
 .bliver-map-cluster {
   position: relative;
   display: flex;
-  width: 44px;
-  height: 44px;
-  align-items: center;
+  width: 112px;
+  height: 82px;
+  align-items: flex-end;
   justify-content: center;
-  border: 3px solid var(--bliver-surface);
-  border-radius: 50%;
-  background: var(--bliver-forest);
-  box-shadow: 0 5px 12px rgba(23, 59, 49, 0.28);
-  color: var(--bliver-surface);
-  font: 800 13px/1 Inter, "Noto Sans SC", sans-serif;
+  pointer-events: auto;
 }
 
-.bliver-map-cluster--unread { background: var(--bliver-forest-soft); }
-.bliver-map-cluster--self { background: var(--bliver-source-self); }
-.bliver-map-cluster--friend { background: var(--bliver-source-friend); }
-.bliver-map-cluster--region { background: var(--bliver-source-region); }
-.bliver-map-cluster--country { background: var(--bliver-source-country); }
-.bliver-map-cluster--global { background: var(--bliver-source-global); }
-.bliver-map-cluster--mixed { background: var(--bliver-forest-soft); }
-
-.bliver-map-cluster i {
+.bliver-map-cluster__stack {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  inset: 0 0 22px;
+  display: block;
+  filter: drop-shadow(0 5px 8px rgba(23, 59, 49, 0.22));
+}
+
+.bliver-map-cluster__pin {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 28px;
+  height: 36px;
+  border: 3px solid var(--bliver-surface);
+  border-radius: 18px 18px 18px 4px;
+  transform-origin: 50% 80%;
+  transform: translateX(-50%) rotate(0deg);
+  box-shadow: 0 3px 7px rgba(23, 59, 49, 0.24);
+}
+
+.bliver-map-cluster__pin::after {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  content: '';
+}
+
+.bliver-map-cluster__pin--1 { z-index: 3; }
+.bliver-map-cluster__pin--2 { z-index: 2; transform: translateX(-50%) rotate(-13deg) translate(-10px, 2px); }
+.bliver-map-cluster__pin--3 { z-index: 1; transform: translateX(-50%) rotate(13deg) translate(10px, 2px); }
+
+.bliver-map-cluster__pin--self { background: var(--bliver-source-self); }
+.bliver-map-cluster__pin--friend { background: var(--bliver-source-friend); }
+.bliver-map-cluster__pin--region { background: var(--bliver-source-region); }
+.bliver-map-cluster__pin--country { background: var(--bliver-source-country); }
+.bliver-map-cluster__pin--global { background: var(--bliver-source-global); }
+
+.bliver-map-cluster__label {
+  position: relative;
+  z-index: 4;
+  display: block;
+  max-width: 108px;
+  min-height: 22px;
+  overflow: hidden;
+  padding: 4px 8px;
+  border: 1px solid var(--bliver-border);
+  border-radius: 8px;
+  background: var(--bliver-surface);
+  box-shadow: 0 3px 8px rgba(23, 59, 49, 0.18);
+  color: var(--bliver-forest);
+  font: 800 11px/14px Inter, "Noto Sans SC", sans-serif;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bliver-map-cluster__dot {
+  position: absolute;
+  z-index: 5;
+  top: -1px;
+  right: 19px;
   width: 12px;
   height: 12px;
   border: 2px solid var(--bliver-surface);

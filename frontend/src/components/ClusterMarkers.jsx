@@ -7,6 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import useUIStore from '../store/useUIStore';
 
 const iconCache = new Map();
+const SOURCE_PRIORITY = ['self', 'friend', 'region', 'country', 'global'];
 const SOURCE_LABELS = {
   self: '我的', friend: '好友', region: '同省', country: '同国', global: '全球',
 };
@@ -89,19 +90,77 @@ function pickIcon(descriptor) {
   return cachedIcon(markerCacheKey(descriptor), () => createFootprintIcon(descriptor));
 }
 
-function makeClusterIcon(cluster) {
-  const markers = cluster.getAllChildMarkers();
-  const count = cluster.getChildCount();
-  const hasUnread = markers.some((marker) => marker._isUnread);
-  const sources = new Set(markers.map((marker) => marker._sourceScope));
-  const source = sources.size === 1 ? [...sources][0] : 'mixed';
+function clusterCoordinateKey(point) {
+  return `${point.lat.toFixed(6)}:${point.lng.toFixed(6)}`;
+}
 
-  return L.divIcon({
-    html: `<div class="bliver-map-cluster bliver-map-cluster--${source}${hasUnread ? ' bliver-map-cluster--unread' : ''}"><span>${count}</span>${hasUnread ? '<i></i>' : ''}</div>`,
-    className: 'bliver-map-cluster-icon',
-    iconSize: [48, 48],
-    iconAnchor: [24, 24],
+export function buildClusterDescriptor(markers = []) {
+  const places = new Set();
+  const sourceCounts = new Map();
+  let hasUnread = false;
+
+  markers.forEach((marker) => {
+    const point = marker.getLatLng?.();
+    if (Number.isFinite(point?.lat) && Number.isFinite(point?.lng)) {
+      places.add(clusterCoordinateKey(point));
+    }
+    const source = SOURCE_PRIORITY.includes(marker._sourceScope) ? marker._sourceScope : 'global';
+    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+    hasUnread ||= Boolean(marker._isUnread);
   });
+
+  const sourceScopes = [...sourceCounts]
+    .sort(([left, leftCount], [right, rightCount]) => (
+      rightCount - leftCount
+      || SOURCE_PRIORITY.indexOf(left) - SOURCE_PRIORITY.indexOf(right)
+    ))
+    .slice(0, 3)
+    .map(([source]) => source);
+  const placeCount = places.size;
+  const footprintCount = markers.length;
+  return {
+    placeCount,
+    footprintCount,
+    sourceScopes,
+    hasUnread,
+    label: `${placeCount} 个地点`,
+    accessibleLabel: `${placeCount} 个地点，${footprintCount} 条足迹${hasUnread ? '，包含未读更新' : ''}`,
+  };
+}
+
+export function clusterCacheKey(descriptor) {
+  return [
+    descriptor.placeCount,
+    descriptor.footprintCount,
+    descriptor.sourceScopes.join(','),
+    descriptor.hasUnread ? 'unread' : 'read',
+  ].join(':');
+}
+
+export function buildClusterHtml(descriptor) {
+  const sourceScopes = Array.from({ length: 3 }, (_, index) => (
+    descriptor.sourceScopes[index] || descriptor.sourceScopes.at(-1) || 'global'
+  ));
+  const pins = sourceScopes.map((source, index) => (
+    `<i class="bliver-map-cluster__pin bliver-map-cluster__pin--${source} bliver-map-cluster__pin--${index + 1}"></i>`
+  )).join('');
+
+  return `<div class="bliver-map-cluster${descriptor.hasUnread ? ' bliver-map-cluster--unread' : ''}" role="button" aria-label="${escapeHtml(descriptor.accessibleLabel)}">
+    <span class="bliver-map-cluster__stack" aria-hidden="true">${pins}</span>
+    <span class="bliver-map-cluster__label">${escapeHtml(descriptor.label)}</span>
+    ${descriptor.hasUnread ? '<span class="bliver-map-cluster__dot" aria-hidden="true"></span>' : ''}
+  </div>`;
+}
+
+function makeClusterIcon(cluster) {
+  const descriptor = buildClusterDescriptor(cluster.getAllChildMarkers());
+
+  return cachedIcon(clusterCacheKey(descriptor), () => L.divIcon({
+    html: buildClusterHtml(descriptor),
+    className: 'bliver-map-cluster-icon',
+    iconSize: [112, 82],
+    iconAnchor: [56, 40],
+  }));
 }
 
 export default function ClusterMarkers({
