@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   closeProfile: vi.fn(),
   openAuth: vi.fn(),
   closeAuth: vi.fn(),
+  closeTransientSurfaces: vi.fn(),
   openAbout: vi.fn(),
   toggleNotifs: vi.fn(),
   authModalProps: vi.fn(),
@@ -108,6 +109,7 @@ const uiState = vi.hoisted(() => ({
   setPendingCheckInLocation: vi.fn(),
   addToast: vi.fn(),
   dismissToastByType: vi.fn(),
+  closeTransientSurfaces: mocks.closeTransientSurfaces,
 }));
 
 vi.mock('@sentry/react', () => ({ init: vi.fn(), browserTracingIntegration: vi.fn() }));
@@ -640,13 +642,24 @@ describe('App mobile shell integration', () => {
     expect(mapDestination).not.toHaveAttribute('aria-current');
   });
 
+  it('closes transient surfaces when the active destination is pressed again', async () => {
+    const user = userEvent.setup();
+    useShellStore.setState({ activeDestination: 'map' });
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '地图' }));
+
+    expect(mocks.closeTransientSurfaces).toHaveBeenCalledOnce();
+    expect(useShellStore.getState().activeDestination).toBe('map');
+  });
+
   it.each([
-    ['Friends', 'messages', { _id: 'user-1' }, 'showFriends', true, mocks.closeFriends, /^消息/],
-    ['Profile', 'me', { _id: 'user-1' }, 'viewingProfileId', 'user-1', mocks.closeProfile, '我的'],
-    ['Auth', 'messages', null, 'showAuth', true, mocks.closeAuth, /^消息/],
+    ['Friends', 'messages', { _id: 'user-1' }, 'showFriends', true, /^消息/],
+    ['Profile', 'me', { _id: 'user-1' }, 'viewingProfileId', 'user-1', '我的'],
+    ['Auth', 'messages', null, 'showAuth', true, /^消息/],
   ])(
     'closes the open %s destination surface before returning to Map',
-    async (_surface, destination, currentUser, stateKey, stateValue, closeAction, destinationName) => {
+    async (_surface, destination, currentUser, stateKey, stateValue, destinationName) => {
       const user = userEvent.setup();
       mocks.user = currentUser;
       uiState[stateKey] = stateValue;
@@ -659,7 +672,7 @@ describe('App mobile shell integration', () => {
 
       await user.click(mapDestination);
 
-      expect(closeAction).toHaveBeenCalledTimes(1);
+      expect(mocks.closeTransientSurfaces).toHaveBeenCalledTimes(1);
       expect(mapDestination).toHaveAttribute('aria-current', 'page');
       expect(currentDestination).not.toHaveAttribute('aria-current');
     },

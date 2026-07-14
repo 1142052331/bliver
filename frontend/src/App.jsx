@@ -209,6 +209,7 @@ export default function App() {
     openAuth, closeAuth, openPhotoWall, closePhotoWall,
     openAbout, closeAbout, closeFeedback, closeAnnouncements,
     openFriends, closeFriends,
+    closeTransientSurfaces,
     setActiveFootprintId, setMapPreviewId, setFlyArrivedFp, setTimelineTargetFpId,
     closeSamePlace, setShareTarget,
     openChat, closeChat, openProfile, closeProfile,
@@ -343,15 +344,9 @@ export default function App() {
       : 'base';
 
   const handleDestinationChange = (nextDestination) => {
-    if (nextDestination === activeDestination) return;
-
     if (activeDestination === 'activity') setActivityDetailFp(null);
-    if (showTimeline) closeTimeline();
-    if (showFriends) closeFriends();
-    if (viewingProfileId) closeProfile();
-    if (showAuth) closeAuth();
-
-    setActiveDestination(nextDestination);
+    closeTransientSurfaces();
+    if (nextDestination !== activeDestination) setActiveDestination(nextDestination);
   };
 
   const handleCheckIn = () => {
@@ -612,8 +607,8 @@ export default function App() {
               onClose={() => setActiveDestination('map')}
               onLogout={() => { setActiveDestination('map'); handleLogout(); }}
               onSelectFootprint={(fpId) => { setActiveDestination('map'); setActiveFootprintId(fpId); }}
-              onOpenTimeline={openTimeline}
-              onOpenPhotoWall={openPhotoWall}
+              onOpenTimeline={() => { setActiveDestination('map'); openTimeline(); }}
+              onOpenPhotoWall={() => { setActiveDestination('map'); openPhotoWall(); }}
               onOpenSettings={openFriends}
             />
           </div>
@@ -673,6 +668,8 @@ export default function App() {
                 onClose={() => { closeProfile(); setActiveDestination('map'); }}
                 onLogout={() => { closeProfile(); setActiveDestination('map'); handleLogout(); }}
                 onSelectFootprint={(fpId) => { closeProfile(); setActiveDestination('map'); setActiveFootprintId(fpId); }}
+                onOpenTimeline={() => { closeProfile(); setActiveDestination('map'); openTimeline(); }}
+                onOpenPhotoWall={() => { closeProfile(); setActiveDestination('map'); openPhotoWall(); }}
                 friendshipStatus={friendshipStatus}
                 pendingRequestId={getPendingRequestId(viewingProfileId)}
                 onSendFriendRequest={sendFriendRequest}

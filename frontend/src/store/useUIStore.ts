@@ -123,6 +123,7 @@ interface UIStore {
   closeAnnouncements: () => void;
   openFriends: () => void;
   closeFriends: () => void;
+  closeTransientSurfaces: () => void;
 
   setActiveFootprintId: (id: string | null) => void;
   setMapPreviewId: (id: string | null) => void;
@@ -219,6 +220,27 @@ const useUIStore = create<UIStore>()(
   closeAnnouncements: () => set({ showAnnouncements: false }),
   openFriends: () => set({ showFriends: true }),
   closeFriends: () => set({ showFriends: false }),
+  closeTransientSurfaces: () => set({
+    showCheckIn: false,
+    showTimeline: false,
+    showNotifs: false,
+    showAdmin: false,
+    showAuth: false,
+    showPhotoWall: false,
+    showAbout: false,
+    showFeedback: false,
+    showAnnouncements: false,
+    showFriends: false,
+    chatUserId: null,
+    viewingProfileId: null,
+    activeFootprintId: null,
+    mapPreviewId: null,
+    flyArrivedFp: null,
+    timelineTargetFpId: null,
+    clusterData: null,
+    samePlaceIds: [],
+    shareTarget: null,
+  }),
 
   setActiveFootprintId: (id) => set({ activeFootprintId: id }),
   setMapPreviewId: (id) => set({ mapPreviewId: id }),
