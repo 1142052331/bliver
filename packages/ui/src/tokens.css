@@ -1,0 +1,102 @@
+:root {
+  color-scheme: light;
+  --bliver-color-paper: #faf8f3;
+  --bliver-color-forest: #173b31;
+  --bliver-color-forest-soft: #2d594d;
+  --bliver-color-coral: #c54b36;
+  --bliver-color-coral-active: #ad3d2d;
+  --bliver-color-ink: #1e2925;
+  --bliver-color-ink-muted: #5d7068;
+  --bliver-color-border: #d7e1dc;
+  --bliver-color-success: #247a51;
+  --bliver-color-warning: #a35e10;
+  --bliver-color-danger: #b72f38;
+  --bliver-color-info: #216aa8;
+  --bliver-radius-control: 6px;
+  --bliver-radius-surface: 8px;
+  --bliver-duration-fast: 140ms;
+  --bliver-duration-normal: 220ms;
+  --bliver-focus-ring: 0 0 0 3px rgb(197 75 54 / 35%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--bliver-color-coral);
+  outline-offset: 2px;
+  box-shadow: var(--bliver-focus-ring);
+}
+
+.bliver-button {
+  display: inline-flex;
+  min-inline-size: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--bliver-radius-control);
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: 650;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    background-color var(--bliver-duration-fast) ease,
+    border-color var(--bliver-duration-fast) ease,
+    color var(--bliver-duration-fast) ease;
+}
+
+.bliver-button--primary {
+  background: var(--bliver-color-forest);
+  color: var(--bliver-color-paper);
+}
+
+.bliver-button--primary:hover:not(:disabled) {
+  background: var(--bliver-color-forest-soft);
+}
+
+.bliver-button--secondary {
+  border-color: var(--bliver-color-border);
+  background: var(--bliver-color-paper);
+  color: var(--bliver-color-forest);
+}
+
+.bliver-button--ghost {
+  background: transparent;
+  color: var(--bliver-color-forest);
+}
+
+.bliver-button--danger {
+  background: var(--bliver-color-danger);
+  color: #fff;
+}
+
+.bliver-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.bliver-surface {
+  border: 1px solid var(--bliver-color-border);
+  border-radius: var(--bliver-radius-surface);
+  background: var(--bliver-color-paper);
+  color: var(--bliver-color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --bliver-duration-fast: 0ms;
+    --bliver-duration-normal: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
