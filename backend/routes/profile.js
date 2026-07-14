@@ -16,7 +16,9 @@ router.get('/users/:id/profile', optionalAuth, async (req, res) => {
     const decision = await interactionPolicy.canViewProfile(viewer.id, req.params.id);
     if (!decision.allowed) return res.status(404).json({ error: 'User not found' });
   }
-  const result = await profileService.getProfile(req.params.id, viewer);
+  const result = await profileService.getProfile(req.params.id, viewer, {
+    includeActivity: req.query.view !== 'core',
+  });
   if (!result) return res.status(404).json({ error: 'User not found' });
   res.json(result);
 });

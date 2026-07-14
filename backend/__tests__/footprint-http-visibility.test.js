@@ -335,6 +335,23 @@ describe('legacy footprint HTTP visibility', () => {
     expect(adminResponse.body.recentComments[0].regionBackfill).toBeDefined();
   });
 
+  test('core profile responses omit activity aggregates without changing footprint visibility', async () => {
+    const target = await createUser('target');
+    const viewer = await createUser('viewer');
+    const visible = await createFootprint(target._id, { message: 'visible memory' });
+    await createFootprint(target._id, { message: 'private memory', visibility: 'private' });
+
+    const response = await request(app)
+      .get(`/api/users/${target.id}/profile?view=core`)
+      .set(auth(viewer));
+
+    expect(response.status).toBe(200);
+    expect(response.body.user._id).toBe(target.id);
+    expect(response.body.footprints.map((item) => item._id)).toEqual([visible.id]);
+    expect(response.body).not.toHaveProperty('recentReactions');
+    expect(response.body).not.toHaveProperty('recentComments');
+  });
+
   test('profile user DTO never leaks operational fields and gates visitors to owner/admin', async () => {
     const visitor = await createUser('visitor');
     const target = await createUser('target', {

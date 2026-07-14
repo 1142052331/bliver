@@ -161,7 +161,7 @@ function publicProfileUser(user, { includeVisitors }) {
 class ProfileService {
   // ── Get profile page data (visit tracking + footprints + reactions + comments) ──
 
-  async getProfile(userId, viewer) {
+  async getProfile(userId, viewer, { includeActivity = true } = {}) {
     const user = await User.findById(userId)
       .select('-password')
       .populate('profileReactions.senderId', 'name avatarUrl')
@@ -184,16 +184,19 @@ class ProfileService {
     const footprints = readableFootprints
       .map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
 
-    const reactionDocs = await collectRecentReactions({ user, access, isAdmin, now });
-    const commentDocs = await collectRecentComments({ user, access, isAdmin, now });
-    const recentReactions = reactionDocs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
-    const recentComments = commentDocs.map((fp) => sanitizeLocation(fp.toObject(), isAdmin));
+    const activity = includeActivity
+      ? {
+          recentReactions: (await collectRecentReactions({ user, access, isAdmin, now }))
+            .map((fp) => sanitizeLocation(fp.toObject(), isAdmin)),
+          recentComments: (await collectRecentComments({ user, access, isAdmin, now }))
+            .map((fp) => sanitizeLocation(fp.toObject(), isAdmin)),
+        }
+      : {};
 
     return {
       user: publicProfileUser(user, { includeVisitors }),
       footprints,
-      recentReactions,
-      recentComments,
+      ...activity,
     };
   }
 
