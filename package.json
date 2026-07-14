@@ -27,7 +27,8 @@
     "db:v2:up": "docker compose -f infra/docker-compose.postgres.yml up -d",
     "db:v2:migrate": "tsx apps/api/src/platform/db/migrate.ts",
     "db:v2:seed": "tsx apps/api/src/platform/db/seed.ts",
-    "verify:v2-foundation": "npm run architecture:check && npm run typecheck:v2 && npm run lint:v2 && npm run test:v2 && npm run build:v2"
+    "smoke:v2": "tsx scripts/v2-foundation-smoke.ts",
+    "verify:v2-foundation": "npm run architecture:check && npm run lint:v2 && npm run typecheck:v2 && npm run test:v2 && npm run build:v2"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": "node -e \"process.exit(0)\""
