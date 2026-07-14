@@ -36,6 +36,7 @@ export default function ClusterFootprintSheet({ selection, footprints, onClose, 
   const expandOnMap = () => {
     try {
       map.fitBounds(selection.bounds, { padding: [48, 96], maxZoom: CLUSTER_EXPANSION_ZOOM });
+      map.setZoom(CLUSTER_EXPANSION_ZOOM);
     } catch {
       // Keep the current viewport if Leaflet rejects stale bounds.
     } finally {

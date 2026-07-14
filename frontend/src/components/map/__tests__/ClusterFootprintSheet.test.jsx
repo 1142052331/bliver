@@ -6,6 +6,7 @@ import ClusterFootprintSheet from '../ClusterFootprintSheet';
 const mocks = vi.hoisted(() => ({
   map: {
     fitBounds: vi.fn(),
+    setZoom: vi.fn(),
     getMaxZoom: vi.fn(() => 18),
     getZoom: vi.fn(() => 8),
   },
@@ -58,6 +59,25 @@ describe('ClusterFootprintSheet', () => {
       maxZoom: 17,
     });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('fits broad bounds before explicitly reaching the non-clustered zoom', async () => {
+    const user = userEvent.setup();
+    const broadSelection = {
+      ...selection,
+      bounds: [[-50, -120], [60, 120]],
+    };
+    render(<ClusterFootprintSheet selection={broadSelection} footprints={footprints} onClose={vi.fn()} onSelect={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: '在地图中展开' }));
+
+    expect(mocks.map.fitBounds).toHaveBeenCalledWith(broadSelection.bounds, {
+      padding: [48, 96],
+      maxZoom: 17,
+    });
+    expect(mocks.map.setZoom).toHaveBeenCalledWith(17);
+    expect(mocks.map.fitBounds.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.map.setZoom.mock.invocationCallOrder[0]);
   });
 
   it('hides map expansion for a single place', () => {
