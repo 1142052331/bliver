@@ -69,8 +69,10 @@ export function runArchitectureCheck(
     command,
     [
       resolve(repositoryRoot, 'node_modules/dependency-cruiser/bin/dependency-cruise.mjs'),
-      'apps',
-      'packages',
+      'apps/**/*.ts',
+      'apps/**/*.tsx',
+      'packages/**/*.ts',
+      'packages/**/*.tsx',
       '--config',
       resolve(repositoryRoot, '.dependency-cruiser.cjs'),
       '--validate',
