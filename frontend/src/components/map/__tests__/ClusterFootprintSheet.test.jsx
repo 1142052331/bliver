@@ -6,6 +6,7 @@ import ClusterFootprintSheet from '../ClusterFootprintSheet';
 const mocks = vi.hoisted(() => ({
   map: {
     fitBounds: vi.fn(),
+    flyTo: vi.fn(),
     setZoom: vi.fn(),
     getMaxZoom: vi.fn(() => 18),
     getZoom: vi.fn(() => 8),
@@ -34,6 +35,12 @@ const footprints = [
     _id: 'middle', createdAt: '2026-07-10T12:00:00.000Z', placeName: '外滩',
     sourceLabel: '全球', isUnread: false, userId: { name: '阿森' }, mood: '📍',
   },
+];
+
+const locatableFootprints = [
+  { ...footprints[0], location: { lat: 31.22, lng: 121.46 } },
+  { ...footprints[1], location: { lat: 31.23, lng: 121.47 } },
+  { ...footprints[2], location: { lat: Number.NaN, lng: 121.49 } },
 ];
 
 describe('ClusterFootprintSheet', () => {
@@ -102,6 +109,30 @@ describe('ClusterFootprintSheet', () => {
     await user.click(screen.getByRole('button', { name: /查看阿青/ }));
     expect(onSelect).toHaveBeenCalledWith('newer');
     expect(onSelect.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0]);
+  });
+
+  it('locates a valid footprint before selecting and closing', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    render(<ClusterFootprintSheet selection={selection} footprints={locatableFootprints} onClose={onClose} onSelect={onSelect} />);
+
+    const locationCommands = screen.getAllByRole('button', { name: '定位到此位置' });
+    expect(locationCommands).toHaveLength(2);
+    expect(locationCommands[0]).toHaveAttribute('title', '定位到此位置');
+    await user.click(locationCommands[0]);
+
+    expect(mocks.map.flyTo).toHaveBeenCalledWith([31.23, 121.47], 17, { duration: 0.7 });
+    expect(mocks.map.flyTo.mock.invocationCallOrder[0])
+      .toBeLessThan(onSelect.mock.invocationCallOrder[0]);
+    expect(onSelect).toHaveBeenCalledWith('newer');
+    expect(onSelect.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0]);
+  });
+
+  it('omits the location command for footprints without finite coordinates', () => {
+    render(<ClusterFootprintSheet selection={selection} footprints={locatableFootprints} onClose={vi.fn()} onSelect={vi.fn()} />);
+
+    expect(screen.getAllByRole('button', { name: '定位到此位置' })).toHaveLength(2);
   });
 
   it('closes on Escape and restores focus after unmount', () => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Clock3, Map, MapPin, X } from 'lucide-react';
+import { Clock3, Map, MapPin, Navigation, X } from 'lucide-react';
 import { useMap } from 'react-leaflet';
 import { CLUSTER_EXPANSION_ZOOM } from '../ClusterMarkers';
 
@@ -15,6 +15,10 @@ function hasValidBounds(bounds) {
     && bounds.every((corner) => Array.isArray(corner)
       && corner.length === 2
       && corner.every(Number.isFinite));
+}
+
+function hasValidLocation(location) {
+  return Number.isFinite(location?.lat) && Number.isFinite(location?.lng);
 }
 
 export default function ClusterFootprintSheet({ selection, footprints, onClose, onSelect }) {
@@ -78,27 +82,44 @@ export default function ClusterFootprintSheet({ selection, footprints, onClose, 
         <div className="bliver-cluster-footprint-list">
           {items.map((footprint) => {
             const author = footprint.userId || {};
+            const canLocate = hasValidLocation(footprint.location);
             return (
-              <button
-                key={footprint._id}
-                type="button"
-                aria-label={`查看${author.name || '用户'}的足迹，${footprint.sourceLabel || '全球'}${footprint.isUnread ? '，未读更新' : ''}`}
-                onClick={() => {
-                  onSelect(footprint._id);
-                  onClose();
-                }}
-              >
-                <span className="bliver-cluster-footprint-list__mood" aria-hidden="true">{footprint.mood || '📍'}</span>
-                <span className="bliver-cluster-footprint-list__content">
-                  <strong>{author.name || '匿名用户'}</strong>
-                  <span><MapPin size={13} />{footprint.placeName || '未命名地点'}</span>
-                </span>
-                <span className="bliver-cluster-footprint-list__meta">
-                  <b>{footprint.sourceLabel || '全球'}</b>
-                  {footprint.isUnread && <i>未读更新</i>}
-                  <small><Clock3 size={12} />{new Date(footprint.createdAt).toLocaleDateString('zh-CN')}</small>
-                </span>
-              </button>
+              <div key={footprint._id} className="bliver-cluster-footprint-list__item">
+                <button
+                  type="button"
+                  aria-label={`查看${author.name || '用户'}的足迹，${footprint.sourceLabel || '全球'}${footprint.isUnread ? '，未读更新' : ''}`}
+                  onClick={() => {
+                    onSelect(footprint._id);
+                    onClose();
+                  }}
+                >
+                  <span className="bliver-cluster-footprint-list__mood" aria-hidden="true">{footprint.mood || '📍'}</span>
+                  <span className="bliver-cluster-footprint-list__content">
+                    <strong>{author.name || '匿名用户'}</strong>
+                    <span><MapPin size={13} />{footprint.placeName || '未命名地点'}</span>
+                  </span>
+                  <span className="bliver-cluster-footprint-list__meta">
+                    <b>{footprint.sourceLabel || '全球'}</b>
+                    {footprint.isUnread && <i>未读更新</i>}
+                    <small><Clock3 size={12} />{new Date(footprint.createdAt).toLocaleDateString('zh-CN')}</small>
+                  </span>
+                </button>
+                {canLocate && (
+                  <button
+                    type="button"
+                    className="bliver-cluster-footprint-list__locate"
+                    aria-label="定位到此位置"
+                    title="定位到此位置"
+                    onClick={() => {
+                      map.flyTo([footprint.location.lat, footprint.location.lng], CLUSTER_EXPANSION_ZOOM, { duration: 0.7 });
+                      onSelect(footprint._id);
+                      onClose();
+                    }}
+                  >
+                    <Navigation size={18} />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
