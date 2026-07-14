@@ -1,14 +1,25 @@
+import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('leaflet.markercluster', () => ({}));
+const mocks = vi.hoisted(() => ({
+  group: {
+    on: vi.fn(),
+    clearLayers: vi.fn(),
+  },
+  map: {
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(),
+  },
+}));
 vi.mock('leaflet', () => ({
   default: {
     divIcon: vi.fn((options) => options),
-    markerClusterGroup: vi.fn(),
+    markerClusterGroup: vi.fn(() => mocks.group),
     marker: vi.fn(),
   },
 }));
-vi.mock('react-leaflet', () => ({ useMap: vi.fn() }));
+vi.mock('react-leaflet', () => ({ useMap: () => mocks.map }));
 
 import {
   buildMarkerDescriptor,
@@ -19,6 +30,8 @@ import {
   clusterCacheKey,
   handleClusterClick,
 } from '../ClusterMarkers';
+import ClusterMarkers from '../ClusterMarkers';
+import L from 'leaflet';
 
 function marker({ id, lat, lng, source, unread }) {
   return {
@@ -79,10 +92,19 @@ describe('map marker descriptors', () => {
 });
 
 describe('cluster selection', () => {
+  it('stops clustering at zoom 17 while keeping click-to-bounds disabled', () => {
+    render(<ClusterMarkers footprints={[]} />);
+
+    expect(L.markerClusterGroup).toHaveBeenCalledWith(expect.objectContaining({
+      disableClusteringAtZoom: 17,
+      zoomToBoundsOnClick: false,
+    }));
+  });
+
   it('opens the cluster sheet on first click without fitting the map', () => {
     const openCluster = vi.fn();
-    const fitBounds = vi.fn();
     const layer = {
+      spiderfy: vi.fn(),
       getAllChildMarkers: () => [
         marker({ id: 'a', lat: 31.23, lng: 121.47, source: 'friend', unread: false }),
         marker({ id: 'b', lat: 31.23, lng: 121.47, source: 'self', unread: true }),
@@ -96,9 +118,6 @@ describe('cluster selection', () => {
     handleClusterClick({
       layer,
       openCluster,
-      fitBounds,
-      getMapZoom: () => 8,
-      getMaxZoom: () => 18,
     });
 
     expect(openCluster).toHaveBeenCalledWith(expect.objectContaining({
@@ -106,8 +125,12 @@ describe('cluster selection', () => {
       bounds: [[31.23, 121.47], [31.23, 121.47]],
       placeCount: 1,
       footprintCount: 2,
+      expandOnMap: expect.any(Function),
     }));
-    expect(fitBounds).not.toHaveBeenCalled();
+    expect(layer.spiderfy).not.toHaveBeenCalled();
+
+    openCluster.mock.calls[0][0].expandOnMap();
+    expect(layer.spiderfy).toHaveBeenCalledOnce();
   });
 
   it('derives unique places, footprint count, source order, and unread state', () => {

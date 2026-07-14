@@ -660,16 +660,22 @@
 
 .bliver-cluster-footprint-list { border-top: 1px solid var(--bliver-border); }
 
-.bliver-cluster-footprint-list > button {
+.bliver-cluster-footprint-list__item {
+  display: flex;
+  min-height: 68px;
+  border-bottom: 1px solid var(--bliver-border);
+}
+
+.bliver-cluster-footprint-list__item > button:not(.bliver-cluster-footprint-list__locate) {
   display: grid;
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 68px;
   grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 10px 2px;
   border: 0;
-  border-bottom: 1px solid var(--bliver-border);
   background: transparent;
   color: var(--bliver-ink);
   font: inherit;
@@ -677,7 +683,24 @@
   cursor: pointer;
 }
 
-.bliver-cluster-footprint-list > button:hover { background: var(--bliver-sage-soft); }
+.bliver-cluster-footprint-list__item > button:not(.bliver-cluster-footprint-list__locate):hover,
+.bliver-cluster-footprint-list__item > button:not(.bliver-cluster-footprint-list__locate):focus-visible,
+.bliver-cluster-footprint-list__locate:hover,
+.bliver-cluster-footprint-list__locate:focus-visible { background: var(--bliver-sage-soft); }
+
+.bliver-cluster-footprint-list__locate {
+  display: inline-flex;
+  flex: 0 0 44px;
+  width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  border: 0;
+  background: transparent;
+  color: var(--bliver-forest);
+  cursor: pointer;
+}
 
 .bliver-cluster-footprint-list__mood {
   display: inline-flex;

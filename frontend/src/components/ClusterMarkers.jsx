@@ -6,6 +6,8 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import useUIStore from '../store/useUIStore';
 
+export const CLUSTER_EXPANSION_ZOOM = 17;
+
 const iconCache = new Map();
 const SOURCE_PRIORITY = ['self', 'friend', 'region', 'country', 'global'];
 const SOURCE_LABELS = {
@@ -148,7 +150,16 @@ export function buildClusterPayload(markers = [], bounds) {
 
 export function handleClusterClick({ layer, openCluster }) {
   const childMarkers = layer.getAllChildMarkers();
-  openCluster(buildClusterPayload(childMarkers, layer.getBounds()));
+  openCluster({
+    ...buildClusterPayload(childMarkers, layer.getBounds()),
+    expandOnMap: () => {
+      try {
+        layer.spiderfy?.();
+      } catch {
+        // Ignore a stale Leaflet cluster layer after the sheet has opened.
+      }
+    },
+  });
 }
 
 export function buildClusterHtml(descriptor) {
@@ -194,6 +205,7 @@ export default function ClusterMarkers({
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
       zoomToBoundsOnClick: false,
+      disableClusteringAtZoom: CLUSTER_EXPANSION_ZOOM,
       iconCreateFunction: makeClusterIcon,
     });
 
