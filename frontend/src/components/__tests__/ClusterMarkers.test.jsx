@@ -17,7 +17,7 @@ import {
   buildClusterDescriptor,
   buildClusterHtml,
   clusterCacheKey,
-  shouldOpenSamePlace,
+  handleClusterClick,
 } from '../ClusterMarkers';
 
 function marker({ id, lat, lng, source, unread }) {
@@ -79,6 +79,37 @@ describe('map marker descriptors', () => {
 });
 
 describe('cluster selection', () => {
+  it('opens the cluster sheet on first click without fitting the map', () => {
+    const openCluster = vi.fn();
+    const fitBounds = vi.fn();
+    const layer = {
+      getAllChildMarkers: () => [
+        marker({ id: 'a', lat: 31.23, lng: 121.47, source: 'friend', unread: false }),
+        marker({ id: 'b', lat: 31.23, lng: 121.47, source: 'self', unread: true }),
+      ],
+      getBounds: () => ({
+        getSouthWest: () => ({ lat: 31.23, lng: 121.47 }),
+        getNorthEast: () => ({ lat: 31.23, lng: 121.47 }),
+      }),
+    };
+
+    handleClusterClick({
+      layer,
+      openCluster,
+      fitBounds,
+      getMapZoom: () => 8,
+      getMaxZoom: () => 18,
+    });
+
+    expect(openCluster).toHaveBeenCalledWith(expect.objectContaining({
+      footprintIds: ['a', 'b'],
+      bounds: [[31.23, 121.47], [31.23, 121.47]],
+      placeCount: 1,
+      footprintCount: 2,
+    }));
+    expect(fitBounds).not.toHaveBeenCalled();
+  });
+
   it('derives unique places, footprint count, source order, and unread state', () => {
     const descriptor = buildClusterDescriptor([
       marker({ id: 'a', lat: 31.2304001, lng: 121.4737001, source: 'friend', unread: false }),
@@ -119,27 +150,4 @@ describe('cluster selection', () => {
     expect(clusterCacheKey(descriptor)).toBe('2:2:global:unread');
   });
 
-  it('opens effectively identical coordinates immediately', () => {
-    expect(shouldOpenSamePlace({
-      zoom: 8,
-      maxZoom: 18,
-      childLatLngs: [{ lat: 31.23, lng: 121.47 }, { lat: 31.23, lng: 121.47 }],
-    })).toBe(true);
-  });
-
-  it('zooms distinct coordinates while useful separation remains', () => {
-    expect(shouldOpenSamePlace({
-      zoom: 12,
-      maxZoom: 18,
-      childLatLngs: [{ lat: 31.23, lng: 121.47 }, { lat: 31.2302, lng: 121.4702 }],
-    })).toBe(false);
-  });
-
-  it('opens close coordinates at the separation threshold', () => {
-    expect(shouldOpenSamePlace({
-      zoom: 17,
-      maxZoom: 18,
-      childLatLngs: [{ lat: 31.23, lng: 121.47 }, { lat: 31.2302, lng: 121.4702 }],
-    })).toBe(true);
-  });
 });

@@ -62,7 +62,6 @@ const uiState = vi.hoisted(() => ({
   authMessage: '',
   shareTarget: null,
   clusterData: null,
-  samePlaceIds: [],
   activeFootprintId: null,
   mapPreviewId: null,
   flyArrivedFp: null,
@@ -93,8 +92,8 @@ const uiState = vi.hoisted(() => ({
   setMapPreviewId: vi.fn(),
   setFlyArrivedFp: vi.fn(),
   setTimelineTargetFpId: vi.fn(),
-  setClusterData: vi.fn(),
-  closeSamePlace: vi.fn(),
+  openCluster: vi.fn(),
+  closeCluster: vi.fn(),
   setShareTarget: vi.fn(),
   openChat: vi.fn(),
   closeChat: vi.fn(),
@@ -312,7 +311,7 @@ describe('App mobile shell integration', () => {
     uiState.showTimeline = false;
     uiState.viewingProfileId = null;
     uiState.mapPreviewId = null;
-    uiState.samePlaceIds = [];
+    uiState.clusterData = null;
     uiState.footprintEvent = null;
     uiState.footprintEventId = 0;
     mocks.footprints = [];
@@ -391,14 +390,12 @@ describe('App mobile shell integration', () => {
     expect(new URLSearchParams(window.location.search).has('content')).toBe(false);
   });
 
-  it('closes selected surfaces when the authorized response loses their IDs', async () => {
+  it('closes the map preview when the authorized response loses its ID', async () => {
     uiState.mapPreviewId = 'missing-preview';
-    uiState.samePlaceIds = ['missing-sheet'];
 
     render(<App />);
 
     await waitFor(() => expect(uiState.setMapPreviewId).toHaveBeenCalledWith(null));
-    expect(uiState.closeSamePlace).toHaveBeenCalledTimes(1);
   });
 
   it('passes an explicit new-footprint pulse through the map', async () => {

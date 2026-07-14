@@ -28,8 +28,10 @@ interface MessageIslandData {
 }
 
 interface ClusterPayload {
-  footprints: Array<{ _id: string }>;
-  [key: string]: unknown;
+  footprintIds: string[];
+  bounds: [[number, number], [number, number]];
+  placeCount: number;
+  footprintCount: number;
 }
 
 interface RealtimeFootprint {
@@ -78,7 +80,6 @@ interface UIStore {
   flyArrivedFp: unknown;
   timelineTargetFpId: string | null;
   clusterData: ClusterPayload | null;
-  samePlaceIds: string[];
   shareTarget: string | null;
 
   // Chat / Profile
@@ -129,9 +130,8 @@ interface UIStore {
   setMapPreviewId: (id: string | null) => void;
   setFlyArrivedFp: (fp: unknown) => void;
   setTimelineTargetFpId: (id: string | null) => void;
-  setClusterData: (data: ClusterPayload | null) => void;
-  openSamePlace: (ids: string[]) => void;
-  closeSamePlace: () => void;
+  openCluster: (data: ClusterPayload) => void;
+  closeCluster: () => void;
   setShareTarget: (id: string | null) => void;
 
   openChat: (uid: string) => void;
@@ -179,7 +179,6 @@ const useUIStore = create<UIStore>()(
   flyArrivedFp: null,
   timelineTargetFpId: null,
   clusterData: null,
-  samePlaceIds: [],
   shareTarget: null,
 
   chatUserId: null,
@@ -238,7 +237,6 @@ const useUIStore = create<UIStore>()(
     flyArrivedFp: null,
     timelineTargetFpId: null,
     clusterData: null,
-    samePlaceIds: [],
     shareTarget: null,
   }),
 
@@ -246,9 +244,10 @@ const useUIStore = create<UIStore>()(
   setMapPreviewId: (id) => set({ mapPreviewId: id }),
   setFlyArrivedFp: (fp) => set({ flyArrivedFp: fp }),
   setTimelineTargetFpId: (id) => set({ timelineTargetFpId: id }),
-  setClusterData: (data) => set({ clusterData: data }),
-  openSamePlace: (ids) => set({ samePlaceIds: [...new Set(ids)] }),
-  closeSamePlace: () => set({ samePlaceIds: [] }),
+  openCluster: (data) => set({
+    clusterData: { ...data, footprintIds: [...new Set(data.footprintIds)] },
+  }),
+  closeCluster: () => set({ clusterData: null }),
   setShareTarget: (id) => set({ shareTarget: id }),
 
   openChat: (uid) => set({ chatUserId: uid }),

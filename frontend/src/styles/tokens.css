@@ -611,7 +611,7 @@
 .bliver-map-scope-option[aria-pressed="true"] strong::after { content: " · 已选择"; font-size: 12px; font-weight: 600; }
 .bliver-map-scope-option[aria-disabled="true"] { color: var(--bliver-muted); }
 
-.bliver-same-place-layer {
+.bliver-cluster-sheet-layer {
   position: fixed;
   z-index: 1060;
   inset: 0;
@@ -622,7 +622,7 @@
   background: rgba(23, 59, 49, 0.14);
 }
 
-.bliver-same-place-sheet {
+.bliver-cluster-sheet {
   width: min(520px, 100%);
   max-height: min(62dvh, 560px);
   overflow-y: auto;
@@ -634,13 +634,33 @@
   color: var(--bliver-ink);
 }
 
-.bliver-same-place-sheet :focus-visible { outline: 3px solid var(--bliver-forest); outline-offset: 2px; }
-.bliver-same-place-sheet .bliver-map-sheet__header > div { min-width: 0; }
-.bliver-same-place-sheet .bliver-map-sheet__header p { margin: 2px 0 0; color: var(--bliver-muted); font-size: 13px; }
+.bliver-cluster-sheet :focus-visible { outline: 3px solid var(--bliver-forest); outline-offset: 2px; }
+.bliver-cluster-sheet .bliver-map-sheet__header > div { min-width: 0; }
+.bliver-cluster-sheet .bliver-map-sheet__header p { margin: 2px 0 0; color: var(--bliver-muted); font-size: 13px; }
 
-.bliver-same-place-list { border-top: 1px solid var(--bliver-border); }
+.bliver-cluster-sheet__commands {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+}
 
-.bliver-same-place-list > button {
+.bliver-map-sheet__header .bliver-cluster-sheet__expand {
+  width: auto;
+  min-width: 44px;
+  padding: 0 10px;
+  flex-basis: auto;
+  gap: 6px;
+  color: var(--bliver-forest);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bliver-cluster-footprint-list { border-top: 1px solid var(--bliver-border); }
+
+.bliver-cluster-footprint-list > button {
   display: grid;
   width: 100%;
   min-height: 68px;
@@ -657,9 +677,9 @@
   cursor: pointer;
 }
 
-.bliver-same-place-list > button:hover { background: var(--bliver-sage-soft); }
+.bliver-cluster-footprint-list > button:hover { background: var(--bliver-sage-soft); }
 
-.bliver-same-place-list__mood {
+.bliver-cluster-footprint-list__mood {
   display: inline-flex;
   width: 38px;
   height: 38px;
@@ -670,14 +690,14 @@
   background: var(--bliver-surface);
 }
 
-.bliver-same-place-list__content,
-.bliver-same-place-list__meta { display: flex; min-width: 0; flex-direction: column; }
-.bliver-same-place-list__content strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
-.bliver-same-place-list__content span,
-.bliver-same-place-list__meta small { display: inline-flex; align-items: center; gap: 4px; color: var(--bliver-muted); font-size: 12px; }
-.bliver-same-place-list__meta { align-items: flex-end; gap: 2px; }
-.bliver-same-place-list__meta b { color: var(--bliver-forest); font-size: 12px; }
-.bliver-same-place-list__meta i { color: var(--bliver-coral-active); font-size: 12px; font-style: normal; font-weight: 700; }
+.bliver-cluster-footprint-list__content,
+.bliver-cluster-footprint-list__meta { display: flex; min-width: 0; flex-direction: column; }
+.bliver-cluster-footprint-list__content strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.bliver-cluster-footprint-list__content span,
+.bliver-cluster-footprint-list__meta small { display: inline-flex; align-items: center; gap: 4px; color: var(--bliver-muted); font-size: 12px; }
+.bliver-cluster-footprint-list__meta { align-items: flex-end; gap: 2px; }
+.bliver-cluster-footprint-list__meta b { color: var(--bliver-forest); font-size: 12px; }
+.bliver-cluster-footprint-list__meta i { color: var(--bliver-coral-active); font-size: 12px; font-style: normal; font-weight: 700; }
 
 .bliver-map-controls__summary,
 .bliver-map-controls__error,
@@ -1298,14 +1318,14 @@
 
   .bliver-map-sheet { width: 380px; max-height: calc(100dvh - 116px); }
 
-  .bliver-same-place-layer {
+  .bliver-cluster-sheet-layer {
     align-items: flex-end;
     justify-content: flex-end;
     padding: 24px;
     background: rgba(23, 59, 49, 0.08);
   }
 
-  .bliver-same-place-sheet { width: 380px; max-height: calc(100dvh - 48px); }
+  .bliver-cluster-sheet { width: 380px; max-height: calc(100dvh - 48px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

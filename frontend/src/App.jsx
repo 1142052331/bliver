@@ -48,7 +48,6 @@ import CheckInAction from './components/shell/CheckInAction';
 import LegacyDestinationBridge from './components/shell/LegacyDestinationBridge';
 import LegacySurfaceFallback from './components/shell/LegacySurfaceFallback';
 import MapPreviewCard from './components/MapPreviewCard';
-import SamePlaceSheet from './components/map/SamePlaceSheet';
 import ActivityPage from './components/activity/ActivityPage';
 import useUIStore from './store/useUIStore';
 import useShellStore from './store/useShellStore';
@@ -202,7 +201,7 @@ export default function App() {
     showPhotoWall, showAbout, showFeedback, showAnnouncements, showFriends,
     chatUserId, viewingProfileId,
     authTab, authMessage,
-    shareTarget, samePlaceIds, activeFootprintId, mapPreviewId, flyArrivedFp, timelineTargetFpId,
+    shareTarget, activeFootprintId, mapPreviewId, flyArrivedFp, timelineTargetFpId,
     footprintEvent, footprintEventId,
     openCheckIn, closeCheckIn, openTimeline, closeTimeline,
     toggleNotifs, closeNotifs, closeAdmin,
@@ -211,7 +210,7 @@ export default function App() {
     openFriends, closeFriends,
     closeTransientSurfaces,
     setActiveFootprintId, setMapPreviewId, setFlyArrivedFp, setTimelineTargetFpId,
-    closeSamePlace, setShareTarget,
+    setShareTarget,
     openChat, closeChat, openProfile, closeProfile,
     messageIsland, clearMessageIsland,
     pendingCheckInLocation, setPendingCheckInLocation,
@@ -276,8 +275,7 @@ export default function App() {
   useEffect(() => {
     const visibleIds = new Set(footprints.map((footprint) => footprint._id));
     if (mapPreviewId && !visibleIds.has(mapPreviewId)) setMapPreviewId(null);
-    if (samePlaceIds?.length && samePlaceIds.some((id) => !visibleIds.has(id))) closeSamePlace();
-  }, [closeSamePlace, footprints, mapPreviewId, samePlaceIds, setMapPreviewId]);
+  }, [footprints, mapPreviewId, setMapPreviewId]);
 
   // ── Visibility change + focus: refresh data + wake zombie socket ──
   useVisibilityRefresh({
@@ -582,14 +580,6 @@ export default function App() {
             )}
           </AnimatePresence>
 
-          {samePlaceIds?.length > 0 && (
-            <SamePlaceSheet
-              ids={samePlaceIds}
-              footprints={footprints}
-              onSelect={setMapPreviewId}
-              onClose={() => { closeSamePlace(); setActiveFootprintId(null); }}
-            />
-          )}
         </FootprintActionsProvider>
 
         <LegacyDestinationBridge

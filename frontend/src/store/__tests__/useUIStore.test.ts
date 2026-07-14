@@ -26,8 +26,12 @@ describe('useUIStore.closeTransientSurfaces', () => {
       mapPreviewId: 'fp-2',
       flyArrivedFp: { _id: 'fp-3' },
       timelineTargetFpId: 'fp-4',
-      clusterData: { footprints: [{ _id: 'fp-5' }] },
-      samePlaceIds: ['fp-6'],
+      clusterData: {
+        footprintIds: ['fp-5'],
+        bounds: [[31.2, 121.4], [31.3, 121.5]],
+        placeCount: 1,
+        footprintCount: 1,
+      },
       shareTarget: 'fp-7',
     });
 
@@ -51,7 +55,6 @@ describe('useUIStore.closeTransientSurfaces', () => {
       flyArrivedFp: null,
       timelineTargetFpId: null,
       clusterData: null,
-      samePlaceIds: [],
       shareTarget: null,
     });
   });
@@ -75,5 +78,20 @@ describe('useUIStore.closeTransientSurfaces', () => {
       profileEvent: { userId: 'user-1', user: { name: '阿森' } },
       profileEventId: 4,
     });
+  });
+
+  it('opens and closes a cluster selection with its map context', () => {
+    const payload = {
+      footprintIds: ['fp-1', 'fp-2'],
+      bounds: [[31.2, 121.4], [31.3, 121.5]] as [[number, number], [number, number]],
+      placeCount: 1,
+      footprintCount: 2,
+    };
+
+    useUIStore.getState().openCluster(payload);
+    expect(useUIStore.getState().clusterData).toEqual(payload);
+
+    useUIStore.getState().closeCluster();
+    expect(useUIStore.getState().clusterData).toBeNull();
   });
 });

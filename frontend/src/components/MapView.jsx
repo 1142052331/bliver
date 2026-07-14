@@ -9,8 +9,27 @@ import PanToTarget from './PanToTarget';
 import MapContextMenu from './MapContextMenu';
 import MapHomeControls from './MapHomeControls';
 import MapStatusNotice from './map/MapStatusNotice';
+import ClusterFootprintSheet from './map/ClusterFootprintSheet';
+import useUIStore from '../store/useUIStore';
 
 const CENTER = [33.5597, 133.5311];
+
+function visibleClusterSelection(selection, footprints) {
+  const footprintById = new Map(footprints.map((footprint) => [footprint._id, footprint]));
+  const footprintIds = selection.footprintIds.filter((id) => footprintById.has(id));
+  const places = new Set(footprintIds.flatMap((id) => {
+    const { lat, lng } = footprintById.get(id)?.location || {};
+    return Number.isFinite(lat) && Number.isFinite(lng)
+      ? [`${lat.toFixed(6)}:${lng.toFixed(6)}`]
+      : [];
+  }));
+  return {
+    ...selection,
+    footprintIds,
+    placeCount: places.size,
+    footprintCount: footprintIds.length,
+  };
+}
 
 export default function MapView({
   footprints, shareTarget, activeFootprintId, timelineTargetFpId,
@@ -22,6 +41,9 @@ export default function MapView({
   onRequestLocation, onSetFixedScope, onClearFixedScope, onSelectFootprint,
   pulseIds = new Set(), selectedId = null, onPulseComplete,
 }) {
+  const clusterData = useUIStore((state) => state.clusterData);
+  const openCluster = useUIStore((state) => state.openCluster);
+  const closeCluster = useUIStore((state) => state.closeCluster);
   const [, setTileErrorCount] = useState(0);
   const [tileFailed, setTileFailed] = useState(false);
   const [tileGeneration, setTileGeneration] = useState(0);
@@ -36,6 +58,20 @@ export default function MapView({
       window.removeEventListener('offline', update);
     };
   }, []);
+
+  useEffect(() => {
+    if (!clusterData) return;
+    const next = visibleClusterSelection(clusterData, footprints);
+    if (next.footprintIds.length === 0) {
+      closeCluster();
+      return;
+    }
+    const unchanged = next.footprintIds.length === clusterData.footprintIds.length
+      && next.footprintIds.every((id, index) => id === clusterData.footprintIds[index])
+      && next.placeCount === clusterData.placeCount
+      && next.footprintCount === clusterData.footprintCount;
+    if (!unchanged) openCluster(next);
+  }, [closeCluster, clusterData, footprints, openCluster]);
 
   const handleTileError = () => {
     setTileErrorCount((count) => {
@@ -96,6 +132,17 @@ export default function MapView({
         selectedId={selectedId}
         onPulseComplete={onPulseComplete}
       />
+      {clusterData && (
+        <ClusterFootprintSheet
+          selection={clusterData}
+          footprints={footprints}
+          onClose={closeCluster}
+          onSelect={(footprintId) => {
+            const footprint = footprints.find((item) => item._id === footprintId);
+            if (footprint) onSelectFootprint?.(footprint);
+          }}
+        />
+      )}
       <MapHomeControls
         footprints={footprints}
         query={query}

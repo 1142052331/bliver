@@ -85,9 +85,8 @@ vi.mock('../../contexts/FootprintActionsContext', () => ({
 }));
 vi.mock('../../store/useUIStore', () => {
   const state = {
-    samePlaceIds: [],
     openTimeline: vi.fn(), openPhotoWall: vi.fn(), openAbout: vi.fn(), openAuth: vi.fn(),
-    closeSamePlace: vi.fn(), setMapPreviewId: vi.fn(),
+    setMapPreviewId: vi.fn(),
   };
   const store = () => state;
   store.getState = () => state;

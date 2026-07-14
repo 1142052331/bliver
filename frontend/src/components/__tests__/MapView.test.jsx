@@ -1,7 +1,8 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import MapView from '../MapView';
+import useUIStore from '../../store/useUIStore';
 
 const mocks = vi.hoisted(() => ({ tileProps: vi.fn() }));
 
@@ -19,6 +20,13 @@ vi.mock('../RecenterOnLoad', () => ({ default: () => null }));
 vi.mock('../PanToTarget', () => ({ default: () => null }));
 vi.mock('../MapContextMenu', () => ({ default: () => null }));
 vi.mock('../MapHomeControls', () => ({ default: () => null }));
+vi.mock('../map/ClusterFootprintSheet', () => ({
+  default: ({ selection }) => (
+    <div data-testid="cluster-footprint-sheet">
+      {selection.placeCount} 个地点，{selection.footprintCount} 条足迹
+    </div>
+  ),
+}));
 
 const baseProps = {
   footprints: [{ _id: 'fp-1', location: { lat: 31.23, lng: 121.47 } }],
@@ -36,7 +44,10 @@ const baseProps = {
 };
 
 describe('MapView status separation', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useUIStore.setState({ clusterData: null });
+  });
 
   it('bounds tile failures, retries the tile generation, and recovers on load', async () => {
     const user = userEvent.setup();
@@ -76,5 +87,33 @@ describe('MapView status separation', () => {
     render(<MapView {...baseProps} fetching />);
     expect(screen.getByText('正在更新足迹')).toBeInTheDocument();
     expect(screen.getByTestId('map-container')).toBeInTheDocument();
+  });
+
+  it('renders a cluster selection and reconciles it with visible footprints', async () => {
+    useUIStore.getState().openCluster({
+      footprintIds: ['fp-1', 'fp-2'],
+      bounds: [[31.23, 121.47], [31.24, 121.48]],
+      placeCount: 2,
+      footprintCount: 2,
+    });
+    const view = render(<MapView
+      {...baseProps}
+      footprints={[
+        baseProps.footprints[0],
+        { _id: 'fp-2', location: { lat: 31.24, lng: 121.48 } },
+      ]}
+    />);
+
+    expect(screen.getByTestId('cluster-footprint-sheet')).toHaveTextContent('2 个地点，2 条足迹');
+
+    view.rerender(<MapView {...baseProps} footprints={[baseProps.footprints[0]]} />);
+    await waitFor(() => expect(useUIStore.getState().clusterData).toMatchObject({
+      footprintIds: ['fp-1'],
+      placeCount: 1,
+      footprintCount: 1,
+    }));
+
+    view.rerender(<MapView {...baseProps} footprints={[]} />);
+    await waitFor(() => expect(useUIStore.getState().clusterData).toBeNull());
   });
 });
