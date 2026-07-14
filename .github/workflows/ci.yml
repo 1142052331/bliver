@@ -7,6 +7,40 @@ on:
     branches: [main]
 
 jobs:
+  v2-foundation:
+    name: V2 foundation
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      DEPLOY_ENV: test
+      RELEASE_SHA: ci
+      DATABASE_URL: postgresql://bliver:bliver@localhost:5432/bliver_v2_test
+      SESSION_SECRET: ci-only-session-secret-for-v2-foundation-tests
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: bliver_v2_test
+          POSTGRES_USER: bliver
+          POSTGRES_PASSWORD: bliver
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bliver -d bliver_v2_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run db:v2:migrate
+      - run: npm run verify:v2-foundation
+
   backend:
     name: Backend — Tests
     runs-on: ubuntu-latest
