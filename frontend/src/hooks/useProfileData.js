@@ -1,16 +1,16 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api';
 import { getUser } from '../auth';
 import useUIStore from '../store/useUIStore';
+
+const EMPTY_FOOTPRINTS = [];
 
 /**
  * Manages profile data fetching, real-time updates, profile/banner editing,
  * and derived values (totalReactions, activeDays).
  */
 export default function useProfileData(userId) {
-  const [profile, setProfile] = useState(null);
-  const [footprints, setFootprints] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [bannerMsg, setBannerMsg] = useState('');
   const [editingName, setEditingName] = useState(false);
@@ -18,11 +18,39 @@ export default function useProfileData(userId) {
   const [savingProfile, setSavingProfile] = useState(false);
   const bannerTimerRef = useRef(null);
   const mountedRef = useRef(true);
-
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  const queryClient = useQueryClient();
 
   const currentUser = getUser();
+  const viewerId = currentUser?._id || 'guest';
   const isOwnProfile = currentUser?._id === userId;
+  const queryKey = useMemo(() => ['profile', userId, viewerId], [userId, viewerId]);
+  const profileQuery = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => apiClient.users.profile(userId, { signal }).then(({ data }) => data),
+    enabled: Boolean(userId),
+    placeholderData: isOwnProfile && currentUser
+      ? { user: currentUser, footprints: EMPTY_FOOTPRINTS }
+      : undefined,
+  });
+  const profile = profileQuery.data?.user || null;
+  const footprints = profileQuery.data?.footprints || EMPTY_FOOTPRINTS;
+
+  const setProfile = useCallback((updater) => {
+    queryClient.setQueryData(queryKey, (current) => {
+      const currentProfile = current?.user || (isOwnProfile ? currentUser : null);
+      const nextProfile = typeof updater === 'function' ? updater(currentProfile) : updater;
+      return {
+        ...(current || {}),
+        user: nextProfile,
+        footprints: current?.footprints || EMPTY_FOOTPRINTS,
+      };
+    });
+  }, [currentUser, isOwnProfile, queryClient, queryKey]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   /** Show banner message, auto-clear after N ms */
   const showBannerMsg = useCallback((msg, ms = 3000) => {
@@ -32,21 +60,6 @@ export default function useProfileData(userId) {
   }, []);
 
   // ── Data fetching ──
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    apiClient.users.profile(userId).then(({ data }) => {
-      if (cancelled) return;
-      setProfile(data.user);
-      setFootprints(data.footprints);
-    }).catch((err) => {
-      if (!cancelled) console.error(err);
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [userId]);
 
   // Lock body scroll when open
   useEffect(() => {
@@ -68,20 +81,29 @@ export default function useProfileData(userId) {
         if (evt.type === 'new') {
           const fp = evt.footprint;
           if (fp && (fp.userId?._id === userId || fp.userId === userId)) {
-            setFootprints((prev) => [fp, ...prev]);
+            queryClient.setQueryData(queryKey, (current) => current ? {
+              ...current,
+              footprints: [fp, ...(current.footprints || EMPTY_FOOTPRINTS)],
+            } : current);
           }
         } else if (evt.type === 'updated') {
           const fp = evt.footprint;
           if (fp) {
-            setFootprints((prev) =>
-              prev.map((f) => (f._id === fp._id
+            queryClient.setQueryData(queryKey, (current) => current ? {
+              ...current,
+              footprints: (current.footprints || EMPTY_FOOTPRINTS).map((f) => (f._id === fp._id
                 ? { ...f, reactions: fp.reactions, comments: fp.comments }
-                : f))
-            );
+                : f)),
+            } : current);
           }
         } else if (evt.type === 'deleted') {
           const fid = evt.footprintId;
-          if (fid) setFootprints((prev) => prev.filter((f) => f._id !== fid));
+          if (fid) {
+            queryClient.setQueryData(queryKey, (current) => current ? {
+              ...current,
+              footprints: (current.footprints || EMPTY_FOOTPRINTS).filter((f) => f._id !== fid),
+            } : current);
+          }
         }
       }
     );
@@ -95,7 +117,7 @@ export default function useProfileData(userId) {
     );
 
     return () => { unsubFp(); unsubProfile(); };
-  }, [userId]);
+  }, [queryClient, queryKey, setProfile, userId]);
 
   // ── Derived values ──
 
@@ -129,7 +151,7 @@ export default function useProfileData(userId) {
       showBannerMsg(err.response?.data?.error || '上传失败');
     }
     if (mountedRef.current) setUploadingBanner(false);
-  }, [showBannerMsg]);
+  }, [setProfile, showBannerMsg]);
 
   const handleUpdateProfile = useCallback(async (updates) => {
     setSavingProfile(true);
@@ -148,7 +170,7 @@ export default function useProfileData(userId) {
       showBannerMsg(err.response?.data?.error || '更新失败');
     }
     if (mountedRef.current) setSavingProfile(false);
-  }, [showBannerMsg]);
+  }, [setProfile, showBannerMsg]);
 
   const handleSaveName = useCallback(() => {
     const name = newName.trim();
@@ -163,7 +185,10 @@ export default function useProfileData(userId) {
   return {
     profile, setProfile,
     footprints,
-    loading,
+    loading: profileQuery.isLoading,
+    refreshing: profileQuery.isFetching,
+    error: profileQuery.error,
+    refetch: profileQuery.refetch,
     uploadingBanner, bannerMsg, showBannerMsg,
     editingName, setEditingName,
     newName, setNewName,

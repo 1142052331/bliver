@@ -70,7 +70,9 @@ export const apiClient = {
   },
 
   users: {
-    profile(id, opts) { return api.get(`/api/users/${id}/profile`, opts); },
+    profile(id, { view = 'core', ...opts } = {}) {
+      return api.get(qs(`/api/users/${id}/profile`, { view }), opts);
+    },
     updateProfile(data) { return api.put('/api/users/profile', data); },
     updateBanner(data) { return api.post('/api/users/profile/banner', data); },
     comment(id, content) { return api.post(`/api/users/${id}/profile/comment`, { content }); },
