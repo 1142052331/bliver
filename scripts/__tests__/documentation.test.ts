@@ -32,6 +32,7 @@ describe('V2 canonical documentation', () => {
     expect(architecture).toContain('PostgreSQL');
     expect(architecture).toContain('apps/web');
     expect(operations).toContain('db:v2:up');
+    expect(operations).toContain('V2_DATABASE_URL');
     expect(operations).toContain('smoke:v2');
   });
 });

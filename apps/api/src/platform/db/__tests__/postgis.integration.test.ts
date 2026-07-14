@@ -5,15 +5,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closeDb, createDb } from '../client.js';
 import { migrateDatabase } from '../migrate.js';
+import { resolvePostgisDatabaseUrl } from '../test-environment.js';
 
-const dockerAvailable =
-  spawnSync('docker', ['info'], { stdio: 'ignore' }).status === 0;
+const externalDatabaseUrl = resolvePostgisDatabaseUrl();
+const dockerAvailable = spawnSync('docker', ['info'], { stdio: 'ignore' }).status === 0;
 
-describe.skipIf(!dockerAvailable)('PostGIS foundation migration', () => {
+describe.skipIf(!externalDatabaseUrl && !dockerAvailable)('PostGIS foundation migration', () => {
   let databaseUrl: string;
   let container: Awaited<ReturnType<PostgreSqlContainer['start']>>;
 
   beforeAll(async () => {
+    if (externalDatabaseUrl) {
+      databaseUrl = externalDatabaseUrl;
+      return;
+    }
+
     container = await new PostgreSqlContainer('postgis/postgis:16-3.4')
       .withDatabase('bliver_v2_test')
       .withUsername('bliver')
