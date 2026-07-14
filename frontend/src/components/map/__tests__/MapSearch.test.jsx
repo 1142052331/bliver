@@ -41,6 +41,16 @@ describe('MapSearch', () => {
     vi.useRealTimers();
   });
 
+  it('does not write an unchanged search term back into the map query', async () => {
+    vi.useFakeTimers();
+    const onQueryChange = vi.fn();
+    renderSearch({ query: '', onQueryChange });
+
+    await act(() => vi.advanceTimersByTimeAsync(300));
+
+    expect(onQueryChange).not.toHaveBeenCalled();
+  });
+
   it('debounces search for 300 ms and passes an abort signal', async () => {
     vi.useFakeTimers();
     mocks.search.mockResolvedValue({ data: { places: [], footprints: [], errors: {} } });

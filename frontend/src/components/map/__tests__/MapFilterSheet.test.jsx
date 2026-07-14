@@ -24,9 +24,12 @@ describe('MapFilterSheet', () => {
     expect(screen.getByRole('group', { name: '关系' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: '时间' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: '内容' })).toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: '好友' }));
-    await user.click(screen.getByRole('radio', { name: '24小时' }));
-    await user.click(screen.getByRole('radio', { name: '有照片' }));
+    await user.click(screen.getByRole('button', { name: '好友' }));
+    await user.click(screen.getByRole('button', { name: '24小时' }));
+    await user.click(screen.getByRole('button', { name: '有照片' }));
+    expect(screen.getByRole('button', { name: '好友' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '24小时' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '有照片' })).toHaveAttribute('aria-pressed', 'true');
     expect(onApply).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: '应用筛选' }));
@@ -50,7 +53,7 @@ describe('MapFilterSheet', () => {
       />,
     );
 
-    expect(screen.getByRole('radio', { name: '未读' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '未读' })).toBeDisabled();
     expect(screen.getByText('登录后可筛选未读')).toBeInTheDocument();
   });
 

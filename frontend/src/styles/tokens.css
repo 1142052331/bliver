@@ -560,10 +560,7 @@
 .bliver-map-filter-group legend { padding: 0 0 9px; font-weight: 700; }
 .bliver-map-filter-group__options { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.bliver-map-choice { position: relative; display: inline-flex; }
-.bliver-map-choice input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-
-.bliver-map-choice span {
+.bliver-map-choice {
   display: inline-flex;
   min-width: 72px;
   min-height: 44px;
@@ -572,13 +569,14 @@
   padding: 0 12px;
   border: 1px solid var(--bliver-border);
   border-radius: 8px;
+  background: transparent;
   color: var(--bliver-ink);
+  font: inherit;
   cursor: pointer;
 }
 
-.bliver-map-choice input:checked + span { border-color: var(--bliver-forest); background: var(--bliver-forest); color: var(--bliver-surface); }
-.bliver-map-choice input:disabled + span { background: #f1f3f2; color: var(--bliver-muted); cursor: not-allowed; }
-.bliver-map-choice input:focus-visible + span { outline: 3px solid var(--bliver-forest); outline-offset: 2px; }
+.bliver-map-choice[aria-pressed="true"] { border-color: var(--bliver-forest); background: var(--bliver-forest); color: var(--bliver-surface); }
+.bliver-map-choice:disabled { background: #f1f3f2; color: var(--bliver-muted); cursor: not-allowed; }
 
 .bliver-map-filter-group__hint { margin: 8px 0 0; color: var(--bliver-muted); font-size: 13px; }
 

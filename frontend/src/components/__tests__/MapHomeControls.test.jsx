@@ -92,7 +92,7 @@ describe('MapHomeControls', () => {
 
     await user.click(screen.getByRole('button', { name: '筛选' }));
     expect(screen.queryByRole('dialog', { name: '选择地图范围' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: '好友' }));
+    await user.click(screen.getByRole('button', { name: '好友' }));
     await user.click(screen.getByRole('button', { name: '应用筛选' }));
     expect(onQueryChange).toHaveBeenLastCalledWith({ ...DEFAULT_MAP_QUERY, relationship: 'friends' });
   });

@@ -32,10 +32,10 @@ export default function MapSearch({
     const timer = setTimeout(() => {
       const next = value.trim().slice(0, 80);
       setDebounced(next);
-      onQueryChange(next);
+      if (next !== (query || '')) onQueryChange(next);
     }, 300);
     return () => clearTimeout(timer);
-  }, [onQueryChange, value]);
+  }, [onQueryChange, query, value]);
 
   const searchQuery = useQuery({
     queryKey: ['footprints', 'map-search', viewerKey, { ...queryContext, query: debounced }],

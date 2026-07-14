@@ -66,17 +66,16 @@ export default function MapFilterSheet({ open, query, isAuthenticated, onApply, 
                 {group.options.map(([value, label]) => {
                   const disabled = group.key === 'content' && value === 'unread' && !isAuthenticated;
                   return (
-                    <label key={value} className="bliver-map-choice">
-                      <input
-                        type="radio"
-                        name={`map-${group.key}`}
-                        value={value}
-                        checked={draft[group.key] === value}
-                        disabled={disabled}
-                        onChange={() => setDraft((current) => ({ ...current, [group.key]: value }))}
-                      />
-                      <span>{label}</span>
-                    </label>
+                    <button
+                      key={value}
+                      type="button"
+                      className="bliver-map-choice"
+                      aria-pressed={draft[group.key] === value}
+                      disabled={disabled}
+                      onClick={() => setDraft((current) => ({ ...current, [group.key]: value }))}
+                    >
+                      {label}
+                    </button>
                   );
                 })}
               </div>
