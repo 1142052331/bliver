@@ -58,6 +58,20 @@ MONGODB_URI, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, O
 API and Socket.IO are same-origin by default. Only deployment environments may inject optional
 `VITE_API_URL` / `VITE_SOCKET_URL` overrides and other real environment values; do not commit them.
 
+## V2 canonical foundation
+
+V2 is the active target architecture: Node.js 24, npm workspaces, strict TypeScript, React/Vite in
+`apps/web`, and Express 5 in `apps/api`. Shared contracts and pure policies live in
+`packages/contracts` and `packages/domain`; Natural City primitives live in `packages/ui`.
+
+PostgreSQL + PostGIS is the V2 source of truth and Drizzle owns migrations. Run
+`npm run verify:v2-foundation` before handing off work. `npm run smoke:v2 -- --api-url ...
+--expected-release ...` is an explicit network check for a running API.
+
+The `frontend/` and `backend/` directories are frozen V1 reference/runtime code until Phase 8. Do not
+add V2 behavior there, change their lockfiles, or treat their legacy MongoDB/JWT descriptions as the
+V2 architecture.
+
 ## Token 优化规则
 
 - 读取大文件（App.jsx 587行, ProfileDrawer.jsx 408行, api.js 376行）时只读取需要的行范围，不读整个文件

@@ -45,6 +45,17 @@ npm run dev:backend  # 仅后端
 
 MONGODB_URI, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, OPENWEATHERMAP_API_KEY, JWT_SECRET, PORT=5000
 
+## V2 canonical foundation
+
+The active target is a strict TypeScript npm workspaces monorepo on Node.js 24. `apps/web` contains
+the React/Vite shell, `apps/api` contains the Express 5 modular monolith, and shared contracts,
+domain policies, UI primitives, configuration, and test helpers live under `packages/*`.
+
+PostgreSQL + PostGIS is the V2 source of truth. Use `npm run verify:v2-foundation` as the local
+architecture/lint/typecheck/test/build gate and `npm run smoke:v2` only against an explicitly started
+API. The old `frontend/` and `backend/` trees are frozen V1 reference/runtime code until Phase 8;
+their MongoDB and legacy API notes are not V2 design guidance.
+
 ## Token 优化规则
 
 - 读取大文件（App.jsx 587行, ProfileDrawer.jsx 408行, api.js 376行）时只读取需要的行范围，不读整个文件

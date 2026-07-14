@@ -276,3 +276,20 @@ CLOUDINARY_API_SECRET, OPENWEATHERMAP_API_KEY, JWT_SECRET, PORT=5000
 ## 许可证
 
 MIT License
+
+---
+
+## V2 foundation (canonical architecture)
+
+The active implementation is the V2 npm workspaces monorepo. The release toolchain is Node.js 24
+(`>=24 <25`) and npm 11. The new runtime is split into `apps/web` (React/Vite) and `apps/api`
+(Express 5), with shared `packages/contracts`, `packages/domain`, `packages/ui`, `packages/config`,
+and `packages/testing` packages.
+
+V2 uses PostgreSQL with PostGIS as its single source of truth and Drizzle for repeatable migrations.
+Run `npm run db:v2:up`, `npm run db:v2:migrate`, and `npm run db:v2:seed` for local database setup.
+Use `npm run verify:v2-foundation` for the deterministic architecture, lint, typecheck, test, and
+build gate; `npm run smoke:v2` checks an already-running API.
+
+The existing `frontend/` and `backend/` trees are frozen V1 reference/runtime code during migration.
+They remain runnable through the original V1 scripts and are removed only in Phase 8 after V2 acceptance.
