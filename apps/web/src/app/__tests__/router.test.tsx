@@ -7,7 +7,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { AppRouter } from '../router.js';
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  window.history.replaceState({}, '', '/');
+});
 
 describe('V2 web route contract', () => {
   it.each([
@@ -48,5 +51,13 @@ describe('V2 web route contract', () => {
     expect(
       screen.getByRole('button', { name: 'Publish footprint' }),
     ).toBeVisible();
+  });
+
+  it('uses the browser location when no test history is supplied', () => {
+    window.history.replaceState({}, '', '/profile/test-user');
+
+    render(<AppRouter />);
+
+    expect(screen.getByRole('heading', { name: 'Profile' })).toBeVisible();
   });
 });

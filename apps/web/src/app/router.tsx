@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  createBrowserRouter,
   createMemoryRouter,
   Navigate,
   RouterProvider,
@@ -32,9 +33,11 @@ export interface AppRouterProps {
   readonly initialEntries?: readonly string[];
 }
 
-export function AppRouter({ initialEntries = ['/map'] }: AppRouterProps) {
+export function AppRouter({ initialEntries }: AppRouterProps) {
   const [router] = useState(() =>
-    createMemoryRouter(routes, { initialEntries: [...initialEntries] }),
+    initialEntries
+      ? createMemoryRouter(routes, { initialEntries: [...initialEntries] })
+      : createBrowserRouter(routes),
   );
 
   return <RouterProvider router={router} />;
