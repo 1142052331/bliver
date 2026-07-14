@@ -103,8 +103,8 @@ describe('cluster selection', () => {
 
   it('opens the cluster sheet on first click without fitting the map', () => {
     const openCluster = vi.fn();
-    const fitBounds = vi.fn();
     const layer = {
+      spiderfy: vi.fn(),
       getAllChildMarkers: () => [
         marker({ id: 'a', lat: 31.23, lng: 121.47, source: 'friend', unread: false }),
         marker({ id: 'b', lat: 31.23, lng: 121.47, source: 'self', unread: true }),
@@ -118,9 +118,6 @@ describe('cluster selection', () => {
     handleClusterClick({
       layer,
       openCluster,
-      fitBounds,
-      getMapZoom: () => 8,
-      getMaxZoom: () => 18,
     });
 
     expect(openCluster).toHaveBeenCalledWith(expect.objectContaining({
@@ -128,8 +125,12 @@ describe('cluster selection', () => {
       bounds: [[31.23, 121.47], [31.23, 121.47]],
       placeCount: 1,
       footprintCount: 2,
+      expandOnMap: expect.any(Function),
     }));
-    expect(fitBounds).not.toHaveBeenCalled();
+    expect(layer.spiderfy).not.toHaveBeenCalled();
+
+    openCluster.mock.calls[0][0].expandOnMap();
+    expect(layer.spiderfy).toHaveBeenCalledOnce();
   });
 
   it('derives unique places, footprint count, source order, and unread state', () => {

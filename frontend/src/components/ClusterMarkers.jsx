@@ -150,7 +150,16 @@ export function buildClusterPayload(markers = [], bounds) {
 
 export function handleClusterClick({ layer, openCluster }) {
   const childMarkers = layer.getAllChildMarkers();
-  openCluster(buildClusterPayload(childMarkers, layer.getBounds()));
+  openCluster({
+    ...buildClusterPayload(childMarkers, layer.getBounds()),
+    expandOnMap: () => {
+      try {
+        layer.spiderfy?.();
+      } catch {
+        // Ignore a stale Leaflet cluster layer after the sheet has opened.
+      }
+    },
+  });
 }
 
 export function buildClusterHtml(descriptor) {

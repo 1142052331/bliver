@@ -9,14 +9,6 @@ function compareFootprints(left, right) {
   return time || String(right._id).localeCompare(String(left._id));
 }
 
-function hasValidBounds(bounds) {
-  return Array.isArray(bounds)
-    && bounds.length === 2
-    && bounds.every((corner) => Array.isArray(corner)
-      && corner.length === 2
-      && corner.every(Number.isFinite));
-}
-
 function hasValidLocation(location) {
   return Number.isFinite(location?.lat) && Number.isFinite(location?.lng);
 }
@@ -29,7 +21,7 @@ export default function ClusterFootprintSheet({ selection, footprints, onClose, 
   const items = (footprints || [])
     .filter((footprint) => wanted.has(footprint._id))
     .sort(compareFootprints);
-  const canExpand = selection.placeCount > 1 && hasValidBounds(selection.bounds);
+  const canExpand = selection.placeCount > 1 && typeof selection.expandOnMap === 'function';
 
   useEffect(() => {
     const previousFocus = previousFocusRef.current;
@@ -39,10 +31,7 @@ export default function ClusterFootprintSheet({ selection, footprints, onClose, 
 
   const expandOnMap = () => {
     try {
-      map.fitBounds(selection.bounds, { padding: [48, 96], maxZoom: CLUSTER_EXPANSION_ZOOM });
-      map.setZoom(CLUSTER_EXPANSION_ZOOM);
-    } catch {
-      // Keep the current viewport if Leaflet rejects stale bounds.
+      selection.expandOnMap();
     } finally {
       onClose();
     }

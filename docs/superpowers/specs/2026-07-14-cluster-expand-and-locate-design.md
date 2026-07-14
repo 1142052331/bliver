@@ -6,11 +6,11 @@ Make a cluster's "在地图中展开" command visibly reveal the individual loca
 
 ## Root Cause
 
-The sheet currently limits `fitBounds` to the current zoom plus two levels. Nearby places therefore remain within MarkerCluster's radius and render as the same cluster after the command completes. The command changes the map, but does not meet the user's visible outcome.
+The earlier `fitBounds` followed by a forced zoom to 17 can push a geographically broad cluster's children outside the viewport. The command changes the map, but does not reliably reveal the cluster's individual markers.
 
 ## Design
 
-`ClusterMarkers` will stop clustering at zoom level 17. The sheet will expand a multi-place selection with `fitBounds` capped at that same level, without limiting it relative to the current zoom. As a result, any valid multi-place cluster enters the non-clustered map state when expanded.
+`ClusterMarkers` will keep the Leaflet cluster layer associated with the current sheet selection. The sheet will expand a multi-place selection by calling that layer's built-in `spiderfy()` method. This places every child marker around the cluster in the current viewport, including when the cluster's geographic bounds are too broad to fit and show at an individual-marker zoom simultaneously.
 
 Each footprint row in `ClusterFootprintSheet` will become a row container with two independent commands:
 
@@ -21,15 +21,15 @@ The location command will use the footprint's own coordinates and a focused zoom
 
 ## Data Flow
 
-The cluster sheet already receives the visible footprint list and has access to Leaflet's map instance. It will find the selected footprint locally, call `map.flyTo`, call `onSelect(id)`, then close. No backend or global-state contract changes are needed.
+The cluster click payload retains an ephemeral `expandOnMap` callback that calls the clicked Leaflet cluster layer's `spiderfy()` method. The sheet invokes it before closing. The sheet also receives the visible footprint list and has access to Leaflet's map instance; for an individual card it calls `map.flyTo`, calls `onSelect(id)`, then closes. No backend or persisted-state contract changes are needed.
 
 ## Error Handling
 
-Invalid or missing coordinates do not produce a map command. Leaflet navigation remains protected from stale map errors in the cluster-expansion path.
+Invalid or missing coordinates do not produce a map command. The ephemeral expansion callback safely ignores errors from a stale Leaflet cluster layer.
 
 ## Tests
 
-- The expansion command requests the non-clustered zoom ceiling rather than current zoom plus two.
-- The marker cluster configuration disables clustering at the same zoom.
+- The expansion command calls the clicked cluster layer's `spiderfy()` callback and closes the sheet.
+- The cluster click payload includes the expansion callback, while the existing first-click sheet behavior remains unchanged.
 - A valid card exposes a location command; clicking it flies to that footprint, selects it, and closes the sheet in that order.
 - Cards without valid coordinates omit the location command.

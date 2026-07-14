@@ -20,6 +20,7 @@ const selection = {
   bounds: [[31.23, 121.47], [31.24, 121.48]],
   placeCount: 2,
   footprintCount: 3,
+  expandOnMap: vi.fn(),
 };
 
 const footprints = [
@@ -48,7 +49,7 @@ describe('ClusterFootprintSheet', () => {
     vi.clearAllMocks();
   });
 
-  it('shows the cluster summary, sorts newest first, and expands on the map', async () => {
+  it('shows the cluster summary, sorts newest first, and expands on the map before closing', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<ClusterFootprintSheet selection={selection} footprints={footprints} onClose={onClose} onSelect={vi.fn()} />);
@@ -61,36 +62,44 @@ describe('ClusterFootprintSheet', () => {
     expect(await screen.findByRole('button', { name: '在地图中展开' })).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: '在地图中展开' }));
-    expect(mocks.map.fitBounds).toHaveBeenCalledWith(selection.bounds, {
-      padding: [48, 96],
-      maxZoom: 17,
-    });
+    expect(selection.expandOnMap).toHaveBeenCalledOnce();
+    expect(selection.expandOnMap.mock.invocationCallOrder[0])
+      .toBeLessThan(onClose.mock.invocationCallOrder[0]);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('fits broad bounds before explicitly reaching the non-clustered zoom', async () => {
+  it('uses the selected cluster callback for broad geographic bounds', async () => {
     const user = userEvent.setup();
+    const expandOnMap = vi.fn();
     const broadSelection = {
       ...selection,
       bounds: [[-50, -120], [60, 120]],
+      expandOnMap,
     };
     render(<ClusterFootprintSheet selection={broadSelection} footprints={footprints} onClose={vi.fn()} onSelect={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: '在地图中展开' }));
 
-    expect(mocks.map.fitBounds).toHaveBeenCalledWith(broadSelection.bounds, {
-      padding: [48, 96],
-      maxZoom: 17,
-    });
-    expect(mocks.map.setZoom).toHaveBeenCalledWith(17);
-    expect(mocks.map.fitBounds.mock.invocationCallOrder[0])
-      .toBeLessThan(mocks.map.setZoom.mock.invocationCallOrder[0]);
+    expect(expandOnMap).toHaveBeenCalledOnce();
+    expect(mocks.map.fitBounds).not.toHaveBeenCalled();
+    expect(mocks.map.setZoom).not.toHaveBeenCalled();
   });
 
-  it('hides map expansion for a single place', () => {
+  it('hides map expansion for a single place or a selection without an expandable callback', () => {
     render(
       <ClusterFootprintSheet
         selection={{ ...selection, placeCount: 1 }}
+        footprints={footprints}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: '在地图中展开' })).not.toBeInTheDocument();
+
+    render(
+      <ClusterFootprintSheet
+        selection={{ ...selection, expandOnMap: undefined }}
         footprints={footprints}
         onClose={vi.fn()}
         onSelect={vi.fn()}
