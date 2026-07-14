@@ -1,10 +1,10 @@
 # V2 Phase 1 Foundation QA Evidence
 
-Status: **DONE WITH CONCERNS - Docker/PostGIS exit gate blocked**
+Status: **PASS**
 
 Date: 2026-07-15 (Asia/Shanghai)
 Branch: `codex/bliver-v2`
-Implementation commit: `cca67cdaccb1ff8dc89aa0a3d23da111de02d29f`
+Implementation commit: `a2c1775d711e94d4fc92af4dac5171f462317271`
 Rollback boundary: `d6f1452` (the last planning-only commit before Phase 1 implementation)
 
 ## Toolchain and workspaces
@@ -14,17 +14,19 @@ Rollback boundary: `d6f1452` (the last planning-only commit before Phase 1 imple
 - Workspaces: `@bliver/web`, `@bliver/api`, `@bliver/contracts`, `@bliver/domain`,
   `@bliver/ui`, `@bliver/config`, `@bliver/testing`
 - Database migration: `apps/api/drizzle/0000_extensions.sql`
-- PostGIS version: unavailable because the local Docker daemon could not start
+- PostgreSQL: `16.14` native Windows service
+- PostGIS version: `3.6` (native provider via `V2_DATABASE_URL`)
 
 ## Exit gate evidence
 
 | Command | Result | Evidence |
 | --- | --- | --- |
 | `npm.cmd run check:node` | PASS | Exit 0 on Node 24.16.0 |
-| `npm.cmd run db:v2:up` | BLOCKED | Docker Desktop could not connect to its Linux engine pipe |
-| `npm.cmd run db:v2:migrate` | BLOCKED | No PostgreSQL service was available after Docker failed to start |
-| `npm.cmd run verify:v2-foundation` | PASS | Architecture, lint, typecheck, tests, and builds exited 0 |
-| `npm.cmd run smoke:v2 -- --api-url http://127.0.0.1:5100 --expected-release local` | PARTIAL | `/healthz` 200, `/readyz` 503, `/versionz` 200 |
+| `npm.cmd run db:v2:migrate` | PASS | Native PostGIS database migrated twice; second run was a no-op |
+| `npm.cmd run db:v2:seed` | PASS | Deterministic `v2-foundation` marker present |
+| `V2_DATABASE_URL=... npm.cmd exec vitest -- --config apps/api/vitest.config.ts run apps/api/src/platform/db/__tests__/postgis.integration.test.ts` | PASS | PostGIS extension and repeated migration assertions passed |
+| `npm.cmd run verify:v2-foundation` | PASS | 68 modules, lint, strict typecheck, 44 tests, and builds exited 0 |
+| `npm.cmd run smoke:v2 -- --api-url http://127.0.0.1:5100 --expected-release local` | PASS | `/healthz`, `/readyz`, `/versionz` all returned 200 |
 | `npm.cmd --prefix frontend test` | PASS | 58 files, 398 tests |
 | `npm.cmd --prefix backend test` | PASS after rerun | 36 suites, 464 tests |
 | `npm.cmd run test:release-tools` | PASS | 12 tests |
@@ -37,31 +39,18 @@ rerun. No frozen V1 source or lockfile was changed.
 
 ## V2 verification detail
 
-- Dependency Cruiser: 65 modules and 65 dependencies, zero violations.
+- Dependency Cruiser: 68 modules and 68 dependencies, zero violations.
 - ESLint: all seven V2 workspaces passed with zero warnings.
 - TypeScript: all seven V2 workspaces passed the strict compiler baseline.
-- Vitest: 10 files passed, 39 tests passed.
-- Skipped: one real Testcontainers/PostGIS migration test because `docker info` was unavailable.
+- Vitest: 13 files passed, 44 tests passed; the PostGIS integration ran against the native provider.
 - Web: Vite 8.1.4 production build completed and `apps/web/dist/index.html` exists.
-- API network smoke: health and version contracts passed; readiness correctly failed closed when the
-  database was unavailable.
+- API network smoke: health, readiness, and version contracts all passed with the native database.
 
-## Blocker and handoff
+## Handoff
 
-The Windows `com.docker.service` was initially stopped. Starting it succeeded briefly, but Docker
-Desktop failed to initialize its Linux engine and reported `Docker Desktop is unable to start`; the
-service returned to stopped. Consequently the PostGIS extension version, repeated real migration,
-seed marker, and successful readiness smoke remain unverified on this machine.
+Docker remains an optional local provider. When it is unavailable, set `V2_DATABASE_URL` to a real
+PostgreSQL + PostGIS test database and run the integration test through the native-provider path.
+The V2 API still uses `DATABASE_URL`; no credentials or secret values are recorded in this evidence.
 
-Do not create the `v2-phase-1-foundation` completion tag or start Phase 2 until a Docker-capable
-environment runs these commands successfully:
-
-```bash
-npm run db:v2:up
-npm run db:v2:migrate
-npm exec vitest run --config=apps/api/vitest.config.ts apps/api/src/platform/db/__tests__/postgis.integration.test.ts
-npm run smoke:v2 -- --api-url http://localhost:5100 --expected-release local
-```
-
-After those pass, record the PostGIS version and successful readiness response here, commit the
-updated evidence, and create the Phase 1 tag.
+The Phase 1 exit gate is complete. The next phase may start from the tagged commit after this
+evidence update.
