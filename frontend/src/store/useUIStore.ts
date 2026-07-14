@@ -32,6 +32,8 @@ interface ClusterPayload {
   bounds: [[number, number], [number, number]];
   placeCount: number;
   footprintCount: number;
+  /** Expands the selected map cluster while its marker layer is available. */
+  expandOnMap?: () => void;
 }
 
 interface RealtimeFootprint {
