@@ -4,6 +4,8 @@ node_modules
 !.env.example
 *.local
 dist
+artifacts/openapi/
+packages/contracts/generated/
 LING.env
 .mcp.json
 .codex/

@@ -9,10 +9,19 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^9.0.0",
+    "@bliver/domain": "0.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json",
-    "lint": "eslint --config ../config/eslint.base.mjs . --max-warnings 0"
+    "lint": "eslint --config ../config/eslint.base.mjs . --max-warnings 0",
+    "contracts:openapi": "tsx src/generate-openapi.ts && openapi-typescript ../../artifacts/openapi/v2.json -o generated/v2.d.ts"
   }
 }
