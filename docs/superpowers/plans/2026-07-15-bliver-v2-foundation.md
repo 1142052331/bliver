@@ -180,7 +180,7 @@ git commit -m "build: enforce strict TypeScript for V2"
 
 **Files:**
 - Create: `packages/contracts/src/errors.ts`, `packages/contracts/src/health.ts`, `packages/contracts/src/events.ts`, `packages/contracts/src/openapi.ts`, `packages/contracts/src/index.ts`
-- Create: `packages/domain/src/visibility.ts`, `packages/domain/src/index.ts`
+- Create: `packages/domain/src/ids.ts`, `packages/domain/src/visibility.ts`, `packages/domain/src/index.ts`
 - Test: `packages/contracts/src/__tests__/contracts.test.ts`, `packages/domain/src/__tests__/visibility.test.ts`
 - Modify: `packages/contracts/package.json`, `package-lock.json`
 
@@ -196,7 +196,7 @@ expect(canDiscover({ visibility: 'public', discoveryExpiresAt: past })).toBe(fal
 expect(canDiscover({ visibility: 'private', discoveryExpiresAt: future })).toBe(false);
 ```
 
-Use Zod schemas for `HealthResponse`, `ProblemDetails`, `EventEnvelope`, `Visibility`, and `LocationPrecision`. Add `openapi.ts` that builds a minimal OpenAPI 3.1 document for `/healthz`, `/readyz`, `/versionz`, and the Problem Details response. Add `@asteasolutions/zod-to-openapi` and `openapi-typescript` to the contracts tooling, plus a `contracts:openapi` package script that writes `artifacts/openapi/v2.json` and generated type output to `packages/contracts/generated/` without committing generated runtime code. Domain functions accept typed values and never read the clock or environment directly; pass `now` as an argument.
+Use Zod schemas for `HealthResponse`, `ProblemDetails`, `EventEnvelope`, `Visibility`, and `LocationPrecision`. Add branded UUIDv7 types `UserId`, `FootprintId`, `ConversationId`, and `EventId` in `ids.ts`, generated through the `uuid` package and validated at boundaries. Add `openapi.ts` that builds a minimal OpenAPI 3.1 document for `/healthz`, `/readyz`, `/versionz`, and the Problem Details response. Add `@asteasolutions/zod-to-openapi` and `openapi-typescript` to the contracts tooling, plus a `contracts:openapi` package script that writes `artifacts/openapi/v2.json` and generated type output to `packages/contracts/generated/` without committing generated runtime code. Domain functions accept typed values and never read the clock or environment directly; pass `now` as an argument.
 
 - [ ] **Step 2: Run the focused tests and verify they fail**
 
