@@ -70,5 +70,6 @@ describe('V2 contracts', () => {
       '/versionz',
     ]);
     expect(document.components?.schemas?.ProblemDetails).toBeDefined();
+    expect(document.paths?.['/readyz']?.get?.responses?.[503]).toBeDefined();
   });
 });

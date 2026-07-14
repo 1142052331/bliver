@@ -1,4 +1,3 @@
-import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import pino from 'pino';
@@ -34,7 +33,6 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }) }: Ap
   app.use(requestId);
   app.use(pinoHttp({ logger }));
   app.use(helmet());
-  app.use(cors({ credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);

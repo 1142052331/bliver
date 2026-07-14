@@ -11,7 +11,7 @@ export function buildOpenApiDocument() {
   const healthSchema = registry.register('HealthResponse', healthResponse);
   const problemSchema = registry.register('ProblemDetails', problemDetails);
 
-  for (const path of ['/healthz', '/readyz', '/versionz'] as const) {
+  for (const path of ['/healthz', '/versionz'] as const) {
     registry.registerPath({
       method: 'get',
       path,
@@ -22,15 +22,28 @@ export function buildOpenApiDocument() {
             'application/json': { schema: healthSchema },
           },
         },
-        500: {
-          description: 'The service is unavailable',
-          content: {
-            'application/problem+json': { schema: problemSchema },
-          },
-        },
       },
     });
   }
+
+  registry.registerPath({
+    method: 'get',
+    path: '/readyz',
+    responses: {
+      200: {
+        description: 'The service is ready',
+        content: {
+          'application/json': { schema: healthSchema },
+        },
+      },
+      503: {
+        description: 'The database is unavailable',
+        content: {
+          'application/problem+json': { schema: problemSchema },
+        },
+      },
+    },
+  });
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',

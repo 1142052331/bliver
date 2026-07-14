@@ -39,6 +39,10 @@ function staticBoundaryViolations(root: string): string[] {
       const target = normalize(join(dirname(from), specifier))
         .replaceAll('\\', '/')
         .replace(/\.js$/, '.ts');
+      const sourceModule = from.match(/^apps\/api\/src\/modules\/([^/]+)\//)?.[1];
+      const targetInfrastructureModule = target.match(
+        /^apps\/api\/src\/modules\/([^/]+)\/infrastructure(?:\/|$)/,
+      )?.[1];
 
       if (from.startsWith('apps/web/src') && target.startsWith('apps/api/src')) {
         violations.push(`web-to-api-internal: ${from} -> ${target}`);
@@ -54,6 +58,12 @@ function staticBoundaryViolations(root: string): string[] {
         violations.push(`domain-to-infrastructure: ${from} -> ${target}`);
       } else if (from.startsWith('packages/contracts/src') && target.startsWith('apps/')) {
         violations.push(`contracts-to-apps: ${from} -> ${target}`);
+      } else if (
+        sourceModule &&
+        targetInfrastructureModule &&
+        sourceModule !== targetInfrastructureModule
+      ) {
+        violations.push(`module-to-module-infrastructure: ${from} -> ${target}`);
       }
     }
   }

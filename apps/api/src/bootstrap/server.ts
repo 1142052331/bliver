@@ -7,6 +7,33 @@ import { createConfig } from './config.js';
 import { closeDb, createDb } from '../platform/db/client.js';
 import { createApp } from '../http/app.js';
 
+export interface ShutdownServerPort {
+  close(callback: (error?: Error) => void): unknown;
+  closeAllConnections(): void;
+}
+
+export async function shutdownServer(
+  server: ShutdownServerPort,
+  closeDatabase: () => Promise<void>,
+  timeoutMs = 10_000,
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      server.closeAllConnections();
+      resolve();
+    }, timeoutMs);
+    timeout.unref();
+
+    server.close((error?: Error) => {
+      clearTimeout(timeout);
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+
+  await closeDatabase();
+}
+
 export async function startServer(): Promise<void> {
   const config = createConfig();
   const logger = pino({ level: config.nodeEnv === 'production' ? 'info' : 'silent' });
@@ -19,21 +46,21 @@ export async function startServer(): Promise<void> {
     server.listen(config.port, () => resolve());
   });
 
-  let shuttingDown = false;
-  const shutdown = async (): Promise<void> => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-    await closeDb();
+  let shutdownPromise: Promise<void> | undefined;
+  const shutdown = (): Promise<void> => {
+    shutdownPromise ??= shutdownServer(server, closeDb);
+    return shutdownPromise;
   };
 
-  process.once('SIGTERM', () => {
-    void shutdown().then(() => process.exit(0));
-  });
-  process.once('SIGINT', () => {
-    void shutdown().then(() => process.exit(0));
-  });
+  const handleSignal = (): void => {
+    void shutdown().then(
+      () => process.exit(0),
+      () => process.exit(1),
+    );
+  };
+
+  process.once('SIGTERM', handleSignal);
+  process.once('SIGINT', handleSignal);
 }
 
 const entryPoint = process.argv[1];

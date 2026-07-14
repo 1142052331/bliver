@@ -27,4 +27,33 @@ describe('V2 architecture boundaries', () => {
     expect(result.exitCode).not.toBe(0);
     expect(result.output).toContain('web-to-api-internal');
   });
+
+  it('rejects imports of another module infrastructure', async () => {
+    const root = await mkdtemp(join(repositoryRoot, '.tmp-v2-architecture-'));
+    fixtures.push(root);
+    const identityApplication = join(
+      root,
+      'apps/api/src/modules/identity/application',
+    );
+    const footprintInfrastructure = join(
+      root,
+      'apps/api/src/modules/footprints/infrastructure',
+    );
+    await mkdir(identityApplication, { recursive: true });
+    await mkdir(footprintInfrastructure, { recursive: true });
+    await mkdir(join(root, 'packages'), { recursive: true });
+    await writeFile(
+      join(identityApplication, 'bad.ts'),
+      "import '../../footprints/infrastructure/repository.ts';\n",
+    );
+    await writeFile(
+      join(footprintInfrastructure, 'repository.ts'),
+      'export const repository = true;\n',
+    );
+
+    const result = runArchitectureCheck(root);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.output).toContain('module-to-module-infrastructure');
+  });
 });

@@ -39,6 +39,15 @@ describe('V2 API foundation routes', () => {
     expect(response.headers['x-request-id']).toBeTruthy();
   });
 
+  it('does not allow credentialed cross-origin requests by default', async () => {
+    const response = await request(createApp({ config, db: createDb() }))
+      .get('/healthz')
+      .set('origin', 'https://untrusted.example');
+
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
+    expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+  });
+
   it('reports readiness only when the database port responds', async () => {
     const ready = await request(createApp({ config, db: createDb() })).get(
       '/readyz',
