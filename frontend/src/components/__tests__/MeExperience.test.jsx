@@ -37,6 +37,13 @@ vi.mock('../../hooks/useProfileData', () => ({
   }),
 }));
 
+vi.mock('../../hooks/useConversations', () => ({
+  default: () => ({
+    settings: { allowStrangerMessages: false },
+    updateSettings: { isPending: false, mutateAsync: vi.fn() },
+  }),
+}));
+
 describe('MeExperience', () => {
   beforeEach(() => vi.clearAllMocks());
 
