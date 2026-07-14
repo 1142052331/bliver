@@ -13,6 +13,7 @@ LING.env
 .agents/
 .claude/
 .superpowers/
+.worktrees/
 
 # IDE
 .idea/
