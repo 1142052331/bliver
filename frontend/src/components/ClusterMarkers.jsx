@@ -6,6 +6,8 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import useUIStore from '../store/useUIStore';
 
+export const CLUSTER_EXPANSION_ZOOM = 17;
+
 const iconCache = new Map();
 const SOURCE_PRIORITY = ['self', 'friend', 'region', 'country', 'global'];
 const SOURCE_LABELS = {
@@ -194,6 +196,7 @@ export default function ClusterMarkers({
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
       zoomToBoundsOnClick: false,
+      disableClusteringAtZoom: CLUSTER_EXPANSION_ZOOM,
       iconCreateFunction: makeClusterIcon,
     });
 

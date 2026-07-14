@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Clock3, Map, MapPin, X } from 'lucide-react';
 import { useMap } from 'react-leaflet';
+import { CLUSTER_EXPANSION_ZOOM } from '../ClusterMarkers';
 
 function compareFootprints(left, right) {
   const time = new Date(right.createdAt) - new Date(left.createdAt);
@@ -33,14 +34,8 @@ export default function ClusterFootprintSheet({ selection, footprints, onClose, 
   }, []);
 
   const expandOnMap = () => {
-    const mapMaxZoom = map.getMaxZoom?.();
-    const currentZoom = map.getZoom?.();
-    const maxZoom = Math.min(
-      Number.isFinite(mapMaxZoom) ? mapMaxZoom : 18,
-      Number.isFinite(currentZoom) ? currentZoom + 2 : 18,
-    );
     try {
-      map.fitBounds(selection.bounds, { padding: [48, 96], maxZoom });
+      map.fitBounds(selection.bounds, { padding: [48, 96], maxZoom: CLUSTER_EXPANSION_ZOOM });
     } catch {
       // Keep the current viewport if Leaflet rejects stale bounds.
     } finally {

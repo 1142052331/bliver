@@ -55,7 +55,7 @@ describe('ClusterFootprintSheet', () => {
     await user.click(screen.getByRole('button', { name: '在地图中展开' }));
     expect(mocks.map.fitBounds).toHaveBeenCalledWith(selection.bounds, {
       padding: [48, 96],
-      maxZoom: expect.any(Number),
+      maxZoom: 17,
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });

@@ -1,14 +1,25 @@
+import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('leaflet.markercluster', () => ({}));
+const mocks = vi.hoisted(() => ({
+  group: {
+    on: vi.fn(),
+    clearLayers: vi.fn(),
+  },
+  map: {
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(),
+  },
+}));
 vi.mock('leaflet', () => ({
   default: {
     divIcon: vi.fn((options) => options),
-    markerClusterGroup: vi.fn(),
+    markerClusterGroup: vi.fn(() => mocks.group),
     marker: vi.fn(),
   },
 }));
-vi.mock('react-leaflet', () => ({ useMap: vi.fn() }));
+vi.mock('react-leaflet', () => ({ useMap: () => mocks.map }));
 
 import {
   buildMarkerDescriptor,
@@ -19,6 +30,8 @@ import {
   clusterCacheKey,
   handleClusterClick,
 } from '../ClusterMarkers';
+import ClusterMarkers from '../ClusterMarkers';
+import L from 'leaflet';
 
 function marker({ id, lat, lng, source, unread }) {
   return {
@@ -79,6 +92,15 @@ describe('map marker descriptors', () => {
 });
 
 describe('cluster selection', () => {
+  it('stops clustering at zoom 17 while keeping click-to-bounds disabled', () => {
+    render(<ClusterMarkers footprints={[]} />);
+
+    expect(L.markerClusterGroup).toHaveBeenCalledWith(expect.objectContaining({
+      disableClusteringAtZoom: 17,
+      zoomToBoundsOnClick: false,
+    }));
+  });
+
   it('opens the cluster sheet on first click without fitting the map', () => {
     const openCluster = vi.fn();
     const fitBounds = vi.fn();
