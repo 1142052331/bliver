@@ -12,6 +12,7 @@ DONE_WITH_CONCERNS. Discovery, privacy-filtered Activity and Map DTO parity, rea
 - `8556371` fix: close phase 4 discovery review gaps
 - `f8e4859` fix: share configured discovery cursor secret
 - `77fc20d` fix: make comment replay atomic
+- `2f7974a` fix: replay detail conversation actions after login
 
 ## Verification
 
@@ -20,9 +21,9 @@ DONE_WITH_CONCERNS. Discovery, privacy-filtered Activity and Map DTO parity, rea
 | `npm.cmd run db:v2:migrate` | BLOCKED; `Database migration failed: DATABASE_URL is required` |
 | `npm.cmd run typecheck:v2` | PASS; all seven V2 workspaces |
 | `npm.cmd run lint:v2` | PASS; zero warnings/errors |
-| `npm.cmd run test:v2` | PASS; 51 files passed, 3 Postgres environment-gated files skipped; 180 tests passed, 7 skipped |
-| `npx.cmd playwright test apps/web/e2e/discovery-interaction.spec.ts` | PASS; 8 tests across Pixel 5 and Desktop Chrome, including guest comment login/replay, authenticated session fixtures, and blocked-candidate filtering |
-| `npm.cmd run architecture:check` | PASS; no dependency violations (215 modules, 439 dependencies) |
+| `npm.cmd run test:v2` | PASS; 51 files passed, 3 Postgres environment-gated files skipped; 181 tests passed, 7 skipped |
+| `npx.cmd playwright test apps/web/e2e/discovery-interaction.spec.ts` | PASS; 10 tests across Pixel 5 and Desktop Chrome, including guest comment and detail-reply login/replay, authenticated session fixtures, and blocked-candidate filtering |
+| `npm.cmd run architecture:check` | PASS; no dependency violations (215 modules, 441 dependencies) |
 | `npm.cmd run build:v2` | PASS; API and web production builds complete |
 | `npm.cmd --workspace @bliver/contracts run contracts:openapi` | PASS; OpenAPI JSON and generated client refreshed locally |
 
@@ -42,6 +43,7 @@ The web build retains the existing Vite warning for a JavaScript chunk larger th
 - Interaction and report GET/command routes resolve the actor and apply the same footprint policy before reads. Command idempotency uses the existing Postgres `platform.idempotency_keys` table (with an explicit repository port and memory test adapter), and web guest actions navigate to login and replay after authentication.
 - Comment and reply idempotency reserves the durable key, comment response, comment row, and `CommentAdded` Outbox event inside one transaction. Unique-key losers load the committed winner; rollback tests prove a crash leaves no reservation or mutation to replay.
 - Browser acceptance proves guest discovery/pending auth intent, authenticated reaction/comment/reply/report, and blocked-content absence on mobile and desktop fixtures.
+- Footprint detail passes its current return path into `ConversationSection`; guest comments and replies persist that path and replay on the same detail surface after login.
 
 ## Environment Limitation
 
