@@ -1,0 +1,15 @@
+export const FOOTPRINT_GENERIC_SELECT_COLUMNS = [
+  'id',
+  'author_id',
+  'place_id',
+  'region_id',
+  'display_point',
+  'visibility',
+  'location_precision',
+  'message',
+  'mood',
+  'published_at',
+  'discovery_expires_at',
+  'created_at',
+  'updated_at',
+] as const;
