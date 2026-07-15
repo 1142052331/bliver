@@ -19,6 +19,8 @@ import { defaultService as defaultMediaService } from '../modules/media/transpor
 import type { MediaService } from '../modules/media/application/service.js';
 import { footprintRouter } from '../modules/footprints/transport/routes.js';
 import type { FootprintRouterOptions } from '../modules/footprints/transport/routes.js';
+import { mapRouter } from '../modules/footprints/transport/map-routes.js';
+import type { MapRouterOptions } from '../modules/footprints/transport/map-routes.js';
 
 export interface AppOptions {
   readonly config: ApiConfig;
@@ -27,6 +29,7 @@ export interface AppOptions {
   readonly identity?: IdentityRepositories;
   readonly media?: MediaService;
   readonly footprints?: FootprintRouterOptions;
+  readonly map?: MapRouterOptions;
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -37,7 +40,7 @@ const requestId: RequestHandler = (request, response, next) => {
   next();
 };
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -49,6 +52,7 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use('/api/v1', identityRouter(identityRepositories, config));
   app.use('/api/v1', mediaRouter(identityRepositories, config, { service: media ?? defaultMediaService(config) }));
   app.use('/api/v1', footprintRouter(identityRepositories, footprints));
+  app.use('/api/v1', mapRouter(map));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);
   app.use(errorHandler);

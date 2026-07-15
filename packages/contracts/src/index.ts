@@ -15,3 +15,5 @@ export { sessionDto, sessionListResponse, sessionExpired } from './session.js';
 export type { SessionDto } from './session.js';
 export { mediaBytes, mediaMimeType, mediaSignatureRequest, mediaSignatureResponse } from './media.js';
 export type { MediaSignatureRequest, MediaSignatureResponse } from './media.js';
+export { locationResolveRequest, mapBounds, mapFootprintQuery, placeSearchRequest } from './geography.js';
+export type { LocationResolveRequest, MapFootprintQuery, PlaceSearchRequest } from './geography.js';
