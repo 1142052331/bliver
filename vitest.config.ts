@@ -7,5 +7,6 @@ export default defineConfig({
       'packages/**/*.{test,spec}.{ts,tsx}',
       'scripts/**/*.{test,spec}.ts',
     ],
+    exclude: ['**/node_modules/**', '**/apps/web/e2e/**'],
   },
 });
