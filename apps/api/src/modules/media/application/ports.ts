@@ -64,6 +64,9 @@ export interface MediaIdempotencyRepository {
 export interface MediaRepositories {
   readonly assets: MediaAssetRepository;
   readonly idempotency: MediaIdempotencyRepository;
+  readonly transactions?: MediaTransactionPort;
 }
+
+export interface MediaTransactionPort { commitSignature(input: { readonly asset: MediaAsset; readonly actorId: string; readonly key: string; readonly fingerprint: string; readonly result: MediaSignatureResult }): Promise<void>; }
 
 export type MediaClock = () => number;

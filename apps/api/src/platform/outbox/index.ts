@@ -50,3 +50,5 @@ export class OutboxWorker {
     return true;
   }
 }
+
+export { createPostgresOutboxRepository } from './postgres-repository.js';

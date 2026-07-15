@@ -1,0 +1,21 @@
+import type { DatabaseClient, DatabaseQueryPort } from '../../../platform/db/client.js';
+import type { MediaAsset, MediaAssetRepository, MediaIdempotencyRecord, MediaIdempotencyRepository, MediaRepositories } from '../application/index.js';
+
+type Row = Record<string, unknown>;
+const date = (value: unknown): Date => new Date(String(value));
+const asset = (row: Row): MediaAsset => ({ assetId: String(row.id), ownerId: String(row.owner_id), publicId: String(row.public_id), mimeType: String(row.mime_type) as MediaAsset['mimeType'], bytes: Number(row.bytes), version: row.version == null ? null : Number(row.version), width: row.width == null ? null : Number(row.width), height: row.height == null ? null : Number(row.height), format: row.format == null ? null : String(row.format), createdAt: date(row.created_at) });
+
+export function createPostgresMediaRepositories(db: DatabaseClient): MediaRepositories {
+  const assets: MediaAssetRepository = {
+    async findById(assetId) { const result = await db.query<Row>('SELECT id, owner_id, public_id, mime_type, bytes, version, width, height, format, created_at FROM media_assets WHERE id = $1', [assetId]); return result.rows[0] ? asset(result.rows[0]) : null; },
+    async create(input) { await db.query('INSERT INTO media_assets (id, owner_id, public_id, mime_type, bytes, version, width, height, format) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [input.assetId, input.ownerId, input.publicId, input.mimeType, input.bytes, input.version, input.width, input.height, input.format]); },
+    async delete(assetId) { await db.query('DELETE FROM media_assets WHERE id = $1', [assetId]); },
+  };
+  const idempotency: MediaIdempotencyRepository = {
+    async find(actorId, key) { const result = await db.query<Row>('SELECT actor_id, key, request_hash, response FROM platform.idempotency_keys WHERE actor_id = $1 AND scope = $2 AND key = $3', [actorId, 'media.signature', key]); const row = result.rows[0]; return row ? { actorId: String(row.actor_id), key: String(row.key), fingerprint: String(row.request_hash), result: row.response as MediaIdempotencyRecord['result'] } : null; },
+    async save(record) { await db.query('INSERT INTO platform.idempotency_keys (actor_id, scope, key, request_hash, response) VALUES ($1,$2,$3,$4,$5)', [record.actorId, 'media.signature', record.key, record.fingerprint, JSON.stringify(record.result)]); },
+  };
+  return { assets, idempotency, transactions: { async commitSignature(input) { await db.transaction(async (client) => { const prior = await client.query<Row>('SELECT request_hash FROM platform.idempotency_keys WHERE actor_id = $1 AND scope = $2 AND key = $3 FOR UPDATE', [input.actorId, 'media.signature', input.key]); if (prior.rows[0]) { if (String(prior.rows[0].request_hash) !== input.fingerprint) throw new Error('IDEMPOTENCY_CONFLICT'); return; } await client.query('INSERT INTO media_assets (id, owner_id, public_id, mime_type, bytes, version, width, height, format) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [input.asset.assetId, input.asset.ownerId, input.asset.publicId, input.asset.mimeType, input.asset.bytes, input.asset.version, input.asset.width, input.asset.height, input.asset.format]); await client.query('INSERT INTO platform.idempotency_keys (actor_id, scope, key, request_hash, response) VALUES ($1,$2,$3,$4,$5)', [input.actorId, 'media.signature', input.key, input.fingerprint, JSON.stringify(input.result)]); }); } } };
+}
+
+export async function findMediaIdempotency(client: DatabaseQueryPort, actorId: string, key: string): Promise<MediaIdempotencyRecord | null> { const result = await client.query<Row>('SELECT actor_id, key, request_hash, response FROM platform.idempotency_keys WHERE actor_id = $1 AND scope = $2 AND key = $3 FOR UPDATE', [actorId, 'footprint.publish', key]); const row = result.rows[0]; return row ? { actorId: String(row.actor_id), key: String(row.key), fingerprint: String(row.request_hash), result: row.response as MediaIdempotencyRecord['result'] } : null; }

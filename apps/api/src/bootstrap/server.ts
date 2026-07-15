@@ -7,6 +7,11 @@ import { createConfig } from './config.js';
 import { closeDb, createDb } from '../platform/db/client.js';
 import { createApp } from '../http/app.js';
 import { createPostgresIdentityRepositories } from '../modules/identity/infrastructure/postgres-repositories.js';
+import { CloudinaryAdapter, MediaService, createPostgresMediaRepositories } from '../modules/media/index.js';
+import { FootprintVisibilityPolicy, MapFootprintQuery, createPostgresFootprintRepositories } from '../modules/footprints/index.js';
+import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox/index.js';
+import { Server as SocketServer } from 'socket.io';
+import { createNominatimGeography } from '../platform/geography/providers.js';
 
 export interface ShutdownServerPort {
   close(callback: (error?: Error) => void): unknown;
@@ -39,8 +44,19 @@ export async function startServer(): Promise<void> {
   const config = createConfig();
   const logger = pino({ level: config.nodeEnv === 'production' ? 'info' : 'silent' });
   const db = createDb(config.databaseUrl);
-  const app = createApp({ config, db, logger, identity: createPostgresIdentityRepositories(db) });
+  const identity = createPostgresIdentityRepositories(db);
+  const mediaRepositories = createPostgresMediaRepositories(db);
+  const media = new MediaService({ adapter: new CloudinaryAdapter(config.cloudinary), repositories: mediaRepositories });
+  const footprints = createPostgresFootprintRepositories(db);
+  const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: { async areAcceptedFriends() { return false; } }, blocks: { async isEitherBlocked() { return false; } }, moderation: { async hasCaseAccess() { return false; } }, now: () => new Date() });
+  const map = new MapFootprintQuery({ repository: footprints, policy });
+  const geography = createNominatimGeography();
+  const app = createApp({ config, db, logger, identity, media, footprints: { repositories: footprints, policy, providers: { geocoding: { async resolve(point) { const result = await geography.geocode({ latitude: point.lat, longitude: point.lng }); return { placeId: result.place?.id ?? null, regionId: result.region?.id ?? null }; } }, weather: { async resolve(point) { return geography.weather({ latitude: point.lat, longitude: point.lng }); } } } }, map: { query: map, geography } });
   const server = createServer(app);
+  const io = new SocketServer(server, { cors: { origin: false } });
+  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), process: async (event) => { if (event.type === 'FootprintPublished') io.emit('footprint:published', event.payload); } });
+  const workerTimer = setInterval(() => { void outboxWorker.runOnce(); }, 250);
+  workerTimer.unref();
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
@@ -49,6 +65,8 @@ export async function startServer(): Promise<void> {
 
   let shutdownPromise: Promise<void> | undefined;
   const shutdown = (): Promise<void> => {
+    clearInterval(workerTimer);
+    io.close();
     shutdownPromise ??= shutdownServer(server, closeDb);
     return shutdownPromise;
   };

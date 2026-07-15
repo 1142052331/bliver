@@ -15,14 +15,14 @@ function decodeCursor(cursor: string): { publishedAt: string; id: string } | nul
 export class MapFootprintQuery {
   private readonly maxResults: number;
   constructor(private readonly options: MapFootprintQueryOptions) { this.maxResults = Math.max(1, Math.min(100, Math.floor(options.maxResults ?? 50))); }
-  async execute(input: { readonly actor: ActorContext | null; readonly bounds: MapBounds; readonly cursor?: string; readonly visibility?: string }): Promise<MapFootprintResult> {
+  async execute(input: { readonly actor: ActorContext | null; readonly bounds: MapBounds; readonly cursor?: string; readonly visibility?: string; readonly limit?: number }): Promise<MapFootprintResult> {
     validateBounds(input.bounds);
     const records = await this.options.repository.listInViewport({ bounds: input.bounds, ...(input.visibility ? { visibility: input.visibility } : {}) });
     const readable = await this.options.policy.readFilter(input.actor, records);
     const ordered = [...readable].sort((left, right) => right.publishedAt.getTime() - left.publishedAt.getTime() || right.id.localeCompare(left.id));
     const cursor = input.cursor ? decodeCursor(input.cursor) : null;
     const filtered = cursor ? ordered.filter((record) => record.publishedAt.toISOString() < cursor.publishedAt || (record.publishedAt.toISOString() === cursor.publishedAt && record.id < cursor.id)) : ordered;
-    const page = filtered.slice(0, this.maxResults);
+    const page = filtered.slice(0, Math.min(this.maxResults, Math.max(1, Math.floor(input.limit ?? this.maxResults))));
     const items: FootprintDto[] = [];
     for (const item of page) items.push(await this.options.policy.toPublicDto(input.actor, item));
     return { items, nextCursor: filtered.length > this.maxResults && page.length ? encodeCursor(page[page.length - 1] as FootprintPolicyInput) : null };

@@ -28,5 +28,5 @@ export function createMemoryMediaRepositories(): MediaRepositories {
       idempotency.set(`${record.actorId}:${record.key}`, record);
     },
   };
-  return { assets: assetRepository, idempotency: idempotencyRepository };
+  return { assets: assetRepository, idempotency: idempotencyRepository, transactions: { async commitSignature(input) { const prior = idempotency.get(`${input.actorId}:${input.key}`); if (prior && prior.fingerprint !== input.fingerprint) throw new Error('IDEMPOTENCY_CONFLICT'); if (prior) return; assets.set(input.asset.assetId, input.asset); idempotency.set(`${input.actorId}:${input.key}`, { actorId: input.actorId, key: input.key, fingerprint: input.fingerprint, result: input.result }); } } };
 }

@@ -18,4 +18,5 @@ export type {
   MediaSignatureResult,
   MediaSignedUpload,
   MediaUploadInput,
+  MediaTransactionPort,
 } from './ports.js';

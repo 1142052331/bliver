@@ -3,6 +3,11 @@ import { Pool } from 'pg';
 
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { QueryResult, QueryResultRow } from 'pg';
+import type { PoolClient } from 'pg';
+
+export interface DatabaseQueryPort {
+  query<TRow extends QueryResultRow>(statement: string, values?: readonly unknown[]): Promise<QueryResult<TRow>>;
+}
 
 export interface DatabaseClient {
   readonly orm: NodePgDatabase;
@@ -10,6 +15,7 @@ export interface DatabaseClient {
     statement: string,
     values?: readonly unknown[],
   ): Promise<QueryResult<TRow>>;
+  transaction<T>(callback: (client: DatabaseQueryPort) => Promise<T>): Promise<T>;
 }
 
 let activePool: Pool | undefined;
@@ -28,6 +34,20 @@ export function createDb(databaseUrl: string): DatabaseClient {
       statement: string,
       values: readonly unknown[] = [],
     ) => pool.query<TRow>(statement, [...values]),
+    transaction: async <T>(callback: (client: DatabaseQueryPort) => Promise<T>) => {
+      const client: PoolClient = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await callback({ query: async <TRow extends QueryResultRow>(statement: string, values: readonly unknown[] = []) => client.query<TRow>(statement, [...values]) });
+        await client.query('COMMIT');
+        return result;
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
   };
 }
 

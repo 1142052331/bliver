@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createEventId } from '@bliver/domain';
 
 import {
   MEDIA_MAX_BYTES,
@@ -77,7 +77,7 @@ export class MediaService {
       throw new MediaError('MEDIA_CONFIGURATION_MISSING');
     }
 
-    const assetId = randomUUID();
+    const assetId = createEventId();
     const publicId = `bliver/${input.actorId}/${assetId}`;
     const signed = await this.adapter.signUpload({ publicId, mimeType, bytes: input.bytes });
     const result: MediaSignatureResult = { assetId, ...signed, format: signed.format ?? formatByMimeType[mimeType as MediaMimeType] };
@@ -93,8 +93,8 @@ export class MediaService {
       format: result.format,
       createdAt: this.clock(),
     };
-    await this.repositories.assets.create(asset);
-    await this.repositories.idempotency.save({ actorId: input.actorId, key, fingerprint: requestFingerprint, result });
+    if (this.repositories.transactions) await this.repositories.transactions.commitSignature({ asset, actorId: input.actorId, key, fingerprint: requestFingerprint, result });
+    else { await this.repositories.assets.create(asset); await this.repositories.idempotency.save({ actorId: input.actorId, key, fingerprint: requestFingerprint, result }); }
     return result;
   }
 

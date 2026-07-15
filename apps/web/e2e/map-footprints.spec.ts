@@ -9,6 +9,7 @@ test('guest map opens as the primary surface', async ({ page }) => {
 
 test('authenticated publish flow keeps audience and precision controls explicit', async ({ context, page }) => {
   await context.addCookies([{ name: 'bliver_session', value: 'e2e-session', domain: '127.0.0.1', path: '/' }]);
+  await page.route('**/api/v1/session', async (route) => { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'session', deviceName: 'E2E', createdAt: new Date().toISOString(), lastSeenAt: new Date().toISOString(), current: true }) }); });
   let publishRequest: { readonly body: string; readonly cookie: string | undefined } | undefined;
   await page.route('**/api/v1/footprints', async (route) => {
     publishRequest = { body: route.request().postData() ?? '', cookie: (await route.request().headerValue('cookie')) ?? undefined };

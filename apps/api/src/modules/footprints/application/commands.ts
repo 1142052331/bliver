@@ -1,6 +1,6 @@
 import { createDisplayPoint, type GeoPoint, type LocationPrecision } from '../domain/location-privacy.js';
 import type { FootprintId, UserId, Visibility } from '@bliver/domain';
-import { createFootprintId } from '@bliver/domain';
+import { createEventId, createFootprintId } from '@bliver/domain';
 
 export interface FootprintRecord {
   readonly id: FootprintId;
@@ -45,6 +45,15 @@ export interface FootprintRepositories {
   readonly footprints: FootprintRepository;
   readonly outbox: FootprintOutboxRepository;
   readonly idempotency: FootprintIdempotencyRepository;
+  readonly mediaOwnership?: MediaOwnershipPort;
+  readonly transactions?: FootprintTransactionPort;
+}
+
+export interface MediaOwnershipPort { assertOwned(actorId: UserId, assetIds: readonly string[]): Promise<void>; }
+export interface FootprintTransactionPort {
+  commitPublish(input: { readonly actorId: UserId; readonly idempotencyKey: string; readonly fingerprint: string; readonly footprint: FootprintRecord; readonly outbox: FootprintOutboxEvent }): Promise<PublishFootprintResult>;
+  updateVisibility(input: { readonly actorId: UserId; readonly footprintId: FootprintId; readonly visibility: Visibility }): Promise<FootprintRecord>;
+  delete(input: { readonly actorId: UserId; readonly footprintId: FootprintId }): Promise<void>;
 }
 
 export interface GeocodingPort { resolve(point: GeoPoint): Promise<{ placeId: string | null; regionId: string | null }>; }
@@ -114,7 +123,9 @@ export class PublishFootprint {
       publishedAt,
       discoveryExpiresAt: input.discoveryExpiresAt ?? null,
     };
-    const outbox: FootprintOutboxEvent = { id: crypto.randomUUID(), type: 'FootprintPublished', aggregateId: id, payload: { footprintId: id, authorId: input.actorId } };
+    const outbox: FootprintOutboxEvent = { id: createEventId(), type: 'FootprintPublished', aggregateId: id, payload: { footprintId: id, authorId: input.actorId } };
+    if (this.options.repositories.mediaOwnership) await this.options.repositories.mediaOwnership.assertOwned(input.actorId, input.mediaAssetIds);
+    if (this.options.repositories.transactions) return this.options.repositories.transactions.commitPublish({ actorId: input.actorId, idempotencyKey: key, fingerprint, footprint, outbox });
     await this.options.repositories.footprints.create(footprint);
     try {
       await this.options.repositories.outbox.append(outbox);
@@ -133,9 +144,10 @@ export class UpdateFootprintVisibility {
   async execute(input: { readonly actorId: UserId; readonly footprintId: FootprintId; readonly visibility: Visibility }): Promise<FootprintRecord> {
     const existing = await this.repositories.footprints.findById(input.footprintId);
     if (!existing || existing.authorId !== input.actorId) throw new FootprintConflictError();
+    if (this.repositories.transactions) return this.repositories.transactions.updateVisibility(input);
     const updated = await this.repositories.footprints.updateVisibility(input.footprintId, input.visibility);
     if (!updated) throw new FootprintConflictError();
-    await this.repositories.outbox.append({ id: crypto.randomUUID(), type: 'FootprintVisibilityUpdated', aggregateId: input.footprintId, payload: { footprintId: input.footprintId, visibility: input.visibility } });
+    await this.repositories.outbox.append({ id: createEventId(), type: 'FootprintVisibilityUpdated', aggregateId: input.footprintId, payload: { footprintId: input.footprintId, visibility: input.visibility } });
     return updated;
   }
 }
@@ -145,7 +157,8 @@ export class DeleteFootprint {
   async execute(input: { readonly actorId: UserId; readonly footprintId: FootprintId }): Promise<void> {
     const existing = await this.repositories.footprints.findById(input.footprintId);
     if (!existing || existing.authorId !== input.actorId) throw new FootprintConflictError();
+    if (this.repositories.transactions) { await this.repositories.transactions.delete(input); return; }
     await this.repositories.footprints.delete(input.footprintId);
-    await this.repositories.outbox.append({ id: crypto.randomUUID(), type: 'FootprintDeleted', aggregateId: input.footprintId, payload: { footprintId: input.footprintId } });
+    await this.repositories.outbox.append({ id: createEventId(), type: 'FootprintDeleted', aggregateId: input.footprintId, payload: { footprintId: input.footprintId } });
   }
 }

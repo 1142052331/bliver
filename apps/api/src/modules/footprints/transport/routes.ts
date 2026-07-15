@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { requireActor, type ActorContext } from '../../identity/index.js';
 import type { IdentityRepositories } from '../../identity/application/ports.js';
 import { createMemoryFootprintRepositories, DeleteFootprint, FootprintConflictError, PublishFootprint, UpdateFootprintVisibility, type FootprintProviderPorts, type FootprintRepositories } from '../application/index.js';
+import type { FootprintVisibilityPolicy } from '../domain/visibility-policy.js';
+import type { FootprintPolicyInput } from '../domain/visibility-policy.js';
 
 const publishRequest = z.object({ message: z.string().min(1).max(2_000), mood: z.string().max(64).optional(), privatePoint: z.object({ lat: z.number(), lng: z.number() }), visibility: z.enum(['public', 'friends', 'private']), locationPrecision: z.enum(['precise', 'approximate']), mediaAssetIds: z.array(z.string().min(1)).max(12).default([]), discoveryExpiresAt: z.string().datetime().nullable().optional() }).strict();
 const visibilityRequest = z.object({ visibility: z.enum(['public', 'friends', 'private']) }).strict();
@@ -10,6 +12,7 @@ const visibilityRequest = z.object({ visibility: z.enum(['public', 'friends', 'p
 export interface FootprintRouterOptions {
   readonly repositories?: FootprintRepositories;
   readonly providers?: FootprintProviderPorts;
+  readonly policy?: FootprintVisibilityPolicy;
 }
 
 function problem(response: Response, request: Request, status: number, code: string): void {
@@ -26,6 +29,14 @@ export function footprintRouter(identity: IdentityRepositories, options: Footpri
   const remove = new DeleteFootprint(repositories);
   const actor = requireActor(identity);
   const router = Router();
+  router.get('/footprints/:footprintId', async (request, response) => {
+    const record = await repositories.footprints.findById(String(request.params.footprintId) as never);
+    if (!record) { problem(response, request, 404, 'FOOTPRINT_NOT_FOUND'); return; }
+    try {
+      if (options.policy) { const policyRecord = { id: record.id, authorId: record.authorId, author: { name: String(record.authorId) }, displayPoint: record.displayPoint, visibility: record.visibility, locationPrecision: record.locationPrecision, publishedAt: record.publishedAt, discoveryExpiresAt: record.discoveryExpiresAt } as FootprintPolicyInput; response.json(await options.policy.toPublicDto(null, policyRecord)); return; }
+      response.json({ id: record.id, author: { id: record.authorId, name: String(record.authorId) }, displayPoint: record.displayPoint, visibility: record.visibility, locationPrecision: record.locationPrecision, message: record.message, publishedAt: record.publishedAt.toISOString(), ...(record.discoveryExpiresAt ? { discoveryExpiresAt: record.discoveryExpiresAt.toISOString() } : {}) });
+    } catch { problem(response, request, 404, 'FOOTPRINT_NOT_FOUND'); }
+  });
   router.post('/footprints', actor, async (request, response) => {
     const parsed = publishRequest.safeParse(request.body);
     const key = request.get('idempotency-key')?.trim();

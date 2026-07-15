@@ -7,6 +7,8 @@ import { problemDetails } from './errors.js';
 import { healthResponse } from './health.js';
 import { authResponse, loginRequest, publicUser, registerRequest, refreshRequest } from './auth.js';
 import { sessionDto, sessionListResponse } from './session.js';
+import { footprintDto, mapFootprintsResponse, publishFootprintRequest } from './footprints.js';
+import { mediaSignatureRequest, mediaSignatureResponse } from './media.js';
 
 export function buildOpenApiDocument() {
   const registry = new OpenAPIRegistry();
@@ -19,6 +21,11 @@ export function buildOpenApiDocument() {
   const authSchema = registry.register('AuthResponse', authResponse);
   const sessionSchema = registry.register('Session', sessionDto);
   const sessionsSchema = registry.register('SessionListResponse', sessionListResponse);
+  const footprintSchema = registry.register('Footprint', footprintDto);
+  const mapSchema = registry.register('MapFootprintsResponse', mapFootprintsResponse);
+  const mediaRequestSchema = registry.register('MediaSignatureRequest', mediaSignatureRequest);
+  const mediaSchema = registry.register('MediaSignatureResponse', mediaSignatureResponse);
+  const publishSchema = registry.register('PublishFootprintRequest', publishFootprintRequest);
 
   for (const path of ['/healthz', '/versionz'] as const) {
     registry.registerPath({
@@ -61,6 +68,9 @@ export function buildOpenApiDocument() {
   registry.registerPath({ method: 'get', path: '/api/v1/session', responses: { 200: { description: 'Current session', content: { 'application/json': { schema: sessionSchema } } } } });
   registry.registerPath({ method: 'get', path: '/api/v1/users/me', responses: { 200: { description: 'Current user', content: { 'application/json': { schema: userSchema } } } } });
   registry.registerPath({ method: 'get', path: '/api/v1/sessions', responses: { 200: { description: 'Sessions', content: { 'application/json': { schema: sessionsSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/media/signature', request: { body: { content: { 'application/json': { schema: mediaRequestSchema } } } }, responses: { 200: { description: 'Signed upload parameters', content: { 'application/json': { schema: mediaSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/footprints', request: { body: { content: { 'application/json': { schema: publishSchema } } } }, responses: { 201: { description: 'Published footprint', content: { 'application/json': { schema: footprintSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/map/footprints', responses: { 200: { description: 'Map footprints', content: { 'application/json': { schema: mapSchema } } } } });
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',
