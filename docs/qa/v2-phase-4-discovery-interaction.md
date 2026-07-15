@@ -9,7 +9,8 @@ DONE_WITH_CONCERNS. Discovery, privacy-filtered Activity and Map DTO parity, rea
 - `34eac07` feat: add phase 4 discovery and interactions
 - `c442a15` qa: record phase 4 discovery interaction evidence
 - `220bc28` fix: accept canonical visibility change events
-- Follow-up review fixes: signed Map cursor unification, privacy-gated interaction reads, regional smart-scope adapter, durable command idempotency, login/resume replay, and Activity infinite pagination
+- `8556371` fix: close phase 4 discovery review gaps
+- `f8e4859` fix: share configured discovery cursor secret
 
 ## Verification
 
