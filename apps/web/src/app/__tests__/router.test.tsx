@@ -25,7 +25,11 @@ describe('V2 web route contract', () => {
     render(<AppRouter initialEntries={[path]} />);
 
     expect(screen.getByRole('heading', { name: heading })).toBeVisible();
-    expect(screen.getByText(/pending migration/i)).toBeVisible();
+    if (path === '/map' || path.startsWith('/footprints/')) {
+      expect(screen.queryByText(/pending migration/i)).not.toBeInTheDocument();
+    } else {
+      expect(screen.getByText(/pending migration/i)).toBeVisible();
+    }
   });
 
   it('exposes four navigation destinations and a separate publish action', () => {

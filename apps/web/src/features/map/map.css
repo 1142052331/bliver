@@ -1,7 +1,6 @@
 .map-route { position: relative; min-height: calc(100vh - 132px); background: #e5eee9; overflow: hidden; }
 .map-route__title { position: absolute; top: 12px; left: 16px; z-index: 500; margin: 0; color: #173b31; font-size: 1.25rem; }
-.map-route__migration { position: absolute; top: 44px; left: 16px; z-index: 500; margin: 0; color: #1e2925; font-size: 0.75rem; }
-.map-canvas { height: calc(100vh - 132px); min-height: 520px; width: 100%; }
+.map-canvas, .map-canvas .leaflet-container { height: calc(100vh - 132px); min-height: 520px; width: 100%; }
 .map-route__controls { position: absolute; top: 16px; right: 16px; z-index: 500; display: flex; gap: 8px; }
 .map-route__empty, .map-route__preview { position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 500; padding: 16px; box-shadow: 0 8px 24px rgb(30 41 37 / 14%); }
 .map-route__empty h1, .map-route__preview strong { margin: 0; color: #173b31; }

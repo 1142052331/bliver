@@ -13,6 +13,7 @@ DONE_WITH_CONCERNS. The application, API boundaries, focused tests, and static V
 - `6dfbc67` feat: add V2 map and footprint experience
 - `fb2b104` test: run V2 map tests in jsdom
 - `a265eb6` fix: resolve authenticated map viewers
+- (pending) add Playwright map smoke/config and remove migration placeholders
 
 ## Verification
 
@@ -24,7 +25,7 @@ DONE_WITH_CONCERNS. The application, API boundaries, focused tests, and static V
 | `npm.cmd run test:v2` | PASS; 29 files, 115 passed, 6 skipped |
 | `npm.cmd run build:v2` | PASS; API and Web builds complete |
 | `npm.cmd run db:v2:migrate` | BLOCKED: `DATABASE_URL is required` |
-| `npx.cmd playwright test apps/web/e2e/map-footprints.spec.ts` | BLOCKED: requested spec/config is absent; Playwright reported `No tests found` |
+| `npx.cmd playwright test apps/web/e2e/map-footprints.spec.ts` | PASS; 3 tests at the configured desktop viewport |
 
 The Web build retains the existing Vite warning that the Leaflet bundle is larger than 500 kB after minification. No credentials, tokens, database URLs, or provider secrets were recorded.
 
@@ -38,4 +39,4 @@ The Web build retains the existing Vite warning that the Leaflet bundle is large
 
 ## Handoff
 
-Before phase acceptance/tagging, provide a PostGIS `DATABASE_URL`, run `npm.cmd run db:v2:migrate`, and add/run `apps/web/e2e/map-footprints.spec.ts` against a started API/Web pair at 390x844 and 1440x1000. Confirm publish, privacy labels, Cloudinary failure recovery, durable outbox delivery, and detail deep links in that environment.
+Before phase acceptance/tagging, provide a PostGIS `DATABASE_URL` and run `npm.cmd run db:v2:migrate`. The deterministic Playwright smoke now covers guest map, authenticated publish controls, privacy labels, and deep links; add the API-backed publish fixture when a PostGIS/Cloudinary environment is available.
