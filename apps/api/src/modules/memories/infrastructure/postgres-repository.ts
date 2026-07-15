@@ -2,7 +2,6 @@ import type { FootprintId, UserId } from '@bliver/domain';
 import type { DatabaseClient } from '../../../platform/db/client.js';
 import type { MemoryRecordSource } from '../domain/ports.js';
 import type { MemoryProjectionRepository } from '../application/projection.js';
-import type { MemoryVisitorDto } from '../domain/ports.js';
 
 type Row = Record<string, unknown>;
 export function createPostgresMemoryRepository(db: DatabaseClient): MemoryProjectionRepository {
