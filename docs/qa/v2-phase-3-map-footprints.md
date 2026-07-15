@@ -17,6 +17,10 @@ DONE_WITH_CONCERNS. The application, API boundaries, focused tests, static V2 ga
 - `24fbe12` qa: record authenticated map viewer fix
 - `6646a04` fix: harden V2 map browser smoke
 - `92f8175` test: exclude browser specs from Vitest
+- `05588a0` fix: close Phase 3 persistence and realtime boundaries
+- `c733439` test: fixture map and detail API contracts
+- `5356337` test: isolate browser session contract
+- `d865489` test: cover Phase 3 OpenAPI paths
 
 ## Verification
 
@@ -42,4 +46,11 @@ The Web build retains the existing Vite warning that the Leaflet bundle is large
 
 ## Handoff
 
-Before phase acceptance/tagging, provide a PostGIS `DATABASE_URL` and run `npm.cmd run db:v2:migrate`. The deterministic Playwright smoke covers guest map, an authenticated publish request fixture (including cookie and payload assertions), privacy labels, and deep links at mobile and desktop sizes. Add the API-backed publish fixture when a PostGIS/Cloudinary environment is available.
+Before phase acceptance/tagging, provide a PostGIS `DATABASE_URL` and run `npm.cmd run db:v2:migrate`. The Postgres transaction, media ownership, PostGIS map, and `SKIP LOCKED` outbox adapters compile and are wired into `startServer`, but their integration suites were skipped without that database.
+
+Remaining review concerns:
+
+- Friendship/block persistence belongs to Phase 4 and no relationship tables exist yet; the Phase 3 server fails closed with injected false relationship ports.
+- The Web publish request is authenticated and API-backed, but direct Cloudinary upload completion is not yet attached to the returned stable asset ID when a photo is selected.
+- Browser smoke uses deterministic contract fixtures because the API cannot start without Postgres; it does not prove a live Cloudinary/Postgres publish.
+- Reconnect invalidation and provider timeout behavior are implemented but have no dedicated browser/integration tests yet.
