@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 
 import pino from 'pino';
+import { parseUserId } from '@bliver/domain';
 
 import { createConfig } from './config.js';
 import { closeDb, createDb } from '../platform/db/client.js';
@@ -18,6 +19,7 @@ import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox
 import { Server as SocketServer } from 'socket.io';
 import { createNominatimGeography } from '../platform/geography/providers.js';
 import { configureRealtime, emitFootprintPublished } from './realtime.js';
+import { NotificationService, createPostgresNotificationRepository } from '../modules/notifications/index.js';
 
 export interface ShutdownServerPort {
   close(callback: (error?: Error) => void): unknown;
@@ -63,6 +65,7 @@ export async function startServer(): Promise<void> {
   const footprints = createPostgresFootprintRepositories(db, { mapAccessFilter });
   const governanceRepository = createPostgresGovernanceRepository(db);
   const governance = new ModerationGovernanceService(governanceRepository);
+  const notificationService = new NotificationService(createPostgresNotificationRepository(db), { async isBlocked(recipientId, actorId) { return relationships.isEitherBlocked(parseUserId(recipientId), parseUserId(actorId)); } });
   const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: relationships, blocks: relationships, moderation: governance, now: () => new Date() });
   const map = new MapFootprintQuery({ repository: footprints, policy, cursorSecret: config.sessionSecret });
   const discoveryRepository = createPostgresDiscoveryRepository(db, { accessFilter: (input) => blockPolicy.relationshipVisibilitySql(input) });
@@ -98,12 +101,13 @@ export async function startServer(): Promise<void> {
     social: { service: new SocialService(relationships) },
     conversations: { service: conversationService },
     governance: { service: governance },
+    notifications: { service: notificationService },
   });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });
   configureRealtime(io, identity, conversationService);
   const projection = new DiscoveryProjectionConsumer({ repository: discoveryRepository, source: { async findById(id) { const [publicRecord, fullRecord] = await Promise.all([footprints.findById(id as never), footprints.footprints.findById(id as never)]); if (!publicRecord || !fullRecord) return null; let countryCode: string | null = null; if (fullRecord.metadata.regionId) { const region = await db.query<{ country_code: string }>('SELECT country_code FROM regions WHERE id=$1', [fullRecord.metadata.regionId]); countryCode = region.rows[0]?.country_code ?? null; } return { ...publicRecord, message: fullRecord.message, hasMedia: fullRecord.mediaAssetIds.length > 0, regionId: fullRecord.metadata.regionId, countryCode }; } } });
-  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), process: async (event) => { if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'FootprintDeleted') await projection.process(event as never); if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); } });
+  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), process: async (event) => { if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'FootprintDeleted') await projection.process(event as never); await notificationService.consume({ id: event.id, type: event.type, payload: event.payload }); if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); } });
   const workerTimer = setInterval(() => { void outboxWorker.runOnce(); }, 250);
   workerTimer.unref();
 

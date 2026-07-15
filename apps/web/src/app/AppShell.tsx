@@ -7,6 +7,7 @@ const destinations = [
   { href: '/map', label: 'Map' },
   { href: '/activity', label: 'Activity' },
   { href: '/messages', label: 'Messages' },
+  { href: '/notifications', label: 'Notifications' },
   { href: '/me', label: 'My space' },
 ] as const;
 

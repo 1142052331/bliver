@@ -26,6 +26,8 @@ import { LoginRoute } from '../features/auth/LoginRoute.js';
 import { PeopleRoute } from '../features/social/PeopleRoute.js';
 import { ConversationRoute, MessagesRoute } from '../features/conversations/routes.js';
 import { MemoriesRoute } from '../features/memories/index.js';
+import { NotificationsRoute } from '../features/notifications/index.js';
+import { AdminRoute } from '../features/moderation/index.js';
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
 function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to="/login" state={{ from: destination }}>Continue to sign in</Link></section>; }
@@ -49,6 +51,7 @@ const routes = [
       { path: 'people', element: <PeopleRoute /> },
       { path: 'messages', element: <MessagesRoute /> },
       { path: 'messages/:conversationId', element: <ConversationRoute /> },
+      { path: 'notifications', element: <NotificationsRoute /> },
       { path: 'me', element: <MemoriesRoute /> },
       { path: 'me/map', element: <MemoriesRoute /> },
       { path: 'me/timeline', element: <MemoriesRoute /> },
@@ -65,7 +68,7 @@ const routes = [
         element: <FootprintRoute />,
       },
       { path: 'publish', element: <RequireAuth />, children: [{ index: true, element: <PublishRoute /> }] },
-      { path: 'admin', element: <RoutePlaceholder title="Admin" /> },
+      { path: 'admin', element: <AdminRoute /> },
       { path: 'session-expired', element: <SessionExpired /> },
       { path: '*', element: <NotFound /> },
     ],
