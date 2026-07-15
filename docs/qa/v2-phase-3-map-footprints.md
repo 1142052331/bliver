@@ -33,15 +33,16 @@ DONE_WITH_CONCERNS. The application, API boundaries, focused tests, static V2 ga
 - `55b040d` fix: close final Phase 3 review gaps
 - `20601bd` fix: harden Phase 3 production boundaries
 - `adfe82f` fix: close media and viewport review gaps
+- `c764cca` test: prove privacy-safe map pagination
 
 ## Verification
 
 | Command | Result |
 | --- | --- |
-| `npm.cmd run architecture:check` | PASS; no dependency violations (164 modules, 289 dependencies) |
+| `npm.cmd run architecture:check` | PASS; no dependency violations (164 modules, 291 dependencies) |
 | `npm.cmd run lint:v2` | PASS |
 | `npm.cmd run typecheck:v2` | PASS |
-| `npm.cmd run test:v2` | PASS; 42 files passed and 2 environment-gated files skipped; 151 tests passed and 6 skipped |
+| `npm.cmd run test:v2` | PASS; 42 files passed and 2 environment-gated files skipped; 152 tests passed and 6 skipped |
 | `npm.cmd run build:v2` | PASS; API and Web builds complete |
 | `npm.cmd --workspace @bliver/contracts run contracts:openapi` | PASS; OpenAPI JSON and TypeScript client regenerated locally from contract sources |
 | `npm.cmd run db:v2:migrate` | BLOCKED: `DATABASE_URL is required` |
@@ -53,7 +54,7 @@ The Web build retains the existing Vite warning that the Leaflet bundle is large
 
 - Media adapter/service/routes/Postgres adapter: 15 tests, including signed parameter shape, MIME/size validation, missing configuration, idempotency, ownership, Cloudinary metadata completion, and no long-lived URL.
 - Footprint commands: 7 tests, including rejected-provider and bounded-timeout fallback, public discovery expiry defaults, idempotent replay, visibility, and owner deletion.
-- Map query: 5 tests, including privacy DTO boundary, stable cursor order, max count, empty viewport, Postgres cursor/limit pushdown, and owner/public SQL access predicates before pagination.
+- Map query: 6 tests, including privacy DTO boundary, stable cursor order, max count, empty viewport, Postgres cursor/limit pushdown, owner/public SQL access predicates before pagination, and readable-row/next-cursor behavior after SQL privacy filtering.
 - Database transaction port: 2 environment-independent tests covering commit and rollback/rethrow behavior.
 - Outbox worker/Postgres adapter: 4 tests, including claim/ack idempotency, retry/dead-letter, availability scheduling, `FOR UPDATE SKIP LOCKED`, and mark SQL.
 - Geography provider: dedicated timeout fallback coverage for Nominatim reverse and search calls.
