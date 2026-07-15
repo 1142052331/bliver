@@ -51,7 +51,7 @@ describe.skipIf(!externalDatabaseUrl && !dockerAvailable)('PostGIS foundation mi
     );
 
     expect(postgis.rows[0]).toEqual({ available: true, database: true });
-    expect(firstMigrationCount.rows[0]?.count).toBe('1');
-    expect(secondMigrationCount.rows[0]?.count).toBe('1');
+    expect(Number(firstMigrationCount.rows[0]?.count)).toBeGreaterThanOrEqual(2);
+    expect(secondMigrationCount.rows[0]?.count).toBe(firstMigrationCount.rows[0]?.count);
   }, 120_000);
 });

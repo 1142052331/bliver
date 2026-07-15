@@ -6,7 +6,7 @@ const repositoryRoot = resolve(import.meta.dirname, '../../../../..');
 export function loadDatabaseUrl(): string {
   config({ path: process.env.ENV_FILE ?? resolve(repositoryRoot, '.env.v2') });
 
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = process.env.V2_DATABASE_URL ?? process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required');
   }
