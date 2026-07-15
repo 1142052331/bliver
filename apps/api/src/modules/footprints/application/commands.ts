@@ -20,7 +20,7 @@ export interface FootprintRecord {
 
 export interface FootprintOutboxEvent {
   readonly id: string;
-  readonly type: 'FootprintPublished' | 'FootprintVisibilityUpdated' | 'FootprintDeleted';
+  readonly type: 'FootprintPublished' | 'FootprintVisibilityUpdated' | 'FootprintVisibilityChanged' | 'FootprintDeleted';
   readonly aggregateId: FootprintId;
   readonly payload: Record<string, unknown>;
 }
