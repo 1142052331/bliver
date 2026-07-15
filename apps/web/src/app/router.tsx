@@ -28,6 +28,7 @@ import { ConversationRoute, MessagesRoute } from '../features/conversations/rout
 import { MemoriesRoute } from '../features/memories/index.js';
 import { NotificationsRoute } from '../features/notifications/index.js';
 import { AdminRoute } from '../features/moderation/index.js';
+import { SessionProvider } from './providers/SessionProvider.js';
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
 function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to="/login" state={{ from: destination }}>Continue to sign in</Link></section>; }
@@ -51,12 +52,14 @@ const routes = [
       { path: 'people', element: <PeopleRoute /> },
       { path: 'messages', element: <MessagesRoute /> },
       { path: 'messages/:conversationId', element: <ConversationRoute /> },
-      { path: 'notifications', element: <NotificationsRoute /> },
-      { path: 'me', element: <MemoriesRoute /> },
-      { path: 'me/map', element: <MemoriesRoute /> },
-      { path: 'me/timeline', element: <MemoriesRoute /> },
-      { path: 'me/photos', element: <MemoriesRoute /> },
-      { path: 'me/visitors', element: <MemoriesRoute /> },
+      { path: 'notifications', element: <RequireAuth />, children: [{ index: true, element: <NotificationsRoute /> }] },
+      { path: 'me', element: <RequireAuth />, children: [
+        { index: true, element: <MemoriesRoute /> },
+        { path: 'map', element: <MemoriesRoute /> },
+        { path: 'timeline', element: <MemoriesRoute /> },
+        { path: 'photos', element: <MemoriesRoute /> },
+        { path: 'visitors', element: <MemoriesRoute /> },
+      ] },
       { path: 'profile/:userId/memories', element: <MemoriesRoute /> },
       { path: 'profile/:userId/memories/map', element: <MemoriesRoute /> },
       { path: 'profile/:userId/memories/timeline', element: <MemoriesRoute /> },
@@ -68,7 +71,7 @@ const routes = [
         element: <FootprintRoute />,
       },
       { path: 'publish', element: <RequireAuth />, children: [{ index: true, element: <PublishRoute /> }] },
-      { path: 'admin', element: <AdminRoute /> },
+      { path: 'admin', element: <RequireAuth />, children: [{ index: true, element: <AdminRoute /> }] },
       { path: 'session-expired', element: <SessionExpired /> },
       { path: '*', element: <NotFound /> },
     ],
@@ -87,5 +90,5 @@ export function AppRouter({ initialEntries }: AppRouterProps) {
       : createBrowserRouter(routes),
   );
 
-  return <QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><SessionProvider><RouterProvider router={router} /></SessionProvider></QueryClientProvider>;
 }

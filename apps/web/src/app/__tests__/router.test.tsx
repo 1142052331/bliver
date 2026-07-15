@@ -18,10 +18,8 @@ describe('V2 web route contract', () => {
     ['/activity', 'Activity'],
     ['/people', 'People'],
     ['/messages', 'Messages'],
-    ['/me', 'My space'],
     ['/profile/test-user', 'Profile'],
     ['/footprints/test-footprint', 'Footprint'],
-    ['/admin', 'Admin'],
   ])('renders a route-owned empty state for %s', (path, heading) => {
     render(<AppRouter initialEntries={[path]} />);
 
@@ -32,6 +30,11 @@ describe('V2 web route contract', () => {
     } else {
       expect(screen.getByText(/pending migration/i)).toBeVisible();
     }
+  });
+
+  it.each(['/me','/notifications','/admin'])('guards %s behind an authenticated session', (path) => {
+    render(<AppRouter initialEntries={[path]} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading session');
   });
 
   it('exposes four navigation destinations and a separate publish action', () => {

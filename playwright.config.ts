@@ -12,10 +12,8 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 5'] } },
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
   ],
-  webServer: {
-    command: 'npm.cmd --workspace @bliver/web run dev -- --host 127.0.0.1',
-    url: 'http://127.0.0.1:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    { command: 'npx.cmd tsx apps/api/src/bootstrap/e2e-server.ts', url: 'http://127.0.0.1:5100/healthz', reuseExistingServer: !process.env.CI, timeout: 120_000 },
+    { command: 'npm.cmd --workspace @bliver/web run dev -- --host 127.0.0.1', url: 'http://127.0.0.1:5173', reuseExistingServer: !process.env.CI, timeout: 120_000 },
+  ],
 });
