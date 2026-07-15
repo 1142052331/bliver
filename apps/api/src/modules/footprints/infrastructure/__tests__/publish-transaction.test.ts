@@ -51,4 +51,22 @@ describe('Postgres footprint publish transaction', () => {
 
     await expect(repositories.transactions?.commitPublish(input)).rejects.toMatchObject({ code: 'FOOTPRINT_CONFLICT' });
   });
+
+  it('rejects signature-only media assets before attaching them', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.startsWith('INSERT INTO platform.idempotency_keys')) return { rows: [{ request_hash: input.fingerprint, response: { footprint: input.footprint, outbox: input.outbox } }], rowCount: 1 };
+      if (sql.startsWith('SELECT count(*)')) return { rows: [{ count: '0' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    });
+    const db = { query, transaction: async <T>(callback: (client: { query: typeof query }) => Promise<T>) => callback({ query }) } as unknown as DatabaseClient;
+    const repositories = createPostgresFootprintRepositories(db);
+    const withAsset = { ...input, footprint: { ...input.footprint, mediaAssetIds: ['019c2f52-3e9b-7d1f-8d68-cf35d75d9b73'] } };
+
+    await expect(repositories.transactions?.commitPublish(withAsset)).rejects.toMatchObject({ code: 'FOOTPRINT_CONFLICT' });
+    expect(query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO footprint_media'), expect.anything());
+    expect(String(query.mock.calls[1]?.[0])).toMatch(/version IS NOT NULL/);
+    expect(String(query.mock.calls[1]?.[0])).toMatch(/width IS NOT NULL/);
+    expect(String(query.mock.calls[1]?.[0])).toMatch(/height IS NOT NULL/);
+    expect(String(query.mock.calls[1]?.[0])).toMatch(/format IS NOT NULL/);
+  });
 });

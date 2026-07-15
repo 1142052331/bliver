@@ -2,7 +2,9 @@ import type { ActorContext } from '../../identity/index.js';
 import type { FootprintDto, FootprintPolicyInput, FootprintVisibilityPolicy } from '../domain/visibility-policy.js';
 
 export interface MapBounds { readonly west: number; readonly south: number; readonly east: number; readonly north: number; }
-export interface MapFootprintRepository { listInViewport(input: { readonly bounds: MapBounds; readonly visibility?: string; readonly limit?: number; readonly cursor?: { readonly publishedAt: string; readonly id: string } }): Promise<FootprintPolicyInput[]>; }
+export interface MapAccessFilterContext { readonly viewerId: string | null; readonly addParameter: (value: unknown) => string; }
+export type MapAccessFilter = (context: MapAccessFilterContext) => string;
+export interface MapFootprintRepository { listInViewport(input: { readonly bounds: MapBounds; readonly visibility?: string; readonly viewerId?: string | null; readonly limit?: number; readonly cursor?: { readonly publishedAt: string; readonly id: string } }): Promise<FootprintPolicyInput[]>; }
 export interface MapFootprintQueryOptions { readonly repository: MapFootprintRepository; readonly policy: FootprintVisibilityPolicy; readonly maxResults?: number; }
 export interface MapFootprintResult { readonly items: FootprintDto[]; readonly nextCursor: string | null; }
 
@@ -19,7 +21,7 @@ export class MapFootprintQuery {
     validateBounds(input.bounds);
     const effectiveLimit = Math.min(this.maxResults, Math.max(1, Math.floor(input.limit ?? this.maxResults)));
     const cursor = input.cursor ? decodeCursor(input.cursor) : null;
-    const records = await this.options.repository.listInViewport({ bounds: input.bounds, limit: effectiveLimit + 1, ...(cursor ? { cursor } : {}), ...(input.visibility ? { visibility: input.visibility } : {}) });
+    const records = await this.options.repository.listInViewport({ bounds: input.bounds, viewerId: input.actor?.userId ?? null, limit: effectiveLimit + 1, ...(cursor ? { cursor } : {}), ...(input.visibility ? { visibility: input.visibility } : {}) });
     const readable = await this.options.policy.readFilter(input.actor, records);
     const ordered = [...readable].sort((left, right) => right.publishedAt.getTime() - left.publishedAt.getTime() || right.id.localeCompare(left.id));
     const filtered = cursor ? ordered.filter((record) => record.publishedAt.toISOString() < cursor.publishedAt || (record.publishedAt.toISOString() === cursor.publishedAt && record.id < cursor.id)) : ordered;

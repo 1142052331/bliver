@@ -51,7 +51,7 @@ export interface FootprintRepositories {
   readonly publicDetails?: { findById(id: FootprintId): Promise<(FootprintPolicyInput & { readonly message: string }) | null> };
 }
 
-export interface MediaOwnershipPort { assertOwned(actorId: UserId, assetIds: readonly string[]): Promise<void>; }
+export interface MediaOwnershipPort { assertPublishable(actorId: UserId, assetIds: readonly string[]): Promise<void>; }
 export interface FootprintTransactionPort {
   commitPublish(input: { readonly actorId: UserId; readonly idempotencyKey: string; readonly fingerprint: string; readonly footprint: FootprintRecord; readonly outbox: FootprintOutboxEvent }): Promise<PublishFootprintResult>;
   updateVisibility(input: { readonly actorId: UserId; readonly footprintId: FootprintId; readonly visibility: Visibility }): Promise<FootprintRecord>;
@@ -127,7 +127,7 @@ export class PublishFootprint {
       discoveryExpiresAt,
     };
     const outbox: FootprintOutboxEvent = { id: createEventId(), type: 'FootprintPublished', aggregateId: id, payload: { footprintId: id, authorId: input.actorId } };
-    if (this.options.repositories.mediaOwnership) await this.options.repositories.mediaOwnership.assertOwned(input.actorId, input.mediaAssetIds);
+    if (this.options.repositories.mediaOwnership) await this.options.repositories.mediaOwnership.assertPublishable(input.actorId, input.mediaAssetIds);
     if (this.options.repositories.transactions) return this.options.repositories.transactions.commitPublish({ actorId: input.actorId, idempotencyKey: key, fingerprint, footprint, outbox });
     await this.options.repositories.footprints.create(footprint);
     try {
