@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { AppRouter } from '../router.js';
@@ -14,7 +14,7 @@ afterEach(() => {
 
 describe('V2 web route contract', () => {
   it.each([
-    ['/map', 'Map'],
+    ['/map', 'Loading map'],
     ['/activity', 'Activity'],
     ['/messages', 'Messages'],
     ['/me', 'My space'],
@@ -24,7 +24,8 @@ describe('V2 web route contract', () => {
   ])('renders a route-owned empty state for %s', (path, heading) => {
     render(<AppRouter initialEntries={[path]} />);
 
-    expect(screen.getByRole('heading', { name: heading })).toBeVisible();
+    if (path === '/map') expect(screen.getByRole('status')).toHaveTextContent(heading);
+    else expect(screen.getByRole('heading', { name: heading })).toBeVisible();
     if (path === '/map' || path.startsWith('/footprints/')) {
       expect(screen.queryByText(/pending migration/i)).not.toBeInTheDocument();
     } else {
@@ -63,5 +64,13 @@ describe('V2 web route contract', () => {
     render(<AppRouter />);
 
     expect(screen.getByRole('heading', { name: 'Profile' })).toBeVisible();
+  });
+
+  it('closes a direct footprint deep link back to the map fallback', async () => {
+    render(<AppRouter initialEntries={['/footprints/test-footprint']} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close footprint' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Loading map');
   });
 });

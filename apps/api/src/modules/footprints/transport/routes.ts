@@ -1,13 +1,10 @@
 import { Router, type Request, type Response } from 'express';
-import { z } from 'zod';
+import { publishFootprintRequest, updateFootprintVisibilityRequest } from '@bliver/contracts';
 import { requireActor, resolveSession, type ActorContext } from '../../identity/index.js';
 import type { IdentityRepositories } from '../../identity/application/ports.js';
 import { createMemoryFootprintRepositories, DeleteFootprint, FootprintConflictError, PublishFootprint, UpdateFootprintVisibility, type FootprintProviderPorts, type FootprintRepositories } from '../application/index.js';
 import type { FootprintVisibilityPolicy } from '../domain/visibility-policy.js';
 import type { FootprintPolicyInput } from '../domain/visibility-policy.js';
-
-const publishRequest = z.object({ message: z.string().min(1).max(2_000), mood: z.string().max(64).optional(), privatePoint: z.object({ lat: z.number(), lng: z.number() }), visibility: z.enum(['public', 'friends', 'private']), locationPrecision: z.enum(['precise', 'approximate']), mediaAssetIds: z.array(z.string().min(1)).max(12).default([]), discoveryExpiresAt: z.string().datetime().nullable().optional() }).strict();
-const visibilityRequest = z.object({ visibility: z.enum(['public', 'friends', 'private']) }).strict();
 
 export interface FootprintRouterOptions {
   readonly repositories?: FootprintRepositories;
@@ -41,7 +38,7 @@ export function footprintRouter(identity: IdentityRepositories, options: Footpri
     } catch { problem(response, request, 404, 'FOOTPRINT_NOT_FOUND'); }
   });
   router.post('/footprints', actor, async (request, response) => {
-    const parsed = publishRequest.safeParse(request.body);
+    const parsed = publishFootprintRequest.safeParse(request.body);
     const key = request.get('idempotency-key')?.trim();
     if (!key || !parsed.success) { problem(response, request, 400, !key ? 'IDEMPOTENCY_KEY_REQUIRED' : 'INVALID_REQUEST'); return; }
     try {
@@ -50,7 +47,7 @@ export function footprintRouter(identity: IdentityRepositories, options: Footpri
     } catch (error) { problem(response, request, error instanceof FootprintConflictError ? 409 : 500, error instanceof FootprintConflictError ? error.code : 'FOOTPRINT_UNAVAILABLE'); }
   });
   router.patch('/footprints/:footprintId/visibility', actor, async (request, response) => {
-    const parsed = visibilityRequest.safeParse(request.body);
+    const parsed = updateFootprintVisibilityRequest.safeParse(request.body);
     if (!parsed.success) { problem(response, request, 400, 'INVALID_REQUEST'); return; }
     try { const result = await update.execute({ actorId: context(request).userId as never, footprintId: String(request.params.footprintId) as never, visibility: parsed.data.visibility }); response.json(result); } catch (error) { problem(response, request, error instanceof FootprintConflictError ? 409 : 500, error instanceof FootprintConflictError ? error.code : 'FOOTPRINT_UNAVAILABLE'); }
   });

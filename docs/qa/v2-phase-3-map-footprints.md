@@ -29,15 +29,16 @@ DONE_WITH_CONCERNS. The application, API boundaries, focused tests, static V2 ga
 - `b2cfb82` fix: attach uploaded assets to footprint publish
 - `6fbc70b` fix: close Phase 3 map footprint review gaps
 - `dfa1e84` test: finish Phase 3 acceptance coverage
+- `8627e26` qa: update Phase 3 acceptance commit list
 
 ## Verification
 
 | Command | Result |
 | --- | --- |
-| `npm.cmd run architecture:check` | PASS; no dependency violations (157 modules, 270 dependencies) |
+| `npm.cmd run architecture:check` | PASS; no dependency violations (158 modules, 277 dependencies) |
 | `npm.cmd run lint:v2` | PASS |
 | `npm.cmd run typecheck:v2` | PASS |
-| `npm.cmd run test:v2` | PASS; 36 files passed and 2 environment-gated files skipped; 129 tests passed and 6 skipped |
+| `npm.cmd run test:v2` | PASS; 37 files passed and 2 environment-gated files skipped; 135 tests passed and 6 skipped |
 | `npm.cmd run build:v2` | PASS; API and Web builds complete |
 | `npm.cmd --workspace @bliver/contracts run contracts:openapi` | PASS; OpenAPI JSON and TypeScript client regenerated locally from contract sources |
 | `npm.cmd run db:v2:migrate` | BLOCKED: `DATABASE_URL is required` |
@@ -53,8 +54,9 @@ The Web build retains the existing Vite warning that the Leaflet bundle is large
 - Database transaction port: 2 environment-independent tests covering commit and rollback/rethrow behavior.
 - Outbox worker/Postgres adapter: 4 tests, including claim/ack idempotency, retry/dead-letter, availability scheduling, `FOR UPDATE SKIP LOCKED`, and mark SQL.
 - Geography provider: dedicated timeout fallback coverage for Nominatim reverse and search calls.
-- Web map/publish/detail/realtime/media upload: 7 focused tests, including reconnect query invalidation and Cloudinary completion metadata validation.
-- Contract/OpenAPI suite: 7 tests covering the Phase 3 paths and wrapped `{ footprint, event }` publish response.
+- Web map/publish/detail/realtime/media upload/router: 11 focused tests, including selected-point publish, remote loading/error retry, Search/Locate callbacks, reconnect query invalidation, and Cloudinary completion metadata validation.
+- Contract/OpenAPI suite: 8 tests covering the Phase 3 paths, shared discovery/media validation, and wrapped `{ footprint, event }` publish response.
+- Footprint REST transport: 2 tests covering the wrapped publish response and UUID media validation.
 
 ## Handoff
 
@@ -67,3 +69,4 @@ Remaining review concerns:
 - Browser smoke uses deterministic contract fixtures because the API cannot start without Postgres; it does not prove a live Cloudinary/Postgres publish.
 - PostGIS integration suites remain environment-gated. The environment-independent transaction and Outbox SQL tests prove port behavior but are not substitutes for a live Postgres run.
 - Nominatim timeout fallback is covered; the production weather port currently returns the documented null fallback and has no live weather provider integration in this phase.
+- Publishing requires an explicit selected/current point from map URL or navigation state; a direct publish route without a point rejects submission instead of inventing coordinates.

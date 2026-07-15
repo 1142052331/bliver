@@ -20,7 +20,7 @@ test('authenticated publish flow keeps audience and precision controls explicit'
     publishRequest = { body: route.request().postData() ?? '', cookie: (await route.request().headerValue('cookie')) ?? undefined };
     await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ footprint: { id: 'e2e-footprint' } }) });
   });
-  await page.goto('/publish');
+  await page.goto('/publish?lat=31&lng=121');
   await page.getByLabel('Message').fill('A quiet river crossing');
   await page.getByLabel('Who can see it').selectOption('friends');
   await page.getByLabel('Location precision').selectOption('precise');
@@ -30,7 +30,7 @@ test('authenticated publish flow keeps audience and precision controls explicit'
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect.poll(() => publishRequest).toBeTruthy();
   expect(publishRequest?.cookie).toContain('bliver_session=e2e-session');
-  expect(JSON.parse(publishRequest?.body ?? '{}')).toMatchObject({ visibility: 'friends', locationPrecision: 'precise' });
+  expect(JSON.parse(publishRequest?.body ?? '{}')).toMatchObject({ privatePoint: { lat: 31, lng: 121 }, visibility: 'friends', locationPrecision: 'precise' });
 });
 
 test('footprint deep links expose privacy labels for precise and approximate locations', async ({ page }) => {

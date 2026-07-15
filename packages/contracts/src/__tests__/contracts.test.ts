@@ -7,6 +7,7 @@ import {
   locationPrecision,
   mediaCompleteRequest,
   publishFootprintResponse,
+  publishFootprintRequest,
   problemDetails,
   visibility,
 } from '../index.js';
@@ -90,6 +91,12 @@ describe('V2 contracts', () => {
       },
     });
     expect(result.event.type).toBe('FootprintPublished');
+  });
+
+  it('keeps discovery expiry and UUID media validation in the shared publish request', () => {
+    const input = { message: 'Shared schema', privatePoint: { lat: 31, lng: 121 }, visibility: 'public', locationPrecision: 'approximate', mediaAssetIds: ['019c2f52-3e9b-7d1f-8d68-cf35d75d9b70'], discoveryExpiresAt: '2026-07-16T00:00:00.000Z' };
+    expect(publishFootprintRequest.safeParse(input).success).toBe(true);
+    expect(publishFootprintRequest.safeParse({ ...input, mediaAssetIds: ['not-a-uuid'] }).success).toBe(false);
   });
 
   it('publishes the foundation routes in an OpenAPI 3.1 document', () => {

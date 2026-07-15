@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { geoPoint } from '@bliver/contracts';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { Button } from '@bliver/ui';
 
@@ -11,13 +12,15 @@ const destinations = [
 
 export function AppShell() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const publish = (): void => { const params = new URLSearchParams(location.search); const lat = params.get('lat'); const lng = params.get('lng'); const point = lat !== null && lng !== null ? geoPoint.safeParse({ lat: Number(lat), lng: Number(lng) }).data : undefined; navigate('/publish', point ? { state: { initialPoint: point } } : undefined); };
   return (
     <div className="app-shell">
       <header className="app-shell__header">
         <a className="app-shell__brand" href="/map">
           Bliver
         </a>
-        <Button aria-label="Publish footprint" variant="primary" onClick={() => navigate('/publish')}>
+        <Button aria-label="Publish footprint" variant="primary" onClick={publish}>
           Publish
         </Button>
       </header>

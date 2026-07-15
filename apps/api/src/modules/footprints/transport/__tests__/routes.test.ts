@@ -30,4 +30,17 @@ describe('footprint REST transport', () => {
     expect(response.body).toHaveProperty('footprint');
     expect(response.body).toHaveProperty('event');
   });
+
+  it('rejects media IDs that do not satisfy the shared UUID contract', async () => {
+    const app = createApp({ config, identity: createMemoryIdentityRepositories() });
+    await request(app).post('/api/v1/auth/register').send({ username: 'publishinvalidasset', password: 'password-123' }).expect(201);
+    const login = await request(app).post('/api/v1/auth/login').send({ username: 'publishinvalidasset', password: 'password-123', platform: 'capacitor' }).expect(200);
+
+    await request(app)
+      .post('/api/v1/footprints')
+      .set('Authorization', `Bearer ${login.body.accessToken as string}`)
+      .set('Idempotency-Key', 'publish-invalid-asset')
+      .send({ message: 'Invalid asset', privatePoint: { lat: 31.23, lng: 121.47 }, visibility: 'public', locationPrecision: 'approximate', mediaAssetIds: ['not-a-uuid'] })
+      .expect(400);
+  });
 });

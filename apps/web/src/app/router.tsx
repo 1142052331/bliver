@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { geoPoint, publishFootprintRequest, type PublishFootprintRequest } from '@bliver/contracts';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createBrowserRouter,
@@ -6,6 +7,8 @@ import {
   Navigate,
   RouterProvider,
   useLocation,
+  useNavigate,
+  useSearchParams,
   Link,
   useParams,
 } from 'react-router-dom';
@@ -15,16 +18,20 @@ import { RoutePlaceholder } from './routes/RoutePlaceholder.js';
 import { MapRoute } from '../features/map/MapRoute.js';
 import { FootprintDetailRoute } from '../features/footprints/FootprintDetailRoute.js';
 import { PublishFootprintRoute } from '../features/footprints/PublishFootprintRoute.js';
+import type { PublishFootprintRouteProps } from '../features/footprints/PublishFootprintRoute.js';
 import { uploadMedia } from '../features/footprints/media-upload.js';
 import { RequireAuth } from './guards/RequireAuth.js';
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
 function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to={destination}>Continue</Link></section>; }
-function FootprintRoute() { const footprintId = useParams().footprintId ?? ''; return <FootprintDetailRoute loadFromApi footprint={{ id: footprintId, message: 'Footprint detail', visibility: 'public', locationPrecision: 'approximate' }} />; }
-async function publishFootprint(input: { readonly message: string; readonly visibility: string; readonly locationPrecision: string; readonly mediaAssetIds?: readonly string[] }): Promise<void> {
-  const response = await fetch('/api/v1/footprints', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ ...input, privatePoint: { lat: 31.23, lng: 121.47 }, mediaAssetIds: input.mediaAssetIds ?? [] }) });
+function pointFrom(value: unknown): { readonly lat: number; readonly lng: number } | undefined { const parsed = geoPoint.safeParse(value); return parsed.success ? parsed.data : undefined; }
+function FootprintRoute() { const footprintId = useParams().footprintId ?? ''; const navigate = useNavigate(); const close = (): void => { if (typeof window !== 'undefined' && typeof window.history.state?.idx === 'number' && window.history.state.idx > 0) navigate(-1); else navigate('/map', { replace: true }); }; return <FootprintDetailRoute loadFromApi onClose={close} footprint={{ id: footprintId, message: 'Footprint detail', visibility: 'public', locationPrecision: 'approximate' }} />; }
+async function publishFootprint(input: PublishFootprintRouteProps['publish'] extends (value: infer T) => Promise<void> ? T : never): Promise<void> {
+  const payload: PublishFootprintRequest = publishFootprintRequest.parse({ ...input, mediaAssetIds: input.mediaAssetIds ?? [] });
+  const response = await fetch('/api/v1/footprints', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify(payload) });
   if (!response.ok) throw new Error('Publish failed');
 }
+function PublishRoute() { const [params] = useSearchParams(); const location = useLocation(); const statePoint = pointFrom((location.state as { initialPoint?: unknown } | null)?.initialPoint); const lat = params.get('lat'); const lng = params.get('lng'); const queryPoint = lat !== null && lng !== null ? pointFrom({ lat: Number(lat), lng: Number(lng) }) : undefined; const initialPoint = statePoint ?? queryPoint; return <PublishFootprintRoute {...(initialPoint ? { initialPoint } : {})} signUpload={uploadMedia} publish={publishFootprint} />; }
 const routes = [
   {
     path: '/',
@@ -40,7 +47,7 @@ const routes = [
         path: 'footprints/:footprintId',
         element: <FootprintRoute />,
       },
-      { path: 'publish', element: <RequireAuth />, children: [{ index: true, element: <PublishFootprintRoute signUpload={uploadMedia} publish={publishFootprint} /> }] },
+      { path: 'publish', element: <RequireAuth />, children: [{ index: true, element: <PublishRoute /> }] },
       { path: 'admin', element: <RoutePlaceholder title="Admin" /> },
       { path: 'session-expired', element: <SessionExpired /> },
       { path: '*', element: <NotFound /> },
