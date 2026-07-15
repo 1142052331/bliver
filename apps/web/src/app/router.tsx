@@ -4,10 +4,14 @@ import {
   createMemoryRouter,
   Navigate,
   RouterProvider,
+  useLocation,
 } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
 import { RoutePlaceholder } from './routes/RoutePlaceholder.js';
+
+function NotFound() { return <RoutePlaceholder title="Not found" />; }
+function SessionExpired() { const location = useLocation(); return <><RoutePlaceholder title="Session expired" /><Navigate to="/map" replace state={{ from: location.state?.from }} /></>; }
 
 const routes = [
   {
@@ -25,6 +29,8 @@ const routes = [
         element: <RoutePlaceholder title="Footprint" />,
       },
       { path: 'admin', element: <RoutePlaceholder title="Admin" /> },
+      { path: 'session-expired', element: <SessionExpired /> },
+      { path: '*', element: <NotFound /> },
     ],
   },
 ];

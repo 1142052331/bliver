@@ -6,6 +6,7 @@ import pino from 'pino';
 import { createConfig } from './config.js';
 import { closeDb, createDb } from '../platform/db/client.js';
 import { createApp } from '../http/app.js';
+import { createPostgresIdentityRepositories } from '../modules/identity/infrastructure/postgres-repositories.js';
 
 export interface ShutdownServerPort {
   close(callback: (error?: Error) => void): unknown;
@@ -38,7 +39,7 @@ export async function startServer(): Promise<void> {
   const config = createConfig();
   const logger = pino({ level: config.nodeEnv === 'production' ? 'info' : 'silent' });
   const db = createDb(config.databaseUrl);
-  const app = createApp({ config, db, logger });
+  const app = createApp({ config, db, logger, identity: createPostgresIdentityRepositories(db) });
   const server = createServer(app);
 
   await new Promise<void>((resolve, reject) => {

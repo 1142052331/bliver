@@ -11,11 +11,15 @@ import type { ApiConfig } from '../bootstrap/config.js';
 import { errorHandler, notFoundHandler } from './error-handler.js';
 import { healthRouter } from './health.js';
 import type { DbPort } from './health.js';
+import { createMemoryIdentityRepositories } from '../modules/identity/application/memory-repositories.js';
+import { identityRouter } from '../modules/identity/transport/routes.js';
+import type { IdentityRepositories } from '../modules/identity/application/ports.js';
 
 export interface AppOptions {
   readonly config: ApiConfig;
   readonly db?: DbPort;
   readonly logger?: Logger;
+  readonly identity?: IdentityRepositories;
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -26,7 +30,7 @@ const requestId: RequestHandler = (request, response, next) => {
   next();
 };
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }) }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -34,6 +38,7 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }) }: Ap
   app.use(pinoHttp({ logger }));
   app.use(helmet());
   app.use(express.json({ limit: '1mb' }));
+  app.use('/api/v1', identityRouter(identity ?? createMemoryIdentityRepositories(), config));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);
   app.use(errorHandler);
