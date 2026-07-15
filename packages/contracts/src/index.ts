@@ -24,3 +24,9 @@ export { blockDto, friendshipDto, friendshipListItemDto, friendshipRequestDto, f
 export type { FriendshipDto, RelationshipSummaryDto } from './social.js';
 export { conversationDto, conversationId, conversationState, conversationUserId, greetingInput, messageDto, messageHistoryQuery, messageInput, messageKind, messageModeration, moderationStatus, readMessageInput, replyInput, socketMessageInput, socketReadInput, socketTypingInput, typingInput } from './conversations.js';
 export type { ConversationDto, MessageDto } from './conversations.js';
+export { memoryQuery, memoryVisibility, mediaPageDto, memoryVisitorDto, memorySummaryDto } from './memories.js';
+export type { MediaPageDto, MemoryVisitorDto, MemorySummaryDto } from './memories.js';
+export { notificationType, notificationDto, notificationPage, notificationPreferences } from './notifications.js';
+export type { NotificationDto, NotificationPreferences } from './notifications.js';
+export { moderationCaseStatus, moderationCaseDto, moderationActionDto } from './moderation.js';
+export type { ModerationCaseDto, ModerationActionDto } from './moderation.js';
