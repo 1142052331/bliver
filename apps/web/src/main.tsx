@@ -6,6 +6,7 @@ import '@bliver/ui/tokens.css';
 
 import { AppErrorBoundary } from './app/ErrorBoundary.js';
 import { AppRouter } from './app/router.js';
+import { SessionProvider } from './app/providers/SessionProvider.js';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -17,9 +18,11 @@ const queryClient = new QueryClient();
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AppErrorBoundary>
-        <AppRouter />
-      </AppErrorBoundary>
+      <SessionProvider>
+        <AppErrorBoundary>
+          <AppRouter />
+        </AppErrorBoundary>
+      </SessionProvider>
     </QueryClientProvider>
   </StrictMode>,
 );
