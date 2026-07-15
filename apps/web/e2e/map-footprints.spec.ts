@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/v1/session', async (route) => { await route.fulfill({ status: 401, contentType: 'application/problem+json', body: JSON.stringify({ type: 'about:blank', title: 'Unauthorized', status: 401, code: 'AUTH_REQUIRED' }) }); });
+});
+
 test('guest map opens as the primary surface', async ({ page }) => {
   await page.route('**/api/v1/map/footprints**', async (route) => { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], nextCursor: null }) }); });
   await page.goto('/map');
