@@ -12,6 +12,7 @@ import { FootprintVisibilityPolicy, MapFootprintQuery, createPostgresFootprintRe
 import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox/index.js';
 import { Server as SocketServer } from 'socket.io';
 import { createNominatimGeography } from '../platform/geography/providers.js';
+import { configureRealtime, emitFootprintPublished } from './realtime.js';
 
 export interface ShutdownServerPort {
   close(callback: (error?: Error) => void): unknown;
@@ -54,7 +55,8 @@ export async function startServer(): Promise<void> {
   const app = createApp({ config, db, logger, identity, media, footprints: { repositories: footprints, policy, providers: { geocoding: { async resolve(point) { const result = await geography.geocode({ latitude: point.lat, longitude: point.lng }); return { placeId: result.place?.id ?? null, regionId: result.region?.id ?? null }; } }, weather: { async resolve(point) { return geography.weather({ latitude: point.lat, longitude: point.lng }); } } } }, map: { query: map, geography } });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });
-  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), process: async (event) => { if (event.type === 'FootprintPublished') io.emit('footprint:published', event.payload); } });
+  configureRealtime(io, identity);
+  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), process: async (event) => { if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); } });
   const workerTimer = setInterval(() => { void outboxWorker.runOnce(); }, 250);
   workerTimer.unref();
 

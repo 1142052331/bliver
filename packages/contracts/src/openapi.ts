@@ -9,7 +9,7 @@ import { authResponse, loginRequest, publicUser, registerRequest, refreshRequest
 import { sessionDto, sessionListResponse } from './session.js';
 import { footprintDto, footprintRecordResponse, mapFootprintsResponse, publishFootprintRequest, publishFootprintResponse, updateFootprintVisibilityRequest } from './footprints.js';
 import { mediaCompleteRequest, mediaSignatureRequest, mediaSignatureResponse } from './media.js';
-import { locationResolveRequest, locationResolveResponse, placeSearchResponse } from './geography.js';
+import { locationResolveRequest, locationResolveResponse, mapFootprintQuery, placeSearchResponse } from './geography.js';
 import { z } from './zod.js';
 
 export function buildOpenApiDocument() {
@@ -89,7 +89,7 @@ export function buildOpenApiDocument() {
   registry.registerPath({ method: 'delete', path: '/api/v1/footprints/{footprintId}', request: { params: footprintParams }, responses: { 204: { description: 'Footprint deleted' }, 409: { description: 'Footprint conflict', content: { 'application/problem+json': { schema: problemSchema } } } } });
   registry.registerPath({ method: 'get', path: '/api/v1/places/search', request: { query: placeSearchQuery }, responses: { 200: { description: 'Place search results', content: { 'application/json': { schema: placeSearchResponseSchema } } }, 400: { description: 'Invalid place query', content: { 'application/problem+json': { schema: problemSchema } } } } });
   registry.registerPath({ method: 'post', path: '/api/v1/location/resolve', request: { body: { content: { 'application/json': { schema: locationResolveRequestSchema } } } }, responses: { 200: { description: 'Resolved place and weather', content: { 'application/json': { schema: locationResolveResponseSchema } } }, 400: { description: 'Invalid location', content: { 'application/problem+json': { schema: problemSchema } } } } });
-  registry.registerPath({ method: 'get', path: '/api/v1/map/footprints', responses: { 200: { description: 'Map footprints', content: { 'application/json': { schema: mapSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/map/footprints', request: { query: mapFootprintQuery }, responses: { 200: { description: 'Map footprints', content: { 'application/json': { schema: mapSchema } } } } });
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',

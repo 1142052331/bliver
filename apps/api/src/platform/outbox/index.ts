@@ -22,9 +22,10 @@ export interface OutboxRepository {
 export class InMemoryOutbox implements OutboxRepository {
   private readonly events = new Map<string, OutboxEvent>();
   private currentTime = 0;
+  constructor(private readonly claimLeaseMs = 30_000) {}
   async append(event: OutboxEvent): Promise<void> { this.events.set(event.id, { ...event, availableAt: event.availableAt ?? this.currentTime, attempts: 0 }); }
   async claim(now: number): Promise<ClaimedOutboxEvent | null> {
-    const event = [...this.events.values()].find((item) => !item.processedAt && !item.deadLetteredAt && !item.claimedAt && (item.availableAt ?? 0) <= now);
+    const event = [...this.events.values()].find((item) => !item.processedAt && !item.deadLetteredAt && (item.claimedAt === undefined || item.claimedAt <= now - this.claimLeaseMs) && (item.availableAt ?? 0) <= now);
     if (!event) return null;
     const claimed = { ...event, attempts: (event.attempts ?? 0) + 1, claimedAt: now } as ClaimedOutboxEvent;
     this.events.set(event.id, claimed);

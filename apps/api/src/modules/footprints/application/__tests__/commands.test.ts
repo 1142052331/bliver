@@ -41,6 +41,23 @@ describe('footprint application commands', () => {
     expect(result.outbox.payload.footprintId).toBe(result.footprint.id);
   });
 
+  it('defaults public discovery expiry to one day after publication', async () => {
+    const publishedAt = new Date('2026-07-15T12:00:00.000Z');
+    const publish = new PublishFootprint({ repositories: createMemoryFootprintRepositories(), providers: providers(), now: () => publishedAt });
+    const result = await publish.execute({ actorId: ownerId, idempotencyKey: 'publish-expiry', message: 'Discoverable', privatePoint: point, visibility: 'public', locationPrecision: 'precise', mediaAssetIds: [] });
+    expect(result.footprint.discoveryExpiresAt?.getTime()).toBeGreaterThan(publishedAt.getTime());
+    expect(result.footprint.discoveryExpiresAt?.toISOString()).toBe('2026-07-16T12:00:00.000Z');
+  });
+
+  it('preserves an explicitly null public discovery expiry', async () => {
+    const publish = new PublishFootprint({ repositories: createMemoryFootprintRepositories(), providers: providers() });
+    const input = { actorId: ownerId, idempotencyKey: 'publish-expiry-null', message: 'Not discoverable', privatePoint: point, visibility: 'public' as const, locationPrecision: 'precise' as const, mediaAssetIds: [], discoveryExpiresAt: null };
+    const result = await publish.execute(input);
+    expect(result.footprint.discoveryExpiresAt).toBeNull();
+    const withoutExpiry = { actorId: input.actorId, idempotencyKey: input.idempotencyKey, message: input.message, privatePoint: input.privatePoint, visibility: input.visibility, locationPrecision: input.locationPrecision, mediaAssetIds: input.mediaAssetIds };
+    await expect(publish.execute(withoutExpiry)).rejects.toBeInstanceOf(FootprintConflictError);
+  });
+
   it('replays an idempotent publish and does not invoke providers twice', async () => {
     const repositories = createMemoryFootprintRepositories();
     const provider = providers();

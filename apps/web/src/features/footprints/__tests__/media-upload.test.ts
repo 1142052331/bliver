@@ -20,6 +20,8 @@ describe('uploadMedia', () => {
         width: null,
         height: null,
         format: 'jpg',
+        allowedFormats: 'jpg',
+        maxFileBytes: 10,
       }), { status: 200, headers: { 'content-type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         public_id: 'bliver/owner/asset',
@@ -27,6 +29,8 @@ describe('uploadMedia', () => {
         width: 1200,
         height: 900,
         format: 'jpg',
+        allowedFormats: 'jpg',
+        maxFileBytes: 10,
       }), { status: 200, headers: { 'content-type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
@@ -36,7 +40,7 @@ describe('uploadMedia', () => {
     expect(result).toEqual({ assetId: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70' });
     expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/v1/media/019c2f52-3e9b-7d1f-8d68-cf35d75d9b70/complete', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ version: 42, width: 1200, height: 900, format: 'jpg' }),
+      body: JSON.stringify({ publicId: 'bliver/owner/asset', version: 42, width: 1200, height: 900, format: 'jpg' }),
     }));
   });
 
@@ -53,6 +57,8 @@ describe('uploadMedia', () => {
         width: null,
         height: null,
         format: 'jpg',
+        allowedFormats: 'jpg',
+        maxFileBytes: 10,
       }), { status: 200, headers: { 'content-type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         public_id: 'bliver/owner/asset',

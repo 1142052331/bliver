@@ -20,7 +20,10 @@ function createAdapter(): MediaAdapter {
       width: null,
       height: null,
       format: 'jpg',
+      allowedFormats: 'jpg',
+      maxFileBytes: input.bytes,
     })),
+    verifyAsset: vi.fn(async (publicId) => ({ publicId, version: 42, width: 1200, height: 900, format: 'jpg' })),
     deleteAsset: vi.fn(async () => undefined),
   };
 }
@@ -99,8 +102,8 @@ describe('MediaService', () => {
     const service = new MediaService({ adapter: createAdapter(), repositories });
     const created = await service.requestSignature({ actorId: 'owner-1', idempotencyKey: 'key-complete', mimeType: 'image/jpeg', bytes: 10 });
 
-    await expect(service.completeAsset({ actorId: 'other-1', assetId: created.assetId, version: 42, width: 1200, height: 900, format: 'jpg' })).rejects.toMatchObject({ code: 'MEDIA_NOT_FOUND' });
-    await service.completeAsset({ actorId: 'owner-1', assetId: created.assetId, version: 42, width: 1200, height: 900, format: 'jpg' });
+    await expect(service.completeAsset({ actorId: 'other-1', assetId: created.assetId, publicId: created.publicId, version: 42, width: 1200, height: 900, format: 'jpg' })).rejects.toMatchObject({ code: 'MEDIA_NOT_FOUND' });
+    await service.completeAsset({ actorId: 'owner-1', assetId: created.assetId, publicId: created.publicId, version: 1, width: 1, height: 1, format: 'png' });
 
     await expect(repositories.assets.findById(created.assetId)).resolves.toMatchObject({
       version: 42,
@@ -108,6 +111,15 @@ describe('MediaService', () => {
       height: 900,
       format: 'jpg',
     });
+  });
+
+  it('rejects completion when the provider public ID does not belong to the asset', async () => {
+    const adapter = createAdapter();
+    adapter.verifyAsset = vi.fn(async () => ({ publicId: 'bliver/other', version: 42, width: 1200, height: 900, format: 'jpg' }));
+    const service = new MediaService({ adapter, repositories: createMemoryMediaRepositories() });
+    const created = await service.requestSignature({ actorId: 'owner-verify', idempotencyKey: 'key-verify', mimeType: 'image/jpeg', bytes: 10 });
+
+    await expect(service.completeAsset({ actorId: 'owner-verify', assetId: created.assetId, publicId: created.publicId, version: 42, width: 1200, height: 900, format: 'jpg' })).rejects.toMatchObject({ code: 'MEDIA_COMPLETION_FAILED' });
   });
 
   it('keeps service errors typed for transport mapping', () => {

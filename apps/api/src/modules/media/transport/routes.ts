@@ -49,6 +49,8 @@ function statusFor(error: MediaError): number {
       return 404;
     case 'MEDIA_DELETE_FAILED':
       return 502;
+    case 'MEDIA_COMPLETION_FAILED':
+      return 502;
     case 'IDEMPOTENCY_CONFLICT':
       return 409;
     case 'MEDIA_MIME_UNSUPPORTED':

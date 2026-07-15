@@ -11,6 +11,7 @@ import {
   problemDetails,
   visibility,
 } from '../index.js';
+import { mapFootprintQuery } from '../geography.js';
 
 describe('V2 contracts', () => {
   it('accepts a typed health response', () => {
@@ -64,8 +65,8 @@ describe('V2 contracts', () => {
   });
 
   it('validates completed Cloudinary metadata', () => {
-    expect(mediaCompleteRequest.parse({ version: 42, width: 1200, height: 900, format: 'jpg' })).toEqual({ version: 42, width: 1200, height: 900, format: 'jpg' });
-    expect(() => mediaCompleteRequest.parse({ version: 42, width: 0, height: 900, format: 'jpg' })).toThrow();
+    expect(mediaCompleteRequest.parse({ publicId: 'bliver/asset', version: 42, width: 1200, height: 900, format: 'jpg' })).toEqual({ publicId: 'bliver/asset', version: 42, width: 1200, height: 900, format: 'jpg' });
+    expect(() => mediaCompleteRequest.parse({ publicId: 'bliver/asset', version: 42, width: 0, height: 900, format: 'jpg' })).toThrow();
   });
 
   it('models the wrapped publish response without exposing an unwrapped DTO contract', () => {
@@ -134,5 +135,13 @@ describe('V2 contracts', () => {
     expect(document.paths?.['/api/v1/footprints/{footprintId}']?.delete?.responses?.[204]).toBeDefined();
     expect(document.paths?.['/api/v1/places/search']?.get?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/location/resolve']?.post?.responses?.[200]).toBeDefined();
+    const queryParameters = document.paths?.['/api/v1/map/footprints']?.get?.parameters ?? [];
+    const parameterNames = (queryParameters as Array<{ name?: string }>).map((parameter) => parameter.name).filter((name): name is string => Boolean(name));
+    expect(parameterNames).toEqual(expect.arrayContaining(['west', 'south', 'east', 'north', 'cursor', 'limit', 'visibility']));
+  });
+
+  it('enforces finite geographic bounds', () => {
+    expect(mapFootprintQuery.safeParse({ west: -180, south: -90, east: 180, north: 90 }).success).toBe(true);
+    expect(mapFootprintQuery.safeParse({ west: -181, south: 0, east: 1, north: 1 }).success).toBe(false);
   });
 });

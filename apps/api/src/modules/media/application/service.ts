@@ -35,6 +35,7 @@ export interface DeleteAssetInput {
 }
 
 export interface CompleteAssetInput extends DeleteAssetInput {
+  readonly publicId: string;
   readonly version: number;
   readonly width: number;
   readonly height: number;
@@ -100,8 +101,9 @@ export class MediaService {
       format: result.format,
       createdAt: this.clock(),
     };
-    if (this.repositories.transactions) await this.repositories.transactions.commitSignature({ asset, actorId: input.actorId, key, fingerprint: requestFingerprint, result });
-    else { await this.repositories.assets.create(asset); await this.repositories.idempotency.save({ actorId: input.actorId, key, fingerprint: requestFingerprint, result }); }
+    if (this.repositories.transactions) return this.repositories.transactions.commitSignature({ asset, actorId: input.actorId, key, fingerprint: requestFingerprint, result });
+    await this.repositories.assets.create(asset);
+    await this.repositories.idempotency.save({ actorId: input.actorId, key, fingerprint: requestFingerprint, result });
     return result;
   }
 
@@ -122,11 +124,9 @@ export class MediaService {
     if (!asset || asset.ownerId !== input.actorId) {
       throw new MediaError('MEDIA_NOT_FOUND');
     }
-    await this.repositories.assets.updateMetadata(asset.assetId, {
-      version: input.version,
-      width: input.width,
-      height: input.height,
-      format: input.format,
-    });
+    if (input.publicId !== asset.publicId) throw new MediaError('MEDIA_COMPLETION_FAILED');
+    const provider = await this.adapter?.verifyAsset(asset.publicId).catch(() => null);
+    if (!provider || provider.publicId !== asset.publicId) throw new MediaError('MEDIA_COMPLETION_FAILED');
+    await this.repositories.assets.updateMetadata(asset.assetId, provider);
   }
 }

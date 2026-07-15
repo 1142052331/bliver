@@ -19,10 +19,21 @@ export interface MediaSignedUpload {
   readonly width: number | null;
   readonly height: number | null;
   readonly format: string | null;
+  readonly allowedFormats: string;
+  readonly maxFileBytes: number;
+}
+
+export interface MediaProviderAsset {
+  readonly publicId: string;
+  readonly version: number;
+  readonly width: number;
+  readonly height: number;
+  readonly format: string;
 }
 
 export interface MediaAdapter {
   signUpload(input: MediaUploadInput): Promise<MediaSignedUpload>;
+  verifyAsset(publicId: string): Promise<MediaProviderAsset | null>;
   deleteAsset(publicId: string): Promise<void>;
 }
 
@@ -68,6 +79,6 @@ export interface MediaRepositories {
   readonly transactions?: MediaTransactionPort;
 }
 
-export interface MediaTransactionPort { commitSignature(input: { readonly asset: MediaAsset; readonly actorId: string; readonly key: string; readonly fingerprint: string; readonly result: MediaSignatureResult }): Promise<void>; }
+export interface MediaTransactionPort { commitSignature(input: { readonly asset: MediaAsset; readonly actorId: string; readonly key: string; readonly fingerprint: string; readonly result: MediaSignatureResult }): Promise<MediaSignatureResult>; }
 
 export type MediaClock = () => number;

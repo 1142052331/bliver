@@ -19,9 +19,12 @@ export const mediaSignatureResponse = z.object({
   width: z.number().int().positive().nullable(),
   height: z.number().int().positive().nullable(),
   format: z.string().min(1).nullable(),
+  allowedFormats: z.string().min(1),
+  maxFileBytes: z.number().int().positive(),
 });
 
 export const mediaCompleteRequest = z.object({
+  publicId: z.string().min(1),
   version: z.number().int().positive(),
   width: z.number().int().positive(),
   height: z.number().int().positive(),

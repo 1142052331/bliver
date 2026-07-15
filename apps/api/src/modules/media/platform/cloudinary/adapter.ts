@@ -11,6 +11,7 @@ export interface CloudinaryConfig {
 interface CloudinaryTransportResponse {
   readonly ok: boolean;
   readonly status: number;
+  json(): Promise<unknown>;
 }
 
 interface CloudinaryAdapterOptions {
@@ -50,7 +51,8 @@ export class CloudinaryAdapter implements MediaAdapter {
   async signUpload(input: MediaUploadInput): Promise<MediaSignedUpload> {
     const config = this.requireConfig();
     const timestamp = this.now();
-    const signature = signatureFor({ public_id: input.publicId, timestamp }, config.apiSecret);
+    const allowedFormats = formatForMimeType(input.mimeType);
+    const signature = signatureFor({ public_id: input.publicId, timestamp, allowed_formats: allowedFormats ?? '', max_file_size: input.bytes }, config.apiSecret);
     return {
       signature,
       timestamp,
@@ -61,7 +63,25 @@ export class CloudinaryAdapter implements MediaAdapter {
       width: null,
       height: null,
       format: formatForMimeType(input.mimeType),
+      allowedFormats: allowedFormats ?? '',
+      maxFileBytes: input.bytes,
     };
+  }
+
+  async verifyAsset(publicId: string) {
+    const config = this.requireConfig();
+    let response: CloudinaryTransportResponse;
+    try {
+      response = await this.fetcher(`https://api.cloudinary.com/v1_1/${encodeURIComponent(config.cloudName)}/resources/image/upload/${encodeURIComponent(publicId)}`, {
+        headers: { authorization: `Basic ${Buffer.from(`${config.apiKey}:${config.apiSecret}`).toString('base64')}` },
+      });
+    } catch {
+      return null;
+    }
+    if (!response.ok) return null;
+    const body = await response.json() as { public_id?: unknown; version?: unknown; width?: unknown; height?: unknown; format?: unknown };
+    if (body.public_id !== publicId || typeof body.version !== 'number' || typeof body.width !== 'number' || typeof body.height !== 'number' || !Number.isInteger(body.version) || !Number.isInteger(body.width) || !Number.isInteger(body.height) || typeof body.format !== 'string' || body.version <= 0 || body.width <= 0 || body.height <= 0 || !body.format) return null;
+    return { publicId, version: body.version, width: body.width, height: body.height, format: body.format };
   }
 
   async deleteAsset(publicId: string): Promise<void> {

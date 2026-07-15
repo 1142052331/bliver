@@ -32,4 +32,13 @@ describe('outbox worker', () => {
     await new OutboxWorker({ repository: outbox, process, now: () => 1_700_000_000 }).runOnce();
     expect(process).not.toHaveBeenCalled();
   });
+
+  it('reclaims a stale claim after a worker crash and increments attempts', async () => {
+    const outbox = new InMemoryOutbox(30);
+    await outbox.append({ id: 'event-stale', type: 'FootprintPublished', aggregateId: 'footprint-stale', payload: {} });
+
+    await expect(outbox.claim(100)).resolves.toMatchObject({ attempts: 1, claimedAt: 100 });
+    await expect(outbox.claim(129)).resolves.toBeNull();
+    await expect(outbox.claim(130)).resolves.toMatchObject({ attempts: 2, claimedAt: 130 });
+  });
 });

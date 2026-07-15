@@ -42,7 +42,7 @@ export function footprintRouter(identity: IdentityRepositories, options: Footpri
     const key = request.get('idempotency-key')?.trim();
     if (!key || !parsed.success) { problem(response, request, 400, !key ? 'IDEMPOTENCY_KEY_REQUIRED' : 'INVALID_REQUEST'); return; }
     try {
-      const result = await publish.execute({ actorId: context(request).userId as never, idempotencyKey: key, message: parsed.data.message, privatePoint: parsed.data.privatePoint, visibility: parsed.data.visibility, locationPrecision: parsed.data.locationPrecision, mediaAssetIds: parsed.data.mediaAssetIds, ...(parsed.data.mood ? { mood: parsed.data.mood } : {}), ...(parsed.data.discoveryExpiresAt ? { discoveryExpiresAt: new Date(parsed.data.discoveryExpiresAt) } : {}) });
+      const result = await publish.execute({ actorId: context(request).userId as never, idempotencyKey: key, message: parsed.data.message, privatePoint: parsed.data.privatePoint, visibility: parsed.data.visibility, locationPrecision: parsed.data.locationPrecision, mediaAssetIds: parsed.data.mediaAssetIds, ...(parsed.data.mood ? { mood: parsed.data.mood } : {}), ...(parsed.data.discoveryExpiresAt !== undefined ? { discoveryExpiresAt: parsed.data.discoveryExpiresAt ? new Date(parsed.data.discoveryExpiresAt) : null } : {}) });
       response.status(201).json({ footprint: result.footprint, event: result.outbox });
     } catch (error) { problem(response, request, error instanceof FootprintConflictError ? 409 : 500, error instanceof FootprintConflictError ? error.code : 'FOOTPRINT_UNAVAILABLE'); }
   });

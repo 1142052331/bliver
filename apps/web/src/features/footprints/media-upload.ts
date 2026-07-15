@@ -8,7 +8,7 @@ function parseCloudinaryUpload(value: unknown, publicId: string) {
   if (!isRecord(value) || value.public_id !== publicId) {
     throw new Error('Invalid Cloudinary upload response');
   }
-  const parsed = mediaCompleteRequest.safeParse({ version: value.version, width: value.width, height: value.height, format: value.format });
+  const parsed = mediaCompleteRequest.safeParse({ publicId: value.public_id, version: value.version, width: value.width, height: value.height, format: value.format });
   if (!parsed.success) throw new Error('Invalid Cloudinary upload response');
   return parsed.data;
 }
@@ -23,13 +23,15 @@ export async function uploadMedia(file: File): Promise<{ readonly assetId: strin
   form.append('timestamp', String(signed.timestamp));
   form.append('signature', signed.signature);
   form.append('public_id', signed.publicId);
+  form.append('allowed_formats', signed.allowedFormats);
+  form.append('max_file_size', String(signed.maxFileBytes));
   const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(signed.cloudName)}/image/upload`, { method: 'POST', body: form });
   if (!uploadResponse.ok) throw new Error('Cloudinary upload failed');
   const upload = parseCloudinaryUpload(await uploadResponse.json(), signed.publicId);
   const completion = await fetch(`/api/v1/media/${encodeURIComponent(signed.assetId)}/complete`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ version: upload.version, width: upload.width, height: upload.height, format: upload.format }),
+    body: JSON.stringify({ publicId: signed.publicId, version: upload.version, width: upload.width, height: upload.height, format: upload.format }),
   });
   if (!completion.ok) throw new Error('Upload completion failed');
   return { assetId: signed.assetId };

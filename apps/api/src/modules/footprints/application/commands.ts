@@ -86,7 +86,7 @@ async function bounded<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
 }
 
 function publishFingerprint(input: PublishFootprintInput): string {
-  return JSON.stringify({ message: input.message, mood: input.mood ?? null, privatePoint: input.privatePoint, visibility: input.visibility, locationPrecision: input.locationPrecision, mediaAssetIds: input.mediaAssetIds, discoveryExpiresAt: input.discoveryExpiresAt?.toISOString() ?? null });
+  return JSON.stringify({ message: input.message, mood: input.mood ?? null, privatePoint: input.privatePoint, visibility: input.visibility, locationPrecision: input.locationPrecision, mediaAssetIds: input.mediaAssetIds, discoveryExpiresAt: input.discoveryExpiresAt === undefined ? 'default' : input.discoveryExpiresAt?.toISOString() ?? null });
 }
 
 export class PublishFootprint {
@@ -111,6 +111,7 @@ export class PublishFootprint {
       bounded(this.options.providers.weather.resolve(input.privatePoint), this.timeoutMs).catch(() => null),
     ]);
     const publishedAt = now();
+    const discoveryExpiresAt = input.discoveryExpiresAt === undefined ? (input.visibility === 'public' ? new Date(publishedAt.getTime() + 24 * 60 * 60 * 1_000) : null) : input.discoveryExpiresAt;
     const footprint: FootprintRecord = {
       id,
       authorId: input.actorId,
@@ -123,7 +124,7 @@ export class PublishFootprint {
       mediaAssetIds: [...input.mediaAssetIds],
       metadata: { placeId: geocoding.placeId, regionId: geocoding.regionId, weather },
       publishedAt,
-      discoveryExpiresAt: input.discoveryExpiresAt ?? null,
+      discoveryExpiresAt,
     };
     const outbox: FootprintOutboxEvent = { id: createEventId(), type: 'FootprintPublished', aggregateId: id, payload: { footprintId: id, authorId: input.actorId } };
     if (this.options.repositories.mediaOwnership) await this.options.repositories.mediaOwnership.assertOwned(input.actorId, input.mediaAssetIds);

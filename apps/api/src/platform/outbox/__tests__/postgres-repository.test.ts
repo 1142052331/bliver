@@ -8,7 +8,7 @@ describe('Postgres outbox repository', () => {
     const query = vi.fn()
       .mockResolvedValueOnce({ rows: [{ id: 'event-1', type: 'FootprintPublished', aggregate_id: 'footprint-1', payload: { ok: true }, attempts: 1, claimed_at: 1_700_000_000_000, available_at: 1_700_000_000_000 }] })
       .mockResolvedValue({ rows: [], rowCount: 1 });
-    const repository = createPostgresOutboxRepository({ query } as unknown as DatabaseClient);
+    const repository = createPostgresOutboxRepository({ query } as unknown as DatabaseClient, { claimLeaseMs: 30_000 });
 
     await expect(repository.claim(1_700_000_000_000)).resolves.toMatchObject({ id: 'event-1', attempts: 1, claimedAt: 1_700_000_000_000 });
     await repository.markProcessed('event-1', 1_700_000_001_000);
@@ -17,7 +17,8 @@ describe('Postgres outbox repository', () => {
     const [claimSql, claimValues] = query.mock.calls[0] as [string, unknown[]];
     expect(claimSql).toMatch(/FOR UPDATE SKIP LOCKED/);
     expect(claimSql).toMatch(/processed_at IS NULL/);
-    expect(claimValues).toEqual([new Date(1_700_000_000_000)]);
+    expect(claimSql).toMatch(/claimed_at IS NULL OR claimed_at <= \$2/);
+    expect(claimValues).toEqual([new Date(1_700_000_000_000), new Date(1_699_999_970_000)]);
     expect(query.mock.calls[1]).toEqual([
       'UPDATE platform.outbox_events SET processed_at = $2, claimed_at = NULL WHERE id = $1',
       ['event-1', new Date(1_700_000_001_000)],

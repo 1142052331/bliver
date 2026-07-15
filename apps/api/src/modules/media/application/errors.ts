@@ -4,6 +4,7 @@ export type MediaErrorCode =
   | 'MEDIA_CONFIGURATION_MISSING'
   | 'MEDIA_NOT_FOUND'
   | 'MEDIA_DELETE_FAILED'
+  | 'MEDIA_COMPLETION_FAILED'
   | 'IDEMPOTENCY_CONFLICT';
 
 export class MediaError extends Error {
