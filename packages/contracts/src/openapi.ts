@@ -11,6 +11,7 @@ import { activityPageDto, activityQuery, addCommentInput, addReactionInput, comm
 import { mediaCompleteRequest, mediaSignatureRequest, mediaSignatureResponse } from './media.js';
 import { locationResolveRequest, locationResolveResponse, mapFootprintQuery, placeSearchResponse } from './geography.js';
 import { blockDto, friendshipDto, friendshipListItemDto, friendshipRequestDto, relationshipSummaryDto, requestFriendshipInput, socialUserId } from './social.js';
+import { conversationDto, conversationId, greetingInput, messageDto, messageHistoryQuery, messageInput, readMessageInput, replyInput, typingInput } from './conversations.js';
 import { z } from './zod.js';
 
 export function buildOpenApiDocument() {
@@ -49,6 +50,13 @@ export function buildOpenApiDocument() {
   const relationshipSummarySchema = registry.register('RelationshipSummary', relationshipSummaryDto);
   const blockSchema = registry.register('Block', blockDto);
   const requestFriendshipSchema = registry.register('RequestFriendship', requestFriendshipInput);
+  const conversationSchema = registry.register('Conversation', conversationDto);
+  const messageSchema = registry.register('Message', messageDto);
+  const greetingInputSchema = registry.register('GreetingInput', greetingInput);
+  const replyInputSchema = registry.register('ReplyInput', replyInput);
+  const messageInputSchema = registry.register('MessageInput', messageInput);
+  const readMessageSchema = registry.register('ReadMessageInput', readMessageInput);
+  const typingSchema = registry.register('TypingInput', typingInput);
   const mediaAssetParams = z.object({ assetId: z.string().uuid() });
   const footprintParams = z.object({ footprintId: z.string().uuid() });
   const footprintCommentParams = z.object({ footprintId: z.string().uuid(), commentId: z.string().uuid() });
@@ -56,6 +64,7 @@ export function buildOpenApiDocument() {
   const placeSearchQuery = z.object({ q: z.string().trim().min(1).max(120) });
   const userParams = z.object({ userId: socialUserId });
   const friendshipParams = z.object({ friendshipId: z.string().uuid() });
+  const conversationParams = z.object({ conversationId });
 
   for (const path of ['/healthz', '/versionz'] as const) {
     registry.registerPath({
@@ -128,6 +137,13 @@ export function buildOpenApiDocument() {
   registry.registerPath({ method: 'get', path: '/api/v1/blocks', responses: { 200: { description: 'Users blocked by the actor', content: { 'application/json': { schema: z.object({ items: z.array(blockSchema) }) } } } } });
   registry.registerPath({ method: 'put', path: '/api/v1/blocks/{userId}', request: { params: userParams }, responses: { 200: { description: 'User blocked', content: { 'application/json': { schema: blockSchema } } }, 409: { description: 'Invalid relationship', content: { 'application/problem+json': { schema: problemSchema } } } } });
   registry.registerPath({ method: 'delete', path: '/api/v1/blocks/{userId}', request: { params: userParams }, responses: { 204: { description: 'User unblocked' } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/conversations', responses: { 200: { description: 'Conversations', content: { 'application/json': { schema: z.object({ items: z.array(conversationSchema) }) } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/conversations/{conversationId}/messages', request: { params: conversationParams, query: messageHistoryQuery }, responses: { 200: { description: 'Conversation history', content: { 'application/json': { schema: z.object({ items: z.array(messageSchema), nextCursor: z.string().optional() }) } } }, 404: { description: 'Conversation not found', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/users/{userId}/greetings', request: { params: userParams, body: { content: { 'application/json': { schema: greetingInputSchema } } } }, responses: { 201: { description: 'Greeting sent', content: { 'application/json': { schema: z.object({ conversation: conversationSchema, message: messageSchema }) } } }, 409: { description: 'Greeting conflict', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/conversations/{conversationId}/reply', request: { params: conversationParams, body: { content: { 'application/json': { schema: replyInputSchema } } } }, responses: { 200: { description: 'Greeting reply', content: { 'application/json': { schema: z.object({ conversation: conversationSchema, message: messageSchema }) } } }, 409: { description: 'Conversation conflict', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/conversations/{conversationId}/messages', request: { params: conversationParams, body: { content: { 'application/json': { schema: messageInputSchema } } } }, responses: { 201: { description: 'Message sent', content: { 'application/json': { schema: messageSchema } } }, 409: { description: 'Message conflict', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/conversations/{conversationId}/read', request: { params: conversationParams, body: { content: { 'application/json': { schema: readMessageSchema } } } }, responses: { 204: { description: 'Message marked read' } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/conversations/{conversationId}/typing', request: { params: conversationParams, body: { content: { 'application/json': { schema: typingSchema } } } }, responses: { 204: { description: 'Typing presence updated' } } });
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',

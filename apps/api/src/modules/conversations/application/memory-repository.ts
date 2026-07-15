@@ -25,6 +25,7 @@ export function createMemoryConversationRepository(): ConversationRepository {
   const repository: ConversationRepository = {
     async findById(id) { return conversations.get(id) ?? null; },
     async findByParticipants(left, right) { const id = pairs.get(pair(left, right)); return id ? conversations.get(id) ?? null : null; },
+    async listForUser(userId) { return [...conversations.values()].filter((item) => item.participantLowId === userId || item.participantHighId === userId).sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime() || right.id.localeCompare(left.id)).filter((item) => !hidden.has(`${item.id}:${userId}`)); },
     async create(input) { const existing = await repository.findByParticipants(input.participantLowId, input.participantHighId); if (existing) return existing; conversations.set(input.id, input); pairs.set(pair(input.participantLowId, input.participantHighId), input.id); messages.set(input.id, []); return input; },
     async updateState(id, state: ConversationState, at) { const current = conversations.get(id); if (!current) throw new Error('CONVERSATION_NOT_FOUND'); const updated = { ...current, state, updatedAt: at }; conversations.set(id, updated); return updated; },
     async hide(id, userId) { hidden.add(`${id}:${userId}`); },

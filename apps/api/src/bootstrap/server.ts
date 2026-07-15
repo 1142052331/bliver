@@ -13,6 +13,7 @@ import { DiscoveryQueryService, DiscoveryProjectionConsumer, createPostgresDisco
 import { InteractionService, createPostgresInteractionRepository } from '../modules/interactions/index.js';
 import { CreateReport, createPostgresReportRepository } from '../modules/moderation/index.js';
 import { BlockPolicy, SocialService, createPostgresSocialRepository } from '../modules/social/index.js';
+import { ConversationService, createPostgresConversationRepository } from '../modules/conversations/index.js';
 import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox/index.js';
 import { Server as SocketServer } from 'socket.io';
 import { createNominatimGeography } from '../platform/geography/providers.js';
@@ -67,6 +68,7 @@ export async function startServer(): Promise<void> {
   const geography = createNominatimGeography();
   const interactionService = new InteractionService(createPostgresInteractionRepository(db), { async canInteract(actor, footprintId) { return policy.canRead(actor, footprintId); }, async canRead(actor, footprintId) { return policy.canRead(actor, footprintId); }, async isBlocked(actorId, targetId) { return relationships.isEitherBlocked(actorId, targetId); }, async footprintOwner(footprintId) { return (await footprints.findById(footprintId))?.authorId ?? null; } });
   const reportCreate = new CreateReport(createPostgresReportRepository(db), { async canReport(actor, footprintId) { return policy.canRead(actor, footprintId); } });
+  const conversationService = new ConversationService(createPostgresConversationRepository(db), relationships);
   const regionForActor = async (actor: { readonly userId: string } | null): Promise<{ regionId?: string; countryCode?: string }> => {
     if (!actor) return {};
     const result = await db.query<{ region_id: string | null; country_code: string | null }>('SELECT f.region_id, r.country_code FROM footprints f LEFT JOIN regions r ON r.id=f.region_id WHERE f.author_id=$1 AND f.region_id IS NOT NULL ORDER BY f.published_at DESC, f.id DESC LIMIT 1', [actor.userId]);
@@ -92,10 +94,11 @@ export async function startServer(): Promise<void> {
     interactions: { service: interactionService },
     reports: { create: reportCreate },
     social: { service: new SocialService(relationships) },
+    conversations: { service: conversationService },
   });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });
-  configureRealtime(io, identity);
+  configureRealtime(io, identity, conversationService);
   const projection = new DiscoveryProjectionConsumer({ repository: discoveryRepository, source: { async findById(id) { const [publicRecord, fullRecord] = await Promise.all([footprints.findById(id as never), footprints.footprints.findById(id as never)]); if (!publicRecord || !fullRecord) return null; let countryCode: string | null = null; if (fullRecord.metadata.regionId) { const region = await db.query<{ country_code: string }>('SELECT country_code FROM regions WHERE id=$1', [fullRecord.metadata.regionId]); countryCode = region.rows[0]?.country_code ?? null; } return { ...publicRecord, message: fullRecord.message, hasMedia: fullRecord.mediaAssetIds.length > 0, regionId: fullRecord.metadata.regionId, countryCode }; } } });
   const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), process: async (event) => { if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'FootprintDeleted') await projection.process(event as never); if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); } });
   const workerTimer = setInterval(() => { void outboxWorker.runOnce(); }, 250);

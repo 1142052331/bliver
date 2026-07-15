@@ -163,6 +163,14 @@ export class ConversationService {
     return this.repository.listMessages(conversationId, limit, cursor);
   }
 
+  async listConversations(actorId: UserId): Promise<ConversationRecord[]> {
+    return this.repository.listForUser(actorId);
+  }
+
+  async getConversation(actorId: UserId, conversationId: string): Promise<ConversationRecord> {
+    return this.authorized(conversationId, actorId);
+  }
+
   private async createMessage(conversation: ConversationRecord, senderId: UserId, text: string, kind: MessageRecord['kind'], additional?: { type: ConversationEvent['type']; payload: Record<string, unknown> }, idempotency?: ConversationCommandIdempotency, moderation?: MessageModerationMetadata, transition?: { readonly createConversation?: boolean; readonly expectedState?: ConversationRecord['state'] }): Promise<{ conversation: ConversationRecord; message: MessageRecord }> {
     const at = this.now();
     const message: MessageRecord = { id: this.createId(), conversationId: conversation.id, senderId, content: content(text), kind, sentAt: at, eventId: createEventId(), moderation: moderation ?? { status: 'pending', labels: [] } };
@@ -200,7 +208,7 @@ export class ConversationService {
   }
 
   private async replayPair(idempotency?: ConversationCommandIdempotency) { return this.replay(idempotency); }
-  private async replayMessage(idempotency?: ConversationCommandIdempotency): Promise<MessageRecord | null> { return (await this.replay(idempotency)) as MessageRecord | null; }
+  private async replayMessage(idempotency?: ConversationCommandIdempotency): Promise<MessageRecord | null> { const value = await this.replay(idempotency); if (!value) return null; const row = value as { message?: MessageRecord }; return row.message ?? value as MessageRecord; }
   private async savePairReplay(idempotency: ConversationCommandIdempotency | undefined, result: { conversation: ConversationRecord; message: MessageRecord }) { if (idempotency && !this.repository.transactions) await this.repository.saveIdempotency(idempotency, result); return result; }
   private async saveMessageReplay(idempotency: ConversationCommandIdempotency | undefined, result: MessageRecord) { if (idempotency && !this.repository.transactions) await this.repository.saveIdempotency(idempotency, result); return result; }
 }

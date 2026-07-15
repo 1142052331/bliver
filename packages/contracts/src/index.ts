@@ -22,3 +22,5 @@ export type { FootprintDto, FootprintRecordResponse, PublishFootprintRequest, Pu
 export type { ActivityQuery, ActivityPageDto, AddCommentInput, ReactionDto, CommentDto, CreateReportInput } from './footprints.js';
 export { blockDto, friendshipDto, friendshipListItemDto, friendshipRequestDto, friendshipStatus, relationshipState, relationshipSummaryDto, requestFriendshipInput, socialUserId } from './social.js';
 export type { FriendshipDto, RelationshipSummaryDto } from './social.js';
+export { conversationDto, conversationId, conversationState, conversationUserId, greetingInput, messageDto, messageHistoryQuery, messageInput, messageKind, messageModeration, moderationStatus, readMessageInput, replyInput, socketMessageInput, socketReadInput, socketTypingInput, typingInput } from './conversations.js';
+export type { ConversationDto, MessageDto } from './conversations.js';

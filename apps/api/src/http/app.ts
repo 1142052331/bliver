@@ -28,6 +28,7 @@ import { createMemoryInteractionRepository, InteractionService } from '../module
 import { reportRouter } from '../modules/moderation/transport/routes.js';
 import { CreateReport, createMemoryReportRepository } from '../modules/moderation/domain/reports.js';
 import { SocialService, createMemorySocialRepository, socialRouter } from '../modules/social/index.js';
+import { ConversationService, conversationRouter, createMemoryConversationRepository } from '../modules/conversations/index.js';
 
 export interface AppOptions {
   readonly config: ApiConfig;
@@ -41,6 +42,7 @@ export interface AppOptions {
   readonly interactions?: { readonly service?: InteractionService };
   readonly reports?: { readonly create?: CreateReport };
   readonly social?: { readonly service?: SocialService };
+  readonly conversations?: { readonly service?: ConversationService };
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -51,7 +53,7 @@ const requestId: RequestHandler = (request, response, next) => {
   next();
 };
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -69,8 +71,11 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use('/api/v1', interactionRouter({ service: interactionService }, identityRepositories));
   const reportCreate = reports?.create ?? new CreateReport(createMemoryReportRepository(), { async canReport() { return true; } });
   app.use('/api/v1', reportRouter({ create: reportCreate }, identityRepositories));
-  const socialService = social?.service ?? new SocialService(createMemorySocialRepository());
+  const socialRepository = createMemorySocialRepository();
+  const socialService = social?.service ?? new SocialService(socialRepository);
   app.use('/api/v1', socialRouter({ service: socialService }, identityRepositories));
+  const conversationService = conversations?.service ?? new ConversationService(createMemoryConversationRepository(), socialRepository);
+  app.use('/api/v1', conversationRouter({ service: conversationService }, identityRepositories));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);
   app.use(errorHandler);

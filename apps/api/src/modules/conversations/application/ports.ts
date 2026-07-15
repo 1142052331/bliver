@@ -67,6 +67,7 @@ export interface ConversationIdempotencyRecord {
 export interface ConversationRepository {
   findById(id: string): Promise<ConversationRecord | null>;
   findByParticipants(left: UserId, right: UserId): Promise<ConversationRecord | null>;
+  listForUser(userId: UserId): Promise<ConversationRecord[]>;
   create(input: ConversationRecord): Promise<ConversationRecord>;
   updateState(id: string, state: ConversationState, at: Date): Promise<ConversationRecord>;
   hide(id: string, userId: UserId, at: Date): Promise<void>;

@@ -113,6 +113,11 @@ describe('V2 contracts', () => {
       '/api/v1/blocks',
       '/api/v1/blocks/{userId}',
       '/api/v1/comments/{commentId}',
+      '/api/v1/conversations',
+      '/api/v1/conversations/{conversationId}/messages',
+      '/api/v1/conversations/{conversationId}/read',
+      '/api/v1/conversations/{conversationId}/reply',
+      '/api/v1/conversations/{conversationId}/typing',
       '/api/v1/discovery/map',
       '/api/v1/footprints',
       '/api/v1/footprints/{footprintId}',
@@ -136,6 +141,7 @@ describe('V2 contracts', () => {
       '/api/v1/session',
       '/api/v1/sessions',
       '/api/v1/users/me',
+      '/api/v1/users/{userId}/greetings',
       '/healthz',
       '/readyz',
       '/versionz',
@@ -152,6 +158,7 @@ describe('V2 contracts', () => {
     expect(document.paths?.['/api/v1/footprints/{footprintId}/comments/{commentId}/replies']?.post?.responses?.[201]).toBeDefined();
     expect(document.paths?.['/api/v1/comments/{commentId}']?.delete?.responses?.[204]).toBeDefined();
     expect(document.paths?.['/api/v1/friendships']?.post?.responses?.[201]).toBeDefined();
+    expect(document.paths?.['/api/v1/conversations/{conversationId}/messages']?.get?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/relationships/{userId}']?.get?.responses?.[404]).toBeDefined();
     expect(document.paths?.['/api/v1/places/search']?.get?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/location/resolve']?.post?.responses?.[200]).toBeDefined();

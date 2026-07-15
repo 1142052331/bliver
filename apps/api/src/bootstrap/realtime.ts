@@ -2,6 +2,9 @@ import type { Server as SocketServer, Socket } from 'socket.io';
 
 import { resolveSession } from '../modules/identity/application/commands.js';
 import type { IdentityRepositories } from '../modules/identity/application/ports.js';
+import { socketMessageInput, socketReadInput, socketTypingInput } from '@bliver/contracts';
+import { parseUserId } from '@bliver/domain';
+import type { ConversationService } from '../modules/conversations/index.js';
 
 function cookieToken(socket: Socket): string | undefined {
   const cookie = socket.request.headers.cookie ?? '';
@@ -9,7 +12,36 @@ function cookieToken(socket: Socket): string | undefined {
   return value ? decodeURIComponent(value.slice('bliver_session='.length)) : undefined;
 }
 
-export function configureRealtime(io: SocketServer, identity: IdentityRepositories): void {
+export interface ConversationRealtimeEmitter { to(room: string): { emit(event: string, payload: unknown): unknown }; }
+export function createConversationSocketHandlers(service: ConversationService, io: ConversationRealtimeEmitter) {
+  const deliver = (conversation: { participantLowId: string; participantHighId: string }, event: string, payload: unknown): void => { io.to(`user:${conversation.participantLowId}`).emit(event, payload); io.to(`user:${conversation.participantHighId}`).emit(event, payload); };
+  return {
+    async message(actorId: string, payload: unknown) {
+      const parsed = socketMessageInput.safeParse(payload); if (!parsed.success) throw new Error('INVALID_REQUEST');
+      const message = await service.sendMessage(parseUserId(actorId), parsed.data.conversationId, parsed.data.content, { ...(parsed.data.moderation ? { moderation: parsed.data.moderation } : {}), ...(parsed.data.idempotencyKey ? { idempotency: { key: parsed.data.idempotencyKey, fingerprint: JSON.stringify(parsed.data) } } : {}) });
+      const conversation = await service.getConversation(parseUserId(actorId), parsed.data.conversationId);
+      const dto = { ...message, senderId: message.senderId, sentAt: message.sentAt.toISOString() };
+      deliver(conversation, 'conversation:message', dto);
+      return dto;
+    },
+    async typing(actorId: string, payload: unknown) {
+      const parsed = socketTypingInput.safeParse(payload); if (!parsed.success) throw new Error('INVALID_REQUEST');
+      await service.setTyping(parseUserId(actorId), parsed.data.conversationId, parsed.data.active, parsed.data.ttlMs);
+      const conversation = await service.getConversation(parseUserId(actorId), parsed.data.conversationId);
+      deliver(conversation, 'conversation:presence', { conversationId: parsed.data.conversationId, userId: actorId, active: parsed.data.active });
+      return { conversationId: parsed.data.conversationId, active: parsed.data.active };
+    },
+    async read(actorId: string, payload: unknown) {
+      const parsed = socketReadInput.safeParse(payload); if (!parsed.success) throw new Error('INVALID_REQUEST');
+      await service.markRead(parseUserId(actorId), parsed.data.conversationId, parsed.data.messageId);
+      const conversation = await service.getConversation(parseUserId(actorId), parsed.data.conversationId);
+      deliver(conversation, 'conversation:read', { conversationId: parsed.data.conversationId, messageId: parsed.data.messageId, userId: actorId });
+      return { conversationId: parsed.data.conversationId, messageId: parsed.data.messageId };
+    },
+  };
+}
+
+export function configureRealtime(io: SocketServer, identity: IdentityRepositories, conversations?: ConversationService): void {
   io.use(async (socket, next) => {
     const bearer = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
     const token = bearer ?? cookieToken(socket);
@@ -22,6 +54,12 @@ export function configureRealtime(io: SocketServer, identity: IdentityRepositori
   io.on('connection', (socket) => {
     const userId = socket.data.userId;
     if (typeof userId === 'string') socket.join(`user:${userId}`);
+    if (conversations && typeof userId === 'string') {
+      const handlers = createConversationSocketHandlers(conversations, io);
+      socket.on('conversation:message', (payload: unknown, acknowledge?: (result: unknown) => void) => { void handlers.message(userId, payload).then((result) => acknowledge?.({ ok: true, message: result })).catch((error: unknown) => acknowledge?.({ ok: false, code: error instanceof Error ? error.message : 'CONVERSATION_UNAVAILABLE' })); });
+      socket.on('conversation:typing', (payload: unknown, acknowledge?: (result: unknown) => void) => { void handlers.typing(userId, payload).then((result) => acknowledge?.({ ok: true, ...result })).catch((error: unknown) => acknowledge?.({ ok: false, code: error instanceof Error ? error.message : 'CONVERSATION_UNAVAILABLE' })); });
+      socket.on('conversation:read', (payload: unknown, acknowledge?: (result: unknown) => void) => { void handlers.read(userId, payload).then((result) => acknowledge?.({ ok: true, ...result })).catch((error: unknown) => acknowledge?.({ ok: false, code: error instanceof Error ? error.message : 'CONVERSATION_UNAVAILABLE' })); });
+    }
   });
 }
 
