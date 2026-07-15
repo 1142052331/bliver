@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { fetchMemories, fetchPhotos, fetchTimeline, fetchVisitors } from './api.js';
 import './memories.css';
 
-function Loading() { return <section className="memories-route" aria-busy="true"><h1>Memories</h1><p role="status">Loading memories</p></section>; }
+function Loading({ title = 'My space' }: { readonly title?: string }) { return <section className="memories-route" aria-busy="true"><h1>{title}</h1><p role="status">Loading memories</p><p>Pending migration</p></section>; }
 function ErrorState({ retry }: { retry: () => void }) { return <section className="memories-route"><h1>Memories unavailable</h1><p>We could not load this view.</p><button type="button" onClick={retry}>Try again</button></section>; }
 const tabs = [['/me', 'Overview'], ['/me/map', 'Map'], ['/me/timeline', 'Timeline'], ['/me/photos', 'Photos'], ['/me/visitors', 'Visitors']] as const;
 export function MemoriesRoute() {
@@ -14,7 +14,7 @@ export function MemoriesRoute() {
   const timeline = useQuery<Awaited<ReturnType<typeof fetchTimeline>>>({ queryKey: ['memories', 'timeline', base], queryFn: () => fetchTimeline(), enabled: location.pathname.endsWith('/timeline') });
   const photos = useQuery<Awaited<ReturnType<typeof fetchPhotos>>>({ queryKey: ['memories', 'photos', base], queryFn: () => fetchPhotos(), enabled: location.pathname.endsWith('/photos') });
   const visitors = useQuery({ queryKey: ['memories', 'visitors'], queryFn: fetchVisitors, enabled: location.pathname.endsWith('/visitors') });
-  if (overview.isLoading || timeline.isLoading || photos.isLoading || visitors.isLoading) return <Loading />;
+  if (overview.isLoading || timeline.isLoading || photos.isLoading || visitors.isLoading) return <Loading title={userId ? 'Profile' : 'My space'} />;
   if (overview.isError || timeline.isError || photos.isError || visitors.isError) return <ErrorState retry={() => { void overview.refetch(); void timeline.refetch(); void photos.refetch(); void visitors.refetch(); }} />;
   const map = overview.data?.map ?? [];
   const summary = overview.data?.summary;

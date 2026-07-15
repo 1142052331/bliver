@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import type { ActorContext } from '../../identity/index.js';
 import type { NotificationDto, NotificationPreferences, NotificationRecord, NotificationRepository, PushSubscription } from './types.js';
 
 export interface NotificationEvent { readonly id: string; readonly type: string; readonly payload: Record<string, unknown>; }
@@ -7,7 +6,7 @@ export interface NotificationPolicy { isBlocked?(recipientId: string, actorId: s
 export class NotificationService {
   constructor(private readonly repository: NotificationRepository, private readonly policy: NotificationPolicy = {}) {}
   async consume(event: NotificationEvent): Promise<NotificationDto | null> {
-    const p = event.payload; const recipientId = String(p.recipientId ?? p.targetUserId ?? ''); if (!recipientId) return null;
+    const p = event.payload; const recipientId = String(p.recipientId ?? p.targetUserId ?? p.authorId ?? p.ownerId ?? p.recipient ?? ''); if (!recipientId) return null;
     const actorId = p.actorId ? String(p.actorId) : undefined; if (actorId && actorId !== recipientId && await this.policy.isBlocked?.(recipientId, actorId)) return null;
     const type = this.mapType(event.type); if (!type || !(await this.repository.preferences(recipientId))[this.prefKey(type)]) return null;
     const existing = await this.repository.findByDedupe(recipientId, event.id); if (existing) return this.dto(existing);
