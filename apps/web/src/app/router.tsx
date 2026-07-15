@@ -25,6 +25,7 @@ import { ActivityRoute } from '../features/activity/ActivityRoute.js';
 import { LoginRoute } from '../features/auth/LoginRoute.js';
 import { PeopleRoute } from '../features/social/PeopleRoute.js';
 import { ConversationRoute, MessagesRoute } from '../features/conversations/routes.js';
+import { MemoriesRoute } from '../features/memories/index.js';
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
 function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to="/login" state={{ from: destination }}>Continue to sign in</Link></section>; }
@@ -48,8 +49,17 @@ const routes = [
       { path: 'people', element: <PeopleRoute /> },
       { path: 'messages', element: <MessagesRoute /> },
       { path: 'messages/:conversationId', element: <ConversationRoute /> },
-      { path: 'me', element: <RoutePlaceholder title="My space" /> },
-      { path: 'profile/:userId', element: <RoutePlaceholder title="Profile" /> },
+      { path: 'me', element: <MemoriesRoute /> },
+      { path: 'me/map', element: <MemoriesRoute /> },
+      { path: 'me/timeline', element: <MemoriesRoute /> },
+      { path: 'me/photos', element: <MemoriesRoute /> },
+      { path: 'me/visitors', element: <MemoriesRoute /> },
+      { path: 'profile/:userId/memories', element: <MemoriesRoute /> },
+      { path: 'profile/:userId/memories/map', element: <MemoriesRoute /> },
+      { path: 'profile/:userId/memories/timeline', element: <MemoriesRoute /> },
+      { path: 'profile/:userId/memories/photos', element: <MemoriesRoute /> },
+      { path: 'profile/:userId/memories/visitors', element: <MemoriesRoute /> },
+      { path: 'profile/:userId', element: <MemoriesRoute /> },
       {
         path: 'footprints/:footprintId',
         element: <FootprintRoute />,
