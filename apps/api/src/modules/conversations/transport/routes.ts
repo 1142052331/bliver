@@ -4,7 +4,7 @@ import { Router, type Request, type Response } from 'express';
 
 import { requireActor, validMutationCsrf, type ActorContext } from '../../identity/index.js';
 import type { IdentityRepositories } from '../../identity/application/ports.js';
-import type { ConversationRecord, MessageRecord } from '../application/ports.js';
+import type { ConversationListRecord, ConversationRecord, MessageRecord } from '../application/ports.js';
 import { ConversationError, type ConversationCommandOptions, type ConversationService } from '../application/service.js';
 
 type AuthenticatedRequest = Request & { actor: ActorContext };
@@ -12,7 +12,7 @@ function problem(response: Response, request: Request, status: number, code: str
 function actorId(request: Request) { return parseUserId((request as AuthenticatedRequest).actor.userId); }
 function mutationAllowed(request: Request, response: Response): boolean { if (validMutationCsrf(request, (request as AuthenticatedRequest).actor)) return true; problem(response, request, 403, 'CSRF_ORIGIN_INVALID'); return false; }
 function command(request: Request, fingerprint: object): ConversationCommandOptions | undefined { const key = request.get('idempotency-key')?.trim(); return key ? { key, fingerprint: JSON.stringify(fingerprint) } : undefined; }
-function conversationDto(item: ConversationRecord) { return { id: item.id, participantLowId: item.participantLowId, participantHighId: item.participantHighId, initiatorId: item.initiatorId, state: item.state, createdAt: item.createdAt.toISOString(), updatedAt: item.updatedAt.toISOString() }; }
+function conversationDto(item: ConversationRecord | ConversationListRecord) { return { id: item.id, participantLowId: item.participantLowId, participantHighId: item.participantHighId, initiatorId: item.initiatorId, state: item.state, createdAt: item.createdAt.toISOString(), updatedAt: item.updatedAt.toISOString(), ...('unreadCount' in item ? { unreadCount: item.unreadCount, ...(item.lastMessage ? { lastMessage: messageDto(item.lastMessage) } : {}) } : {}) }; }
 function messageDto(item: MessageRecord) { return { id: item.id, conversationId: item.conversationId, senderId: item.senderId, content: item.content, kind: item.kind, sentAt: item.sentAt.toISOString(), eventId: item.eventId, moderation: item.moderation }; }
 function cursorEncode(item: MessageRecord): string { return Buffer.from(JSON.stringify({ sentAt: item.sentAt.toISOString(), id: item.id }), 'utf8').toString('base64url'); }
 function cursorDecode(value: string | undefined): { sentAt: Date; id: string } | undefined { if (!value) return undefined; try { const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as { sentAt?: string; id?: string }; if (!parsed.sentAt || !parsed.id) return undefined; const sentAt = new Date(parsed.sentAt); return Number.isNaN(sentAt.getTime()) ? undefined : { sentAt, id: parsed.id }; } catch { return undefined; } }

@@ -6,6 +6,7 @@ import type {
   ConversationCommandIdempotency,
   ConversationEvent,
   ConversationRecord,
+  ConversationListRecord,
   ConversationRepository,
   ConversationState,
   MessageRecord,
@@ -36,6 +37,12 @@ function storedPair(value: unknown): { conversation: ConversationRecord; message
   return { conversation: storedConversation(row.conversation), message: storedMessage(row.message) };
 }
 
+function listRecord(row: Row): ConversationListRecord {
+  const item = conversation(row);
+  const last = row.last_message && typeof row.last_message === 'object' ? message(row.last_message as Row) : undefined;
+  return { ...item, unreadCount: Number(row.unread_count ?? 0), ...(last ? { lastMessage: last } : {}) };
+}
+
 async function outbox(client: DatabaseQueryPort, event: ConversationEvent): Promise<void> {
   await client.query('INSERT INTO platform.outbox_events (id,type,aggregate_id,payload,created_at) VALUES ($1,$2,$3,$4,$5)', [event.id, event.type, event.aggregateId, JSON.stringify(event.payload), new Date(event.occurredAt)]);
 }
@@ -57,7 +64,10 @@ export function createPostgresConversationRepository(db: DatabaseClient): Conver
   const repository: ConversationRepository = {
     async findById(id) { const result = await db.query<Row>('SELECT id,participant_low_id,participant_high_id,initiator_id,state,created_at,updated_at FROM conversations WHERE id=$1', [id]); return result.rows[0] ? conversation(result.rows[0]) : null; },
     async findByParticipants(left, right) { const [low, high] = [left, right].sort(); const result = await db.query<Row>('SELECT id,participant_low_id,participant_high_id,initiator_id,state,created_at,updated_at FROM conversations WHERE participant_low_id=$1 AND participant_high_id=$2', [low, high]); return result.rows[0] ? conversation(result.rows[0]) : null; },
-    async listForUser(userId) { const result = await db.query<Row>('SELECT c.id,c.participant_low_id,c.participant_high_id,c.initiator_id,c.state,c.created_at,c.updated_at FROM conversations c JOIN conversation_participants p ON p.conversation_id=c.id AND p.user_id=$1 WHERE p.hidden_at IS NULL ORDER BY c.updated_at DESC,c.id DESC', [userId]); return result.rows.map(conversation); },
+    async listForUser(userId) { const result = await db.query<Row>(`SELECT c.id,c.participant_low_id,c.participant_high_id,c.initiator_id,c.state,c.created_at,c.updated_at,
+      (SELECT COUNT(*)::int FROM messages unread_message WHERE unread_message.conversation_id=c.id AND unread_message.sender_id<>$1 AND NOT EXISTS (SELECT 1 FROM message_receipts unread_receipt WHERE unread_receipt.conversation_id=unread_message.conversation_id AND unread_receipt.message_id=unread_message.id AND unread_receipt.user_id=$1)) AS unread_count,
+      (SELECT json_build_object('id',last_message.id,'conversation_id',last_message.conversation_id,'sender_id',last_message.sender_id,'content',last_message.content,'kind',last_message.kind,'sent_at',last_message.sent_at,'event_id',last_message.event_id,'moderation_status',last_message.moderation_status,'moderation_labels',last_message.moderation_labels) FROM messages last_message WHERE last_message.conversation_id=c.id ORDER BY last_message.sent_at DESC,last_message.id DESC LIMIT 1) AS last_message
+      FROM conversations c JOIN conversation_participants p ON p.conversation_id=c.id AND p.user_id=$1 WHERE p.hidden_at IS NULL ORDER BY c.updated_at DESC,c.id DESC`, [userId]); return result.rows.map(listRecord); },
     async create(input) {
       return db.transaction(async (client) => {
         const inserted = await client.query<Row>('INSERT INTO conversations (id,participant_low_id,participant_high_id,initiator_id,state,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (participant_low_id,participant_high_id) DO NOTHING RETURNING id,participant_low_id,participant_high_id,initiator_id,state,created_at,updated_at', [input.id, input.participantLowId, input.participantHighId, input.initiatorId, input.state, input.createdAt, input.updatedAt]);
@@ -117,7 +127,7 @@ export function createPostgresConversationRepository(db: DatabaseClient): Conver
         });
       },
       async hide(input) { await db.transaction(async (client) => { await client.query('UPDATE conversation_participants SET hidden_at=$3 WHERE conversation_id=$1 AND user_id=$2', [input.conversationId, input.userId, input.at]); await outbox(client, input.event); }); },
-      async markRead(input) { await db.transaction(async (client) => { await client.query('INSERT INTO message_receipts (conversation_id,message_id,user_id,read_at) VALUES ($1,$2,$3,$4) ON CONFLICT (conversation_id,message_id,user_id) DO UPDATE SET read_at=EXCLUDED.read_at', [input.receipt.conversationId, input.receipt.messageId, input.receipt.userId, input.receipt.readAt]); await outbox(client, input.event); }); },
+      async markRead(input) { await db.transaction(async (client) => { const existing = await client.query('SELECT 1 FROM message_receipts WHERE conversation_id=$1 AND message_id=$2 AND user_id=$3', [input.receipt.conversationId, input.receipt.messageId, input.receipt.userId]); if (existing.rowCount) return; await client.query('INSERT INTO message_receipts (conversation_id,message_id,user_id,read_at) VALUES ($1,$2,$3,$4)', [input.receipt.conversationId, input.receipt.messageId, input.receipt.userId, input.receipt.readAt]); await outbox(client, input.event); }); },
     },
   };
   return repository;

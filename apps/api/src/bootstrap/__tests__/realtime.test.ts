@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { Server as SocketServer } from 'socket.io';
 import { io as socketClient, type Socket } from 'socket.io-client';
-import { authenticateUser, registerUser } from '../../modules/identity/application/commands.js';
+import { authenticateUser, registerUser, revokeSession } from '../../modules/identity/application/commands.js';
 import { createMemoryIdentityRepositories } from '../../modules/identity/application/memory-repositories.js';
 import { ConversationService, createMemoryConversationRepository } from '../../modules/conversations/index.js';
 import { parseUserId } from '@bliver/domain';
@@ -51,6 +51,9 @@ describe('realtime privacy boundary', () => {
       expect(replay).toEqual({ ok: true, message: expect.objectContaining({ eventId: ack.message?.eventId }) });
       const invalid = await new Promise<{ ok: boolean; code?: string }>((resolve) => clients[0]!.emit('conversation:message', { conversationId: conversation.id, content: '' }, resolve));
       expect(invalid).toEqual({ ok: false, code: 'INVALID_REQUEST' });
+      await revokeSession(identity, aliceGrant.session.id);
+      const revoked = await new Promise<{ ok: boolean; code?: string }>((resolve) => clients[0]!.emit('conversation:message', { conversationId: conversation.id, content: 'after revoke', idempotencyKey: 'socket-message-revoked' }, resolve));
+      expect(revoked).toEqual({ ok: false, code: 'AUTH_REQUIRED' });
     } finally {
       for (const client of clients) client.close();
       await new Promise<void>((resolve) => io.close(() => resolve()));

@@ -4,6 +4,7 @@ import type {
   ConversationCommandIdempotency,
   ConversationEvent,
   ConversationRecord,
+  ConversationListRecord,
   ConversationRepository,
   MessageModerationMetadata,
   MessageRecord,
@@ -163,8 +164,15 @@ export class ConversationService {
     return this.repository.listMessages(conversationId, limit, cursor);
   }
 
-  async listConversations(actorId: UserId): Promise<ConversationRecord[]> {
-    return this.repository.listForUser(actorId);
+  async listConversations(actorId: UserId): Promise<ConversationListRecord[]> {
+    const conversations = await this.repository.listForUser(actorId);
+    const visible: ConversationListRecord[] = [];
+    for (const conversation of conversations) {
+      const targetId = conversation.participantLowId === actorId ? conversation.participantHighId : conversation.participantLowId;
+      if (await this.relationships.isBlocked(actorId, targetId)) continue;
+      visible.push(conversation);
+    }
+    return visible;
   }
 
   async getConversation(actorId: UserId, conversationId: string): Promise<ConversationRecord> {

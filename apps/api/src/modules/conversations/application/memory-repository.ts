@@ -3,6 +3,7 @@ import type { UserId } from '@bliver/domain';
 import type {
   ConversationEvent,
   ConversationIdempotencyRecord,
+  ConversationListRecord,
   ConversationRecord,
   ConversationRepository,
   ConversationState,
@@ -25,7 +26,16 @@ export function createMemoryConversationRepository(): ConversationRepository {
   const repository: ConversationRepository = {
     async findById(id) { return conversations.get(id) ?? null; },
     async findByParticipants(left, right) { const id = pairs.get(pair(left, right)); return id ? conversations.get(id) ?? null : null; },
-    async listForUser(userId) { return [...conversations.values()].filter((item) => item.participantLowId === userId || item.participantHighId === userId).sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime() || right.id.localeCompare(left.id)).filter((item) => !hidden.has(`${item.id}:${userId}`)); },
+    async listForUser(userId): Promise<ConversationListRecord[]> {
+      return [...conversations.values()]
+        .filter((item) => (item.participantLowId === userId || item.participantHighId === userId) && !hidden.has(`${item.id}:${userId}`))
+        .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime() || right.id.localeCompare(left.id))
+        .map((item) => {
+          const ordered = [...(messages.get(item.id) ?? [])].sort((left, right) => right.sentAt.getTime() - left.sentAt.getTime() || right.id.localeCompare(left.id));
+          const unreadCount = ordered.filter((message) => message.senderId !== userId && !receipts.some((receipt) => receipt.conversationId === item.id && receipt.messageId === message.id && receipt.userId === userId)).length;
+          return { ...item, unreadCount, ...(ordered[0] ? { lastMessage: ordered[0] } : {}) };
+        });
+    },
     async create(input) { const existing = await repository.findByParticipants(input.participantLowId, input.participantHighId); if (existing) return existing; conversations.set(input.id, input); pairs.set(pair(input.participantLowId, input.participantHighId), input.id); messages.set(input.id, []); return input; },
     async updateState(id, state: ConversationState, at) { const current = conversations.get(id); if (!current) throw new Error('CONVERSATION_NOT_FOUND'); const updated = { ...current, state, updatedAt: at }; conversations.set(id, updated); return updated; },
     async hide(id, userId) { hidden.add(`${id}:${userId}`); },
@@ -66,7 +76,7 @@ export function createMemoryConversationRepository(): ConversationRepository {
         return updated;
       },
       async hide(input) { await repository.hide(input.conversationId, input.userId, input.at); await repository.appendEvent(input.event); },
-      async markRead(input) { await repository.saveReceipt(input.receipt); await repository.appendEvent(input.event); },
+      async markRead(input) { if (receipts.some((receipt) => receipt.conversationId === input.receipt.conversationId && receipt.messageId === input.receipt.messageId && receipt.userId === input.receipt.userId)) return; await repository.saveReceipt(input.receipt); await repository.appendEvent(input.event); },
     },
   };
   void hidden;

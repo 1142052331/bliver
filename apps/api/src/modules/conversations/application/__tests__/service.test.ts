@@ -83,4 +83,21 @@ describe('conversation state machine', () => {
     await expect(service.sendMessage(sender, conversation.id, ' ')).rejects.toMatchObject({ code: 'MESSAGE_CONTENT_INVALID' });
     await expect(service.sendMessage(sender, conversation.id, 'x'.repeat(2_001))).rejects.toMatchObject({ code: 'MESSAGE_CONTENT_INVALID' });
   });
+
+  it('returns unread counts and hides conversations after either-direction block', async () => {
+    const sender = createUserId();
+    const recipient = createUserId();
+    const pair = [sender, recipient].sort().join(':');
+    let blocked = false;
+    const repository = createMemoryConversationRepository();
+    const relationship = { ...relationships([pair]), async isBlocked() { return blocked; } };
+    const service = new ConversationService(repository, relationship);
+    const conversation = await service.getOrCreateDirectConversation(sender, recipient);
+    const message = await service.sendMessage(sender, conversation.id, 'unread');
+    await expect(service.listConversations(recipient)).resolves.toEqual([expect.objectContaining({ id: conversation.id, unreadCount: 1, lastMessage: expect.objectContaining({ id: message.id }) })]);
+    await service.markRead(recipient, conversation.id, message.id);
+    await expect(service.listConversations(recipient)).resolves.toEqual([expect.objectContaining({ id: conversation.id, unreadCount: 0 })]);
+    blocked = true;
+    await expect(service.listConversations(recipient)).resolves.toEqual([]);
+  });
 });

@@ -49,6 +49,7 @@ export function configureRealtime(io: SocketServer, identity: IdentityRepositori
     const session = await resolveSession(identity, token);
     if (!session) { next(new Error('AUTH_REQUIRED')); return; }
     socket.data.userId = session.user.id;
+    socket.data.sessionToken = token;
     next();
   });
   io.on('connection', (socket) => {
@@ -56,9 +57,11 @@ export function configureRealtime(io: SocketServer, identity: IdentityRepositori
     if (typeof userId === 'string') socket.join(`user:${userId}`);
     if (conversations && typeof userId === 'string') {
       const handlers = createConversationSocketHandlers(conversations, io);
-      socket.on('conversation:message', (payload: unknown, acknowledge?: (result: unknown) => void) => { void handlers.message(userId, payload).then((result) => acknowledge?.({ ok: true, message: result })).catch((error: unknown) => acknowledge?.({ ok: false, code: error instanceof Error ? error.message : 'CONVERSATION_UNAVAILABLE' })); });
-      socket.on('conversation:typing', (payload: unknown, acknowledge?: (result: unknown) => void) => { void handlers.typing(userId, payload).then((result) => acknowledge?.({ ok: true, ...result })).catch((error: unknown) => acknowledge?.({ ok: false, code: error instanceof Error ? error.message : 'CONVERSATION_UNAVAILABLE' })); });
-      socket.on('conversation:read', (payload: unknown, acknowledge?: (result: unknown) => void) => { void handlers.read(userId, payload).then((result) => acknowledge?.({ ok: true, ...result })).catch((error: unknown) => acknowledge?.({ ok: false, code: error instanceof Error ? error.message : 'CONVERSATION_UNAVAILABLE' })); });
+      const ensureSession = async (): Promise<void> => { const token = socket.data.sessionToken; const session = typeof token === 'string' ? await resolveSession(identity, token) : null; if (!session || session.user.id !== userId) throw new Error('AUTH_REQUIRED'); };
+      const failure = (acknowledge: ((result: unknown) => void) | undefined, error: unknown): void => { const code = error instanceof Error ? error.message : 'CONVERSATION_UNAVAILABLE'; acknowledge?.({ ok: false, code }); if (code === 'AUTH_REQUIRED') socket.disconnect(true); };
+      socket.on('conversation:message', (payload: unknown, acknowledge?: (result: unknown) => void) => { void ensureSession().then(() => handlers.message(userId, payload)).then((result) => acknowledge?.({ ok: true, message: result })).catch((error: unknown) => failure(acknowledge, error)); });
+      socket.on('conversation:typing', (payload: unknown, acknowledge?: (result: unknown) => void) => { void ensureSession().then(() => handlers.typing(userId, payload)).then((result) => acknowledge?.({ ok: true, ...result })).catch((error: unknown) => failure(acknowledge, error)); });
+      socket.on('conversation:read', (payload: unknown, acknowledge?: (result: unknown) => void) => { void ensureSession().then(() => handlers.read(userId, payload)).then((result) => acknowledge?.({ ok: true, ...result })).catch((error: unknown) => failure(acknowledge, error)); });
     }
   });
 }
