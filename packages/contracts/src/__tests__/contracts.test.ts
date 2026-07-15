@@ -110,10 +110,12 @@ describe('V2 contracts', () => {
       '/api/v1/auth/logout',
       '/api/v1/auth/refresh',
       '/api/v1/auth/register',
+      '/api/v1/comments/{commentId}',
       '/api/v1/discovery/map',
       '/api/v1/footprints',
       '/api/v1/footprints/{footprintId}',
       '/api/v1/footprints/{footprintId}/comments',
+      '/api/v1/footprints/{footprintId}/comments/{commentId}/replies',
       '/api/v1/footprints/{footprintId}/reactions',
       '/api/v1/footprints/{footprintId}/visibility',
       '/api/v1/location/resolve',
@@ -138,6 +140,9 @@ describe('V2 contracts', () => {
     expect(document.paths?.['/api/v1/footprints/{footprintId}']?.get?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/footprints/{footprintId}/visibility']?.patch?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/footprints/{footprintId}']?.delete?.responses?.[204]).toBeDefined();
+    expect(document.paths?.['/api/v1/footprints/{footprintId}/reactions']?.delete?.responses?.[204]).toBeDefined();
+    expect(document.paths?.['/api/v1/footprints/{footprintId}/comments/{commentId}/replies']?.post?.responses?.[201]).toBeDefined();
+    expect(document.paths?.['/api/v1/comments/{commentId}']?.delete?.responses?.[204]).toBeDefined();
     expect(document.paths?.['/api/v1/places/search']?.get?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/location/resolve']?.post?.responses?.[200]).toBeDefined();
     const queryParameters = document.paths?.['/api/v1/map/footprints']?.get?.parameters ?? [];

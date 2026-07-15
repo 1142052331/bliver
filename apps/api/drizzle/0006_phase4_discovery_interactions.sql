@@ -72,7 +72,17 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-CREATE TRIGGER footprint_comments_depth_trigger BEFORE INSERT OR UPDATE OF parent_comment_id, footprint_id ON footprint_comments FOR EACH ROW EXECUTE FUNCTION enforce_footprint_comment_depth();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'footprint_comments_depth_trigger'
+      AND tgrelid = 'footprint_comments'::regclass
+  ) THEN
+    CREATE TRIGGER footprint_comments_depth_trigger BEFORE INSERT OR UPDATE OF parent_comment_id, footprint_id ON footprint_comments FOR EACH ROW EXECUTE FUNCTION enforce_footprint_comment_depth();
+  END IF;
+END;
+$$;
 CREATE TABLE IF NOT EXISTS reports (
   id uuid PRIMARY KEY,
   footprint_id uuid NOT NULL REFERENCES footprints(id) ON DELETE CASCADE,

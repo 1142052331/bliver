@@ -36,6 +36,8 @@ export function createPostgresDiscoveryRepository(db: DatabaseClient): Discovery
       }
       if (input.scope === 'region' && input.regionId) predicates.push(`d.region_id = ${add(input.regionId)}`);
       if (input.scope === 'country' && input.countryCode) predicates.push(`d.country_code = ${add(input.countryCode)}`);
+      if (input.excludeRegionId) predicates.push(`d.region_id IS DISTINCT FROM ${add(input.excludeRegionId)}`);
+      if (input.excludeCountryCode) predicates.push(`d.country_code IS DISTINCT FROM ${add(input.excludeCountryCode)}`);
       if (input.relationship === 'public') predicates.push(`d.visibility = 'public'`);
       if (input.content === 'media') predicates.push('d.has_media = true');
       if (input.query) predicates.push(`d.message ILIKE ${add(`%${input.query}%`)}`);

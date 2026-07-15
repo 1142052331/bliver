@@ -41,4 +41,14 @@ describe('outbox worker', () => {
     await expect(outbox.claim(129)).resolves.toBeNull();
     await expect(outbox.claim(130)).resolves.toMatchObject({ attempts: 2, claimedAt: 130 });
   });
+  it('does not let a stale claim acknowledge a reclaimed event', async () => {
+    const outbox = new InMemoryOutbox(30);
+    await outbox.append({ id: 'event-claim', type: 'FootprintPublished', aggregateId: 'footprint-claim', payload: {} });
+    const first = await outbox.claim(100);
+    const second = await outbox.claim(130);
+    await outbox.markProcessed('event-claim', first!.claimedAt, 131);
+    expect((await outbox.list())[0]?.processedAt).toBeUndefined();
+    await outbox.markProcessed('event-claim', second!.claimedAt, 132);
+    expect((await outbox.list())[0]?.processedAt).toBe(132);
+  });
 });

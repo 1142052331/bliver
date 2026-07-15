@@ -10,6 +10,32 @@ describe('InteractionService', () => {
   it('replaces a reaction instead of creating a second actor row', async () => { const { service } = makeService(); await service.addReaction(actor, footprint, 'heart'); await service.addReaction(actor, footprint, 'laugh'); await expect(service.listReactions(actor, footprint)).resolves.toHaveLength(1); await expect(service.listReactions(actor, footprint)).resolves.toMatchObject([{ emoji: 'laugh' }]); });
   it('rejects a reply to a reply and orders top-level comments chronologically', async () => { const { service } = makeService(); const first = await service.addComment(actor, { footprintId: footprint, content: 'first' }); const second = await service.addComment(actor, { footprintId: footprint, content: 'second' }); await expect(service.addReply(actor, footprint, first.id, 'reply')).resolves.toMatchObject({ parentCommentId: first.id }); await expect(service.addReply(actor, footprint, first.id, 'reply 2')).resolves.toBeDefined(); const reply = (await service.listComments(actor, footprint)).find((item) => item.parentCommentId); expect(reply).toBeDefined(); await expect(service.addComment(actor, { footprintId: footprint, content: 'too deep', parentCommentId: reply!.id })).rejects.toThrow('COMMENT_DEPTH_INVALID'); expect((await service.listComments(actor, footprint)).filter((item) => !item.parentCommentId)).toMatchObject([{ id: first.id }, { id: second.id }]); });
   it('blocks reactions and comments for a blocked actor', async () => { const { service } = makeService(true); await expect(service.addReaction(actor, footprint, 'heart')).rejects.toThrow('BLOCKED'); await expect(service.addComment(actor, { footprintId: footprint, content: 'nope' })).rejects.toThrow('BLOCKED'); });
+  it('allows the footprint owner to delete another author comment', async () => {
+    const repository = createMemoryInteractionRepository();
+    const owner = createUserId();
+    const author = createUserId();
+    const service = new InteractionService(repository, { async canInteract() { return true; }, async isBlocked() { return false; }, async footprintOwner() { return owner; } });
+    const comment = await service.addComment({ ...actor, userId: author }, { footprintId: footprint, content: 'remove me' });
+    await expect(service.deleteComment({ ...actor, userId: owner }, comment.id)).resolves.toBeUndefined();
+    await expect(service.listComments({ ...actor, userId: owner }, footprint)).resolves.toEqual([]);
+  });
+  it('rejects replies to soft-deleted comments', async () => {
+    const { service } = makeService();
+    const comment = await service.addComment(actor, { footprintId: footprint, content: 'remove me' });
+    await service.deleteComment(actor, comment.id);
+    await expect(service.addReply(actor, footprint, comment.id, 'too late')).rejects.toThrow('COMMENT_PARENT_INVALID');
+  });
+  it('filters comments and reactions authored by blocked users from conversation reads', async () => {
+    const repository = createMemoryInteractionRepository();
+    const blocked = createUserId();
+    const service = new InteractionService(repository, { async canInteract() { return true; }, async canRead() { return true; }, async isBlocked(_actorId, targetId) { return targetId === blocked; }, async footprintOwner() { return user; } });
+    const blockedActor = { ...actor, userId: blocked };
+    await service.addComment(blockedActor, { footprintId: footprint, content: 'hidden' });
+    await service.addReaction(blockedActor, footprint, 'heart');
+    await service.addComment(actor, { footprintId: footprint, content: 'visible' });
+    await expect(service.listComments(actor, footprint)).resolves.toMatchObject([{ content: 'visible' }]);
+    await expect(service.listReactions(actor, footprint)).resolves.toEqual([]);
+  });
   it('returns one winner for concurrent idempotent comment commits', async () => { const base = createMemoryInteractionRepository(); let winner: IdempotentCommentCommit | null = null; let mutations = 0; const repository: InteractionRepository = { ...base, async commitComment(input) { if (winner) return winner.comment; winner = input; mutations += 1; return input.comment; } }; const service = new InteractionService(repository, { async canInteract() { return true; }, async isBlocked() { return false; }, async footprintOwner() { return user; } }); const input = { footprintId: footprint, content: 'once' }; const idempotency = { key: 'same-key', fingerprint: JSON.stringify(input) }; const [first, second] = await Promise.all([service.addComment(actor, input, idempotency), service.addComment(actor, input, idempotency)]); expect(second.id).toBe(first.id); expect(mutations).toBe(1); });
   it('rolls back the fake reservation, comment, and outbox together after a crash', async () => { const base = createMemoryInteractionRepository(); let reservation: IdempotentCommentCommit | null = null; let commentMutations = 0; let outboxMutations = 0; let fail = true; const repository: InteractionRepository = { ...base, async commitComment(input) { const snapshot = { reservation, commentMutations, outboxMutations }; try { reservation = input; commentMutations += 1; outboxMutations += 1; if (fail) { fail = false; throw new Error('simulated crash'); } return input.comment; } catch (error) { reservation = snapshot.reservation; commentMutations = snapshot.commentMutations; outboxMutations = snapshot.outboxMutations; throw error; } } }; const service = new InteractionService(repository, { async canInteract() { return true; }, async isBlocked() { return false; }, async footprintOwner() { return user; } }); const input = { footprintId: footprint, content: 'retry' }; const idempotency = { key: 'crash-key', fingerprint: JSON.stringify(input) }; await expect(service.addComment(actor, input, idempotency)).rejects.toThrow('simulated crash'); expect({ reservation, commentMutations, outboxMutations }).toEqual({ reservation: null, commentMutations: 0, outboxMutations: 0 }); await expect(service.addComment(actor, input, idempotency)).resolves.toMatchObject({ content: 'retry' }); expect({ commentMutations, outboxMutations }).toEqual({ commentMutations: 1, outboxMutations: 1 }); });
 });

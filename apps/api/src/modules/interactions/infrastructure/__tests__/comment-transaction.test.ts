@@ -34,4 +34,20 @@ describe('Postgres comment idempotency transaction', () => {
     expect(result.id).toBe(winner.comment.id);
     expect(query).toHaveBeenCalledTimes(2);
   });
+
+  it('writes each interaction mutation and its Outbox event through one transaction port', async () => {
+    const query = vi.fn(async () => ({ rows: [], rowCount: 1 }));
+    const repository = createPostgresInteractionRepository(database(query));
+    const value = input();
+    await repository.transactions!.addReaction({ reaction: { footprintId, actorId, emoji: 'heart', createdAt: value.comment.createdAt }, event: { ...value.event, type: 'ReactionAdded' } });
+    await repository.transactions!.removeReaction({ footprintId, actorId, event: { ...value.event, type: 'ReactionRemoved' } });
+    await repository.transactions!.addComment({ comment: value.comment, event: value.event });
+    await repository.transactions!.deleteComment({ commentId: value.comment.id, at: value.comment.createdAt, event: { ...value.event, type: 'CommentDeleted' } });
+    expect((query.mock.calls as unknown as Array<[string]>).map(([sql]) => String(sql))).toEqual([
+      expect.stringContaining('INSERT INTO footprint_reactions'), expect.stringContaining('INSERT INTO platform.outbox_events'),
+      expect.stringContaining('DELETE FROM footprint_reactions'), expect.stringContaining('INSERT INTO platform.outbox_events'),
+      expect.stringContaining('INSERT INTO footprint_comments'), expect.stringContaining('INSERT INTO platform.outbox_events'),
+      expect.stringContaining('UPDATE footprint_comments'), expect.stringContaining('INSERT INTO platform.outbox_events'),
+    ]);
+  });
 });

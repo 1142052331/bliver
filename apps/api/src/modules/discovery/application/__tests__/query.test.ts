@@ -12,4 +12,19 @@ describe('DiscoveryQueryService', () => {
   it('supports media and text filters without loading all entries into the query contract', async () => { const media = entry({ hasMedia: true, message: 'Concert photo' }); const text = entry({ message: 'Coffee' }); const result = await service([media, text]).execute({ ...base, content: 'media', query: 'photo' }); expect(result.items.map((item) => item.id)).toEqual([media.id]); });
   it('does not expose expired public records to guests', async () => { const expired = entry({ discoveryExpiresAt: new Date('2026-07-15T07:59:00.000Z') }); await expect(service([expired]).execute(base)).resolves.toMatchObject({ items: [] }); });
   it('returns an explicit empty page for anonymous friends scope', async () => { const item = entry(); await expect(service([item]).execute({ ...base, relationship: 'friends' })).resolves.toMatchObject({ items: [], resolvedScope: 'global' }); });
+  it('does not skip country rows when a later smart page falls back after region exhaustion', async () => {
+    const region = entry({ publishedAt: new Date('2026-07-15T07:00:00.000Z'), regionId: 'region-a' });
+    const country = entry({ publishedAt: new Date('2026-07-15T06:00:00.000Z'), regionId: 'region-b' });
+    const global = entry({ publishedAt: new Date('2026-07-15T05:00:00.000Z'), regionId: 'region-c', countryCode: 'US' });
+    const query = service([region, country, global]);
+    const first = await query.execute({ ...base, regionId: 'region-a', countryCode: 'CN', limit: 1 });
+    const second = await query.execute({ ...base, regionId: 'region-a', countryCode: 'CN', limit: 1, cursor: first.nextCursor });
+    const third = await query.execute({ ...base, regionId: 'region-a', countryCode: 'CN', limit: 1, cursor: second.nextCursor });
+    expect(first.items.map((item) => item.id)).toEqual([region.id]);
+    expect(second.items.map((item) => item.id)).toEqual([country.id]);
+    expect(third.items.map((item) => item.id)).toEqual([global.id]);
+  });
+  it('returns an explicit empty page for guest unread content', async () => {
+    await expect(service([entry()]).execute({ ...base, content: 'unread' })).resolves.toMatchObject({ items: [], resolvedScope: 'global' });
+  });
 });

@@ -44,6 +44,8 @@ export function buildOpenApiDocument() {
   const reportResponseSchema = registry.register('ReportCreatedResponse', reportCreatedResponse);
   const mediaAssetParams = z.object({ assetId: z.string().uuid() });
   const footprintParams = z.object({ footprintId: z.string().uuid() });
+  const footprintCommentParams = z.object({ footprintId: z.string().uuid(), commentId: z.string().uuid() });
+  const commentParams = z.object({ commentId: z.string().uuid() });
   const placeSearchQuery = z.object({ q: z.string().trim().min(1).max(120) });
 
   for (const path of ['/healthz', '/versionz'] as const) {
@@ -101,8 +103,11 @@ export function buildOpenApiDocument() {
   registry.registerPath({ method: 'get', path: '/api/v1/activity', request: { query: activityQuery }, responses: { 200: { description: 'Reverse chronological activity', content: { 'application/json': { schema: activityPageSchema } } } } });
   registry.registerPath({ method: 'get', path: '/api/v1/footprints/{footprintId}/reactions', request: { params: footprintParams }, responses: { 200: { description: 'Footprint reactions', content: { 'application/json': { schema: z.object({ items: z.array(reactionSchema) }) } } } } });
   registry.registerPath({ method: 'post', path: '/api/v1/footprints/{footprintId}/reactions', request: { params: footprintParams, body: { content: { 'application/json': { schema: addReactionSchema } } } }, responses: { 200: { description: 'Reaction added or replaced', content: { 'application/json': { schema: reactionSchema } } }, 401: { description: 'Authentication required', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'delete', path: '/api/v1/footprints/{footprintId}/reactions', request: { params: footprintParams }, responses: { 204: { description: 'Reaction removed' }, 401: { description: 'Authentication required', content: { 'application/problem+json': { schema: problemSchema } } } } });
   registry.registerPath({ method: 'get', path: '/api/v1/footprints/{footprintId}/comments', request: { params: footprintParams }, responses: { 200: { description: 'Two-level conversation', content: { 'application/json': { schema: commentsSchema } } } } });
   registry.registerPath({ method: 'post', path: '/api/v1/footprints/{footprintId}/comments', request: { params: footprintParams, body: { content: { 'application/json': { schema: addCommentSchema } } } }, responses: { 201: { description: 'Comment added' }, 401: { description: 'Authentication required', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/footprints/{footprintId}/comments/{commentId}/replies', request: { params: footprintCommentParams, body: { content: { 'application/json': { schema: addCommentSchema.omit({ parentCommentId: true }) } } } }, responses: { 201: { description: 'Reply added' }, 400: { description: 'Invalid parent comment', content: { 'application/problem+json': { schema: problemSchema } } }, 401: { description: 'Authentication required', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'delete', path: '/api/v1/comments/{commentId}', request: { params: commentParams }, responses: { 204: { description: 'Comment deleted' }, 403: { description: 'Comment deletion forbidden', content: { 'application/problem+json': { schema: problemSchema } } } } });
   registry.registerPath({ method: 'post', path: '/api/v1/reports', request: { body: { content: { 'application/json': { schema: reportSchema } } } }, responses: { 201: { description: 'Report intake created', content: { 'application/json': { schema: reportResponseSchema } } }, 409: { description: 'Duplicate open report', content: { 'application/problem+json': { schema: problemSchema } } } } });
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({

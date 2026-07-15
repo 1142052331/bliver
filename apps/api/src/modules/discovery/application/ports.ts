@@ -17,6 +17,8 @@ export interface DiscoveryCandidateQuery {
   readonly actorId: string | null;
   readonly regionId?: string | null;
   readonly countryCode?: string | null;
+  readonly excludeRegionId?: string | null;
+  readonly excludeCountryCode?: string | null;
   readonly query?: string;
   readonly relationship: ActivityQuery['relationship'];
   readonly content: ActivityQuery['content'];

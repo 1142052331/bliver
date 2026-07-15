@@ -4,7 +4,7 @@ import type { ApiConfig } from '../../../bootstrap/config.js';
 import { authenticateUser, IdentityError, registerUser, resolveSession, revokeSession, rotateSession } from '../application/commands.js';
 import type { IdentityRepositories, Role } from '../application/ports.js';
 
-export interface ActorContext { readonly userId: string; readonly sessionId: string; readonly roles: readonly Role[]; readonly transport: 'cookie' | 'bearer'; }
+export interface ActorContext { readonly userId: string; readonly sessionId: string; readonly roles: readonly Role[]; readonly transport: 'cookie' | 'bearer'; readonly displayName?: string; }
 
 function parseCookies(request: Request): Record<string, string> {
   const header = request.get('cookie') ?? '';
@@ -21,13 +21,23 @@ function clearSessionCookie(response: Response): void { response.setHeader('set-
 function sameOrigin(request: Request): boolean {
   const origin = request.get('origin');
   if (!origin) return true;
-  try { const url = new URL(origin); return url.hostname === 'localhost' || url.hostname === '127.0.0.1'; } catch { return false; }
+  try {
+    const url = new URL(origin);
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return true;
+    const forwarded = request.get('x-forwarded-proto')?.split(',')[0]?.trim();
+    const protocol = forwarded || request.protocol;
+    return url.origin === `${protocol}://${request.get('host')}`;
+  } catch { return false; }
 }
 
 function validCookieCsrf(request: Request): boolean {
   const cookies = parseCookies(request);
   const token = request.get('x-csrf-token');
   return Boolean(cookies.bliver_csrf && token && token === cookies.bliver_csrf);
+}
+
+export function validMutationCsrf(request: Request, context: Pick<ActorContext, 'transport'>): boolean {
+  return sameOrigin(request) && (context.transport === 'bearer' || validCookieCsrf(request));
 }
 
 function problem(response: Response, status: number, code: string, request: Request): void {
@@ -44,7 +54,7 @@ export function requireActor(repos: IdentityRepositories) {
     if (!token) { problem(response, 401, 'AUTH_REQUIRED', request); return; }
     const resolved = await resolveSession(repos, token);
     if (!resolved) { problem(response, 401, 'SESSION_INVALID', request); return; }
-    (request as Request & { actor?: ActorContext }).actor = { userId: resolved.user.id, sessionId: resolved.session.id, roles: resolved.user.roles, transport: bearer ? 'bearer' : 'cookie' };
+    (request as Request & { actor?: ActorContext }).actor = { userId: resolved.user.id, sessionId: resolved.session.id, roles: resolved.user.roles, transport: bearer ? 'bearer' : 'cookie', displayName: resolved.user.displayName };
     next();
   };
 }

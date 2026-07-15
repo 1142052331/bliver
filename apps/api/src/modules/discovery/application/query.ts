@@ -8,7 +8,7 @@ function scopes(requested: ActivityQuery['scope'], hasRegion: boolean, hasCountr
   if (requested === 'region') return hasRegion ? ['region'] : [];
   if (requested === 'country') return hasCountry ? ['country'] : [];
   if (requested === 'global') return ['global'];
-  return hasRegion ? [...scopeOrder] : hasCountry ? ['country', 'global'] : ['global'];
+  return hasRegion ? (hasCountry ? [...scopeOrder] : ['region', 'global']) : hasCountry ? ['country', 'global'] : ['global'];
 }
 
 function order(records: readonly DiscoveryEntry[]): DiscoveryEntry[] {
@@ -25,19 +25,25 @@ export class DiscoveryQueryService {
     const cursor = decodeDiscoveryCursor(parsed.cursor, this.options.cursorSecret);
     if (parsed.cursor && !cursor) throw new TypeError('Invalid cursor');
     const requestedScopes = scopes(parsed.scope, Boolean(input.regionId), Boolean(input.countryCode));
-    let resolvedScope = requestedScopes[0] ?? (input.countryCode ? 'country' : 'global');
-    if (!input.actor && parsed.relationship === 'friends') return { items: [], resolvedScope };
-    let visible: DiscoveryEntry[] = [];
-    for (const [index, scope] of requestedScopes.entries()) {
-      const batch = await this.options.repository.listCandidates({ scope, actorId: input.actor?.userId ?? null, ...(input.regionId ? { regionId: input.regionId } : {}), ...(input.countryCode ? { countryCode: input.countryCode } : {}), ...(parsed.query ? { query: parsed.query } : {}), relationship: parsed.relationship, content: parsed.content, ...(cursor ? { cursor } : {}), limit: limit + 1 });
+    const cursorScope = cursor?.scope;
+    if (cursorScope && !requestedScopes.includes(cursorScope as DiscoveryScope)) throw new TypeError('Invalid cursor');
+    const startIndex = cursorScope ? requestedScopes.indexOf(cursorScope as DiscoveryScope) : 0;
+    const activeScopes = requestedScopes.slice(Math.max(0, startIndex));
+    let resolvedScope = (cursorScope as DiscoveryScope | undefined) ?? requestedScopes[0] ?? (input.countryCode ? 'country' : 'global');
+    if (!input.actor && (parsed.relationship === 'friends' || parsed.content === 'unread')) return { items: [], resolvedScope };
+    const visible: Array<{ readonly entry: DiscoveryEntry; readonly scope: DiscoveryScope }> = [];
+    for (const [index, scope] of activeScopes.entries()) {
+      const scopeCursor = index === 0 && cursor && (!cursor.scope || cursor.scope === scope) ? cursor : null;
+      const batch = await this.options.repository.listCandidates({ scope, actorId: input.actor?.userId ?? null, ...(input.regionId ? { regionId: input.regionId } : {}), ...(input.countryCode ? { countryCode: input.countryCode } : {}), ...(parsed.scope === 'smart' && scope === 'country' && input.regionId ? { excludeRegionId: input.regionId } : {}), ...(parsed.scope === 'smart' && scope === 'global' && input.countryCode ? { excludeCountryCode: input.countryCode } : {}), ...(parsed.query ? { query: parsed.query } : {}), relationship: parsed.relationship, content: parsed.content, ...(scopeCursor ? { cursor: scopeCursor } : {}), limit: limit + 1 - visible.length });
       const filtered = order([...new Map((await this.options.policy.readFilter(input.actor, batch)).map((item) => [item.id, item])).values()]);
-      if (parsed.scope !== 'smart' || filtered.length > 0 || index === requestedScopes.length - 1) { visible = filtered; resolvedScope = scope; break; }
+      if (filtered.length && visible.length === 0) resolvedScope = scope;
+      visible.push(...filtered.map((entry) => ({ entry, scope })));
+      if (parsed.scope !== 'smart' || visible.length > limit) break;
     }
-    const afterCursor = cursor ? visible.filter((item) => item.publishedAt.toISOString() < cursor.publishedAt || (item.publishedAt.toISOString() === cursor.publishedAt && item.id < cursor.id)) : visible;
-    const page = afterCursor.slice(0, limit);
-    const items = await Promise.all(page.map((item) => this.options.policy.toPublicDto(input.actor, item)));
-    const hasMore = afterCursor.length > limit;
-    return { items, resolvedScope, ...(hasMore && page.length ? { nextCursor: encodeDiscoveryCursor({ publishedAt: page[page.length - 1]!.publishedAt.toISOString(), id: page[page.length - 1]!.id }, this.options.cursorSecret) } : {}) };
+    const page = visible.slice(0, limit);
+    const items = await Promise.all(page.map((item) => this.options.policy.toPublicDto(input.actor, item.entry)));
+    const last = page[page.length - 1];
+    return { items, resolvedScope, ...(visible.length > limit && last ? { nextCursor: encodeDiscoveryCursor({ publishedAt: last.entry.publishedAt.toISOString(), id: last.entry.id, scope: last.scope }, this.options.cursorSecret) } : {}) };
   }
 }
 
@@ -50,6 +56,8 @@ export function createMemoryDiscoveryRepository(records: readonly DiscoveryEntry
         if (entry.deletedAt) return false;
         if (input.scope === 'region' && input.regionId && entry.regionId !== input.regionId) return false;
         if ((input.scope === 'country' || input.scope === 'global') && input.scope !== 'global' && input.countryCode && entry.countryCode !== input.countryCode) return false;
+        if (input.excludeRegionId && entry.regionId === input.excludeRegionId) return false;
+        if (input.excludeCountryCode && entry.countryCode === input.excludeCountryCode) return false;
         if (!input.actorId && (!entry.discoveryExpiresAt || entry.discoveryExpiresAt.getTime() <= now)) return false;
         if (input.relationship === 'public' && entry.visibility !== 'public') return false;
         if (input.relationship === 'friends' && entry.visibility === 'public') return false;

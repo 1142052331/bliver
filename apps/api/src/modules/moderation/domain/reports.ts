@@ -3,7 +3,8 @@ import type { ActorContext } from '../../identity/index.js';
 
 export type ReportReason = 'spam' | 'harassment' | 'hate' | 'privacy' | 'illegal' | 'other';
 export interface Report { readonly id: string; readonly footprintId: FootprintId; readonly reporterId: UserId; readonly reason: ReportReason; readonly details?: string; readonly status: 'open' | 'resolved' | 'dismissed'; readonly createdAt: Date; }
-export interface ReportRepository { findOpen(footprintId: FootprintId, reporterId: UserId): Promise<Report | null>; create(report: Report): Promise<void>; appendEvent(event: { id: string; type: 'ReportCreated'; aggregateId: FootprintId; payload: Record<string, unknown> }): Promise<void>; }
+export interface ReportRepository { findOpen(footprintId: FootprintId, reporterId: UserId): Promise<Report | null>; create(report: Report): Promise<void>; appendEvent(event: { id: string; type: 'ReportCreated'; aggregateId: FootprintId; payload: Record<string, unknown> }): Promise<void>; readonly transactions?: ReportTransactionPort; }
+export interface ReportTransactionPort { createReport(input: { readonly report: Report; readonly event: { id: string; type: 'ReportCreated'; aggregateId: FootprintId; payload: Record<string, unknown> } }): Promise<Report>; }
 export interface ReportAccess { canReport(actor: ActorContext, footprintId: FootprintId): Promise<boolean>; }
 export class ReportError extends Error { constructor(readonly code: 'AUTH_REQUIRED' | 'INVALID_REASON' | 'DUPLICATE_OPEN_REPORT' | 'BLOCKED') { super(code); this.name = 'ReportError'; } }
 
@@ -16,11 +17,13 @@ export class CreateReport {
     if (!(await this.access.canReport(actor, footprintId))) throw new ReportError('BLOCKED');
     if (await this.repository.findOpen(footprintId, reporterId)) throw new ReportError('DUPLICATE_OPEN_REPORT');
     const report: Report = { id: createEventId(), footprintId, reporterId, reason: input.reason, ...(input.details?.trim() ? { details: input.details.trim() } : {}), status: 'open', createdAt: this.now() };
-    await this.repository.create(report); await this.repository.appendEvent({ id: createEventId(), type: 'ReportCreated', aggregateId: footprintId, payload: { reportId: report.id, reporterId, reason: report.reason } }); return report;
+    const event = { id: createEventId(), type: 'ReportCreated' as const, aggregateId: footprintId, payload: { reportId: report.id, reporterId, reason: report.reason } };
+    if (this.repository.transactions) return this.repository.transactions.createReport({ report, event });
+    await this.repository.create(report); await this.repository.appendEvent(event); return report;
   }
 }
 
 export function createMemoryReportRepository(): ReportRepository {
   const reports = new Map<string, Report>();
-  return { async findOpen(footprintId, reporterId) { return reports.get(`${footprintId}:${reporterId}`) ?? null; }, async create(report) { reports.set(`${report.footprintId}:${report.reporterId}`, report); }, async appendEvent() { return undefined; } };
+  return { async findOpen(footprintId, reporterId) { return reports.get(`${footprintId}:${reporterId}`) ?? null; }, async create(report) { reports.set(`${report.footprintId}:${report.reporterId}`, report); }, async appendEvent() { return undefined; }, transactions: { async createReport(input) { const key = `${input.report.footprintId}:${input.report.reporterId}`; const prior = reports.get(key); if (prior) return prior; reports.set(key, input.report); return input.report; } } };
 }
