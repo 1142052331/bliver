@@ -52,7 +52,7 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use('/api/v1', identityRouter(identityRepositories, config));
   app.use('/api/v1', mediaRouter(identityRepositories, config, { service: media ?? defaultMediaService(config) }));
   app.use('/api/v1', footprintRouter(identityRepositories, footprints));
-  app.use('/api/v1', mapRouter(map));
+  app.use('/api/v1', mapRouter(map, identityRepositories));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);
   app.use(errorHandler);
