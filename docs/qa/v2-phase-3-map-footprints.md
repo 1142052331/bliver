@@ -28,6 +28,7 @@ DONE_WITH_CONCERNS. The application, API boundaries, focused tests, static V2 ga
 - `935f7ff` qa: record Phase 3 review remediation
 - `b2cfb82` fix: attach uploaded assets to footprint publish
 - `6fbc70b` fix: close Phase 3 map footprint review gaps
+- `dfa1e84` test: finish Phase 3 acceptance coverage
 
 ## Verification
 
