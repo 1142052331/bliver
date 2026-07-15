@@ -16,6 +16,15 @@ import { PublishFootprintRoute } from '../features/footprints/PublishFootprintRo
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
 function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to={destination}>Continue</Link></section>; }
+async function publishFootprint(input: { readonly message: string; readonly visibility: string; readonly locationPrecision: string }): Promise<void> {
+  const response = await fetch('/api/v1/footprints', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ ...input, privatePoint: { lat: 31.23, lng: 121.47 }, mediaAssetIds: [] }) });
+  if (!response.ok) throw new Error('Publish failed');
+}
+async function signUpload(file: File): Promise<unknown> {
+  const response = await fetch('/api/v1/media/signature', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ mimeType: file.type, bytes: file.size }) });
+  if (!response.ok) throw new Error('Upload signing failed');
+  return response.json();
+}
 
 const routes = [
   {
@@ -23,7 +32,7 @@ const routes = [
     element: <AppShell />,
     children: [
       { index: true, element: <Navigate to="/map" replace /> },
-      { path: 'map', element: <MapRoute state="empty" /> },
+      { path: 'map', element: <MapRoute state="ready" /> },
       { path: 'activity', element: <RoutePlaceholder title="Activity" /> },
       { path: 'messages', element: <RoutePlaceholder title="Messages" /> },
       { path: 'me', element: <RoutePlaceholder title="My space" /> },
@@ -32,7 +41,7 @@ const routes = [
         path: 'footprints/:footprintId',
         element: <FootprintDetailRoute footprint={{ id: 'route', message: 'Footprint detail', visibility: 'public', locationPrecision: 'approximate' }} />,
       },
-      { path: 'publish', element: <PublishFootprintRoute signUpload={async () => undefined} publish={async () => undefined} /> },
+      { path: 'publish', element: <PublishFootprintRoute signUpload={signUpload} publish={publishFootprint} /> },
       { path: 'admin', element: <RoutePlaceholder title="Admin" /> },
       { path: 'session-expired', element: <SessionExpired /> },
       { path: '*', element: <NotFound /> },
