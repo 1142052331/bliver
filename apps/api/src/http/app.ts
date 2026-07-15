@@ -17,6 +17,8 @@ import type { IdentityRepositories } from '../modules/identity/application/ports
 import { mediaRouter } from '../modules/media/transport/routes.js';
 import { defaultService as defaultMediaService } from '../modules/media/transport/routes.js';
 import type { MediaService } from '../modules/media/application/service.js';
+import { footprintRouter } from '../modules/footprints/transport/routes.js';
+import type { FootprintRouterOptions } from '../modules/footprints/transport/routes.js';
 
 export interface AppOptions {
   readonly config: ApiConfig;
@@ -24,6 +26,7 @@ export interface AppOptions {
   readonly logger?: Logger;
   readonly identity?: IdentityRepositories;
   readonly media?: MediaService;
+  readonly footprints?: FootprintRouterOptions;
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -34,7 +37,7 @@ const requestId: RequestHandler = (request, response, next) => {
   next();
 };
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -45,6 +48,7 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   const identityRepositories = identity ?? createMemoryIdentityRepositories();
   app.use('/api/v1', identityRouter(identityRepositories, config));
   app.use('/api/v1', mediaRouter(identityRepositories, config, { service: media ?? defaultMediaService(config) }));
+  app.use('/api/v1', footprintRouter(identityRepositories, footprints));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);
   app.use(errorHandler);

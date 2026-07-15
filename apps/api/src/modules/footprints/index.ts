@@ -8,6 +8,8 @@ export {
   FootprintAccessDeniedError,
   FootprintVisibilityPolicy,
 } from './domain/visibility-policy.js';
+export * from './application/index.js';
+export * from './transport/index.js';
 export type {
   AcceptedFriendshipPort,
   BlockRelationshipPort,
