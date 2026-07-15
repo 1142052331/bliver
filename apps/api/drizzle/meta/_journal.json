@@ -15,6 +15,13 @@
       "when": 1784160000000,
       "tag": "0001_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784246400000,
+      "tag": "0002_geography_media_footprints",
+      "breakpoints": true
     }
   ]
 }
