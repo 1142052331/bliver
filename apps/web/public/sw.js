@@ -1,0 +1,3 @@
+/* global self, clients */
+self.addEventListener('push',(event)=>{let data={};try{data=event.data?.json()??{};}catch(error){void error;}const target=data.target?.type==='footprint'?`/footprints/${data.target.id}`:'/notifications';event.waitUntil(self.registration.showNotification('Bliver',{body:'You have a new notification.',data:{target}}));});
+self.addEventListener('notificationclick',(event)=>{event.notification.close();const target=event.notification.data?.target??'/notifications';event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then((windows)=>{const existing=windows.find((client)=>'focus'in client);return existing?existing.focus().then(()=>existing.navigate(target)):clients.openWindow(target);}));});

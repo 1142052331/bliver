@@ -28,7 +28,8 @@ export function createPostgresIdentityRepositories(db: DatabaseClient): Identity
   };
   const roles: RoleRepository = { async listByUserId(userId) { const result = await db.query<Row>('SELECT role FROM identity_roles WHERE user_id = $1 ORDER BY role', [userId]); return result.rows.map((row) => row.role as Role); } };
   const securityEvents: SecurityEventRepository = { async record(event) { await db.query('INSERT INTO identity_security_events (id, user_id, event_type, metadata) VALUES (gen_random_uuid(), $1, $2, $3)', [event.userId, event.eventType, JSON.stringify(event.metadata ?? {})]); } };
-  return { users, credentials, devices, sessions, roles, securityEvents };
+  const suspensions = { async isSuspended(userId: UserId) { const result = await db.query<Row>('SELECT 1 FROM identity_users WHERE id=$1 AND suspended_at IS NOT NULL', [userId]); return Boolean(result.rowCount); } };
+  return { users, credentials, devices, sessions, roles, securityEvents, suspensions };
 }
 
 function sessionFrom(row: Row): SessionRecord { return { id: String(row.id), userId: row.user_id as UserId, deviceId: String(row.device_id), familyId: String(row.family_id), tokenHash: String(row.token_hash), refreshTokenHash: row.refresh_token_hash ? String(row.refresh_token_hash) : null, expiresAt: asDate(row.expires_at), createdAt: asDate(row.created_at), lastSeenAt: asDate(row.last_seen_at), revokedAt: row.revoked_at ? asDate(row.revoked_at) : null }; }

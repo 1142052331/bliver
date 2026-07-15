@@ -17,7 +17,7 @@ export class CreateReport {
     if (!(await this.access.canReport(actor, footprintId))) throw new ReportError('BLOCKED');
     if (!this.repository.transactions && await this.repository.findOpen(footprintId, reporterId)) throw new ReportError('DUPLICATE_OPEN_REPORT');
     const report: Report = { id: createEventId(), footprintId, reporterId, reason: input.reason, ...(input.details?.trim() ? { details: input.details.trim() } : {}), status: 'open', createdAt: this.now() };
-    const event = { id: createEventId(), type: 'ReportCreated' as const, aggregateId: footprintId, payload: { reportId: report.id, reporterId, reason: report.reason } };
+    const event = { id: createEventId(), type: 'ReportCreated' as const, aggregateId: footprintId, payload: { reportId: report.id, reporterId, recipientId: reporterId, reason: report.reason } };
     if (this.repository.transactions) return this.repository.transactions.createReport({ report, event, ...(idempotency ? { idempotency: { actorId: reporterId, scope: 'moderation.report', ...idempotency } } : {}) });
     await this.repository.create(report); await this.repository.appendEvent(event); return report;
   }

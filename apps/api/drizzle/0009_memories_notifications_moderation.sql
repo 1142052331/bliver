@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   auth text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(user_id, endpoint)
+  CONSTRAINT push_subscriptions_endpoint_unique UNIQUE(endpoint),
+  CONSTRAINT push_subscriptions_owner_endpoint_unique UNIQUE(user_id, endpoint)
 );
 CREATE TABLE IF NOT EXISTS delivery_attempts (
   id uuid PRIMARY KEY,

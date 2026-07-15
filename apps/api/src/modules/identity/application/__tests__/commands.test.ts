@@ -30,4 +30,11 @@ describe('identity commands', () => {
     expect(rotated.refreshToken).toBeTruthy();
     await expect(rotateSession(repos, grant.refreshToken as string, 'capacitor')).rejects.toMatchObject({ code: 'REFRESH_REPLAY' });
   });
+  it('prevents suspended users from signing in or resolving an existing session', async () => {
+    const base = createMemoryIdentityRepositories(); const suspended = new Set<string>(); const repos = { ...base, suspensions: { async isSuspended(userId: string) { return suspended.has(userId); } } };
+    const user = await registerUser(repos, { username: 'suspended', password: 'password-123' });
+    const grant = await authenticateUser(repos, { username: 'suspended', password: 'password-123', platform: 'web' }); suspended.add(user.id);
+    await expect(resolveSession(repos, grant.accessToken)).resolves.toBeNull();
+    await expect(authenticateUser(repos, { username: 'suspended', password: 'password-123', platform: 'web' })).rejects.toMatchObject({ code: 'USER_SUSPENDED' });
+  });
 });

@@ -5,9 +5,10 @@ export interface NotificationEvent { readonly id: string; readonly type: string;
 export interface NotificationPolicy { isBlocked?(recipientId: string, actorId: string): Promise<boolean>; }
 export class NotificationService {
   constructor(private readonly repository: NotificationRepository, private readonly policy: NotificationPolicy = {}) {}
+  recipientForEvent(event: NotificationEvent): string | null { const p=event.payload;let value:unknown;if(event.type==='FriendshipRequested')value=p.addresseeId;else if(event.type==='FriendshipAccepted')value=p.requesterId;else if(event.type==='ReportCreated')value=p.reporterId;else if(/Suspended|RoleChanged|SessionsRevoked|ReportResolved/.test(event.type))value=p.recipientId??p.targetUserId??p.targetId;else value=p.recipientId??p.targetUserId??p.authorId??p.ownerId??p.recipient;return value?String(value):null; }
   async consume(event: NotificationEvent): Promise<NotificationDto | null> {
-    const p = event.payload; const recipientId = String(p.recipientId ?? p.targetUserId ?? p.authorId ?? p.ownerId ?? p.recipient ?? ''); if (!recipientId) return null;
-    const actorId = p.actorId ? String(p.actorId) : undefined; if (actorId && actorId !== recipientId && await this.policy.isBlocked?.(recipientId, actorId)) return null;
+    const p = event.payload; const recipientId = this.recipientForEvent(event); if (!recipientId) return null;
+    const actorValue=event.type==='FriendshipRequested'?p.requesterId:event.type==='FriendshipAccepted'?p.addresseeId:p.actorId??p.senderId;const actorId=actorValue?String(actorValue):undefined;if(actorId===recipientId&&event.type!=='ReportCreated')return null;if (actorId && await this.policy.isBlocked?.(recipientId, actorId)) return null;
     const type = this.mapType(event.type); if (!type || !(await this.repository.preferences(recipientId))[this.prefKey(type)]) return null;
     const existing = await this.repository.findByDedupe(recipientId, event.id); if (existing) return this.dto(existing);
     const record: NotificationRecord = { id: randomUUID(), recipientId, type, ...(actorId ? { actorId } : {}), targetType: String(p.targetType ?? 'event'), targetId: String(p.targetId ?? p.footprintId ?? event.id), payload: { reference: String(p.targetId ?? p.footprintId ?? event.id) }, createdAt: new Date(), dedupeKey: event.id, readAt: null };

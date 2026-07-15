@@ -23,6 +23,7 @@ export interface FootprintPolicyInput {
   readonly locationPrecision: LocationPrecision;
   readonly publishedAt: Date;
   readonly discoveryExpiresAt: Date | null;
+  readonly moderationHiddenAt?: Date | null;
   readonly message?: string;
 }
 
@@ -196,6 +197,16 @@ export class FootprintVisibilityPolicy {
     return records.filter((_record, index) => decisions[index]);
   }
 
+  async historyFilter(actor: ActorContext | null, records: readonly FootprintPolicyInput[]): Promise<FootprintPolicyInput[]> {
+    const decisions = await mapWithConcurrency(records, this.maxReadFilterConcurrency, async (record) => this.isHistoryReadable(actor, record));
+    return records.filter((_record, index) => decisions[index]);
+  }
+
+  async toHistoryDto(actor: ActorContext | null, record: FootprintPolicyInput): Promise<FootprintDto> {
+    if (!(await this.isHistoryReadable(actor, record))) throw new FootprintAccessDeniedError();
+    return toDto(record);
+  }
+
   async toPublicDto(
     actor: ActorContext | null,
     record: FootprintPolicyInput,
@@ -248,6 +259,10 @@ export class FootprintVisibilityPolicy {
     actorId: UserId | null,
     caches?: ReadFilterCaches,
   ): Promise<boolean> {
+    if (record.moderationHiddenAt) {
+      if (!actor || !actorId || !(await this.moderationCaseAccess(actorId, record.id, caches))) return false;
+      return true;
+    }
     if (!actor) {
       return this.isActivePublicDiscovery(record);
     }
@@ -269,6 +284,18 @@ export class FootprintVisibilityPolicy {
       return true;
     }
     return this.isActivePublicDiscovery(record);
+  }
+
+  private async isHistoryReadable(actor: ActorContext | null, record: FootprintPolicyInput): Promise<boolean> {
+    if (!actor) return !record.moderationHiddenAt && record.visibility === 'public';
+    let actorId: UserId;
+    try { actorId = parseUserId(actor.userId); } catch { return false; }
+    if (record.moderationHiddenAt) return this.moderationCaseAccess(actorId, record.id);
+    if (actorId === record.authorId) return true;
+    const relationship = await this.loadRelationship(actorId, record.authorId);
+    if (relationship.failed || relationship.blocked) return false;
+    if (record.visibility === 'public') return true;
+    return relationship.friend && record.visibility === 'friends';
   }
 
   private async relationshipAccess(

@@ -182,7 +182,8 @@ export class ConversationService {
   private async createMessage(conversation: ConversationRecord, senderId: UserId, text: string, kind: MessageRecord['kind'], additional?: { type: ConversationEvent['type']; payload: Record<string, unknown> }, idempotency?: ConversationCommandIdempotency, moderation?: MessageModerationMetadata, transition?: { readonly createConversation?: boolean; readonly expectedState?: ConversationRecord['state'] }): Promise<{ conversation: ConversationRecord; message: MessageRecord }> {
     const at = this.now();
     const message: MessageRecord = { id: this.createId(), conversationId: conversation.id, senderId, content: content(text), kind, sentAt: at, eventId: createEventId(), moderation: moderation ?? { status: 'pending', labels: [] } };
-    const emitted = event(additional?.type ?? 'MessageSent', conversation.id, { ...(additional?.payload ?? {}), conversationId: conversation.id, messageId: message.id, senderId }, at);
+    const recipientId=conversation.participantLowId===senderId?conversation.participantHighId:conversation.participantLowId;
+    const emitted = event(additional?.type ?? 'MessageSent', conversation.id, { ...(additional?.payload ?? {}), conversationId: conversation.id, messageId: message.id, senderId, recipientId }, at);
     if (this.repository.transactions) return this.repository.transactions.commitMessage({ conversation, message, event: emitted, ...(transition?.createConversation ? { createConversation: true } : {}), ...(transition?.expectedState ? { expectedState: transition.expectedState } : {}), ...(idempotency ? { idempotency } : {}) });
     let savedConversation = conversation;
     if (transition?.createConversation) savedConversation = await this.repository.create(conversation);

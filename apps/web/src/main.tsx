@@ -7,6 +7,7 @@ import '@bliver/ui/tokens.css';
 import { AppErrorBoundary } from './app/ErrorBoundary.js';
 import { AppRouter } from './app/router.js';
 import { SessionProvider } from './app/providers/SessionProvider.js';
+import { registerPushServiceWorker } from './features/notifications/push.js';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -14,6 +15,7 @@ if (!rootElement) {
 }
 
 const queryClient = new QueryClient();
+void registerPushServiceWorker();
 
 createRoot(rootElement).render(
   <StrictMode>

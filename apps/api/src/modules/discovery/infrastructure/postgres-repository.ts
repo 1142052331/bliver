@@ -25,7 +25,7 @@ export function createPostgresDiscoveryRepository(db: DatabaseClient, options: {
       if (!input.actorId && input.relationship === 'friends') return [];
       const values: unknown[] = [];
       const add = (value: unknown): string => { values.push(value); return `$${values.length}`; };
-      const predicates = ['d.deleted_at IS NULL'];
+      const predicates = ['d.deleted_at IS NULL', 'EXISTS (SELECT 1 FROM footprints source_footprint WHERE source_footprint.id=d.footprint_id AND source_footprint.moderation_hidden_at IS NULL)'];
       if (!input.actorId) predicates.push(`d.visibility = 'public'`, 'd.discovery_expires_at > CURRENT_TIMESTAMP');
       else {
         const viewer = add(input.actorId);

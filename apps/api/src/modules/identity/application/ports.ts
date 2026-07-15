@@ -50,6 +50,7 @@ export interface SessionRepository {
 
 export interface RoleRepository { listByUserId(userId: UserId): Promise<Role[]>; }
 export interface SecurityEventRepository { record(event: { userId: UserId | null; eventType: string; metadata?: Record<string, unknown> }): Promise<void>; }
+export interface SuspensionRepository { isSuspended(userId: UserId): Promise<boolean>; }
 
 export interface IdentityRepositories {
   readonly users: UserRepository;
@@ -58,4 +59,5 @@ export interface IdentityRepositories {
   readonly sessions: SessionRepository;
   readonly roles: RoleRepository;
   readonly securityEvents: SecurityEventRepository;
+  readonly suspensions?: SuspensionRepository;
 }

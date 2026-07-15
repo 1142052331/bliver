@@ -10,6 +10,9 @@ const environmentSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().min(1).optional(),
   CLOUDINARY_API_KEY: z.string().min(1).optional(),
   CLOUDINARY_API_SECRET: z.string().min(1).optional(),
+  VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+  VAPID_SUBJECT: z.string().min(1).optional(),
 });
 
 export type ApiConfig = Readonly<{
@@ -26,6 +29,7 @@ export type ApiConfig = Readonly<{
         apiSecret: string;
       }>
     | undefined;
+  push: Readonly<{ publicKey: string; privateKey: string; subject: string }> | undefined;
 }>;
 
 export function createConfig(environment: NodeJS.ProcessEnv = process.env): ApiConfig {
@@ -40,6 +44,7 @@ export function createConfig(environment: NodeJS.ProcessEnv = process.env): ApiC
           apiSecret: parsed.CLOUDINARY_API_SECRET,
         }
       : undefined;
+  const push = parsed.VAPID_PUBLIC_KEY && parsed.VAPID_PRIVATE_KEY && parsed.VAPID_SUBJECT ? { publicKey: parsed.VAPID_PUBLIC_KEY, privateKey: parsed.VAPID_PRIVATE_KEY, subject: parsed.VAPID_SUBJECT } : undefined;
 
   return {
     nodeEnv: parsed.NODE_ENV,
@@ -49,5 +54,6 @@ export function createConfig(environment: NodeJS.ProcessEnv = process.env): ApiC
     sessionSecret: parsed.SESSION_SECRET,
     port: parsed.PORT,
     cloudinary,
+    push,
   };
 }

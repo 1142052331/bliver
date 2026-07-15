@@ -27,6 +27,7 @@ export async function authenticateUser(repos: IdentityRepositories, input: { use
   const user = await repos.users.findByUsername(input.username.trim());
   const credential = user ? await repos.credentials.findByUserId(user.id) : null;
   if (!user || !credential || !(await verifyPassword(credential.passwordHash, input.password))) throw new IdentityError('INVALID_CREDENTIALS');
+  if (await repos.suspensions?.isSuspended(user.id)) throw new IdentityError('USER_SUSPENDED');
   const now = new Date();
   const policy = input.platform === 'web' ? webSessionPolicy : capacitorSessionPolicy;
   const access = createOpaqueToken();
@@ -41,6 +42,7 @@ export async function resolveSession(repos: IdentityRepositories, rawToken: stri
   const session = await repos.sessions.findByTokenHash(hashToken(rawToken));
   if (!session || session.revokedAt || isExpired(session.expiresAt)) return null;
   const user = await repos.users.findById(session.userId);
+  if (user && await repos.suspensions?.isSuspended(user.id)) return null;
   return user ? { user: toUser(user, await repos.roles.listByUserId(user.id)), session } : null;
 }
 
@@ -58,6 +60,7 @@ export async function rotateSession(repos: IdentityRepositories, rawRefreshToken
   }
   const user = await repos.users.findById(existing.userId);
   if (!user) throw new IdentityError('USER_NOT_FOUND');
+  if (await repos.suspensions?.isSuspended(user.id)) throw new IdentityError('USER_SUSPENDED');
   const now = new Date(); const accessToken = createOpaqueToken(); const refreshToken = createOpaqueToken();
   const replacement: SessionRecord = { id: v7(), userId: existing.userId, deviceId: existing.deviceId, familyId: existing.familyId, tokenHash: hashToken(accessToken), refreshTokenHash: hashToken(refreshToken), expiresAt: new Date(now.getTime() + capacitorSessionPolicy.accessTtlMs), createdAt: now, lastSeenAt: now, revokedAt: null };
   await repos.sessions.rotate(existing.id, replacement, now);

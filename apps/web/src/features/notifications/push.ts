@@ -4,10 +4,13 @@ export async function enableWebPush(): Promise<boolean> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
   const permission=await Notification.requestPermission(); if(permission!=='granted')return false;
   const keyResponse=await fetch('/api/v1/push/public-key',{credentials:'include'});if(!keyResponse.ok)return false;const {publicKey}=await keyResponse.json() as {publicKey:string};
-  const registration=await navigator.serviceWorker.ready;const subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeKey(publicKey)});
+  const registration=await registeredWorker();const subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeKey(publicKey)});
   const response=await fetch('/api/v1/push/subscribe',{method:'POST',credentials:'include',headers:{'content-type':'application/json','x-csrf-token':csrf()},body:JSON.stringify(subscription.toJSON())});return response.ok;
 }
-export async function disableWebPush(): Promise<void> { const registration=await navigator.serviceWorker.ready;const subscription=await registration.pushManager.getSubscription();if(!subscription)return;await fetch('/api/v1/push/unsubscribe',{method:'POST',credentials:'include',headers:{'content-type':'application/json','x-csrf-token':csrf()},body:JSON.stringify({endpoint:subscription.endpoint})});await subscription.unsubscribe(); }
+export async function disableWebPush(): Promise<void> { const registration=await navigator.serviceWorker.getRegistration();const subscription=await registration?.pushManager.getSubscription();if(!subscription)return;await fetch('/api/v1/push/unsubscribe',{method:'POST',credentials:'include',headers:{'content-type':'application/json','x-csrf-token':csrf()},body:JSON.stringify({endpoint:subscription.endpoint})});await subscription.unsubscribe(); }
+
+export async function registerPushServiceWorker():Promise<ServiceWorkerRegistration|null>{if(!('serviceWorker'in navigator))return null;return navigator.serviceWorker.register('/sw.js');}
+async function registeredWorker():Promise<ServiceWorkerRegistration>{const existing=await navigator.serviceWorker.getRegistration();if(existing)return existing;const registration=await Promise.race([registerPushServiceWorker(),new Promise<null>((resolve)=>setTimeout(()=>resolve(null),5_000))]);if(!registration)throw new Error('Push service worker unavailable');return registration;}
 
 export interface CapacitorPushBridge { requestPermissions(): Promise<{ receive: string }>; register(): Promise<void>; }
 export async function enableCapacitorPushFromUserAction(bridge: CapacitorPushBridge): Promise<boolean> { const permission=await bridge.requestPermissions();if(permission.receive!=='granted')return false;await bridge.register();return true; }

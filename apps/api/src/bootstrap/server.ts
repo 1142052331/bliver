@@ -19,7 +19,8 @@ import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox
 import { Server as SocketServer } from 'socket.io';
 import { createNominatimGeography } from '../platform/geography/providers.js';
 import { configureRealtime, emitFootprintPublished } from './realtime.js';
-import { NotificationService, createPostgresNotificationRepository } from '../modules/notifications/index.js';
+import { NotificationService, createPostgresNotificationRepository, PushAdapter, PushDeliveryConsumer, WebPushProvider } from '../modules/notifications/index.js';
+import { AuthorizedMemoryQuery, createPostgresMemoryMediaSource, createPostgresMemoryRepository, createPostgresVisitorSource, MemoryProjectionConsumer } from '../modules/memories/index.js';
 
 export interface ShutdownServerPort {
   close(callback: (error?: Error) => void): unknown;
@@ -58,15 +59,19 @@ export async function startServer(): Promise<void> {
   const relationships = createPostgresSocialRepository(db);
   const blockPolicy = new BlockPolicy(relationships);
   const mapAccessFilter = ({ viewerId, addParameter }: { viewerId: string | null; addParameter: (value: unknown) => string }): string => {
-    if (!viewerId) return `f.visibility = 'public' AND f.discovery_expires_at > CURRENT_TIMESTAMP`;
+    if (!viewerId) return `f.moderation_hidden_at IS NULL AND f.visibility = 'public' AND f.discovery_expires_at > CURRENT_TIMESTAMP`;
     const viewer = addParameter(viewerId);
-    return blockPolicy.relationshipVisibilitySql({ actorParameter: viewer, authorColumn: 'f.author_id', visibilityColumn: 'f.visibility', discoveryExpiresAtColumn: 'f.discovery_expires_at', relationship: 'all' });
+    return `f.moderation_hidden_at IS NULL AND ${blockPolicy.relationshipVisibilitySql({ actorParameter: viewer, authorColumn: 'f.author_id', visibilityColumn: 'f.visibility', discoveryExpiresAtColumn: 'f.discovery_expires_at', relationship: 'all' })}`;
   };
   const footprints = createPostgresFootprintRepositories(db, { mapAccessFilter });
   const governanceRepository = createPostgresGovernanceRepository(db);
   const governance = new ModerationGovernanceService(governanceRepository);
-  const notificationService = new NotificationService(createPostgresNotificationRepository(db), { async isBlocked(recipientId, actorId) { return relationships.isEitherBlocked(parseUserId(recipientId), parseUserId(actorId)); } });
+  const notificationRepository = createPostgresNotificationRepository(db);
+  const notificationService = new NotificationService(notificationRepository, { async isBlocked(recipientId, actorId) { return relationships.isEitherBlocked(parseUserId(recipientId), parseUserId(actorId)); } });
+  const pushDelivery = config.push ? new PushDeliveryConsumer(new PushAdapter(new WebPushProvider(), config.push), notificationRepository) : null;
   const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: relationships, blocks: relationships, moderation: governance, now: () => new Date() });
+  const memoryRepository = createPostgresMemoryRepository(db);
+  const memories = new AuthorizedMemoryQuery(memoryRepository, policy, createPostgresMemoryMediaSource(db, config.cloudinary?.cloudName), createPostgresVisitorSource(db));
   const map = new MapFootprintQuery({ repository: footprints, policy, cursorSecret: config.sessionSecret });
   const discoveryRepository = createPostgresDiscoveryRepository(db, { accessFilter: (input) => blockPolicy.relationshipVisibilitySql(input) });
   const activity = new DiscoveryQueryService({ repository: discoveryRepository, policy, cursorSecret: config.sessionSecret });
@@ -101,13 +106,15 @@ export async function startServer(): Promise<void> {
     social: { service: new SocialService(relationships) },
     conversations: { service: conversationService },
     governance: { service: governance },
-    notifications: { service: notificationService },
+    notifications: { service: notificationService, ...(config.push ? { vapidPublicKey: config.push.publicKey } : {}) },
+    memories: { query: memories },
   });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });
   configureRealtime(io, identity, conversationService);
   const projection = new DiscoveryProjectionConsumer({ repository: discoveryRepository, source: { async findById(id) { const [publicRecord, fullRecord] = await Promise.all([footprints.findById(id as never), footprints.footprints.findById(id as never)]); if (!publicRecord || !fullRecord) return null; let countryCode: string | null = null; if (fullRecord.metadata.regionId) { const region = await db.query<{ country_code: string }>('SELECT country_code FROM regions WHERE id=$1', [fullRecord.metadata.regionId]); countryCode = region.rows[0]?.country_code ?? null; } return { ...publicRecord, message: fullRecord.message, hasMedia: fullRecord.mediaAssetIds.length > 0, regionId: fullRecord.metadata.regionId, countryCode }; } } });
-  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), process: async (event) => { if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'FootprintDeleted') await projection.process(event as never); await notificationService.consume({ id: event.id, type: event.type, payload: event.payload }); if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); } });
+  const memoryProjection = new MemoryProjectionConsumer(memoryRepository);
+  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), process: async (event) => { if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'FootprintDeleted') await projection.process(event as never); if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'CommentAdded' || event.type === 'ReactionAdded') await memoryProjection.process(event); const notificationEvent={id:event.id,type:event.type,payload:event.payload};const notification=await notificationService.consume(notificationEvent);const recipientId=notificationService.recipientForEvent(notificationEvent);if(notification&&recipientId&&pushDelivery)await pushDelivery.deliver(recipientId,notification); if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); } });
   const workerTimer = setInterval(() => { void outboxWorker.runOnce(); }, 250);
   workerTimer.unref();
 

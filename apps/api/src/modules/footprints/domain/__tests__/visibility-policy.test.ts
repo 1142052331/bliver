@@ -173,6 +173,14 @@ describe('FootprintVisibilityPolicy access table', () => {
     ).resolves.toBe(false);
   });
 
+  it('hides moderated footprints from owners and allows only case-scoped access', async () => {
+    const hidden = footprint({ moderationHiddenAt: now });
+    const policy = createPolicy([hidden], { moderationCases: new Set([hidden.id]) });
+    await expect(policy.canRead(actor(ownerId), hidden.id)).resolves.toBe(false);
+    await expect(policy.canRead(actor(strangerId), hidden.id)).resolves.toBe(false);
+    await expect(policy.canRead(actor(moderatorId, ['moderator']), hidden.id)).resolves.toBe(true);
+  });
+
   it('lets blocks override an accepted friendship', async () => {
     const policy = createPolicy([friendsOnly], {
       friends: new Set([blockedId]),
