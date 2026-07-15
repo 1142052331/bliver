@@ -12,6 +12,7 @@ DONE_WITH_CONCERNS. The application, API boundaries, focused tests, and static V
 - `b7025ef` feat: publish footprint events reliably
 - `6dfbc67` feat: add V2 map and footprint experience
 - `fb2b104` test: run V2 map tests in jsdom
+- `a265eb6` fix: resolve authenticated map viewers
 
 ## Verification
 
