@@ -1,0 +1,29 @@
+import { conversationDto, messageDto, publicUser, type ConversationDto, type MessageDto, type PublicUser } from '@bliver/contracts';
+
+export class ConversationApiError extends Error {
+  constructor(readonly code: string, readonly status: number) { super(code); this.name = 'ConversationApiError'; }
+}
+async function json(response: Response): Promise<unknown> { const body = await response.json().catch(() => ({})); if (!response.ok) throw new ConversationApiError(typeof body === 'object' && body && 'code' in body ? String((body as { code?: unknown }).code) : 'CONVERSATION_REQUEST_FAILED', response.status); return body; }
+function csrfToken(): string | undefined { if (typeof document === 'undefined') return undefined; const value = document.cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith('bliver_csrf=')); return value ? decodeURIComponent(value.slice('bliver_csrf='.length)) : undefined; }
+function mutationHeaders(headers: Record<string, string>): Record<string, string> { const token = csrfToken(); return token ? { ...headers, 'x-csrf-token': token } : headers; }
+export interface ConversationPage { readonly items: readonly MessageDto[]; readonly nextCursor?: string; }
+export interface ConversationListItem extends ConversationDto { readonly unreadCount: number; readonly lastMessage?: MessageDto; }
+function parseConversation(value: unknown): ConversationDto {
+  const raw = value as Record<string, unknown>;
+  return conversationDto.parse({ id: raw.id, participantLowId: raw.participantLowId, participantHighId: raw.participantHighId, initiatorId: raw.initiatorId, state: raw.state, createdAt: raw.createdAt, updatedAt: raw.updatedAt });
+}
+function listItem(value: unknown): ConversationListItem {
+  const raw = value as Record<string, unknown>;
+  const conversation = parseConversation(raw);
+  const lastMessage = raw.lastMessage === undefined || raw.lastMessage === null ? undefined : messageDto.parse(raw.lastMessage);
+  return { ...conversation, unreadCount: typeof raw.unreadCount === 'number' && raw.unreadCount > 0 ? Math.floor(raw.unreadCount) : 0, ...(lastMessage ? { lastMessage } : {}) };
+}
+export async function fetchConversations(): Promise<ConversationListItem[]> { const body = await json(await fetch('/api/v1/conversations', { credentials: 'include' })); return (body as { items: unknown[] }).items.map(listItem); }
+export async function fetchCurrentUser(): Promise<PublicUser> { return publicUser.parse(await json(await fetch('/api/v1/users/me', { credentials: 'include' }))); }
+export async function fetchMessages(conversationId: string, cursor?: string): Promise<ConversationPage> { const query = cursor ? `?limit=50&cursor=${encodeURIComponent(cursor)}` : '?limit=50'; const body = await json(await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}/messages${query}`, { credentials: 'include' })); const value = body as { items: unknown[]; nextCursor?: unknown }; return { items: value.items.map((item) => messageDto.parse(item)), ...(typeof value.nextCursor === 'string' ? { nextCursor: value.nextCursor } : {}) }; }
+export async function sendGreeting(userId: string, content: string, idempotencyKey: string = crypto.randomUUID()) { const response = await fetch(`/api/v1/users/${encodeURIComponent(userId)}/greetings`, { method: 'POST', credentials: 'include', headers: mutationHeaders({ 'content-type': 'application/json', 'idempotency-key': idempotencyKey }), body: JSON.stringify({ content }) }); const body = await json(response) as { conversation: unknown; message: unknown }; return { conversation: parseConversation(body.conversation), message: messageDto.parse(body.message) }; }
+export async function replyToGreeting(conversationId: string, content: string, idempotencyKey: string = crypto.randomUUID()) { const response = await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}/reply`, { method: 'POST', credentials: 'include', headers: mutationHeaders({ 'content-type': 'application/json', 'idempotency-key': idempotencyKey }), body: JSON.stringify({ content }) }); const body = await json(response) as { conversation: unknown; message: unknown }; return { conversation: parseConversation(body.conversation), message: messageDto.parse(body.message) }; }
+export async function sendMessage(conversationId: string, content: string, idempotencyKey: string, moderation?: MessageDto['moderation']) { const response = await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}/messages`, { method: 'POST', credentials: 'include', headers: mutationHeaders({ 'content-type': 'application/json', 'idempotency-key': idempotencyKey }), body: JSON.stringify({ content, ...(moderation ? { moderation } : {}) }) }); return messageDto.parse(await json(response)); }
+export async function markRead(conversationId: string, messageId: string) { const response = await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}/read`, { method: 'POST', credentials: 'include', headers: mutationHeaders({ 'content-type': 'application/json' }), body: JSON.stringify({ messageId }) }); await json(response); }
+export interface TypingPresence { readonly conversationId: string; readonly userId: string; readonly active: boolean; readonly expiresAt: string; }
+export async function fetchTyping(conversationId: string): Promise<TypingPresence[]> { const body = await json(await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}/typing`, { credentials: 'include' })); const items = (body as { items?: unknown[] }).items ?? []; return items.flatMap((item) => { const raw = item as Record<string, unknown>; return typeof raw.conversationId === 'string' && typeof raw.userId === 'string' && typeof raw.active === 'boolean' && typeof raw.expiresAt === 'string' ? [{ conversationId: raw.conversationId, userId: raw.userId, active: raw.active, expiresAt: raw.expiresAt }] : []; }); }
