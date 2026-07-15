@@ -1,0 +1,6 @@
+.publish-route, .footprint-detail { max-width: 680px; margin: 0 auto; padding: 24px 16px; }
+.publish-route .bliver-surface, .footprint-detail .bliver-surface { display: grid; gap: 12px; padding: 20px; }
+.publish-route h1, .footprint-detail h1 { margin: 0 0 4px; color: #173b31; }
+.publish-route textarea, .publish-route select, .publish-route input { min-height: 44px; border: 1px solid #d7e1dc; border-radius: 6px; padding: 10px; font: inherit; color: #1e2925; background: #fff; }
+.publish-route textarea { min-height: 120px; resize: vertical; }
+.publish-route [role='alert'] { margin: 0; color: #b72f38; }

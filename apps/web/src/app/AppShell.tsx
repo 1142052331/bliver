@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { Button } from '@bliver/ui';
 
@@ -10,13 +10,14 @@ const destinations = [
 ] as const;
 
 export function AppShell() {
+  const navigate = useNavigate();
   return (
     <div className="app-shell">
       <header className="app-shell__header">
         <a className="app-shell__brand" href="/map">
           Bliver
         </a>
-        <Button aria-label="Publish footprint" variant="primary">
+        <Button aria-label="Publish footprint" variant="primary" onClick={() => navigate('/publish')}>
           Publish
         </Button>
       </header>
