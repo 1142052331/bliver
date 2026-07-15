@@ -18,6 +18,7 @@ describe.skipIf(!databaseUrl)('identity PostgreSQL persistence', () => {
     await repos.users.create({ id, username, email: null, displayName: 'Integration' });
     await repos.credentials.create({ userId: id, passwordHash: await hashPassword('password-123') });
     expect((await repos.users.findByUsername(username))?.id).toBe(id);
+    expect(await repos.roles.listByUserId(id)).toEqual(['user']);
     await expect(repos.users.create({ id: createUserId(), username, email: null, displayName: 'Duplicate' })).rejects.toThrow();
   });
 });

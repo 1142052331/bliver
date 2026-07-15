@@ -2,7 +2,7 @@ import { v7 } from 'uuid';
 import { createUserId, type UserId } from '@bliver/domain';
 import type { IdentityRepositories, Role, SessionRecord } from './ports.js';
 import { hashPassword, verifyPassword } from '../domain/password.js';
-import { capacitorSessionPolicy, createOpaqueToken, hashToken, isExpired, normalizeDeviceName, type SessionPlatform } from '../domain/session.js';
+import { capacitorSessionPolicy, webSessionPolicy, createOpaqueToken, hashToken, isExpired, normalizeDeviceName, type SessionPlatform } from '../domain/session.js';
 
 export class IdentityError extends Error { constructor(readonly code: string) { super(code); } }
 
@@ -28,9 +28,10 @@ export async function authenticateUser(repos: IdentityRepositories, input: { use
   const credential = user ? await repos.credentials.findByUserId(user.id) : null;
   if (!user || !credential || !(await verifyPassword(credential.passwordHash, input.password))) throw new IdentityError('INVALID_CREDENTIALS');
   const now = new Date();
+  const policy = input.platform === 'web' ? webSessionPolicy : capacitorSessionPolicy;
   const access = createOpaqueToken();
   const refresh = input.platform === 'capacitor' ? createOpaqueToken() : undefined;
-  const session: SessionRecord = { id: v7(), userId: user.id, deviceId: v7(), familyId: v7(), tokenHash: hashToken(access), refreshTokenHash: refresh ? hashToken(refresh) : null, expiresAt: new Date(now.getTime() + capacitorSessionPolicy.accessTtlMs), createdAt: now, lastSeenAt: now, revokedAt: null };
+  const session: SessionRecord = { id: v7(), userId: user.id, deviceId: v7(), familyId: v7(), tokenHash: hashToken(access), refreshTokenHash: refresh ? hashToken(refresh) : null, expiresAt: new Date(now.getTime() + policy.accessTtlMs), createdAt: now, lastSeenAt: now, revokedAt: null };
   await repos.devices.create({ id: session.deviceId, userId: user.id, name: normalizeDeviceName(input.deviceName, input.platform), platform: input.platform });
   await repos.sessions.create(session);
   return { user: toUser(user, await repos.roles.listByUserId(user.id)), session: { id: session.id, deviceName: normalizeDeviceName(input.deviceName, input.platform), createdAt: now.toISOString(), lastSeenAt: now.toISOString(), current: true }, accessToken: access, refreshToken: refresh };

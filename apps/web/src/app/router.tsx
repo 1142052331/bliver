@@ -5,13 +5,14 @@ import {
   Navigate,
   RouterProvider,
   useLocation,
+  Link,
 } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
 import { RoutePlaceholder } from './routes/RoutePlaceholder.js';
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
-function SessionExpired() { const location = useLocation(); return <><RoutePlaceholder title="Session expired" /><Navigate to="/map" replace state={{ from: location.state?.from }} /></>; }
+function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to={destination}>Continue</Link></section>; }
 
 const routes = [
   {
