@@ -14,6 +14,7 @@ DONE_WITH_CONCERNS. Discovery, privacy-filtered Activity and Map DTO parity, rea
 - `77fc20d` fix: make comment replay atomic
 - `2f7974a` fix: replay detail conversation actions after login
 - `ce7bc3d` fix: close phase 4 quality review gaps
+- `88add79` fix: close final Phase 4 important review issues
 
 ## Verification
 
@@ -22,9 +23,9 @@ DONE_WITH_CONCERNS. Discovery, privacy-filtered Activity and Map DTO parity, rea
 | `npm.cmd run db:v2:migrate` | BLOCKED; `Database migration failed: DATABASE_URL is required` |
 | `npm.cmd run typecheck:v2` | PASS; all seven V2 workspaces |
 | `npm.cmd run lint:v2` | PASS; zero warnings/errors |
-| `npm.cmd run test:v2` | PASS; 52 files passed, 3 Postgres environment-gated files skipped; 192 tests passed, 7 skipped |
+| `npm.cmd run test:v2` | PASS; 53 files passed, 3 Postgres environment-gated files skipped; 200 tests passed, 7 skipped |
 | `npx.cmd playwright test apps/web/e2e/discovery-interaction.spec.ts` | PASS; 10 tests across Pixel 5 and Desktop Chrome, including guest comment and detail-reply login/replay, authenticated session fixtures, and blocked-candidate filtering |
-| `npm.cmd run architecture:check` | PASS; no dependency violations (216 modules, 445 dependencies) |
+| `npm.cmd run architecture:check` | PASS; no dependency violations (217 modules, 442 dependencies) |
 | `npm.cmd run build:v2` | PASS; API and web production builds complete |
 | `npm.cmd --workspace @bliver/contracts run contracts:openapi` | PASS; OpenAPI JSON and generated client refreshed locally |
 
@@ -44,8 +45,10 @@ The web build retains the existing Vite warning for a JavaScript chunk larger th
 - Interaction and report GET/command routes resolve the actor and apply the same footprint policy before reads. Command idempotency uses the existing Postgres `platform.idempotency_keys` table (with an explicit repository port and memory test adapter), and web guest actions navigate to login and replay after authentication.
 - Comment and reply idempotency reserves the durable key, comment response, comment row, and `CommentAdded` Outbox event inside one transaction. Unique-key losers load the committed winner; rollback tests prove a crash leaves no reservation or mutation to replay.
 - Reaction add/remove, comment add/delete, and report creation use repository transaction ports so their domain rows and Outbox events commit together. Report unique-open races reload the committed winner, and stale Outbox workers cannot acknowledge a reclaimed claim without the claim timestamp.
-- Smart Activity cursors bind the resolved scope and advance disjoint region/country/global buckets without gaps or duplicate fallback rows. Conversation reads apply either-direction block filtering to comment and reaction authors, and replies to soft-deleted parents are rejected.
+- Reaction and report idempotency reservations/results now live inside those same PostgreSQL transactions; same-key losers replay the committed winner, while distinct-key open-report collisions remain `DUPLICATE_OPEN_REPORT` conflicts. Crash/concurrency fakes cover rollback and one-winner behavior.
+- Smart Activity queries disjoint region/country/global buckets against one signed boundary, merges them in strict reverse chronology, and advances without gaps or duplicate fallback rows. Conversation reads apply either-direction block filtering to comment and reaction authors, and replies to soft-deleted parents are rejected.
 - Cookie-authenticated interaction and report commands enforce the existing same-origin plus double-submit CSRF contract. Comment POST responses use the authenticated display name that GET returns; OpenAPI documents reaction/comment deletes and reply creation.
+- The web Activity API reads the non-HttpOnly `bliver_csrf` cookie and sends `x-csrf-token` on reaction, comment, reply, delete, and report mutations; unit tests and Playwright assert the header is present.
 - Browser acceptance proves guest discovery/pending auth intent, authenticated reaction/comment/reply/report, and blocked-content absence on mobile and desktop fixtures.
 - Footprint detail passes its current return path into `ConversationSection`; guest comments and replies persist that path and replay on the same detail surface after login.
 
