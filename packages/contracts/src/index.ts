@@ -13,3 +13,5 @@ export { role, publicUser, registerRequest, loginRequest, refreshRequest, authRe
 export type { RegisterRequest, LoginRequest, PublicUser, AuthResponse } from './auth.js';
 export { sessionDto, sessionListResponse, sessionExpired } from './session.js';
 export type { SessionDto } from './session.js';
+export { mediaBytes, mediaMimeType, mediaSignatureRequest, mediaSignatureResponse } from './media.js';
+export type { MediaSignatureRequest, MediaSignatureResponse } from './media.js';
