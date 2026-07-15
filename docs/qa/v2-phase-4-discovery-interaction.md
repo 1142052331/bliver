@@ -7,7 +7,8 @@ DONE_WITH_CONCERNS. Discovery, privacy-filtered Activity and Map DTO parity, rea
 ## Commits
 
 - `34eac07` feat: add phase 4 discovery and interactions
-- QA evidence: the commit containing this document
+- `c442a15` qa: record phase 4 discovery interaction evidence
+- `220bc28` fix: accept canonical visibility change events
 
 ## Verification
 
