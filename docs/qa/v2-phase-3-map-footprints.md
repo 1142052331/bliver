@@ -2,7 +2,7 @@
 
 ## Status
 
-DONE_WITH_CONCERNS. The application, API boundaries, focused tests, and static V2 gates are complete. PostGIS migration and Playwright viewport evidence are environment-blocked in this worktree and are recorded below without fabrication.
+DONE_WITH_CONCERNS. The application, API boundaries, focused tests, static V2 gates, and deterministic browser smoke are complete. PostGIS migration remains environment-blocked in this worktree and is recorded below without fabrication.
 
 ## Commits
 
