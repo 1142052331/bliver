@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { DatabaseClient } from '../../../../platform/db/client.js';
 import { createPostgresFootprintRepositories } from '../postgres-repositories.js';
+import { MapFootprintQuery } from '../../application/map-query.js';
+import { FootprintVisibilityPolicy } from '../../domain/visibility-policy.js';
 
 describe('Postgres map query SQL', () => {
   it('pushes cursor and bounded limit into the public viewport query', async () => {
@@ -31,5 +33,20 @@ describe('Postgres map query SQL', () => {
     expect(sql).toMatch(/f\.author_id = \$5/);
     expect(sql.indexOf('f.author_id = $5')).toBeLessThan(sql.indexOf('LIMIT $6'));
     expect(values).toEqual([120, 30, 122, 32, '019c2f52-3e9b-7d1f-8d68-cf35d75d9b71', 1]);
+  });
+
+  it('returns the older readable row without a misleading next cursor after SQL privacy filtering', async () => {
+    const ownerId = '019c2f52-3e9b-7d1f-8d68-cf35d75d9b71';
+    const readableId = '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70';
+    const query = vi.fn(async () => ({ rows: [{ id: readableId, author_id: ownerId, author_name: 'Owner', display_lat: 31, display_lng: 121, visibility: 'private', location_precision: 'precise', published_at: new Date('2026-07-15T07:00:00.000Z'), discovery_expires_at: null }], rowCount: 1 }));
+    const repositories = createPostgresFootprintRepositories({ query } as unknown as DatabaseClient);
+    const policy = new FootprintVisibilityPolicy({ records: repositories, friendships: { async areAcceptedFriends() { return false; } }, blocks: { async isEitherBlocked() { return false; } }, moderation: { async hasCaseAccess() { return false; } }, now: () => new Date('2026-07-15T08:00:00.000Z') });
+    const result = await new MapFootprintQuery({ repository: repositories, policy, maxResults: 1 }).execute({ actor: { userId: ownerId, sessionId: 'session-1', roles: ['user'], transport: 'cookie' }, bounds: { west: 120, south: 30, east: 122, north: 32 } });
+
+    expect(result.items.map((item) => item.id)).toEqual([readableId]);
+    expect(result.nextCursor).toBeNull();
+    const [sql] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(sql).toMatch(/f\.author_id = \$5/);
+    expect(sql).toMatch(/LIMIT \$6/);
   });
 });
