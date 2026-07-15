@@ -55,10 +55,23 @@ export interface RelationshipQueryPort {
   getRelationshipSummary(actor: UserId, target: UserId): Promise<RelationshipSummaryDto>;
 }
 
+export interface SocialCommandIdempotency {
+  readonly actorId: UserId;
+  readonly scope: string;
+  readonly key: string;
+  readonly fingerprint: string;
+}
+
+export interface SocialIdempotencyRecord {
+  readonly fingerprint: string;
+  readonly response: unknown;
+}
+
 export interface FriendshipWriteInput {
   readonly record: FriendshipRecord;
   readonly history: FriendshipHistoryRecord;
   readonly event?: SocialEvent;
+  readonly idempotency?: SocialCommandIdempotency;
 }
 
 export interface SocialRepository extends RelationshipQueryPort {
@@ -67,15 +80,18 @@ export interface SocialRepository extends RelationshipQueryPort {
   findBlock(blockerId: UserId, blockedId: UserId): Promise<BlockRecord | null>;
   listFriendships(userId: UserId): Promise<FriendshipRecord[]>;
   listBlocks(blockerId: UserId): Promise<BlockRecord[]>;
+  findIdempotency(input: SocialCommandIdempotency): Promise<SocialIdempotencyRecord | null>;
+  saveIdempotency(input: SocialCommandIdempotency, response: unknown): Promise<unknown>;
   writeFriendship(input: FriendshipWriteInput): Promise<FriendshipRecord>;
-  removeFriendship(input: { readonly record: FriendshipRecord; readonly event: SocialEvent }): Promise<void>;
+  removeFriendship(input: { readonly record: FriendshipRecord; readonly event: SocialEvent; readonly idempotency?: SocialCommandIdempotency }): Promise<void>;
   writeBlock(input: {
     readonly record: BlockRecord;
     readonly event: SocialEvent;
     readonly removedFriendship?: FriendshipRecord;
     readonly friendshipRemovedEvent?: SocialEvent;
+    readonly idempotency?: SocialCommandIdempotency;
   }): Promise<BlockRecord>;
-  removeBlock(input: { readonly record: BlockRecord; readonly event: SocialEvent }): Promise<void>;
+  removeBlock(input: { readonly record: BlockRecord; readonly event: SocialEvent; readonly idempotency?: SocialCommandIdempotency }): Promise<void>;
   listHistory(friendshipId: string): Promise<FriendshipHistoryRecord[]>;
   listEvents(): Promise<SocialEvent[]>;
 }

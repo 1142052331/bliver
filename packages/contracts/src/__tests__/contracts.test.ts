@@ -110,6 +110,8 @@ describe('V2 contracts', () => {
       '/api/v1/auth/logout',
       '/api/v1/auth/refresh',
       '/api/v1/auth/register',
+      '/api/v1/blocks',
+      '/api/v1/blocks/{userId}',
       '/api/v1/comments/{commentId}',
       '/api/v1/discovery/map',
       '/api/v1/footprints',
@@ -118,12 +120,18 @@ describe('V2 contracts', () => {
       '/api/v1/footprints/{footprintId}/comments/{commentId}/replies',
       '/api/v1/footprints/{footprintId}/reactions',
       '/api/v1/footprints/{footprintId}/visibility',
+      '/api/v1/friendships',
+      '/api/v1/friendships/requests',
+      '/api/v1/friendships/{friendshipId}/accept',
+      '/api/v1/friendships/{friendshipId}/reject',
+      '/api/v1/friendships/{userId}',
       '/api/v1/location/resolve',
       '/api/v1/map/footprints',
       '/api/v1/media/signature',
       '/api/v1/media/{assetId}',
       '/api/v1/media/{assetId}/complete',
       '/api/v1/places/search',
+      '/api/v1/relationships/{userId}',
       '/api/v1/reports',
       '/api/v1/session',
       '/api/v1/sessions',
@@ -143,6 +151,8 @@ describe('V2 contracts', () => {
     expect(document.paths?.['/api/v1/footprints/{footprintId}/reactions']?.delete?.responses?.[204]).toBeDefined();
     expect(document.paths?.['/api/v1/footprints/{footprintId}/comments/{commentId}/replies']?.post?.responses?.[201]).toBeDefined();
     expect(document.paths?.['/api/v1/comments/{commentId}']?.delete?.responses?.[204]).toBeDefined();
+    expect(document.paths?.['/api/v1/friendships']?.post?.responses?.[201]).toBeDefined();
+    expect(document.paths?.['/api/v1/relationships/{userId}']?.get?.responses?.[404]).toBeDefined();
     expect(document.paths?.['/api/v1/places/search']?.get?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/location/resolve']?.post?.responses?.[200]).toBeDefined();
     const queryParameters = document.paths?.['/api/v1/map/footprints']?.get?.parameters ?? [];

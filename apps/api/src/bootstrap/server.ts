@@ -12,7 +12,7 @@ import { FootprintVisibilityPolicy, MapFootprintQuery, createPostgresFootprintRe
 import { DiscoveryQueryService, DiscoveryProjectionConsumer, createPostgresDiscoveryRepository } from '../modules/discovery/index.js';
 import { InteractionService, createPostgresInteractionRepository } from '../modules/interactions/index.js';
 import { CreateReport, createPostgresReportRepository } from '../modules/moderation/index.js';
-import { BlockPolicy, createPostgresSocialRepository } from '../modules/social/index.js';
+import { BlockPolicy, SocialService, createPostgresSocialRepository } from '../modules/social/index.js';
 import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox/index.js';
 import { Server as SocketServer } from 'socket.io';
 import { createNominatimGeography } from '../platform/geography/providers.js';
@@ -91,6 +91,7 @@ export async function startServer(): Promise<void> {
     discovery: { activity, map, regionForActor },
     interactions: { service: interactionService },
     reports: { create: reportCreate },
+    social: { service: new SocialService(relationships) },
   });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });

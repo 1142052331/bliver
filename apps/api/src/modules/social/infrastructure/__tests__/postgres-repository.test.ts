@@ -65,6 +65,27 @@ describe('Postgres social repository', () => {
     expect(String(query.mock.calls[1]?.[0])).toContain('FROM friendships');
   });
 
+  it('reserves command idempotency before friendship mutation and replays the stored winner', async () => {
+    const idempotency = { actorId: requesterId, scope: 'social.friendship.request', key: 'request-1', fingerprint: 'fingerprint-1' };
+    const writeWithKey = { ...write, idempotency };
+    const query = vi.fn(async () => ({ rows: [], rowCount: 1 }));
+    const repository = createPostgresSocialRepository(database(query));
+
+    await expect(repository.writeFriendship(writeWithKey)).resolves.toEqual(record);
+    const statements = (query.mock.calls as unknown as Array<[string]>).map(([sql]) => String(sql));
+    expect(statements[0]).toContain('INSERT INTO platform.idempotency_keys');
+    expect(statements[1]).toContain('INSERT INTO friendships');
+    expect(statements.at(-1)).toContain('UPDATE platform.idempotency_keys');
+
+    const replayQuery = vi.fn()
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValueOnce({ rows: [{ request_hash: idempotency.fingerprint, response: record }], rowCount: 1 });
+    const replayRepository = createPostgresSocialRepository(database(replayQuery));
+    await expect(replayRepository.writeFriendship(writeWithKey)).resolves.toEqual(record);
+    expect(replayQuery).toHaveBeenCalledTimes(2);
+    expect(String(replayQuery.mock.calls[1]?.[0])).toContain('FOR UPDATE');
+  });
+
   it('uses canonical columns for relationship queries and either block direction', async () => {
     const query = vi.fn()
       .mockResolvedValueOnce({ rows: [{ exists: true }], rowCount: 1 })

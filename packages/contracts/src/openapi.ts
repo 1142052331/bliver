@@ -10,6 +10,7 @@ import { sessionDto, sessionListResponse } from './session.js';
 import { activityPageDto, activityQuery, addCommentInput, addReactionInput, commentsResponse, createReportInput, footprintDto, footprintRecordResponse, mapFootprintsResponse, publishFootprintRequest, publishFootprintResponse, reactionDto, reportCreatedResponse, updateFootprintVisibilityRequest } from './footprints.js';
 import { mediaCompleteRequest, mediaSignatureRequest, mediaSignatureResponse } from './media.js';
 import { locationResolveRequest, locationResolveResponse, mapFootprintQuery, placeSearchResponse } from './geography.js';
+import { blockDto, friendshipDto, friendshipListItemDto, friendshipRequestDto, relationshipSummaryDto, requestFriendshipInput, socialUserId } from './social.js';
 import { z } from './zod.js';
 
 export function buildOpenApiDocument() {
@@ -42,11 +43,19 @@ export function buildOpenApiDocument() {
   const commentsSchema = registry.register('CommentsResponse', commentsResponse);
   const reportSchema = registry.register('CreateReportRequest', createReportInput);
   const reportResponseSchema = registry.register('ReportCreatedResponse', reportCreatedResponse);
+  const friendshipSchema = registry.register('Friendship', friendshipDto);
+  const friendshipRequestSchema = registry.register('FriendshipRequest', friendshipRequestDto);
+  const friendshipListItemSchema = registry.register('FriendshipListItem', friendshipListItemDto);
+  const relationshipSummarySchema = registry.register('RelationshipSummary', relationshipSummaryDto);
+  const blockSchema = registry.register('Block', blockDto);
+  const requestFriendshipSchema = registry.register('RequestFriendship', requestFriendshipInput);
   const mediaAssetParams = z.object({ assetId: z.string().uuid() });
   const footprintParams = z.object({ footprintId: z.string().uuid() });
   const footprintCommentParams = z.object({ footprintId: z.string().uuid(), commentId: z.string().uuid() });
   const commentParams = z.object({ commentId: z.string().uuid() });
   const placeSearchQuery = z.object({ q: z.string().trim().min(1).max(120) });
+  const userParams = z.object({ userId: socialUserId });
+  const friendshipParams = z.object({ friendshipId: z.string().uuid() });
 
   for (const path of ['/healthz', '/versionz'] as const) {
     registry.registerPath({
@@ -109,6 +118,16 @@ export function buildOpenApiDocument() {
   registry.registerPath({ method: 'post', path: '/api/v1/footprints/{footprintId}/comments/{commentId}/replies', request: { params: footprintCommentParams, body: { content: { 'application/json': { schema: addCommentSchema.omit({ parentCommentId: true }) } } } }, responses: { 201: { description: 'Reply added' }, 400: { description: 'Invalid parent comment', content: { 'application/problem+json': { schema: problemSchema } } }, 401: { description: 'Authentication required', content: { 'application/problem+json': { schema: problemSchema } } } } });
   registry.registerPath({ method: 'delete', path: '/api/v1/comments/{commentId}', request: { params: commentParams }, responses: { 204: { description: 'Comment deleted' }, 403: { description: 'Comment deletion forbidden', content: { 'application/problem+json': { schema: problemSchema } } } } });
   registry.registerPath({ method: 'post', path: '/api/v1/reports', request: { body: { content: { 'application/json': { schema: reportSchema } } } }, responses: { 201: { description: 'Report intake created', content: { 'application/json': { schema: reportResponseSchema } } }, 409: { description: 'Duplicate open report', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/friendships', responses: { 200: { description: 'Accepted friendships', content: { 'application/json': { schema: z.object({ items: z.array(friendshipListItemSchema) }) } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/friendships', request: { body: { content: { 'application/json': { schema: requestFriendshipSchema } } } }, responses: { 201: { description: 'Friendship requested', content: { 'application/json': { schema: friendshipSchema } } }, 404: { description: 'Blocked relationship is hidden', content: { 'application/problem+json': { schema: problemSchema } } }, 409: { description: 'Invalid transition or idempotency conflict', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/friendships/requests', responses: { 200: { description: 'Incoming and outgoing friendship requests', content: { 'application/json': { schema: z.object({ incoming: z.array(friendshipRequestSchema), outgoing: z.array(friendshipRequestSchema) }) } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/friendships/{friendshipId}/accept', request: { params: friendshipParams }, responses: { 200: { description: 'Friendship accepted', content: { 'application/json': { schema: friendshipSchema } } }, 404: { description: 'Request not found', content: { 'application/problem+json': { schema: problemSchema } } }, 409: { description: 'Invalid transition or idempotency conflict', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/friendships/{friendshipId}/reject', request: { params: friendshipParams }, responses: { 200: { description: 'Friendship rejected', content: { 'application/json': { schema: friendshipSchema } } }, 404: { description: 'Request not found', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'delete', path: '/api/v1/friendships/{userId}', request: { params: userParams }, responses: { 204: { description: 'Friendship removed' }, 409: { description: 'Invalid transition', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/relationships/{userId}', request: { params: userParams }, responses: { 200: { description: 'Relationship summary', content: { 'application/json': { schema: relationshipSummarySchema } } }, 404: { description: 'Blocked relationship is hidden', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/blocks', responses: { 200: { description: 'Users blocked by the actor', content: { 'application/json': { schema: z.object({ items: z.array(blockSchema) }) } } } } });
+  registry.registerPath({ method: 'put', path: '/api/v1/blocks/{userId}', request: { params: userParams }, responses: { 200: { description: 'User blocked', content: { 'application/json': { schema: blockSchema } } }, 409: { description: 'Invalid relationship', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'delete', path: '/api/v1/blocks/{userId}', request: { params: userParams }, responses: { 204: { description: 'User unblocked' } } });
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',

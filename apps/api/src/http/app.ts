@@ -27,6 +27,7 @@ import { interactionRouter } from '../modules/interactions/transport/routes.js';
 import { createMemoryInteractionRepository, InteractionService } from '../modules/interactions/application/service.js';
 import { reportRouter } from '../modules/moderation/transport/routes.js';
 import { CreateReport, createMemoryReportRepository } from '../modules/moderation/domain/reports.js';
+import { SocialService, createMemorySocialRepository, socialRouter } from '../modules/social/index.js';
 
 export interface AppOptions {
   readonly config: ApiConfig;
@@ -39,6 +40,7 @@ export interface AppOptions {
   readonly discovery?: DiscoveryRouterOptions;
   readonly interactions?: { readonly service?: InteractionService };
   readonly reports?: { readonly create?: CreateReport };
+  readonly social?: { readonly service?: SocialService };
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -49,7 +51,7 @@ const requestId: RequestHandler = (request, response, next) => {
   next();
 };
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -67,6 +69,8 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use('/api/v1', interactionRouter({ service: interactionService }, identityRepositories));
   const reportCreate = reports?.create ?? new CreateReport(createMemoryReportRepository(), { async canReport() { return true; } });
   app.use('/api/v1', reportRouter({ create: reportCreate }, identityRepositories));
+  const socialService = social?.service ?? new SocialService(createMemorySocialRepository());
+  app.use('/api/v1', socialRouter({ service: socialService }, identityRepositories));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);
   app.use(errorHandler);
