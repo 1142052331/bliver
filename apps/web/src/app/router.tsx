@@ -23,6 +23,8 @@ import { uploadMedia } from '../features/footprints/media-upload.js';
 import { RequireAuth } from './guards/RequireAuth.js';
 import { ActivityRoute } from '../features/activity/ActivityRoute.js';
 import { LoginRoute } from '../features/auth/LoginRoute.js';
+import { PeopleRoute } from '../features/social/PeopleRoute.js';
+import { ConversationRoute, MessagesRoute } from '../features/conversations/routes.js';
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
 function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to="/login" state={{ from: destination }}>Continue to sign in</Link></section>; }
@@ -43,7 +45,9 @@ const routes = [
       { path: 'map', element: <MapRoute state="ready" loadFromApi /> },
       { path: 'activity', element: <ActivityRoute loadFromApi /> },
       { path: 'login', element: <LoginRoute /> },
-      { path: 'messages', element: <RoutePlaceholder title="Messages" /> },
+      { path: 'people', element: <PeopleRoute /> },
+      { path: 'messages', element: <MessagesRoute /> },
+      { path: 'messages/:conversationId', element: <ConversationRoute /> },
       { path: 'me', element: <RoutePlaceholder title="My space" /> },
       { path: 'profile/:userId', element: <RoutePlaceholder title="Profile" /> },
       {
