@@ -50,4 +50,15 @@ describe('Postgres comment idempotency transaction', () => {
       expect.stringContaining('UPDATE footprint_comments'), expect.stringContaining('INSERT INTO platform.outbox_events'),
     ]);
   });
+
+  it('loads the committed reaction winner without another reaction or Outbox mutation', async () => {
+    const value = input();
+    const winner = { footprintId, actorId, emoji: 'heart', createdAt: value.comment.createdAt };
+    const query = vi.fn()
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValueOnce({ rows: [{ request_hash: 'fingerprint', response: winner }], rowCount: 1 });
+    const repository = createPostgresInteractionRepository(database(query));
+    await expect(repository.transactions!.addReaction({ reaction: winner, event: { ...value.event, type: 'ReactionAdded' }, idempotency: { actorId, scope: 'interaction.reaction', key: 'same-key', fingerprint: 'fingerprint' } })).resolves.toMatchObject({ emoji: 'heart' });
+    expect(query).toHaveBeenCalledTimes(2);
+  });
 });

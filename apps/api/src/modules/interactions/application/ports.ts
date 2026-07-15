@@ -16,10 +16,11 @@ export interface InteractionRepository {
   readonly transactions?: InteractionTransactionPort;
 }
 export interface InteractionTransactionPort {
-  addReaction(input: { readonly reaction: Reaction; readonly event: InteractionEvent }): Promise<void>;
+  addReaction(input: { readonly reaction: Reaction; readonly event: InteractionEvent; readonly idempotency?: Pick<IdempotentReactionCommit, 'actorId' | 'scope' | 'key' | 'fingerprint'> }): Promise<Reaction>;
   removeReaction(input: { readonly footprintId: FootprintId; readonly actorId: UserId; readonly event: InteractionEvent }): Promise<void>;
   addComment(input: { readonly comment: Comment; readonly event: InteractionEvent }): Promise<void>;
   deleteComment(input: { readonly commentId: string; readonly at: Date; readonly event: InteractionEvent }): Promise<void>;
 }
+export interface IdempotentReactionCommit { readonly actorId: UserId; readonly scope: 'interaction.reaction'; readonly key: string; readonly fingerprint: string; readonly reaction: Reaction; readonly event: InteractionEvent; }
 export interface IdempotentCommentCommit { readonly actorId: UserId; readonly scope: 'interaction.comment' | 'interaction.reply'; readonly key: string; readonly fingerprint: string; readonly comment: Comment; readonly event: InteractionEvent; }
 export interface InteractionAccess { canInteract(actor: ActorContext, footprintId: FootprintId): Promise<boolean>; canRead?: (actor: ActorContext | null, footprintId: FootprintId) => Promise<boolean>; isBlocked(actorId: UserId, targetId: UserId): Promise<boolean>; footprintOwner(footprintId: FootprintId): Promise<UserId | null>; }

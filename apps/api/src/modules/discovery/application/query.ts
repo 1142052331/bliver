@@ -28,22 +28,22 @@ export class DiscoveryQueryService {
     const cursorScope = cursor?.scope;
     if (cursorScope && !requestedScopes.includes(cursorScope as DiscoveryScope)) throw new TypeError('Invalid cursor');
     const startIndex = cursorScope ? requestedScopes.indexOf(cursorScope as DiscoveryScope) : 0;
-    const activeScopes = requestedScopes.slice(Math.max(0, startIndex));
+    const activeScopes = parsed.scope === 'smart' ? requestedScopes : requestedScopes.slice(Math.max(0, startIndex));
     let resolvedScope = (cursorScope as DiscoveryScope | undefined) ?? requestedScopes[0] ?? (input.countryCode ? 'country' : 'global');
     if (!input.actor && (parsed.relationship === 'friends' || parsed.content === 'unread')) return { items: [], resolvedScope };
     const visible: Array<{ readonly entry: DiscoveryEntry; readonly scope: DiscoveryScope }> = [];
     for (const [index, scope] of activeScopes.entries()) {
-      const scopeCursor = index === 0 && cursor && (!cursor.scope || cursor.scope === scope) ? cursor : null;
-      const batch = await this.options.repository.listCandidates({ scope, actorId: input.actor?.userId ?? null, ...(input.regionId ? { regionId: input.regionId } : {}), ...(input.countryCode ? { countryCode: input.countryCode } : {}), ...(parsed.scope === 'smart' && scope === 'country' && input.regionId ? { excludeRegionId: input.regionId } : {}), ...(parsed.scope === 'smart' && scope === 'global' && input.countryCode ? { excludeCountryCode: input.countryCode } : {}), ...(parsed.query ? { query: parsed.query } : {}), relationship: parsed.relationship, content: parsed.content, ...(scopeCursor ? { cursor: scopeCursor } : {}), limit: limit + 1 - visible.length });
+      const scopeCursor = cursor && (parsed.scope === 'smart' || index === 0) ? cursor : null;
+      const batch = await this.options.repository.listCandidates({ scope, actorId: input.actor?.userId ?? null, ...(input.regionId ? { regionId: input.regionId } : {}), ...(input.countryCode ? { countryCode: input.countryCode } : {}), ...(parsed.scope === 'smart' && scope === 'country' && input.regionId ? { excludeRegionId: input.regionId } : {}), ...(parsed.scope === 'smart' && scope === 'global' && input.countryCode ? { excludeCountryCode: input.countryCode } : {}), ...(parsed.scope === 'smart' && scope === 'global' && input.regionId && !input.countryCode ? { excludeRegionId: input.regionId } : {}), ...(parsed.query ? { query: parsed.query } : {}), relationship: parsed.relationship, content: parsed.content, ...(scopeCursor ? { cursor: scopeCursor } : {}), limit: limit + 1 });
       const filtered = order([...new Map((await this.options.policy.readFilter(input.actor, batch)).map((item) => [item.id, item])).values()]);
-      if (filtered.length && visible.length === 0) resolvedScope = scope;
       visible.push(...filtered.map((entry) => ({ entry, scope })));
-      if (parsed.scope !== 'smart' || visible.length > limit) break;
     }
-    const page = visible.slice(0, limit);
+    const page = [...new Map(visible.map((item) => [item.entry.id, item])).values()].sort((left, right) => right.entry.publishedAt.getTime() - left.entry.publishedAt.getTime() || right.entry.id.localeCompare(left.entry.id)).slice(0, limit);
+    if (page[0]) resolvedScope = page[0].scope;
     const items = await Promise.all(page.map((item) => this.options.policy.toPublicDto(input.actor, item.entry)));
     const last = page[page.length - 1];
-    return { items, resolvedScope, ...(visible.length > limit && last ? { nextCursor: encodeDiscoveryCursor({ publishedAt: last.entry.publishedAt.toISOString(), id: last.entry.id, scope: last.scope }, this.options.cursorSecret) } : {}) };
+    const hasMore = visible.some((item) => item.entry.publishedAt.getTime() < (last?.entry.publishedAt.getTime() ?? Number.POSITIVE_INFINITY) || (item.entry.publishedAt.getTime() === last?.entry.publishedAt.getTime() && item.entry.id < (last?.entry.id ?? '')));
+    return { items, resolvedScope, ...(hasMore && last ? { nextCursor: encodeDiscoveryCursor({ publishedAt: last.entry.publishedAt.toISOString(), id: last.entry.id, scope: last.scope }, this.options.cursorSecret) } : {}) };
   }
 }
 

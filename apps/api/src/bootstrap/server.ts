@@ -12,7 +12,6 @@ import { FootprintVisibilityPolicy, MapFootprintQuery, createPostgresFootprintRe
 import { DiscoveryQueryService, DiscoveryProjectionConsumer, createPostgresDiscoveryRepository } from '../modules/discovery/index.js';
 import { InteractionService, createPostgresInteractionRepository } from '../modules/interactions/index.js';
 import { CreateReport, createPostgresReportRepository } from '../modules/moderation/index.js';
-import { createPostgresCommandIdempotencyRepository } from '../platform/idempotency/index.js';
 import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox/index.js';
 import { Server as SocketServer } from 'socket.io';
 import { createNominatimGeography } from '../platform/geography/providers.js';
@@ -69,7 +68,6 @@ export async function startServer(): Promise<void> {
   const geography = createNominatimGeography();
   const interactionService = new InteractionService(createPostgresInteractionRepository(db), { async canInteract(actor, footprintId) { return policy.canRead(actor, footprintId); }, async canRead(actor, footprintId) { return policy.canRead(actor, footprintId); }, async isBlocked(actorId, targetId) { return relationships.isEitherBlocked(actorId, targetId); }, async footprintOwner(footprintId) { return (await footprints.findById(footprintId))?.authorId ?? null; } });
   const reportCreate = new CreateReport(createPostgresReportRepository(db), { async canReport(actor, footprintId) { return policy.canRead(actor, footprintId); } });
-  const commandIdempotency = createPostgresCommandIdempotencyRepository(db);
   const regionForActor = async (actor: { readonly userId: string } | null): Promise<{ regionId?: string; countryCode?: string }> => {
     if (!actor) return {};
     const result = await db.query<{ region_id: string | null; country_code: string | null }>('SELECT f.region_id, r.country_code FROM footprints f LEFT JOIN regions r ON r.id=f.region_id WHERE f.author_id=$1 AND f.region_id IS NOT NULL ORDER BY f.published_at DESC, f.id DESC LIMIT 1', [actor.userId]);
@@ -92,8 +90,8 @@ export async function startServer(): Promise<void> {
     },
     map: { query: map, geography },
     discovery: { activity, map, regionForActor },
-    interactions: { service: interactionService, idempotency: commandIdempotency },
-    reports: { create: reportCreate, idempotency: commandIdempotency },
+    interactions: { service: interactionService },
+    reports: { create: reportCreate },
   });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });

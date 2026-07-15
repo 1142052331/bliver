@@ -15,7 +15,7 @@ async function activity(page: Page, items = [footprint]) {
 async function authenticatedSession(page: Page, sessionId: string) {
   await page.unroute('**/api/v1/session');
   await page.route('**/api/v1/session', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: sessionId, deviceName: 'E2E', createdAt: '2026-07-15T08:00:00.000Z', lastSeenAt: '2026-07-15T08:00:00.000Z', current: true }) }));
-  await page.context().addCookies([{ name: 'bliver_session', value: sessionId, domain: '127.0.0.1', path: '/' }]);
+  await page.context().addCookies([{ name: 'bliver_session', value: sessionId, domain: '127.0.0.1', path: '/' }, { name: 'bliver_csrf', value: 'e2e-csrf-token', domain: '127.0.0.1', path: '/' }]);
 }
 
 test('guest discovery keeps a pending reaction through authentication', async ({ page }) => {
@@ -79,6 +79,8 @@ test('guest detail reply navigates to login and replays on the same footprint', 
 test('authenticated reaction, comment, reply, and report stay in the public interaction loop', async ({ page }) => {
   await authenticatedSession(page, 'e2e-auth-session');
   await activity(page);
+  const mutationCsrfHeaders: string[] = [];
+  page.on('request', (request) => { if (request.method() !== 'GET' && request.url().includes('/api/v1/')) mutationCsrfHeaders.push(request.headers()['x-csrf-token'] ?? ''); });
   await page.route('**/reactions', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ actorId: footprint.author.id, emoji: 'heart', createdAt: '2026-07-15T08:02:00.000Z' }) }));
   await page.route('**/comments', (route) => route.request().method() === 'GET' ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [comment] }) }) : route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(comment) }));
   await page.route('**/comments/*/replies', (route) => route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ ...comment, id: '019f0000-0000-7000-8000-000000000004', parentCommentId: comment.id }) }));
@@ -95,6 +97,8 @@ test('authenticated reaction, comment, reply, and report stay in the public inte
   await page.getByRole('button', { name: 'Post' }).click();
   await page.getByRole('button', { name: 'Report' }).click();
   await expect(page.getByText('Report received.')).toBeVisible();
+  expect(mutationCsrfHeaders.filter(Boolean).length).toBeGreaterThanOrEqual(4);
+  expect(mutationCsrfHeaders.filter(Boolean).every((value) => value === 'e2e-csrf-token')).toBe(true);
 });
 
 test('blocked content is absent from discovery for an authenticated actor', async ({ page }) => {
