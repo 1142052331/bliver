@@ -30,6 +30,7 @@ import { CreateReport, createMemoryReportRepository } from '../modules/moderatio
 import { SocialService, createMemorySocialRepository, socialRouter } from '../modules/social/index.js';
 import { ConversationService, conversationRouter, createMemoryConversationRepository } from '../modules/conversations/index.js';
 import { createMemoryMemoryRepository, memoriesRouter, type MemoryQueryPort } from '../modules/memories/index.js';
+import { createMemoryNotificationRepository, NotificationService, notificationsRouter } from '../modules/notifications/index.js';
 
 export interface AppOptions {
   readonly config: ApiConfig;
@@ -45,6 +46,7 @@ export interface AppOptions {
   readonly social?: { readonly service?: SocialService };
   readonly conversations?: { readonly service?: ConversationService };
   readonly memories?: { readonly query?: MemoryQueryPort };
+  readonly notifications?: { readonly service?: NotificationService; readonly vapidPublicKey?: string };
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -55,7 +57,7 @@ const requestId: RequestHandler = (request, response, next) => {
   next();
 };
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -80,6 +82,8 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use('/api/v1', conversationRouter({ service: conversationService }, identityRepositories));
   const memoryQuery = memories?.query ?? createMemoryMemoryRepository();
   app.use('/api/v1', memoriesRouter({ query: memoryQuery }, identityRepositories));
+  const notificationService = notifications?.service ?? new NotificationService(createMemoryNotificationRepository());
+  app.use('/api/v1', notificationsRouter({ service: notificationService, ...(notifications?.vapidPublicKey ? { vapidPublicKey: notifications.vapidPublicKey } : {}) }, identityRepositories));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);
   app.use(errorHandler);
