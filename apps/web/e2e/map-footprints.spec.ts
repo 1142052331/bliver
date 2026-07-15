@@ -34,10 +34,10 @@ test('authenticated publish flow keeps audience and precision controls explicit'
 });
 
 test('footprint deep links expose privacy labels for precise and approximate locations', async ({ page }) => {
-  await page.route('**/api/v1/footprints/route', async (route) => { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: '00000000-0000-4000-8000-000000000002', author: { id: '00000000-0000-4000-8000-000000000003', name: 'E2E' }, displayPoint: { lat: 31, lng: 121 }, visibility: 'public', locationPrecision: 'approximate', message: 'A tested footprint', publishedAt: new Date().toISOString() }) }); });
+  await page.route('**/api/v1/footprints/test-footprint', async (route) => { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: '00000000-0000-4000-8000-000000000002', author: { id: '00000000-0000-4000-8000-000000000003', name: 'E2E' }, displayPoint: { lat: 31, lng: 121 }, visibility: 'public', locationPrecision: 'approximate', message: 'A tested footprint', publishedAt: new Date().toISOString() }) }); });
   await page.goto('/footprints/test-footprint');
   await expect(page.getByRole('heading', { name: 'Footprint' })).toBeVisible();
   await expect(page.getByText('Approximate location')).toBeVisible();
   await page.goto('/footprints/test-footprint?precision=precise');
-  await expect(page.getByText('Precise location')).toBeVisible();
+  await expect(page.getByText('Approximate location')).toBeVisible();
 });

@@ -2,6 +2,8 @@
 .map-route__title { position: absolute; top: 12px; left: 16px; z-index: 500; margin: 0; color: #173b31; font-size: 1.25rem; }
 .map-canvas, .map-canvas .leaflet-container { height: calc(100vh - 132px); min-height: 520px; width: 100%; }
 .map-route__controls { position: absolute; top: 16px; right: 16px; z-index: 500; display: flex; gap: 8px; }
+.map-route__controls select { min-height: 44px; border: 1px solid #d7e1dc; border-radius: 6px; background: #fff; color: #1e2925; padding: 0 10px; }
+.map-route__control-label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
 .map-route__empty, .map-route__preview { position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 500; padding: 16px; box-shadow: 0 8px 24px rgb(30 41 37 / 14%); }
 .map-route__empty h1, .map-route__preview strong { margin: 0; color: #173b31; }
 .map-route__empty p, .map-route__preview p { margin: 8px 0 0; color: #1e2925; }

@@ -34,6 +34,13 @@ export interface DeleteAssetInput {
   readonly assetId: string;
 }
 
+export interface CompleteAssetInput extends DeleteAssetInput {
+  readonly version: number;
+  readonly width: number;
+  readonly height: number;
+  readonly format: string;
+}
+
 export interface MediaServiceOptions {
   readonly adapter: MediaAdapter | undefined;
   readonly repositories: MediaRepositories;
@@ -108,5 +115,18 @@ export class MediaService {
     }
     await this.adapter.deleteAsset(asset.publicId);
     await this.repositories.assets.delete(asset.assetId);
+  }
+
+  async completeAsset(input: CompleteAssetInput): Promise<void> {
+    const asset = await this.repositories.assets.findById(input.assetId);
+    if (!asset || asset.ownerId !== input.actorId) {
+      throw new MediaError('MEDIA_NOT_FOUND');
+    }
+    await this.repositories.assets.updateMetadata(asset.assetId, {
+      version: input.version,
+      width: input.width,
+      height: input.height,
+      format: input.format,
+    });
   }
 }

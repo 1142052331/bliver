@@ -5,6 +5,7 @@ import {
   eventEnvelope,
   healthResponse,
   locationPrecision,
+  mediaCompleteRequest,
   problemDetails,
   visibility,
 } from '../index.js';
@@ -60,6 +61,11 @@ describe('V2 contracts', () => {
     ).toThrow();
   });
 
+  it('validates completed Cloudinary metadata', () => {
+    expect(mediaCompleteRequest.parse({ version: 42, width: 1200, height: 900, format: 'jpg' })).toEqual({ version: 42, width: 1200, height: 900, format: 'jpg' });
+    expect(() => mediaCompleteRequest.parse({ version: 42, width: 0, height: 900, format: 'jpg' })).toThrow();
+  });
+
   it('publishes the foundation routes in an OpenAPI 3.1 document', () => {
     const document = buildOpenApiDocument();
 
@@ -72,6 +78,8 @@ describe('V2 contracts', () => {
       '/api/v1/footprints',
       '/api/v1/map/footprints',
       '/api/v1/media/signature',
+      '/api/v1/media/{assetId}',
+      '/api/v1/media/{assetId}/complete',
       '/api/v1/session',
       '/api/v1/sessions',
       '/api/v1/users/me',
@@ -81,5 +89,7 @@ describe('V2 contracts', () => {
     ]);
     expect(document.components?.schemas?.ProblemDetails).toBeDefined();
     expect(document.paths?.['/readyz']?.get?.responses?.[503]).toBeDefined();
+    expect(document.paths?.['/api/v1/media/{assetId}']?.delete?.responses?.[204]).toBeDefined();
+    expect(document.paths?.['/api/v1/media/{assetId}/complete']?.post?.responses?.[204]).toBeDefined();
   });
 });

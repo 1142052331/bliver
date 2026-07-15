@@ -53,6 +53,7 @@ export interface MediaIdempotencyRecord {
 export interface MediaAssetRepository {
   findById(assetId: string): Promise<MediaAsset | null>;
   create(asset: MediaAsset): Promise<void>;
+  updateMetadata(assetId: string, metadata: Pick<MediaAsset, 'version' | 'width' | 'height' | 'format'>): Promise<void>;
   delete(assetId: string): Promise<void>;
 }
 

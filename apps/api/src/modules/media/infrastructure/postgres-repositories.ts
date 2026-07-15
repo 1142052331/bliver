@@ -9,6 +9,7 @@ export function createPostgresMediaRepositories(db: DatabaseClient): MediaReposi
   const assets: MediaAssetRepository = {
     async findById(assetId) { const result = await db.query<Row>('SELECT id, owner_id, public_id, mime_type, bytes, version, width, height, format, created_at FROM media_assets WHERE id = $1', [assetId]); return result.rows[0] ? asset(result.rows[0]) : null; },
     async create(input) { await db.query('INSERT INTO media_assets (id, owner_id, public_id, mime_type, bytes, version, width, height, format) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [input.assetId, input.ownerId, input.publicId, input.mimeType, input.bytes, input.version, input.width, input.height, input.format]); },
+    async updateMetadata(assetId, metadata) { await db.query('UPDATE media_assets SET version = $2, width = $3, height = $4, format = $5 WHERE id = $1', [assetId, metadata.version, metadata.width, metadata.height, metadata.format]); },
     async delete(assetId) { await db.query('DELETE FROM media_assets WHERE id = $1', [assetId]); },
   };
   const idempotency: MediaIdempotencyRepository = {

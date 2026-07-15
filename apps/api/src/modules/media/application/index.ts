@@ -1,7 +1,7 @@
 export { MediaError } from './errors.js';
 export { createMemoryMediaRepositories } from './memory-repositories.js';
 export { MediaService } from './service.js';
-export type { DeleteAssetInput, MediaServiceOptions, RequestSignatureInput } from './service.js';
+export type { CompleteAssetInput, DeleteAssetInput, MediaServiceOptions, RequestSignatureInput } from './service.js';
 export {
   MEDIA_MAX_BYTES,
   MEDIA_MIME_TYPES,

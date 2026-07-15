@@ -16,6 +16,10 @@ export function createMemoryMediaRepositories(): MediaRepositories {
     async create(asset) {
       assets.set(asset.assetId, asset);
     },
+    async updateMetadata(assetId, metadata) {
+      const existing = assets.get(assetId);
+      if (existing) assets.set(assetId, { ...existing, ...metadata });
+    },
     async delete(assetId) {
       assets.delete(assetId);
     },

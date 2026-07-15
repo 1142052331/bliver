@@ -115,4 +115,26 @@ describe('media REST transport', () => {
       .expect(204);
     expect(adapter.deleteAsset).toHaveBeenCalledWith(signature.body.publicId);
   });
+
+  it('requires the owner to complete uploaded asset metadata', async () => {
+    const identity = createMemoryIdentityRepositories();
+    const repositories = createMemoryMediaRepositories();
+    const service = new MediaService({ adapter: createAdapter(), repositories });
+    const app = createApp({ config, identity, media: service });
+    const owner = await registerAndGetBearer(app, 'mediacompleteowner');
+    const other = await registerAndGetBearer(app, 'mediacompleteother');
+    const signature = await request(app)
+      .post('/api/v1/media/signature')
+      .set('Authorization', `Bearer ${owner}`)
+      .set('Idempotency-Key', 'key-complete')
+      .send({ mimeType: 'image/jpeg', bytes: 10 })
+      .expect(200);
+    const endpoint = `/api/v1/media/${signature.body.assetId}/complete`;
+
+    await request(app).post(endpoint).send({ version: 42, width: 1200, height: 900, format: 'jpg' }).expect(401);
+    await request(app).post(endpoint).set('Authorization', `Bearer ${other}`).send({ version: 42, width: 1200, height: 900, format: 'jpg' }).expect(404);
+    await request(app).post(endpoint).set('Authorization', `Bearer ${owner}`).send({ version: 42, width: 1200, height: 900, format: 'jpg' }).expect(204);
+
+    await expect(repositories.assets.findById(signature.body.assetId)).resolves.toMatchObject({ version: 42, width: 1200, height: 900, format: 'jpg' });
+  });
 });

@@ -75,6 +75,7 @@ export interface FootprintVisibilityPolicyPorts {
 
 export interface FootprintVisibilityPolicyOptions {
   readonly maxReadFilterConcurrency?: number;
+  readonly denyAuthenticatedNonOwners?: boolean;
 }
 
 export class FootprintAccessDeniedError extends Error {
@@ -151,6 +152,7 @@ async function mapWithConcurrency<T>(
 
 export class FootprintVisibilityPolicy {
   private readonly maxReadFilterConcurrency: number;
+  private readonly denyAuthenticatedNonOwners: boolean;
 
   constructor(
     private readonly ports: FootprintVisibilityPolicyPorts,
@@ -160,6 +162,7 @@ export class FootprintVisibilityPolicy {
     this.maxReadFilterConcurrency = Number.isFinite(configured)
       ? Math.max(1, Math.min(32, Math.floor(configured)))
       : 8;
+    this.denyAuthenticatedNonOwners = options.denyAuthenticatedNonOwners ?? false;
   }
 
   async canRead(
@@ -252,6 +255,7 @@ export class FootprintVisibilityPolicy {
     if (actor.userId === record.authorId) {
       return true;
     }
+    if (this.denyAuthenticatedNonOwners) return false;
     if (!actorId) return false;
     if (
       isModerator(actor) &&

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { requireActor, type ActorContext } from '../../identity/index.js';
+import { requireActor, resolveSession, type ActorContext } from '../../identity/index.js';
 import type { IdentityRepositories } from '../../identity/application/ports.js';
 import { createMemoryFootprintRepositories, DeleteFootprint, FootprintConflictError, PublishFootprint, UpdateFootprintVisibility, type FootprintProviderPorts, type FootprintRepositories } from '../application/index.js';
 import type { FootprintVisibilityPolicy } from '../domain/visibility-policy.js';
@@ -19,6 +19,8 @@ function problem(response: Response, request: Request, status: number, code: str
   response.status(status).type('application/problem+json').send({ type: 'about:blank', title: status === 401 ? 'Unauthorized' : 'Bad request', status, code, requestId: request.id });
 }
 function context(request: Request): ActorContext { return (request as Request & { actor: ActorContext }).actor; }
+function cookieToken(request: Request): string | undefined { const part = request.get('cookie')?.split(';').map((value) => value.trim()).find((value) => value.startsWith('bliver_session=')); return part ? decodeURIComponent(part.slice('bliver_session='.length)) : undefined; }
+async function optionalContext(request: Request, identity: IdentityRepositories): Promise<ActorContext | null> { const bearer = request.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]; const token = bearer ?? cookieToken(request); if (!token) return null; const resolved = await resolveSession(identity, token); return resolved ? { userId: resolved.user.id, sessionId: resolved.session.id, roles: resolved.user.roles, transport: bearer ? 'bearer' : 'cookie' } : null; }
 function defaultProviders(): FootprintProviderPorts { return { geocoding: { async resolve() { return { placeId: null, regionId: null }; } }, weather: { async resolve() { return null; } } }; }
 
 export function footprintRouter(identity: IdentityRepositories, options: FootprintRouterOptions = {}): Router {
@@ -30,11 +32,12 @@ export function footprintRouter(identity: IdentityRepositories, options: Footpri
   const actor = requireActor(identity);
   const router = Router();
   router.get('/footprints/:footprintId', async (request, response) => {
-    const record = await repositories.footprints.findById(String(request.params.footprintId) as never);
+    const footprintId = String(request.params.footprintId) as never;
+    const record = repositories.publicDetails ? await repositories.publicDetails.findById(footprintId) : await repositories.footprints.findById(footprintId).then((item) => item ? { id: item.id, authorId: item.authorId, author: { name: String(item.authorId) }, displayPoint: item.displayPoint, visibility: item.visibility, locationPrecision: item.locationPrecision, publishedAt: item.publishedAt, discoveryExpiresAt: item.discoveryExpiresAt, message: item.message } : null);
     if (!record) { problem(response, request, 404, 'FOOTPRINT_NOT_FOUND'); return; }
     try {
-      if (options.policy) { const policyRecord = { id: record.id, authorId: record.authorId, author: { name: String(record.authorId) }, displayPoint: record.displayPoint, visibility: record.visibility, locationPrecision: record.locationPrecision, publishedAt: record.publishedAt, discoveryExpiresAt: record.discoveryExpiresAt } as FootprintPolicyInput; response.json(await options.policy.toPublicDto(null, policyRecord)); return; }
-      response.json({ id: record.id, author: { id: record.authorId, name: String(record.authorId) }, displayPoint: record.displayPoint, visibility: record.visibility, locationPrecision: record.locationPrecision, message: record.message, publishedAt: record.publishedAt.toISOString(), ...(record.discoveryExpiresAt ? { discoveryExpiresAt: record.discoveryExpiresAt.toISOString() } : {}) });
+      if (options.policy) { const dto = await options.policy.toPublicDto(await optionalContext(request, identity), record as FootprintPolicyInput); response.json({ ...dto, message: record.message }); return; }
+      response.json({ id: record.id, author: { id: record.authorId, name: record.author.name }, displayPoint: record.displayPoint, visibility: record.visibility, locationPrecision: record.locationPrecision, message: record.message, publishedAt: record.publishedAt.toISOString(), ...(record.discoveryExpiresAt ? { discoveryExpiresAt: record.discoveryExpiresAt.toISOString() } : {}) });
     } catch { problem(response, request, 404, 'FOOTPRINT_NOT_FOUND'); }
   });
   router.post('/footprints', actor, async (request, response) => {

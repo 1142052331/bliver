@@ -13,8 +13,8 @@ export { role, publicUser, registerRequest, loginRequest, refreshRequest, authRe
 export type { RegisterRequest, LoginRequest, PublicUser, AuthResponse } from './auth.js';
 export { sessionDto, sessionListResponse, sessionExpired } from './session.js';
 export type { SessionDto } from './session.js';
-export { mediaBytes, mediaMimeType, mediaSignatureRequest, mediaSignatureResponse } from './media.js';
-export type { MediaSignatureRequest, MediaSignatureResponse } from './media.js';
+export { mediaBytes, mediaCompleteRequest, mediaMimeType, mediaSignatureRequest, mediaSignatureResponse } from './media.js';
+export type { MediaCompleteRequest, MediaSignatureRequest, MediaSignatureResponse } from './media.js';
 export { locationResolveRequest, mapBounds, mapFootprintQuery, placeSearchRequest } from './geography.js';
 export type { LocationResolveRequest, MapFootprintQuery, PlaceSearchRequest } from './geography.js';
 export { footprintDto, footprintLocationPrecision, footprintPublishedEvent, footprintVisibility, geoPoint, mapFootprintsResponse, publishFootprintRequest } from './footprints.js';

@@ -94,6 +94,22 @@ describe('MediaService', () => {
     expect(adapter.deleteAsset).toHaveBeenCalledWith(created.publicId);
   });
 
+  it('stores provider metadata only when the asset belongs to the actor', async () => {
+    const repositories = createMemoryMediaRepositories();
+    const service = new MediaService({ adapter: createAdapter(), repositories });
+    const created = await service.requestSignature({ actorId: 'owner-1', idempotencyKey: 'key-complete', mimeType: 'image/jpeg', bytes: 10 });
+
+    await expect(service.completeAsset({ actorId: 'other-1', assetId: created.assetId, version: 42, width: 1200, height: 900, format: 'jpg' })).rejects.toMatchObject({ code: 'MEDIA_NOT_FOUND' });
+    await service.completeAsset({ actorId: 'owner-1', assetId: created.assetId, version: 42, width: 1200, height: 900, format: 'jpg' });
+
+    await expect(repositories.assets.findById(created.assetId)).resolves.toMatchObject({
+      version: 42,
+      width: 1200,
+      height: 900,
+      format: 'jpg',
+    });
+  });
+
   it('keeps service errors typed for transport mapping', () => {
     expect(new MediaError('MEDIA_NOT_FOUND')).toBeInstanceOf(Error);
   });

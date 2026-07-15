@@ -21,5 +21,13 @@ export const mediaSignatureResponse = z.object({
   format: z.string().min(1).nullable(),
 });
 
+export const mediaCompleteRequest = z.object({
+  version: z.number().int().positive(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  format: z.string().trim().min(1).max(32),
+}).strict();
+
 export type MediaSignatureRequest = z.infer<typeof mediaSignatureRequest>;
 export type MediaSignatureResponse = z.infer<typeof mediaSignatureResponse>;
+export type MediaCompleteRequest = z.infer<typeof mediaCompleteRequest>;

@@ -7,6 +7,7 @@ import {
   RouterProvider,
   useLocation,
   Link,
+  useParams,
 } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
@@ -14,29 +15,16 @@ import { RoutePlaceholder } from './routes/RoutePlaceholder.js';
 import { MapRoute } from '../features/map/MapRoute.js';
 import { FootprintDetailRoute } from '../features/footprints/FootprintDetailRoute.js';
 import { PublishFootprintRoute } from '../features/footprints/PublishFootprintRoute.js';
+import { uploadMedia } from '../features/footprints/media-upload.js';
 import { RequireAuth } from './guards/RequireAuth.js';
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
 function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to={destination}>Continue</Link></section>; }
+function FootprintRoute() { const footprintId = useParams().footprintId ?? ''; return <FootprintDetailRoute loadFromApi footprint={{ id: footprintId, message: 'Footprint detail', visibility: 'public', locationPrecision: 'approximate' }} />; }
 async function publishFootprint(input: { readonly message: string; readonly visibility: string; readonly locationPrecision: string; readonly mediaAssetIds?: readonly string[] }): Promise<void> {
   const response = await fetch('/api/v1/footprints', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ ...input, privatePoint: { lat: 31.23, lng: 121.47 }, mediaAssetIds: input.mediaAssetIds ?? [] }) });
   if (!response.ok) throw new Error('Publish failed');
 }
-async function signUpload(file: File): Promise<unknown> {
-  const response = await fetch('/api/v1/media/signature', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ mimeType: file.type, bytes: file.size }) });
-  if (!response.ok) throw new Error('Upload signing failed');
-  const signed = await response.json() as { cloudName: string; apiKey: string; timestamp: number; signature: string; publicId: string; assetId: string };
-  const form = new FormData();
-  form.append('file', file);
-  form.append('api_key', signed.apiKey);
-  form.append('timestamp', String(signed.timestamp));
-  form.append('signature', signed.signature);
-  form.append('public_id', signed.publicId);
-  const upload = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(signed.cloudName)}/image/upload`, { method: 'POST', body: form });
-  if (!upload.ok) throw new Error('Cloudinary upload failed');
-  return signed;
-}
-
 const routes = [
   {
     path: '/',
@@ -50,9 +38,9 @@ const routes = [
       { path: 'profile/:userId', element: <RoutePlaceholder title="Profile" /> },
       {
         path: 'footprints/:footprintId',
-        element: <FootprintDetailRoute loadFromApi footprint={{ id: 'route', message: 'Footprint detail', visibility: 'public', locationPrecision: 'approximate' }} />,
+        element: <FootprintRoute />,
       },
-      { path: 'publish', element: <RequireAuth />, children: [{ index: true, element: <PublishFootprintRoute signUpload={signUpload} publish={publishFootprint} /> }] },
+      { path: 'publish', element: <RequireAuth />, children: [{ index: true, element: <PublishFootprintRoute signUpload={uploadMedia} publish={publishFootprint} /> }] },
       { path: 'admin', element: <RoutePlaceholder title="Admin" /> },
       { path: 'session-expired', element: <SessionExpired /> },
       { path: '*', element: <NotFound /> },

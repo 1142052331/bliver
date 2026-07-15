@@ -22,10 +22,11 @@ export class MapFootprintQuery {
     const ordered = [...readable].sort((left, right) => right.publishedAt.getTime() - left.publishedAt.getTime() || right.id.localeCompare(left.id));
     const cursor = input.cursor ? decodeCursor(input.cursor) : null;
     const filtered = cursor ? ordered.filter((record) => record.publishedAt.toISOString() < cursor.publishedAt || (record.publishedAt.toISOString() === cursor.publishedAt && record.id < cursor.id)) : ordered;
-    const page = filtered.slice(0, Math.min(this.maxResults, Math.max(1, Math.floor(input.limit ?? this.maxResults))));
+    const effectiveLimit = Math.min(this.maxResults, Math.max(1, Math.floor(input.limit ?? this.maxResults)));
+    const page = filtered.slice(0, effectiveLimit);
     const items: FootprintDto[] = [];
     for (const item of page) items.push(await this.options.policy.toPublicDto(input.actor, item));
-    return { items, nextCursor: filtered.length > this.maxResults && page.length ? encodeCursor(page[page.length - 1] as FootprintPolicyInput) : null };
+    return { items, nextCursor: filtered.length > effectiveLimit && page.length ? encodeCursor(page[page.length - 1] as FootprintPolicyInput) : null };
   }
 }
 

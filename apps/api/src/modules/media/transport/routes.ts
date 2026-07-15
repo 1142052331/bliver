@@ -1,5 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { mediaSignatureRequest } from '@bliver/contracts';
+import { mediaCompleteRequest, mediaSignatureRequest } from '@bliver/contracts';
 
 import type { ApiConfig } from '../../../bootstrap/config.js';
 import { requireActor, type ActorContext } from '../../identity/index.js';
@@ -125,6 +125,24 @@ export function mediaRouter(
     const context = actorFrom(request);
     try {
       await service.deleteAsset({ actorId: context.userId, assetId: String(request.params.assetId) });
+      response.status(204).end();
+    } catch (error) {
+      if (error instanceof MediaError) {
+        problem(response, request, statusFor(error), error.code);
+        return;
+      }
+      problem(response, request, 500, 'MEDIA_UNAVAILABLE');
+    }
+  });
+  router.post('/media/:assetId/complete', actor, async (request, response) => {
+    const parsed = mediaCompleteRequest.safeParse(request.body);
+    if (!parsed.success) {
+      problem(response, request, 400, 'INVALID_REQUEST');
+      return;
+    }
+    const context = actorFrom(request);
+    try {
+      await service.completeAsset({ actorId: context.userId, assetId: String(request.params.assetId), ...parsed.data });
       response.status(204).end();
     } catch (error) {
       if (error instanceof MediaError) {

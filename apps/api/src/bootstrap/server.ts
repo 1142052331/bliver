@@ -48,7 +48,7 @@ export async function startServer(): Promise<void> {
   const mediaRepositories = createPostgresMediaRepositories(db);
   const media = new MediaService({ adapter: new CloudinaryAdapter(config.cloudinary), repositories: mediaRepositories });
   const footprints = createPostgresFootprintRepositories(db);
-  const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: { async areAcceptedFriends() { return false; } }, blocks: { async isEitherBlocked() { return false; } }, moderation: { async hasCaseAccess() { return false; } }, now: () => new Date() });
+  const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: { async areAcceptedFriends() { throw new Error('Relationship persistence is not available'); } }, blocks: { async isEitherBlocked() { throw new Error('Relationship persistence is not available'); } }, moderation: { async hasCaseAccess() { return false; } }, now: () => new Date() }, { denyAuthenticatedNonOwners: true });
   const map = new MapFootprintQuery({ repository: footprints, policy });
   const geography = createNominatimGeography();
   const app = createApp({ config, db, logger, identity, media, footprints: { repositories: footprints, policy, providers: { geocoding: { async resolve(point) { const result = await geography.geocode({ latitude: point.lat, longitude: point.lng }); return { placeId: result.place?.id ?? null, regionId: result.region?.id ?? null }; } }, weather: { async resolve(point) { return geography.weather({ latitude: point.lat, longitude: point.lng }); } } } }, map: { query: map, geography } });

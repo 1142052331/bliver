@@ -1,4 +1,5 @@
 import { createDisplayPoint, type GeoPoint, type LocationPrecision } from '../domain/location-privacy.js';
+import type { FootprintPolicyInput } from '../domain/visibility-policy.js';
 import type { FootprintId, UserId, Visibility } from '@bliver/domain';
 import { createEventId, createFootprintId } from '@bliver/domain';
 
@@ -47,6 +48,7 @@ export interface FootprintRepositories {
   readonly idempotency: FootprintIdempotencyRepository;
   readonly mediaOwnership?: MediaOwnershipPort;
   readonly transactions?: FootprintTransactionPort;
+  readonly publicDetails?: { findById(id: FootprintId): Promise<(FootprintPolicyInput & { readonly message: string }) | null> };
 }
 
 export interface MediaOwnershipPort { assertOwned(actorId: UserId, assetIds: readonly string[]): Promise<void>; }

@@ -1,0 +1,3 @@
+import { Button } from '@bliver/ui';
+
+export function MapControls({ visibility, onVisibilityChange }: { readonly visibility: string; readonly onVisibilityChange: (value: string) => void }) { return <div className="map-route__controls"><Button variant="secondary" aria-label="Search places">Search</Button><Button variant="secondary" aria-label="Locate me">Locate</Button><label><span className="map-route__control-label">Visibility</span><select aria-label="Visibility filter" value={visibility} onChange={(event) => onVisibilityChange(event.target.value)}><option value="">All</option><option value="public">Public</option><option value="friends">Friends</option><option value="private">Private</option></select></label></div>; }
