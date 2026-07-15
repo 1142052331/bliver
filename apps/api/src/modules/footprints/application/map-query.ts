@@ -6,7 +6,7 @@ export interface MapBounds { readonly west: number; readonly south: number; read
 export interface MapAccessFilterContext { readonly viewerId: string | null; readonly addParameter: (value: unknown) => string; }
 export type MapAccessFilter = (context: MapAccessFilterContext) => string;
 export interface MapFootprintRepository { listInViewport(input: { readonly bounds: MapBounds; readonly visibility?: string; readonly viewerId?: string | null; readonly limit?: number; readonly cursor?: { readonly publishedAt: string; readonly id: string } }): Promise<FootprintPolicyInput[]>; }
-export interface MapFootprintQueryOptions { readonly repository: MapFootprintRepository; readonly policy: FootprintVisibilityPolicy; readonly maxResults?: number; }
+export interface MapFootprintQueryOptions { readonly repository: MapFootprintRepository; readonly policy: FootprintVisibilityPolicy; readonly maxResults?: number; readonly cursorSecret?: string; }
 export interface MapFootprintResult { readonly items: FootprintDto[]; readonly nextCursor: string | null; }
 
 function validateBounds(bounds: MapBounds): void {
@@ -19,7 +19,7 @@ export class MapFootprintQuery {
   async execute(input: { readonly actor: ActorContext | null; readonly bounds: MapBounds; readonly cursor?: string; readonly visibility?: string; readonly limit?: number }): Promise<MapFootprintResult> {
     validateBounds(input.bounds);
     const effectiveLimit = Math.min(this.maxResults, Math.max(1, Math.floor(input.limit ?? this.maxResults)));
-    const cursor = input.cursor ? decodeSignedCursor(input.cursor) : null;
+    const cursor = input.cursor ? decodeSignedCursor(input.cursor, this.options.cursorSecret) : null;
     if (input.cursor && !cursor) throw new TypeError('Invalid cursor');
     const records = await this.options.repository.listInViewport({ bounds: input.bounds, viewerId: input.actor?.userId ?? null, limit: effectiveLimit + 1, ...(cursor ? { cursor } : {}), ...(input.visibility ? { visibility: input.visibility } : {}) });
     const readable = await this.options.policy.readFilter(input.actor, records);
@@ -29,7 +29,7 @@ export class MapFootprintQuery {
     const items: FootprintDto[] = [];
     for (const item of page) items.push(await this.options.policy.toPublicDto(input.actor, item));
     const last = page[page.length - 1];
-    return { items, nextCursor: filtered.length > effectiveLimit && last ? encodeSignedCursor({ id: last.id, publishedAt: last.publishedAt.toISOString() }) : null };
+    return { items, nextCursor: filtered.length > effectiveLimit && last ? encodeSignedCursor({ id: last.id, publishedAt: last.publishedAt.toISOString() }, this.options.cursorSecret) : null };
   }
 }
 

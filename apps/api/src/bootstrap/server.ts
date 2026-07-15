@@ -63,7 +63,7 @@ export async function startServer(): Promise<void> {
     async isEitherBlocked(viewerId: string, authorId: string) { const result = await db.query('SELECT 1 FROM user_blocks WHERE (blocker_id=$1 AND blocked_id=$2) OR (blocker_id=$2 AND blocked_id=$1) LIMIT 1', [viewerId, authorId]); return Boolean(result.rowCount); },
   };
   const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: relationships, blocks: relationships, moderation: { async hasCaseAccess() { return false; } }, now: () => new Date() });
-  const map = new MapFootprintQuery({ repository: footprints, policy });
+  const map = new MapFootprintQuery({ repository: footprints, policy, cursorSecret: config.sessionSecret });
   const discoveryRepository = createPostgresDiscoveryRepository(db);
   const activity = new DiscoveryQueryService({ repository: discoveryRepository, policy, cursorSecret: config.sessionSecret });
   const geography = createNominatimGeography();
