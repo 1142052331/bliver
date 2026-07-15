@@ -56,6 +56,26 @@ test('guest comment navigates to login and replays after authentication', async 
   await expect.poll(() => commentAttempts).toBe(2);
 });
 
+test('guest detail reply navigates to login and replays on the same footprint', async ({ page }) => {
+  let replyAttempts = 0;
+  await page.route('**/api/v1/footprints/test-footprint', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...footprint, message: 'Detail moment' }) }));
+  await page.route('**/comments', (route) => route.request().method() === 'GET' ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [comment] }) }) : route.continue());
+  await page.route('**/comments/*/replies', (route) => { replyAttempts += 1; return replyAttempts === 1 ? route.fulfill({ status: 401, contentType: 'application/problem+json', body: '{}' }) : route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ ...comment, id: '019f0000-0000-7000-8000-000000000024', parentCommentId: comment.id, content: 'Replayed reply' }) }); });
+  await page.route('**/api/v1/auth/login', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { id: '019f0000-0000-7000-8000-000000000025', username: 'replier', displayName: 'Replier', email: null, roles: ['user'] }, session: { id: '019f0000-0000-7000-8000-000000000026', deviceName: 'E2E', createdAt: '2026-07-15T08:00:00.000Z', lastSeenAt: '2026-07-15T08:00:00.000Z', current: true } }) }));
+  await page.goto('/footprints/test-footprint');
+  await expect(page.getByText('First note')).toBeVisible();
+  await page.getByRole('button', { name: 'Reply' }).click();
+  await page.getByLabel('Reply').fill('Replayed reply');
+  await page.getByRole('button', { name: 'Post' }).click();
+  await expect(page.getByText('Sign in to join the conversation.')).toBeVisible();
+  await page.getByRole('link', { name: 'Sign in' }).click();
+  await page.getByLabel('Username').fill('replier');
+  await page.getByLabel('Password').fill('password-123');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/footprints\/test-footprint$/);
+  await expect.poll(() => replyAttempts).toBe(2);
+});
+
 test('authenticated reaction, comment, reply, and report stay in the public interaction loop', async ({ page }) => {
   await authenticatedSession(page, 'e2e-auth-session');
   await activity(page);

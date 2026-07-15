@@ -13,7 +13,7 @@ vi.mock('../MapCanvas.js', () => ({ MapCanvas: () => <div data-testid="map-canva
 
 function renderRoute(element: React.ReactNode) { return render(<MemoryRouter>{element}</MemoryRouter>); }
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
 describe('V2 map and footprint features', () => {
   it('renders loading, empty, and privacy-labelled map states', () => {
@@ -67,4 +67,6 @@ describe('V2 map and footprint features', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close footprint' }));
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it('persists a guest detail comment as a login-resumable action', async () => { vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => init?.method === 'POST' ? ({ ok: false, status: 401, json: async () => ({ code: 'AUTH_REQUIRED' }) }) : ({ ok: true, status: 200, json: async () => ({ items: [] }) }))); renderRoute(<FootprintDetailRoute footprint={{ id: 'one', message: 'Hello', visibility: 'public', locationPrecision: 'approximate' }} />); fireEvent.change(await screen.findByLabelText('Comment'), { target: { value: 'Remember this' } }); fireEvent.click(screen.getByRole('button', { name: 'Post' })); expect(await screen.findByText('Sign in to join the conversation.')).toBeVisible(); expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login'); expect(JSON.parse(sessionStorage.getItem('bliver:pending-action') ?? '{}')).toMatchObject({ kind: 'comment', footprintId: 'one', returnTo: '/' }); });
 });
