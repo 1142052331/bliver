@@ -26,6 +26,7 @@ export class DiscoveryQueryService {
     if (parsed.cursor && !cursor) throw new TypeError('Invalid cursor');
     const requestedScopes = scopes(parsed.scope, Boolean(input.regionId), Boolean(input.countryCode));
     let resolvedScope = requestedScopes[0] ?? (input.countryCode ? 'country' : 'global');
+    if (!input.actor && parsed.relationship === 'friends') return { items: [], resolvedScope };
     let visible: DiscoveryEntry[] = [];
     for (const [index, scope] of requestedScopes.entries()) {
       const batch = await this.options.repository.listCandidates({ scope, actorId: input.actor?.userId ?? null, ...(input.regionId ? { regionId: input.regionId } : {}), ...(input.countryCode ? { countryCode: input.countryCode } : {}), ...(parsed.query ? { query: parsed.query } : {}), relationship: parsed.relationship, content: parsed.content, ...(cursor ? { cursor } : {}), limit: limit + 1 });

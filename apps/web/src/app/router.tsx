@@ -22,9 +22,10 @@ import type { PublishFootprintRouteProps } from '../features/footprints/PublishF
 import { uploadMedia } from '../features/footprints/media-upload.js';
 import { RequireAuth } from './guards/RequireAuth.js';
 import { ActivityRoute } from '../features/activity/ActivityRoute.js';
+import { LoginRoute } from '../features/auth/LoginRoute.js';
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
-function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to={destination}>Continue</Link></section>; }
+function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to="/login" state={{ from: destination }}>Continue to sign in</Link></section>; }
 function pointFrom(value: unknown): { readonly lat: number; readonly lng: number } | undefined { const parsed = geoPoint.safeParse(value); return parsed.success ? parsed.data : undefined; }
 function FootprintRoute() { const footprintId = useParams().footprintId ?? ''; const navigate = useNavigate(); const close = (): void => { if (typeof window !== 'undefined' && typeof window.history.state?.idx === 'number' && window.history.state.idx > 0) navigate(-1); else navigate('/map', { replace: true }); }; return <FootprintDetailRoute loadFromApi onClose={close} footprint={{ id: footprintId, message: 'Footprint detail', visibility: 'public', locationPrecision: 'approximate' }} />; }
 async function publishFootprint(input: PublishFootprintRouteProps['publish'] extends (value: infer T) => Promise<void> ? T : never): Promise<void> {
@@ -41,6 +42,7 @@ const routes = [
       { index: true, element: <Navigate to="/map" replace /> },
       { path: 'map', element: <MapRoute state="ready" loadFromApi /> },
       { path: 'activity', element: <ActivityRoute loadFromApi /> },
+      { path: 'login', element: <LoginRoute /> },
       { path: 'messages', element: <RoutePlaceholder title="Messages" /> },
       { path: 'me', element: <RoutePlaceholder title="My space" /> },
       { path: 'profile/:userId', element: <RoutePlaceholder title="Profile" /> },

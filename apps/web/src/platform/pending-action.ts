@@ -1,0 +1,4 @@
+export interface PendingAction { readonly kind: string; readonly footprintId: string; readonly returnTo: string; readonly emoji?: string; readonly content?: string; readonly parentCommentId?: string; readonly reason?: string; }
+const key = 'bliver:pending-action';
+export function savePendingAction(action: Omit<PendingAction, 'returnTo'> & { readonly returnTo?: string }): void { try { sessionStorage.setItem(key, JSON.stringify({ ...action, returnTo: action.returnTo ?? '/activity' })); } catch { return; } }
+export function consumePendingAction(): PendingAction | null { try { const value = sessionStorage.getItem(key); if (!value) return null; sessionStorage.removeItem(key); const parsed = JSON.parse(value) as PendingAction; return typeof parsed.kind === 'string' && typeof parsed.footprintId === 'string' ? parsed : null; } catch { return null; } }

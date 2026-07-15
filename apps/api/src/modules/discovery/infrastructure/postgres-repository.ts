@@ -22,6 +22,7 @@ const toEntry = (row: Row): DiscoveryEntry => ({
 export function createPostgresDiscoveryRepository(db: DatabaseClient): DiscoveryRepository {
   return {
     async listCandidates(input: DiscoveryCandidateQuery) {
+      if (!input.actorId && input.relationship === 'friends') return [];
       const values: unknown[] = [];
       const add = (value: unknown): string => { values.push(value); return `$${values.length}`; };
       const predicates = ['d.deleted_at IS NULL'];

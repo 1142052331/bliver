@@ -13,4 +13,4 @@ export interface InteractionRepository {
   listComments(footprintId: FootprintId): Promise<Comment[]>;
   appendEvent(event: InteractionEvent): Promise<void>;
 }
-export interface InteractionAccess { canInteract(actor: ActorContext, footprintId: FootprintId): Promise<boolean>; isBlocked(actorId: UserId, targetId: UserId): Promise<boolean>; footprintOwner(footprintId: FootprintId): Promise<UserId | null>; }
+export interface InteractionAccess { canInteract(actor: ActorContext, footprintId: FootprintId): Promise<boolean>; canRead?: (actor: ActorContext | null, footprintId: FootprintId) => Promise<boolean>; isBlocked(actorId: UserId, targetId: UserId): Promise<boolean>; footprintOwner(footprintId: FootprintId): Promise<UserId | null>; }

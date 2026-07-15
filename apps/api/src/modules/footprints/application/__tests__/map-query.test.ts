@@ -40,4 +40,8 @@ describe('MapFootprintQuery', () => {
     expect(result.items).toHaveLength(2);
     expect(await query([]).execute({ actor: null, bounds })).toEqual({ items: [], nextCursor: null });
   });
+
+  it('rejects an unsigned or tampered cursor before querying', async () => {
+    await expect(query([record()]).execute({ actor: null, bounds, cursor: 'eyJpZCI6ImZha2UiLCJwdWJsaXNoZWRBdCI6IjIwMjYtMDctMTVUMDg6MDA6MDAuMDAwWiJ9' })).rejects.toThrow('Invalid cursor');
+  });
 });
