@@ -18,6 +18,18 @@ export interface DatabaseClient {
   transaction<T>(callback: (client: DatabaseQueryPort) => Promise<T>): Promise<T>;
 }
 
+export async function executeTransaction<T>(client: DatabaseQueryPort, callback: (client: DatabaseQueryPort) => Promise<T>): Promise<T> {
+  await client.query('BEGIN');
+  try {
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  }
+}
+
 let activePool: Pool | undefined;
 
 export function createDb(databaseUrl: string): DatabaseClient {
@@ -37,13 +49,7 @@ export function createDb(databaseUrl: string): DatabaseClient {
     transaction: async <T>(callback: (client: DatabaseQueryPort) => Promise<T>) => {
       const client: PoolClient = await pool.connect();
       try {
-        await client.query('BEGIN');
-        const result = await callback({ query: async <TRow extends QueryResultRow>(statement: string, values: readonly unknown[] = []) => client.query<TRow>(statement, [...values]) });
-        await client.query('COMMIT');
-        return result;
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
+        return await executeTransaction({ query: async <TRow extends QueryResultRow>(statement: string, values: readonly unknown[] = []) => client.query<TRow>(statement, [...values]) }, callback);
       } finally {
         client.release();
       }

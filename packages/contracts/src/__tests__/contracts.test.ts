@@ -6,6 +6,7 @@ import {
   healthResponse,
   locationPrecision,
   mediaCompleteRequest,
+  publishFootprintResponse,
   problemDetails,
   visibility,
 } from '../index.js';
@@ -66,6 +67,31 @@ describe('V2 contracts', () => {
     expect(() => mediaCompleteRequest.parse({ version: 42, width: 0, height: 900, format: 'jpg' })).toThrow();
   });
 
+  it('models the wrapped publish response without exposing an unwrapped DTO contract', () => {
+    const result = publishFootprintResponse.parse({
+      footprint: {
+        id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70',
+        authorId: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b71',
+        privatePoint: { lat: 31, lng: 121 },
+        displayPoint: { lat: 31.001, lng: 121.001 },
+        visibility: 'public',
+        locationPrecision: 'approximate',
+        message: 'Hello',
+        mediaAssetIds: [],
+        metadata: { placeId: null, regionId: null, weather: null },
+        publishedAt: '2026-07-15T00:00:00.000Z',
+        discoveryExpiresAt: null,
+      },
+      event: {
+        id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b72',
+        type: 'FootprintPublished',
+        aggregateId: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70',
+        payload: { footprintId: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70', authorId: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b71' },
+      },
+    });
+    expect(result.event.type).toBe('FootprintPublished');
+  });
+
   it('publishes the foundation routes in an OpenAPI 3.1 document', () => {
     const document = buildOpenApiDocument();
 
@@ -76,10 +102,14 @@ describe('V2 contracts', () => {
       '/api/v1/auth/refresh',
       '/api/v1/auth/register',
       '/api/v1/footprints',
+      '/api/v1/footprints/{footprintId}',
+      '/api/v1/footprints/{footprintId}/visibility',
+      '/api/v1/location/resolve',
       '/api/v1/map/footprints',
       '/api/v1/media/signature',
       '/api/v1/media/{assetId}',
       '/api/v1/media/{assetId}/complete',
+      '/api/v1/places/search',
       '/api/v1/session',
       '/api/v1/sessions',
       '/api/v1/users/me',
@@ -91,5 +121,11 @@ describe('V2 contracts', () => {
     expect(document.paths?.['/readyz']?.get?.responses?.[503]).toBeDefined();
     expect(document.paths?.['/api/v1/media/{assetId}']?.delete?.responses?.[204]).toBeDefined();
     expect(document.paths?.['/api/v1/media/{assetId}/complete']?.post?.responses?.[204]).toBeDefined();
+    expect(document.paths?.['/api/v1/footprints']?.post?.responses?.[201]?.content?.['application/json']?.schema).toMatchObject({ '$ref': '#/components/schemas/PublishFootprintResponse' });
+    expect(document.paths?.['/api/v1/footprints/{footprintId}']?.get?.responses?.[200]).toBeDefined();
+    expect(document.paths?.['/api/v1/footprints/{footprintId}/visibility']?.patch?.responses?.[200]).toBeDefined();
+    expect(document.paths?.['/api/v1/footprints/{footprintId}']?.delete?.responses?.[204]).toBeDefined();
+    expect(document.paths?.['/api/v1/places/search']?.get?.responses?.[200]).toBeDefined();
+    expect(document.paths?.['/api/v1/location/resolve']?.post?.responses?.[200]).toBeDefined();
   });
 });

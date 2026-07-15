@@ -60,6 +60,25 @@ describe('footprint application commands', () => {
     expect(result.footprint.metadata).toEqual({ placeId: null, regionId: null, weather: null });
   });
 
+  it('falls back when enrichment providers exceed the bounded timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = <T,>(): Promise<T> => new Promise<T>(() => undefined);
+      const publish = new PublishFootprint({
+        repositories: createMemoryFootprintRepositories(),
+        providers: providers({ geocoding: { resolve: () => pending<{ placeId: string | null; regionId: string | null }>() }, weather: { resolve: () => pending<unknown>() } }),
+        providerTimeoutMs: 10,
+      });
+      const resultPromise = publish.execute({ actorId: ownerId, idempotencyKey: 'publish-timeout', message: 'Timeout fallback', privatePoint: point, visibility: 'public', locationPrecision: 'approximate', mediaAssetIds: [] });
+
+      await vi.advanceTimersByTimeAsync(10);
+      const result = await resultPromise;
+      expect(result.footprint.metadata).toEqual({ placeId: null, regionId: null, weather: null });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('updates visibility and only the owner can delete', async () => {
     const repositories = createMemoryFootprintRepositories();
     const publish = new PublishFootprint({ repositories, providers: providers() });
