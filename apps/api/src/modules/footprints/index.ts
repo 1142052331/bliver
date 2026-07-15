@@ -13,9 +13,12 @@ export type {
   BlockRelationshipPort,
   FootprintAuthorInput,
   FootprintDto,
+  FootprintOwnerPolicyInput,
   FootprintPolicyInput,
+  FootprintPublicPolicyInput,
   FootprintPolicyRecordPort,
   FootprintVisibilityPolicyPorts,
+  FootprintVisibilityPolicyOptions,
   ModerationCaseAccessPort,
   OwnerFootprintDto,
 } from './domain/visibility-policy.js';
