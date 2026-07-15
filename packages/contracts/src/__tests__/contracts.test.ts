@@ -65,6 +65,13 @@ describe('V2 contracts', () => {
 
     expect(document.openapi).toBe('3.1.0');
     expect(Object.keys(document.paths ?? {}).sort()).toEqual([
+      '/api/v1/auth/login',
+      '/api/v1/auth/logout',
+      '/api/v1/auth/refresh',
+      '/api/v1/auth/register',
+      '/api/v1/session',
+      '/api/v1/sessions',
+      '/api/v1/users/me',
       '/healthz',
       '/readyz',
       '/versionz',
