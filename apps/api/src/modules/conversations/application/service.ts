@@ -75,8 +75,8 @@ export class ConversationService {
     }
     const at = this.now();
     const [participantLowId, participantHighId] = [actorId, targetId].sort() as [UserId, UserId];
-    const conversation = await this.repository.create({ id: this.createId(), participantLowId, participantHighId, initiatorId: actorId, state: 'requested', createdAt: at, updatedAt: at });
-    const result = await this.createMessage(conversation, actorId, text, 'greeting', { type: 'GreetingSent', payload: { conversationId: conversation.id, messageId: this.createId() } }, idempotency);
+    const conversation = { id: this.createId(), participantLowId, participantHighId, initiatorId: actorId, state: 'requested' as const, createdAt: at, updatedAt: at };
+    const result = await this.createMessage(conversation, actorId, text, 'greeting', { type: 'GreetingSent', payload: {} }, idempotency, undefined, { createConversation: true });
     return this.savePairReplay(idempotency, result);
   }
 
@@ -88,8 +88,8 @@ export class ConversationService {
     if (conversation.state !== 'requested') throw new ConversationError('CONVERSATION_STATE_CONFLICT');
     if (conversation.initiatorId === actorId) throw new ConversationError('GREETING_REPLY_REQUIRED');
     const at = this.now();
-    const updated = await this.repository.updateState(conversation.id, 'active', at);
-    const result = await this.createMessage(updated, actorId, text, 'message', { type: 'ConversationUnlocked', payload: { conversationId: conversation.id } }, idempotency);
+    const updated = { ...conversation, state: 'active' as const, updatedAt: at };
+    const result = await this.createMessage(updated, actorId, text, 'message', { type: 'ConversationUnlocked', payload: {} }, idempotency, undefined, { expectedState: 'requested' });
     return this.savePairReplay(idempotency, result);
   }
 
@@ -107,24 +107,34 @@ export class ConversationService {
   async ignoreConversation(actorId: UserId, conversationId: string): Promise<ConversationRecord> {
     const conversation = await this.authorized(conversationId, actorId);
     if (conversation.state !== 'requested' || conversation.initiatorId === actorId) throw new ConversationError('CONVERSATION_STATE_CONFLICT');
-    const updated = await this.repository.updateState(conversation.id, 'ignored', this.now());
-    await this.repository.appendEvent(event('ConversationHidden', conversation.id, { conversationId: conversation.id, userId: actorId }, this.now()));
-    return updated;
+    const at = this.now();
+    const updated = { ...conversation, state: 'ignored' as const, updatedAt: at };
+    const hidden = event('ConversationHidden', conversation.id, { conversationId: conversation.id, userId: actorId }, at);
+    if (this.repository.transactions) return this.repository.transactions.transitionState({ conversation: updated, expectedState: 'requested', event: hidden });
+    const saved = await this.repository.updateState(conversation.id, 'ignored', at);
+    await this.repository.appendEvent(hidden);
+    return saved;
   }
 
   async hideConversation(actorId: UserId, conversationId: string): Promise<void> {
     await this.authorized(conversationId, actorId);
-    await this.repository.hide(conversationId, actorId, this.now());
-    await this.repository.appendEvent(event('ConversationHidden', conversationId, { conversationId, userId: actorId }, this.now()));
+    const at = this.now();
+    const hidden = event('ConversationHidden', conversationId, { conversationId, userId: actorId }, at);
+    if (this.repository.transactions) await this.repository.transactions.hide({ conversationId, userId: actorId, at, event: hidden });
+    else { await this.repository.hide(conversationId, actorId, at); await this.repository.appendEvent(hidden); }
   }
 
   async blockConversationUser(actorId: UserId, conversationId: string): Promise<ConversationRecord> {
     const conversation = await this.authorized(conversationId, actorId);
     const targetId = conversation.participantLowId === actorId ? conversation.participantHighId : conversation.participantLowId;
     if (this.relationships.block) await this.relationships.block(actorId, targetId);
-    const updated = await this.repository.updateState(conversation.id, 'blocked', this.now());
-    await this.repository.appendEvent(event('ConversationHidden', conversation.id, { conversationId, userId: actorId, targetId }, this.now()));
-    return updated;
+    const at = this.now();
+    const updated = { ...conversation, state: 'blocked' as const, updatedAt: at };
+    const blocked = event('ConversationHidden', conversation.id, { conversationId, userId: actorId, targetId }, at);
+    if (this.repository.transactions) return this.repository.transactions.transitionState({ conversation: updated, expectedState: conversation.state, event: blocked });
+    const saved = await this.repository.updateState(conversation.id, 'blocked', at);
+    await this.repository.appendEvent(blocked);
+    return saved;
   }
 
   async markRead(actorId: UserId, conversationId: string, messageId: string): Promise<void> {
@@ -132,8 +142,11 @@ export class ConversationService {
     const messages = await this.repository.listMessages(conversation.id, 100);
     const message = messages.find((item) => item.id === messageId);
     if (!message) throw new ConversationError('CONVERSATION_NOT_FOUND');
-    await this.repository.saveReceipt({ conversationId, messageId, userId: actorId, readAt: this.now() });
-    await this.repository.appendEvent(event('MessageRead', conversationId, { conversationId, messageId, userId: actorId }, this.now()));
+    const at = this.now();
+    const receipt = { conversationId, messageId, userId: actorId, readAt: at };
+    const read = event('MessageRead', conversationId, { conversationId, messageId, userId: actorId }, at);
+    if (this.repository.transactions) await this.repository.transactions.markRead({ receipt, event: read });
+    else { await this.repository.saveReceipt(receipt); await this.repository.appendEvent(read); }
   }
 
   async setTyping(actorId: UserId, conversationId: string, active: boolean, ttlMs = 5_000): Promise<void> {
@@ -150,12 +163,17 @@ export class ConversationService {
     return this.repository.listMessages(conversationId, limit, cursor);
   }
 
-  private async createMessage(conversation: ConversationRecord, senderId: UserId, text: string, kind: MessageRecord['kind'], additional?: { type: ConversationEvent['type']; payload: Record<string, unknown> }, idempotency?: ConversationCommandIdempotency, moderation?: MessageModerationMetadata): Promise<{ conversation: ConversationRecord; message: MessageRecord }> {
+  private async createMessage(conversation: ConversationRecord, senderId: UserId, text: string, kind: MessageRecord['kind'], additional?: { type: ConversationEvent['type']; payload: Record<string, unknown> }, idempotency?: ConversationCommandIdempotency, moderation?: MessageModerationMetadata, transition?: { readonly createConversation?: boolean; readonly expectedState?: ConversationRecord['state'] }): Promise<{ conversation: ConversationRecord; message: MessageRecord }> {
     const at = this.now();
     const message: MessageRecord = { id: this.createId(), conversationId: conversation.id, senderId, content: content(text), kind, sentAt: at, eventId: createEventId(), moderation: moderation ?? { status: 'pending', labels: [] } };
+    const emitted = event(additional?.type ?? 'MessageSent', conversation.id, { ...(additional?.payload ?? {}), conversationId: conversation.id, messageId: message.id, senderId }, at);
+    if (this.repository.transactions) return this.repository.transactions.commitMessage({ conversation, message, event: emitted, ...(transition?.createConversation ? { createConversation: true } : {}), ...(transition?.expectedState ? { expectedState: transition.expectedState } : {}), ...(idempotency ? { idempotency } : {}) });
+    let savedConversation = conversation;
+    if (transition?.createConversation) savedConversation = await this.repository.create(conversation);
+    if (transition?.expectedState) savedConversation = await this.repository.updateState(conversation.id, conversation.state, conversation.updatedAt);
     await this.repository.saveMessage(message);
-    await this.repository.appendEvent(event(additional?.type ?? 'MessageSent', conversation.id, additional?.payload ?? { conversationId: conversation.id, messageId: message.id, senderId }, at));
-    return { conversation, message };
+    await this.repository.appendEvent(emitted);
+    return { conversation: savedConversation, message };
   }
 
   private async authorized(conversationId: string, actorId: UserId): Promise<ConversationRecord> {
@@ -183,8 +201,8 @@ export class ConversationService {
 
   private async replayPair(idempotency?: ConversationCommandIdempotency) { return this.replay(idempotency); }
   private async replayMessage(idempotency?: ConversationCommandIdempotency): Promise<MessageRecord | null> { return (await this.replay(idempotency)) as MessageRecord | null; }
-  private async savePairReplay(idempotency: ConversationCommandIdempotency | undefined, result: { conversation: ConversationRecord; message: MessageRecord }) { if (idempotency) await this.repository.saveIdempotency(idempotency, result); return result; }
-  private async saveMessageReplay(idempotency: ConversationCommandIdempotency | undefined, result: MessageRecord) { if (idempotency) await this.repository.saveIdempotency(idempotency, result); return result; }
+  private async savePairReplay(idempotency: ConversationCommandIdempotency | undefined, result: { conversation: ConversationRecord; message: MessageRecord }) { if (idempotency && !this.repository.transactions) await this.repository.saveIdempotency(idempotency, result); return result; }
+  private async saveMessageReplay(idempotency: ConversationCommandIdempotency | undefined, result: MessageRecord) { if (idempotency && !this.repository.transactions) await this.repository.saveIdempotency(idempotency, result); return result; }
 }
 
 void createUserId;

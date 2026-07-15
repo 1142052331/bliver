@@ -37,6 +37,36 @@ export function createMemoryConversationRepository(): ConversationRepository {
     async appendEvent(input) { events.push(input); },
     async findIdempotency(input) { return idempotency.get(`${input.actorId}:${input.scope}:${input.key}`) ?? null; },
     async saveIdempotency(input, response) { const key = `${input.actorId}:${input.scope}:${input.key}`; const prior = idempotency.get(key); if (prior && prior.fingerprint !== input.fingerprint) throw new Error('IDEMPOTENCY_CONFLICT'); if (prior) return prior.response; idempotency.set(key, { fingerprint: input.fingerprint, response }); return response; },
+    transactions: {
+      async commitMessage(input) {
+        if (input.idempotency) {
+          const prior = await repository.findIdempotency(input.idempotency);
+          if (prior && prior.fingerprint !== input.idempotency.fingerprint) throw new Error('IDEMPOTENCY_CONFLICT');
+          if (prior) return prior.response as { conversation: ConversationRecord; message: MessageRecord };
+        }
+        let conversation = input.conversation;
+        if (input.createConversation) conversation = await repository.create(conversation);
+        if (input.expectedState) {
+          const current = await repository.findById(conversation.id);
+          if (!current || current.state !== input.expectedState) throw new Error('CONVERSATION_STATE_CONFLICT');
+          conversation = await repository.updateState(conversation.id, conversation.state, conversation.updatedAt);
+        }
+        await repository.saveMessage(input.message);
+        await repository.appendEvent(input.event);
+        const result = { conversation, message: input.message };
+        if (input.idempotency) await repository.saveIdempotency(input.idempotency, result);
+        return result;
+      },
+      async transitionState(input) {
+        const current = await repository.findById(input.conversation.id);
+        if (!current || current.state !== input.expectedState) throw new Error('CONVERSATION_STATE_CONFLICT');
+        const updated = await repository.updateState(input.conversation.id, input.conversation.state, input.conversation.updatedAt);
+        await repository.appendEvent(input.event);
+        return updated;
+      },
+      async hide(input) { await repository.hide(input.conversationId, input.userId, input.at); await repository.appendEvent(input.event); },
+      async markRead(input) { await repository.saveReceipt(input.receipt); await repository.appendEvent(input.event); },
+    },
   };
   void hidden;
   void events;

@@ -79,6 +79,19 @@ export interface ConversationRepository {
   appendEvent(input: ConversationEvent): Promise<void>;
   findIdempotency(input: ConversationCommandIdempotency): Promise<ConversationIdempotencyRecord | null>;
   saveIdempotency(input: ConversationCommandIdempotency, response: unknown): Promise<unknown>;
+  readonly transactions?: {
+    commitMessage(input: {
+      readonly conversation: ConversationRecord;
+      readonly createConversation?: boolean;
+      readonly expectedState?: ConversationState;
+      readonly message: MessageRecord;
+      readonly event: ConversationEvent;
+      readonly idempotency?: ConversationCommandIdempotency;
+    }): Promise<{ readonly conversation: ConversationRecord; readonly message: MessageRecord }>;
+    transitionState(input: { readonly conversation: ConversationRecord; readonly expectedState: ConversationState; readonly event: ConversationEvent }): Promise<ConversationRecord>;
+    hide(input: { readonly conversationId: string; readonly userId: UserId; readonly at: Date; readonly event: ConversationEvent }): Promise<void>;
+    markRead(input: { readonly receipt: MessageReceiptRecord; readonly event: ConversationEvent }): Promise<void>;
+  };
 }
 
 export interface RelationshipQueryPort {
