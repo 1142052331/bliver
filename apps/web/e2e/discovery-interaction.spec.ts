@@ -38,6 +38,24 @@ test('guest discovery keeps a pending reaction through authentication', async ({
   await expect.poll(() => reactionAttempts).toBe(2);
 });
 
+test('guest comment navigates to login and replays after authentication', async ({ page }) => {
+  await activity(page);
+  let commentAttempts = 0;
+  await page.route('**/comments', (route) => { if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) }); commentAttempts += 1; return commentAttempts === 1 ? route.fulfill({ status: 401, contentType: 'application/problem+json', body: '{}' }) : route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(comment) }); });
+  await page.route('**/api/v1/auth/login', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { id: '019f0000-0000-7000-8000-000000000022', username: 'commenter', displayName: 'Commenter', email: null, roles: ['user'] }, session: { id: '019f0000-0000-7000-8000-000000000023', deviceName: 'E2E', createdAt: '2026-07-15T08:00:00.000Z', lastSeenAt: '2026-07-15T08:00:00.000Z', current: true } }) }));
+  await page.goto('/activity');
+  await page.getByRole('button', { name: 'Comment' }).click();
+  await page.getByLabel('Comment').fill('Replay this comment');
+  await page.getByRole('button', { name: 'Post' }).click();
+  await expect(page.getByText('Sign in to join the conversation.')).toBeVisible();
+  await page.getByRole('link', { name: 'Sign in' }).click();
+  await page.getByLabel('Username').fill('commenter');
+  await page.getByLabel('Password').fill('password-123');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/activity$/);
+  await expect.poll(() => commentAttempts).toBe(2);
+});
+
 test('authenticated reaction, comment, reply, and report stay in the public interaction loop', async ({ page }) => {
   await authenticatedSession(page, 'e2e-auth-session');
   await activity(page);

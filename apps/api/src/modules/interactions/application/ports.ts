@@ -12,5 +12,7 @@ export interface InteractionRepository {
   updateCommentDeleted(id: string, at: Date): Promise<void>;
   listComments(footprintId: FootprintId): Promise<Comment[]>;
   appendEvent(event: InteractionEvent): Promise<void>;
+  commitComment?(input: IdempotentCommentCommit): Promise<Comment>;
 }
+export interface IdempotentCommentCommit { readonly actorId: UserId; readonly scope: 'interaction.comment' | 'interaction.reply'; readonly key: string; readonly fingerprint: string; readonly comment: Comment; readonly event: InteractionEvent; }
 export interface InteractionAccess { canInteract(actor: ActorContext, footprintId: FootprintId): Promise<boolean>; canRead?: (actor: ActorContext | null, footprintId: FootprintId) => Promise<boolean>; isBlocked(actorId: UserId, targetId: UserId): Promise<boolean>; footprintOwner(footprintId: FootprintId): Promise<UserId | null>; }

@@ -2,10 +2,16 @@ import { parseFootprintId, parseUserId } from '@bliver/domain';
 import type { DatabaseClient } from '../../../platform/db/client.js';
 import type { Comment, InteractionEvent, Reaction } from '../domain/model.js';
 import type { InteractionRepository } from '../application/ports.js';
+import type { IdempotentCommentCommit } from '../application/ports.js';
+import type { DatabaseQueryPort } from '../../../platform/db/client.js';
+import { InteractionError } from '../domain/model.js';
 
 type Row = Record<string, unknown>;
 const reaction = (row: Row): Reaction => ({ footprintId: parseFootprintId(String(row.footprint_id)), actorId: parseUserId(String(row.actor_id)), emoji: String(row.emoji), createdAt: new Date(String(row.created_at)) });
 const comment = (row: Row): Comment => ({ id: String(row.id), footprintId: parseFootprintId(String(row.footprint_id)), authorId: parseUserId(String(row.author_id)), authorName: String(row.author_name), content: String(row.content), parentCommentId: row.parent_comment_id ? String(row.parent_comment_id) : null, createdAt: new Date(String(row.created_at)), deletedAt: row.deleted_at ? new Date(String(row.deleted_at)) : null });
+const storedComment = (value: unknown): Comment => { const row = value as Record<string, unknown>; return { id: String(row.id), footprintId: parseFootprintId(String(row.footprintId)), authorId: parseUserId(String(row.authorId)), authorName: String(row.authorName), content: String(row.content), parentCommentId: row.parentCommentId ? String(row.parentCommentId) : null, createdAt: new Date(String(row.createdAt)), deletedAt: row.deletedAt ? new Date(String(row.deletedAt)) : null }; };
+async function insertComment(client: DatabaseQueryPort, item: Comment): Promise<void> { await client.query('INSERT INTO footprint_comments (id, footprint_id, author_id, parent_comment_id, content, created_at) VALUES ($1,$2,$3,$4,$5,$6)', [item.id, item.footprintId, item.authorId, item.parentCommentId, item.content, item.createdAt]); }
+async function commitComment(client: DatabaseQueryPort, input: IdempotentCommentCommit): Promise<Comment> { const reserved = await client.query<Row>('INSERT INTO platform.idempotency_keys (actor_id,scope,key,request_hash,response) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (actor_id,scope,key) DO NOTHING RETURNING request_hash,response', [input.actorId, input.scope, input.key, input.fingerprint, JSON.stringify(input.comment)]); if (!reserved.rowCount) { const prior = await client.query<Row>('SELECT request_hash,response FROM platform.idempotency_keys WHERE actor_id=$1 AND scope=$2 AND key=$3', [input.actorId, input.scope, input.key]); const row = prior.rows[0]; if (!row || String(row.request_hash) !== input.fingerprint) throw new InteractionError('IDEMPOTENCY_CONFLICT'); return storedComment(row.response); } await insertComment(client, input.comment); await client.query('INSERT INTO platform.outbox_events (id,type,aggregate_id,payload) VALUES ($1,$2,$3,$4)', [input.event.id, input.event.type, input.event.aggregateId, JSON.stringify(input.event.payload)]); return input.comment; }
 
 export function createPostgresInteractionRepository(db: DatabaseClient): InteractionRepository {
   return {
@@ -14,9 +20,10 @@ export function createPostgresInteractionRepository(db: DatabaseClient): Interac
     async removeReaction(footprintId, actorId) { await db.query('DELETE FROM footprint_reactions WHERE footprint_id = $1 AND actor_id = $2', [footprintId, actorId]); },
     async listReactions(footprintId) { const result = await db.query<Row>('SELECT footprint_id, actor_id, emoji, created_at FROM footprint_reactions WHERE footprint_id = $1 ORDER BY created_at, actor_id', [footprintId]); return result.rows.map(reaction); },
     async findComment(id) { const result = await db.query<Row>('SELECT c.id, c.footprint_id, c.author_id, u.display_name AS author_name, c.content, c.parent_comment_id, c.created_at, c.deleted_at FROM footprint_comments c JOIN identity_users u ON u.id=c.author_id WHERE c.id=$1', [id]); return result.rows[0] ? comment(result.rows[0]) : null; },
-    async saveComment(item) { await db.query('INSERT INTO footprint_comments (id, footprint_id, author_id, parent_comment_id, content, created_at) VALUES ($1,$2,$3,$4,$5,$6)', [item.id, item.footprintId, item.authorId, item.parentCommentId, item.content, item.createdAt]); },
+    async saveComment(item) { await insertComment(db, item); },
     async updateCommentDeleted(id, at) { await db.query('UPDATE footprint_comments SET deleted_at=$2 WHERE id=$1 AND deleted_at IS NULL', [id, at]); },
     async listComments(footprintId) { const result = await db.query<Row>('SELECT c.id, c.footprint_id, c.author_id, u.display_name AS author_name, c.content, c.parent_comment_id, c.created_at, c.deleted_at FROM footprint_comments c JOIN identity_users u ON u.id=c.author_id WHERE c.footprint_id=$1 ORDER BY c.created_at, c.id', [footprintId]); return result.rows.map(comment); },
     async appendEvent(item: InteractionEvent) { await db.query('INSERT INTO platform.outbox_events (id,type,aggregate_id,payload) VALUES ($1,$2,$3,$4)', [item.id, item.type, item.aggregateId, JSON.stringify(item.payload)]); },
+    async commitComment(input) { return db.transaction(async (client) => commitComment(client, input)); },
   };
 }
