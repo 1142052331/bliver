@@ -26,7 +26,7 @@ describe('V2 web route contract', () => {
 
     if (path === '/map') expect(screen.getByRole('status')).toHaveTextContent(heading);
     else expect(screen.getByRole('heading', { name: heading })).toBeVisible();
-    if (path === '/map' || path.startsWith('/footprints/')) {
+    if (path === '/map' || path === '/activity' || path.startsWith('/footprints/')) {
       expect(screen.queryByText(/pending migration/i)).not.toBeInTheDocument();
     } else {
       expect(screen.getByText(/pending migration/i)).toBeVisible();

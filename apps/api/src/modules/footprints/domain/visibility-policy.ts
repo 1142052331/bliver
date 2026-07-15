@@ -23,6 +23,7 @@ export interface FootprintPolicyInput {
   readonly locationPrecision: LocationPrecision;
   readonly publishedAt: Date;
   readonly discoveryExpiresAt: Date | null;
+  readonly message?: string;
 }
 
 export type FootprintPublicPolicyInput = FootprintPolicyInput;
@@ -43,6 +44,7 @@ export interface FootprintDto {
   readonly locationPrecision: LocationPrecision;
   readonly publishedAt: string;
   readonly discoveryExpiresAt?: string;
+  readonly message?: string;
 }
 
 export interface OwnerFootprintDto extends FootprintDto {
@@ -108,6 +110,7 @@ function toDto(record: FootprintPolicyInput): FootprintDto {
     ...(record.discoveryExpiresAt
       ? { discoveryExpiresAt: record.discoveryExpiresAt.toISOString() }
       : {}),
+    ...(record.message !== undefined ? { message: record.message } : {}),
   };
 }
 

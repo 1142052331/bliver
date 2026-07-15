@@ -21,6 +21,12 @@ import { footprintRouter } from '../modules/footprints/transport/routes.js';
 import type { FootprintRouterOptions } from '../modules/footprints/transport/routes.js';
 import { mapRouter } from '../modules/footprints/transport/map-routes.js';
 import type { MapRouterOptions } from '../modules/footprints/transport/map-routes.js';
+import { discoveryRouter } from '../modules/discovery/transport/routes.js';
+import type { DiscoveryRouterOptions } from '../modules/discovery/transport/routes.js';
+import { interactionRouter } from '../modules/interactions/transport/routes.js';
+import { createMemoryInteractionRepository, InteractionService } from '../modules/interactions/application/service.js';
+import { reportRouter } from '../modules/moderation/transport/routes.js';
+import { CreateReport, createMemoryReportRepository } from '../modules/moderation/domain/reports.js';
 
 export interface AppOptions {
   readonly config: ApiConfig;
@@ -30,6 +36,9 @@ export interface AppOptions {
   readonly media?: MediaService;
   readonly footprints?: FootprintRouterOptions;
   readonly map?: MapRouterOptions;
+  readonly discovery?: DiscoveryRouterOptions;
+  readonly interactions?: { readonly service?: InteractionService };
+  readonly reports?: { readonly create?: CreateReport };
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -40,7 +49,7 @@ const requestId: RequestHandler = (request, response, next) => {
   next();
 };
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -53,6 +62,11 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use('/api/v1', mediaRouter(identityRepositories, config, { service: media ?? defaultMediaService(config) }));
   app.use('/api/v1', footprintRouter(identityRepositories, footprints));
   app.use('/api/v1', mapRouter(map, identityRepositories));
+  app.use('/api/v1', discoveryRouter({ ...(discovery ?? {}), ...(map?.query ? { map: map.query } : {}) }, identityRepositories));
+  const interactionService = interactions?.service ?? new InteractionService(createMemoryInteractionRepository(), { async canInteract() { return true; }, async isBlocked() { return false; }, async footprintOwner() { return null; } });
+  app.use('/api/v1', interactionRouter({ service: interactionService }, identityRepositories));
+  const reportCreate = reports?.create ?? new CreateReport(createMemoryReportRepository(), { async canReport() { return true; } });
+  app.use('/api/v1', reportRouter({ create: reportCreate }, identityRepositories));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);
   app.use(errorHandler);

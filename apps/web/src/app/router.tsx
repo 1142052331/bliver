@@ -21,6 +21,7 @@ import { PublishFootprintRoute } from '../features/footprints/PublishFootprintRo
 import type { PublishFootprintRouteProps } from '../features/footprints/PublishFootprintRoute.js';
 import { uploadMedia } from '../features/footprints/media-upload.js';
 import { RequireAuth } from './guards/RequireAuth.js';
+import { ActivityRoute } from '../features/activity/ActivityRoute.js';
 
 function NotFound() { return <RoutePlaceholder title="Not found" />; }
 function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to={destination}>Continue</Link></section>; }
@@ -39,7 +40,7 @@ const routes = [
     children: [
       { index: true, element: <Navigate to="/map" replace /> },
       { path: 'map', element: <MapRoute state="ready" loadFromApi /> },
-      { path: 'activity', element: <RoutePlaceholder title="Activity" /> },
+      { path: 'activity', element: <ActivityRoute loadFromApi /> },
       { path: 'messages', element: <RoutePlaceholder title="Messages" /> },
       { path: 'me', element: <RoutePlaceholder title="My space" /> },
       { path: 'profile/:userId', element: <RoutePlaceholder title="Profile" /> },

@@ -43,6 +43,13 @@
       "when": 1784505600000,
       "tag": "0005_footprint_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784592000000,
+      "tag": "0006_phase4_discovery_interactions",
+      "breakpoints": true
     }
   ]
 }

@@ -7,7 +7,7 @@ import { problemDetails } from './errors.js';
 import { healthResponse } from './health.js';
 import { authResponse, loginRequest, publicUser, registerRequest, refreshRequest } from './auth.js';
 import { sessionDto, sessionListResponse } from './session.js';
-import { footprintDto, footprintRecordResponse, mapFootprintsResponse, publishFootprintRequest, publishFootprintResponse, updateFootprintVisibilityRequest } from './footprints.js';
+import { activityPageDto, activityQuery, addCommentInput, addReactionInput, commentsResponse, createReportInput, footprintDto, footprintRecordResponse, mapFootprintsResponse, publishFootprintRequest, publishFootprintResponse, reactionDto, reportCreatedResponse, updateFootprintVisibilityRequest } from './footprints.js';
 import { mediaCompleteRequest, mediaSignatureRequest, mediaSignatureResponse } from './media.js';
 import { locationResolveRequest, locationResolveResponse, mapFootprintQuery, placeSearchResponse } from './geography.js';
 import { z } from './zod.js';
@@ -35,6 +35,13 @@ export function buildOpenApiDocument() {
   const placeSearchResponseSchema = registry.register('PlaceSearchResponse', placeSearchResponse);
   const locationResolveRequestSchema = registry.register('LocationResolveRequest', locationResolveRequest);
   const locationResolveResponseSchema = registry.register('LocationResolveResponse', locationResolveResponse);
+  const activityPageSchema = registry.register('ActivityPage', activityPageDto);
+  const addReactionSchema = registry.register('AddReactionRequest', addReactionInput);
+  const reactionSchema = registry.register('Reaction', reactionDto);
+  const addCommentSchema = registry.register('AddCommentRequest', addCommentInput.omit({ footprintId: true }));
+  const commentsSchema = registry.register('CommentsResponse', commentsResponse);
+  const reportSchema = registry.register('CreateReportRequest', createReportInput);
+  const reportResponseSchema = registry.register('ReportCreatedResponse', reportCreatedResponse);
   const mediaAssetParams = z.object({ assetId: z.string().uuid() });
   const footprintParams = z.object({ footprintId: z.string().uuid() });
   const placeSearchQuery = z.object({ q: z.string().trim().min(1).max(120) });
@@ -90,6 +97,13 @@ export function buildOpenApiDocument() {
   registry.registerPath({ method: 'get', path: '/api/v1/places/search', request: { query: placeSearchQuery }, responses: { 200: { description: 'Place search results', content: { 'application/json': { schema: placeSearchResponseSchema } } }, 400: { description: 'Invalid place query', content: { 'application/problem+json': { schema: problemSchema } } } } });
   registry.registerPath({ method: 'post', path: '/api/v1/location/resolve', request: { body: { content: { 'application/json': { schema: locationResolveRequestSchema } } } }, responses: { 200: { description: 'Resolved place and weather', content: { 'application/json': { schema: locationResolveResponseSchema } } }, 400: { description: 'Invalid location', content: { 'application/problem+json': { schema: problemSchema } } } } });
   registry.registerPath({ method: 'get', path: '/api/v1/map/footprints', request: { query: mapFootprintQuery }, responses: { 200: { description: 'Map footprints', content: { 'application/json': { schema: mapSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/discovery/map', request: { query: mapFootprintQuery }, responses: { 200: { description: 'Privacy-filtered map discovery', content: { 'application/json': { schema: mapSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/activity', request: { query: activityQuery }, responses: { 200: { description: 'Reverse chronological activity', content: { 'application/json': { schema: activityPageSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/footprints/{footprintId}/reactions', request: { params: footprintParams }, responses: { 200: { description: 'Footprint reactions', content: { 'application/json': { schema: z.object({ items: z.array(reactionSchema) }) } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/footprints/{footprintId}/reactions', request: { params: footprintParams, body: { content: { 'application/json': { schema: addReactionSchema } } } }, responses: { 200: { description: 'Reaction added or replaced', content: { 'application/json': { schema: reactionSchema } } }, 401: { description: 'Authentication required', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'get', path: '/api/v1/footprints/{footprintId}/comments', request: { params: footprintParams }, responses: { 200: { description: 'Two-level conversation', content: { 'application/json': { schema: commentsSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/footprints/{footprintId}/comments', request: { params: footprintParams, body: { content: { 'application/json': { schema: addCommentSchema } } } }, responses: { 201: { description: 'Comment added' }, 401: { description: 'Authentication required', content: { 'application/problem+json': { schema: problemSchema } } } } });
+  registry.registerPath({ method: 'post', path: '/api/v1/reports', request: { body: { content: { 'application/json': { schema: reportSchema } } } }, responses: { 201: { description: 'Report intake created', content: { 'application/json': { schema: reportResponseSchema } } }, 409: { description: 'Duplicate open report', content: { 'application/problem+json': { schema: problemSchema } } } } });
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',

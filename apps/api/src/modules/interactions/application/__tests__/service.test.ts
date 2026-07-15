@@ -1,0 +1,12 @@
+import { describe, expect, it } from 'vitest';
+import { createFootprintId, createUserId } from '@bliver/domain';
+import type { ActorContext } from '../../../identity/index.js';
+import { createMemoryInteractionRepository, InteractionService } from '../service.js';
+
+const user = createUserId(); const footprint = createFootprintId(); const actor: ActorContext = { userId: user, sessionId: 'session', roles: ['user'], transport: 'bearer' };
+function makeService(blocked = false) { const repository = createMemoryInteractionRepository(); return { service: new InteractionService(repository, { async canInteract() { return !blocked; }, async isBlocked() { return blocked; }, async footprintOwner() { return user; } }), repository }; }
+describe('InteractionService', () => {
+  it('replaces a reaction instead of creating a second actor row', async () => { const { service } = makeService(); await service.addReaction(actor, footprint, 'heart'); await service.addReaction(actor, footprint, 'laugh'); await expect(service.listReactions(footprint)).resolves.toHaveLength(1); await expect(service.listReactions(footprint)).resolves.toMatchObject([{ emoji: 'laugh' }]); });
+  it('rejects a reply to a reply and orders top-level comments chronologically', async () => { const { service } = makeService(); const first = await service.addComment(actor, { footprintId: footprint, content: 'first' }); const second = await service.addComment(actor, { footprintId: footprint, content: 'second' }); await expect(service.addReply(actor, footprint, first.id, 'reply')).resolves.toMatchObject({ parentCommentId: first.id }); await expect(service.addReply(actor, footprint, first.id, 'reply 2')).resolves.toBeDefined(); const reply = (await service.listComments(footprint)).find((item) => item.parentCommentId); expect(reply).toBeDefined(); await expect(service.addComment(actor, { footprintId: footprint, content: 'too deep', parentCommentId: reply!.id })).rejects.toThrow('COMMENT_DEPTH_INVALID'); expect((await service.listComments(footprint)).filter((item) => !item.parentCommentId)).toMatchObject([{ id: first.id }, { id: second.id }]); });
+  it('blocks reactions and comments for a blocked actor', async () => { const { service } = makeService(true); await expect(service.addReaction(actor, footprint, 'heart')).rejects.toThrow('BLOCKED'); await expect(service.addComment(actor, { footprintId: footprint, content: 'nope' })).rejects.toThrow('BLOCKED'); });
+});
