@@ -12,6 +12,7 @@ import { FootprintVisibilityPolicy, MapFootprintQuery, createPostgresFootprintRe
 import { DiscoveryQueryService, DiscoveryProjectionConsumer, createPostgresDiscoveryRepository } from '../modules/discovery/index.js';
 import { InteractionService, createPostgresInteractionRepository } from '../modules/interactions/index.js';
 import { CreateReport, createPostgresReportRepository } from '../modules/moderation/index.js';
+import { BlockPolicy, createPostgresSocialRepository } from '../modules/social/index.js';
 import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox/index.js';
 import { Server as SocketServer } from 'socket.io';
 import { createNominatimGeography } from '../platform/geography/providers.js';
@@ -51,19 +52,17 @@ export async function startServer(): Promise<void> {
   const identity = createPostgresIdentityRepositories(db);
   const mediaRepositories = createPostgresMediaRepositories(db);
   const media = new MediaService({ adapter: new CloudinaryAdapter(config.cloudinary), repositories: mediaRepositories });
+  const relationships = createPostgresSocialRepository(db);
+  const blockPolicy = new BlockPolicy(relationships);
   const mapAccessFilter = ({ viewerId, addParameter }: { viewerId: string | null; addParameter: (value: unknown) => string }): string => {
     if (!viewerId) return `f.visibility = 'public' AND f.discovery_expires_at > CURRENT_TIMESTAMP`;
     const viewer = addParameter(viewerId);
-    return `NOT EXISTS (SELECT 1 FROM user_blocks b WHERE (b.blocker_id=${viewer} AND b.blocked_id=f.author_id) OR (b.blocker_id=f.author_id AND b.blocked_id=${viewer})) AND (f.author_id=${viewer} OR (f.visibility='public' AND f.discovery_expires_at>CURRENT_TIMESTAMP) OR (f.visibility<>'private' AND EXISTS (SELECT 1 FROM friendships r WHERE r.status='accepted' AND ((r.requester_id=${viewer} AND r.addressee_id=f.author_id) OR (r.addressee_id=${viewer} AND r.requester_id=f.author_id))))`;
+    return blockPolicy.relationshipVisibilitySql({ actorParameter: viewer, authorColumn: 'f.author_id', visibilityColumn: 'f.visibility', discoveryExpiresAtColumn: 'f.discovery_expires_at', relationship: 'all' });
   };
   const footprints = createPostgresFootprintRepositories(db, { mapAccessFilter });
-  const relationships = {
-    async areAcceptedFriends(viewerId: string, authorId: string) { const result = await db.query('SELECT 1 FROM friendships WHERE status=$3 AND ((requester_id=$1 AND addressee_id=$2) OR (requester_id=$2 AND addressee_id=$1)) LIMIT 1', [viewerId, authorId, 'accepted']); return Boolean(result.rowCount); },
-    async isEitherBlocked(viewerId: string, authorId: string) { const result = await db.query('SELECT 1 FROM user_blocks WHERE (blocker_id=$1 AND blocked_id=$2) OR (blocker_id=$2 AND blocked_id=$1) LIMIT 1', [viewerId, authorId]); return Boolean(result.rowCount); },
-  };
   const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: relationships, blocks: relationships, moderation: { async hasCaseAccess() { return false; } }, now: () => new Date() });
   const map = new MapFootprintQuery({ repository: footprints, policy, cursorSecret: config.sessionSecret });
-  const discoveryRepository = createPostgresDiscoveryRepository(db);
+  const discoveryRepository = createPostgresDiscoveryRepository(db, { accessFilter: (input) => blockPolicy.relationshipVisibilitySql(input) });
   const activity = new DiscoveryQueryService({ repository: discoveryRepository, policy, cursorSecret: config.sessionSecret });
   const geography = createNominatimGeography();
   const interactionService = new InteractionService(createPostgresInteractionRepository(db), { async canInteract(actor, footprintId) { return policy.canRead(actor, footprintId); }, async canRead(actor, footprintId) { return policy.canRead(actor, footprintId); }, async isBlocked(actorId, targetId) { return relationships.isEitherBlocked(actorId, targetId); }, async footprintOwner(footprintId) { return (await footprints.findById(footprintId))?.authorId ?? null; } });

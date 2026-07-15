@@ -32,6 +32,17 @@ export interface DiscoveryRepository {
   remove(footprintId: string): Promise<void>;
 }
 
+export interface DiscoveryAccessFilterInput {
+  readonly actorId: string;
+  readonly actorParameter: string;
+  readonly authorColumn: string;
+  readonly visibilityColumn: string;
+  readonly discoveryExpiresAtColumn: string;
+  readonly relationship: ActivityQuery['relationship'];
+}
+
+export type DiscoveryAccessFilter = (input: DiscoveryAccessFilterInput) => string;
+
 export interface DiscoveryQueryInput extends ActivityQuery {
   readonly actor: ActorContext | null;
   readonly regionId?: string | null;

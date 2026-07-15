@@ -1,6 +1,6 @@
 import type { DatabaseClient } from '../../../platform/db/client.js';
 import { parseFootprintId, parseUserId } from '@bliver/domain';
-import type { DiscoveryCandidateQuery, DiscoveryEntry, DiscoveryRepository } from '../application/ports.js';
+import type { DiscoveryAccessFilter, DiscoveryCandidateQuery, DiscoveryEntry, DiscoveryRepository } from '../application/ports.js';
 
 type Row = Record<string, unknown>;
 const toEntry = (row: Row): DiscoveryEntry => ({
@@ -19,7 +19,7 @@ const toEntry = (row: Row): DiscoveryEntry => ({
   deletedAt: row.deleted_at ? new Date(String(row.deleted_at)) : null,
 });
 
-export function createPostgresDiscoveryRepository(db: DatabaseClient): DiscoveryRepository {
+export function createPostgresDiscoveryRepository(db: DatabaseClient, options: { readonly accessFilter?: DiscoveryAccessFilter } = {}): DiscoveryRepository {
   return {
     async listCandidates(input: DiscoveryCandidateQuery) {
       if (!input.actorId && input.relationship === 'friends') return [];
@@ -29,9 +29,7 @@ export function createPostgresDiscoveryRepository(db: DatabaseClient): Discovery
       if (!input.actorId) predicates.push(`d.visibility = 'public'`, 'd.discovery_expires_at > CURRENT_TIMESTAMP');
       else {
         const viewer = add(input.actorId);
-        predicates.push(`NOT EXISTS (SELECT 1 FROM user_blocks b WHERE (b.blocker_id=${viewer} AND b.blocked_id=d.author_id) OR (b.blocker_id=d.author_id AND b.blocked_id=${viewer}))`);
-        predicates.push(`(d.author_id=${viewer} OR (d.visibility='public' AND d.discovery_expires_at>CURRENT_TIMESTAMP) OR (d.visibility<>'private' AND EXISTS (SELECT 1 FROM friendships r WHERE r.status='accepted' AND ((r.requester_id=${viewer} AND r.addressee_id=d.author_id) OR (r.addressee_id=${viewer} AND r.requester_id=d.author_id)))))`);
-        if (input.relationship === 'friends') predicates.push(`EXISTS (SELECT 1 FROM friendships r WHERE r.status='accepted' AND ((r.requester_id=${viewer} AND r.addressee_id=d.author_id) OR (r.addressee_id=${viewer} AND r.requester_id=d.author_id)))`);
+        predicates.push(options.accessFilter?.({ actorId: input.actorId, actorParameter: viewer, authorColumn: 'd.author_id', visibilityColumn: 'd.visibility', discoveryExpiresAtColumn: 'd.discovery_expires_at', relationship: input.relationship }) ?? `d.author_id=${viewer}`);
         if (input.content === 'unread') predicates.push(`NOT EXISTS (SELECT 1 FROM discovery_reads rd WHERE rd.viewer_id=${viewer} AND rd.footprint_id=d.footprint_id)`);
       }
       if (input.scope === 'region' && input.regionId) predicates.push(`d.region_id = ${add(input.regionId)}`);
