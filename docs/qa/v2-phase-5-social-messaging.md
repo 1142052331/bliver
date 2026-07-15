@@ -17,6 +17,7 @@ blocked because this worktree has no `DATABASE_URL`; no database result or tag i
 - `4a53f98` feat: add V2 social and messaging experience
 - `e07aae7` feat: route V2 social and conversations pages
 - `1255b48` test: stabilize phase 5 social messaging acceptance
+- `ddc6b30` fix: close phase 5 conversation safety gaps
 
 ## Verification
 
@@ -26,7 +27,7 @@ blocked because this worktree has no `DATABASE_URL`; no database result or tag i
 | `npm.cmd run architecture:check` | PASS; no dependency violations (263 modules, 559 dependencies) |
 | `npm.cmd run typecheck:v2` | PASS; all V2 workspaces |
 | `npm.cmd run lint:v2` | PASS; zero warnings/errors |
-| `npx.cmd vitest run --config vitest.config.ts --pool=threads --maxWorkers=1` | PASS; 66 files, 239 tests passed, 7 Postgres-gated tests skipped |
+| `npx.cmd vitest run --config vitest.config.ts --pool=threads --maxWorkers=1` | PASS; 66 files, 240 tests passed, 7 Postgres-gated tests skipped |
 | `npm.cmd run test:v2` | ENVIRONMENT-LIMITED; default fork pool exhausted Windows virtual memory and terminated workers; the single-thread full suite above passed |
 | `npm.cmd run build:v2` | PASS; API and Web production builds complete |
 | `npx.cmd playwright test apps/web/e2e/social-messaging.spec.ts` | PASS; 4 tests across mobile and desktop |
@@ -52,6 +53,11 @@ after verification.
   surfaces include relationship actions, greeting/reply, optimistic idempotent sends with retry,
   unread/read and typing state, blocked state, empty/loading/error states, and forced session
   revocation handling.
+- Conversation list responses include last message and unread counts derived from receipts; the
+  application filters blocked peers through `RelationshipQueryPort` before HTTP serialization.
+- Socket conversation commands revalidate the original session token on every command, return an
+  `AUTH_REQUIRED` acknowledgement before disconnecting revoked clients, and read receipts emit no
+  duplicate Outbox event when the receipt already exists.
 - Playwright covers request/accept, greeting/reply, unread state, messaging deep links,
   block/unblock, forced revocation, mobile/desktop layouts, and horizontal-overflow checks.
 - Discovery query fixtures use a future normal expiry and an explicit past expiry so guest tests do
