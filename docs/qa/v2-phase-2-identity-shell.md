@@ -18,7 +18,7 @@ Date: 2026-07-15
 | PostGIS foundation integration with `V2_DATABASE_URL` | PASS |
 | `npm.cmd run typecheck:v2` | PASS |
 | `npm.cmd run lint:v2` | PASS |
-| `npm.cmd run test:v2` | PASS (56 passed, 1 intentionally skipped container test) |
+| `npm.cmd run test:v2` with `V2_DATABASE_URL` | PASS (58 passed across 19 files, including native PostGIS integration) |
 | `npm.cmd run build:v2` | PASS |
 | `npm.cmd run architecture:check` | PASS; no dependency violations |
 | API smoke (`/healthz`, `/readyz`, `/versionz`) | PASS on port 5100 |
