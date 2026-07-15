@@ -11,7 +11,7 @@ import { CloudinaryAdapter, MediaService, createPostgresMediaRepositories } from
 import { FootprintVisibilityPolicy, MapFootprintQuery, createPostgresFootprintRepositories } from '../modules/footprints/index.js';
 import { DiscoveryQueryService, DiscoveryProjectionConsumer, createPostgresDiscoveryRepository } from '../modules/discovery/index.js';
 import { InteractionService, createPostgresInteractionRepository } from '../modules/interactions/index.js';
-import { CreateReport, createPostgresReportRepository } from '../modules/moderation/index.js';
+import { CreateReport, createPostgresGovernanceRepository, createPostgresReportRepository, ModerationGovernanceService } from '../modules/moderation/index.js';
 import { BlockPolicy, SocialService, createPostgresSocialRepository } from '../modules/social/index.js';
 import { ConversationService, createPostgresConversationRepository } from '../modules/conversations/index.js';
 import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox/index.js';
@@ -61,7 +61,9 @@ export async function startServer(): Promise<void> {
     return blockPolicy.relationshipVisibilitySql({ actorParameter: viewer, authorColumn: 'f.author_id', visibilityColumn: 'f.visibility', discoveryExpiresAtColumn: 'f.discovery_expires_at', relationship: 'all' });
   };
   const footprints = createPostgresFootprintRepositories(db, { mapAccessFilter });
-  const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: relationships, blocks: relationships, moderation: { async hasCaseAccess() { return false; } }, now: () => new Date() });
+  const governanceRepository = createPostgresGovernanceRepository(db);
+  const governance = new ModerationGovernanceService(governanceRepository);
+  const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: relationships, blocks: relationships, moderation: governance, now: () => new Date() });
   const map = new MapFootprintQuery({ repository: footprints, policy, cursorSecret: config.sessionSecret });
   const discoveryRepository = createPostgresDiscoveryRepository(db, { accessFilter: (input) => blockPolicy.relationshipVisibilitySql(input) });
   const activity = new DiscoveryQueryService({ repository: discoveryRepository, policy, cursorSecret: config.sessionSecret });
@@ -95,6 +97,7 @@ export async function startServer(): Promise<void> {
     reports: { create: reportCreate },
     social: { service: new SocialService(relationships) },
     conversations: { service: conversationService },
+    governance: { service: governance },
   });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });

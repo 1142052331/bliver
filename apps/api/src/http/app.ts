@@ -27,6 +27,7 @@ import { interactionRouter } from '../modules/interactions/transport/routes.js';
 import { createMemoryInteractionRepository, InteractionService } from '../modules/interactions/application/service.js';
 import { reportRouter } from '../modules/moderation/transport/routes.js';
 import { CreateReport, createMemoryReportRepository } from '../modules/moderation/domain/reports.js';
+import { adminRouter, createMemoryGovernanceRepository, ModerationGovernanceService } from '../modules/moderation/index.js';
 import { SocialService, createMemorySocialRepository, socialRouter } from '../modules/social/index.js';
 import { ConversationService, conversationRouter, createMemoryConversationRepository } from '../modules/conversations/index.js';
 import { createMemoryMemoryRepository, memoriesRouter, type MemoryQueryPort } from '../modules/memories/index.js';
@@ -47,6 +48,7 @@ export interface AppOptions {
   readonly conversations?: { readonly service?: ConversationService };
   readonly memories?: { readonly query?: MemoryQueryPort };
   readonly notifications?: { readonly service?: NotificationService; readonly vapidPublicKey?: string };
+  readonly governance?: { readonly service?: ModerationGovernanceService };
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -57,7 +59,7 @@ const requestId: RequestHandler = (request, response, next) => {
   next();
 };
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -84,6 +86,8 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use('/api/v1', memoriesRouter({ query: memoryQuery }, identityRepositories));
   const notificationService = notifications?.service ?? new NotificationService(createMemoryNotificationRepository());
   app.use('/api/v1', notificationsRouter({ service: notificationService, ...(notifications?.vapidPublicKey ? { vapidPublicKey: notifications.vapidPublicKey } : {}) }, identityRepositories));
+  const governanceService = governance?.service ?? new ModerationGovernanceService(createMemoryGovernanceRepository());
+  app.use('/api/v1', adminRouter(governanceService, identityRepositories));
   app.use(healthRouter({ config, db }));
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -89,10 +89,6 @@ export class FootprintAccessDeniedError extends Error {
   }
 }
 
-function isModerator(actor: ActorContext): boolean {
-  return actor.roles.some((role) => role === 'moderator' || role === 'admin');
-}
-
 function toDto(record: FootprintPolicyInput): FootprintDto {
   return {
     id: record.id,
@@ -260,10 +256,7 @@ export class FootprintVisibilityPolicy {
     }
     if (this.denyAuthenticatedNonOwners) return false;
     if (!actorId) return false;
-    if (
-      isModerator(actor) &&
-      (await this.moderationCaseAccess(actorId, record.id, caches))
-    ) {
+    if (await this.moderationCaseAccess(actorId, record.id, caches)) {
       return true;
     }
     const relationship = await this.relationshipAccess(

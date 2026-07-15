@@ -107,3 +107,8 @@ CREATE TABLE IF NOT EXISTS admin_roles (
   granted_by uuid REFERENCES identity_users(id),
   created_at timestamptz NOT NULL DEFAULT now()
 );
+INSERT INTO admin_roles(user_id, role)
+SELECT user_id, role FROM identity_roles WHERE role IN ('moderator','admin')
+ON CONFLICT(user_id) DO UPDATE SET role=EXCLUDED.role;
+ALTER TABLE identity_users ADD COLUMN IF NOT EXISTS suspended_at timestamptz;
+ALTER TABLE footprints ADD COLUMN IF NOT EXISTS moderation_hidden_at timestamptz;
