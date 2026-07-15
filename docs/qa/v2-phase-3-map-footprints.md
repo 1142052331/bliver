@@ -51,6 +51,6 @@ Before phase acceptance/tagging, provide a PostGIS `DATABASE_URL` and run `npm.c
 Remaining review concerns:
 
 - Friendship/block persistence belongs to Phase 4 and no relationship tables exist yet; the Phase 3 server fails closed with injected false relationship ports.
-- The Web publish request is authenticated and API-backed, but direct Cloudinary upload completion is not yet attached to the returned stable asset ID when a photo is selected.
+- The Web publish flow now uploads a selected photo directly to Cloudinary using the short-lived signature and passes the stable asset ID to the publish command; server-side metadata reconciliation remains a later hardening item.
 - Browser smoke uses deterministic contract fixtures because the API cannot start without Postgres; it does not prove a live Cloudinary/Postgres publish.
 - Reconnect invalidation and provider timeout behavior are implemented but have no dedicated browser/integration tests yet.
