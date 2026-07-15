@@ -16,6 +16,7 @@ DONE_WITH_CONCERNS. The application, API boundaries, focused tests, and static V
 - `ea582b9` test: add V2 map Playwright smoke
 - `24fbe12` qa: record authenticated map viewer fix
 - `6646a04` fix: harden V2 map browser smoke
+- `92f8175` test: exclude browser specs from Vitest
 
 ## Verification
 
