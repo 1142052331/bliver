@@ -11,8 +11,8 @@ export function MemoriesRoute() {
   const userId = useParams().userId;
   const base = userId ? `/profile/${userId}/memories` : '/me';
   const overview = useQuery({ queryKey: ['memories', base], queryFn: () => fetchMemories(base), retry: false });
-  const timeline = useQuery({ queryKey: ['memories', 'timeline', base], queryFn: fetchTimeline, enabled: location.pathname.endsWith('/timeline') });
-  const photos = useQuery({ queryKey: ['memories', 'photos', base], queryFn: fetchPhotos, enabled: location.pathname.endsWith('/photos') });
+  const timeline = useQuery<Awaited<ReturnType<typeof fetchTimeline>>>({ queryKey: ['memories', 'timeline', base], queryFn: () => fetchTimeline(), enabled: location.pathname.endsWith('/timeline') });
+  const photos = useQuery<Awaited<ReturnType<typeof fetchPhotos>>>({ queryKey: ['memories', 'photos', base], queryFn: () => fetchPhotos(), enabled: location.pathname.endsWith('/photos') });
   const visitors = useQuery({ queryKey: ['memories', 'visitors'], queryFn: fetchVisitors, enabled: location.pathname.endsWith('/visitors') });
   if (overview.isLoading || timeline.isLoading || photos.isLoading || visitors.isLoading) return <Loading />;
   if (overview.isError || timeline.isError || photos.isError || visitors.isError) return <ErrorState retry={() => { void overview.refetch(); void timeline.refetch(); void photos.refetch(); void visitors.refetch(); }} />;
