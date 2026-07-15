@@ -11,6 +11,7 @@ DONE_WITH_CONCERNS. Discovery, privacy-filtered Activity and Map DTO parity, rea
 - `220bc28` fix: accept canonical visibility change events
 - `8556371` fix: close phase 4 discovery review gaps
 - `f8e4859` fix: share configured discovery cursor secret
+- `77fc20d` fix: make comment replay atomic
 
 ## Verification
 
@@ -19,9 +20,9 @@ DONE_WITH_CONCERNS. Discovery, privacy-filtered Activity and Map DTO parity, rea
 | `npm.cmd run db:v2:migrate` | BLOCKED; `Database migration failed: DATABASE_URL is required` |
 | `npm.cmd run typecheck:v2` | PASS; all seven V2 workspaces |
 | `npm.cmd run lint:v2` | PASS; zero warnings/errors |
-| `npm.cmd run test:v2` | PASS; 50 files passed, 3 Postgres environment-gated files skipped; 176 tests passed, 7 skipped |
-| `npx.cmd playwright test apps/web/e2e/discovery-interaction.spec.ts` | PASS; 6 tests across Pixel 5 and Desktop Chrome, including authenticated session fixtures and blocked-candidate filtering |
-| `npm.cmd run architecture:check` | PASS; no dependency violations (214 modules, 434 dependencies) |
+| `npm.cmd run test:v2` | PASS; 51 files passed, 3 Postgres environment-gated files skipped; 180 tests passed, 7 skipped |
+| `npx.cmd playwright test apps/web/e2e/discovery-interaction.spec.ts` | PASS; 8 tests across Pixel 5 and Desktop Chrome, including guest comment login/replay, authenticated session fixtures, and blocked-candidate filtering |
+| `npm.cmd run architecture:check` | PASS; no dependency violations (215 modules, 439 dependencies) |
 | `npm.cmd run build:v2` | PASS; API and web production builds complete |
 | `npm.cmd --workspace @bliver/contracts run contracts:openapi` | PASS; OpenAPI JSON and generated client refreshed locally |
 
@@ -39,6 +40,7 @@ The web build retains the existing Vite warning for a JavaScript chunk larger th
 - Report intake validates a closed reason set, rejects anonymous/blocked actors, enforces one open report per reporter and footprint, and emits `ReportCreated`. Resolution UI and commands are absent by design until Phase 6.
 - Activity covers loading, empty, failure/retry, scope labels, cursor controls, guest pending actions, optimistic reactions, comments, replies, and report confirmation. `ConversationSection` is shared by Activity cards and footprint detail surfaces.
 - Interaction and report GET/command routes resolve the actor and apply the same footprint policy before reads. Command idempotency uses the existing Postgres `platform.idempotency_keys` table (with an explicit repository port and memory test adapter), and web guest actions navigate to login and replay after authentication.
+- Comment and reply idempotency reserves the durable key, comment response, comment row, and `CommentAdded` Outbox event inside one transaction. Unique-key losers load the committed winner; rollback tests prove a crash leaves no reservation or mutation to replay.
 - Browser acceptance proves guest discovery/pending auth intent, authenticated reaction/comment/reply/report, and blocked-content absence on mobile and desktop fixtures.
 
 ## Environment Limitation
