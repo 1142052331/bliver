@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { validateAndroidDeepLinks, validateCapacitorConfig, validateDeepLinkAuthReturn, validateOfflineWorkerPolicy } from './smoke.js';
+import {
+  runCapacitorCommandGates,
+  validateAndroidDeepLinks,
+  validateCapacitorConfig,
+  validateDeepLinkAuthReturn,
+  validateOfflineWorkerPolicy,
+} from './smoke.js';
 
 describe('Capacitor smoke policy', () => {
   it('requires the V2 dist, stable app id and HTTPS-only server', () => {
@@ -23,5 +29,29 @@ describe('Capacitor smoke policy', () => {
     const unsafe = "pathname.startsWith('/api/'); request.credentials === 'include'; request.mode === 'navigate'; caches.match('/index.html')";
     expect(validateOfflineWorkerPolicy(safe)).toBe(true);
     expect(validateOfflineWorkerPolicy(unsafe)).toBe(false);
+  });
+
+  it('executes platform behavior, browser auth return and Android sync as required gates', () => {
+    const runner = vi.fn((_command: { readonly label: string; readonly args: readonly string[] }) => 0);
+    expect(runCapacitorCommandGates(runner)).toEqual([]);
+    expect(runner.mock.calls.map(([command]) => command)).toEqual([
+      expect.objectContaining({
+        label: 'platform behavior',
+        args: expect.arrayContaining(['run', 'apps/web/src/platform/__tests__/pwa-capacitor.test.ts']),
+      }),
+      expect.objectContaining({
+        label: 'browser deep-link auth return',
+        args: expect.arrayContaining([
+          'test',
+          'apps/web/e2e/auth.spec.ts',
+          '--project=mobile-390x844',
+          '--grep=Capacitor footprint deep link returns to the footprint after login',
+        ]),
+      }),
+      expect.objectContaining({ label: 'Android sync', args: ['sync', 'android'] }),
+    ]);
+
+    const failingRunner = vi.fn((command: { readonly label: string }) => command.label === 'Android sync' ? 1 : 0);
+    expect(runCapacitorCommandGates(failingRunner)).toEqual(['Android sync failed']);
   });
 });

@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -8,6 +9,61 @@ interface CapacitorConfigInput {
   readonly appId?: string;
   readonly webDir?: string;
   readonly server?: { readonly url?: string; readonly cleartext?: boolean };
+}
+
+export interface CapacitorCommandGate {
+  readonly label: string;
+  readonly entryPoint: string;
+  readonly args: readonly string[];
+  readonly timeoutMs: number;
+}
+
+export type CapacitorCommandRunner = (command: CapacitorCommandGate) => number;
+
+export const CAPACITOR_COMMAND_GATES: readonly CapacitorCommandGate[] = [
+  {
+    label: 'platform behavior',
+    entryPoint: 'node_modules/vitest/vitest.mjs',
+    args: ['run', 'apps/web/src/platform/__tests__/pwa-capacitor.test.ts', '--reporter=dot'],
+    timeoutMs: 120_000,
+  },
+  {
+    label: 'browser deep-link auth return',
+    entryPoint: 'node_modules/@playwright/test/cli.js',
+    args: [
+      'test',
+      'apps/web/e2e/auth.spec.ts',
+      '--project=mobile-390x844',
+      '--grep=Capacitor footprint deep link returns to the footprint after login',
+    ],
+    timeoutMs: 180_000,
+  },
+  {
+    label: 'Android sync',
+    entryPoint: 'node_modules/@capacitor/cli/bin/capacitor',
+    args: ['sync', 'android'],
+    timeoutMs: 120_000,
+  },
+] as const;
+
+function executeCommandGate(command: CapacitorCommandGate): number {
+  console.log(`[capacitor] running ${command.label}`);
+  const result = spawnSync(process.execPath, [resolve(command.entryPoint), ...command.args], {
+    cwd: resolve('.'),
+    env: { ...process.env, FORCE_COLOR: '0' },
+    stdio: 'inherit',
+    timeout: command.timeoutMs,
+  });
+  if (result.error) console.error(`[capacitor] ${command.label}: ${result.error.message}`);
+  return result.status ?? 1;
+}
+
+export function runCapacitorCommandGates(runner: CapacitorCommandRunner = executeCommandGate): readonly string[] {
+  const failures: string[] = [];
+  for (const command of CAPACITOR_COMMAND_GATES) {
+    if (runner(command) !== 0) failures.push(`${command.label} failed`);
+  }
+  return failures;
 }
 
 export function validateCapacitorConfig(config: CapacitorConfigInput): readonly string[] {
@@ -70,6 +126,7 @@ export async function runCapacitorSmoke(): Promise<void> {
   if (!validateOfflineWorkerPolicy(worker)) failures.push('PWA cache policy is incomplete in apps/web/dist');
   const credentials = await readFile(resolve('apps/web/src/platform/credentials.ts'), 'utf8');
   if (!credentials.includes("'hardware-backed' | 'encrypted'")) failures.push('Capacitor credential adapter is not constrained to secure storage');
+  failures.push(...runCapacitorCommandGates());
   const manifest = await readFile(resolve('android/app/src/main/AndroidManifest.xml'), 'utf8');
   failures.push(...validateAndroidDeepLinks(manifest, config.server?.url));
   if (!validateDeepLinkAuthReturn('bliver://app/footprints/footprint-1')) failures.push('Footprint deep link does not survive authentication');
