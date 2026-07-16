@@ -30,6 +30,7 @@
     "smoke:v2": "tsx scripts/v2-foundation-smoke.ts",
     "perf:v2": "tsx scripts/perf/run.ts",
     "security:v2": "tsx scripts/security/run.ts",
+    "cap:v2:smoke": "tsx scripts/capacitor/smoke.ts",
     "verify:v2-foundation": "npm run architecture:check && npm run lint:v2 && npm run typecheck:v2 && npm run test:v2 && npm run build:v2"
   },
   "lint-staged": {

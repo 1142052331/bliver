@@ -14,6 +14,30 @@ test('guest map opens as the primary surface', async ({ page }) => {
   await expectNoAxeViolations(page);
 });
 
+test('offline map failure keeps the application shell and exposes a reconnect action', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, value: false });
+  });
+  await page.route('**/api/v1/map/footprints**', async (route) => { await route.abort('internetdisconnected'); });
+  await page.goto('/map');
+  await expect(page.getByRole('heading', { name: 'Map offline' })).toBeVisible();
+  await expect(page.getByText('Reconnect to load footprints. Your private map data is not cached.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+});
+
+test('publish form recovers only non-sensitive draft fields', async ({ context, page }) => {
+  await context.addCookies([{ name: 'bliver_session', value: 'e2e-session', domain: '127.0.0.1', path: '/' }]);
+  await page.route('**/api/v1/session', async (route) => { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: '00000000-0000-4000-8000-000000000001', deviceName: 'E2E', createdAt: new Date().toISOString(), lastSeenAt: new Date().toISOString(), current: true }) }); });
+  await page.addInitScript(() => {
+    localStorage.setItem('bliver:footprint-draft', JSON.stringify({ message: 'Recovered offline note', visibility: 'friends', locationPrecision: 'approximate' }));
+  });
+  await page.goto('/publish?lat=31&lng=121');
+  await expect(page.getByLabel('Message')).toHaveValue('Recovered offline note');
+  await expect(page.getByLabel('Who can see it')).toHaveValue('friends');
+  const serialized = await page.evaluate(() => localStorage.getItem('bliver:footprint-draft'));
+  expect(serialized).not.toMatch(/lat|lng|token|file|asset/i);
+});
+
 test('authenticated publish flow keeps audience and precision controls explicit', async ({ context, page }) => {
   await context.addCookies([{ name: 'bliver_session', value: 'e2e-session', domain: '127.0.0.1', path: '/' }]);
   await page.route('**/api/v1/session', async (route) => { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: '00000000-0000-4000-8000-000000000001', deviceName: 'E2E', createdAt: new Date().toISOString(), lastSeenAt: new Date().toISOString(), current: true }) }); });

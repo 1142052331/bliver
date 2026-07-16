@@ -89,6 +89,17 @@ test('guest route contract keeps public surfaces open and protects private works
   }
 });
 
+test('Capacitor footprint deep link returns to the footprint after login', async ({ page }) => {
+  await installJourneyApi(page, 'guest');
+  const footprintPath = `/footprints/${V2_TEST_FOOTPRINTS[0]!.id}`;
+  await page.goto(`/login?returnTo=${encodeURIComponent(footprintPath)}`);
+  await page.getByLabel('Username').fill(V2_TEST_USERS.userA.username);
+  await page.getByLabel('Password').fill('phase-7-fixture-password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(new RegExp(`${footprintPath.replaceAll('-', '\\-')}$`));
+  await expect(page.getByText(V2_TEST_FOOTPRINTS[0]!.message)).toBeVisible();
+});
+
 test('authenticated actors can reach every V2 route-owned workspace', async ({ page }) => {
   await installJourneyApi(page, 'userA');
   const routes = [

@@ -42,6 +42,7 @@ jobs:
       - run: npm run verify:v2-foundation
       - run: npm run perf:v2
       - run: npm run security:v2
+      - run: npm run cap:v2:smoke
 
   backend:
     name: Backend — Tests

@@ -10,10 +10,23 @@ export const browserCredentialStore: PlatformCredentialStore = {
   async clear() { /* browser uses cookie expiry */ },
 };
 
-export function createCapacitorCredentialStore(storage: { get: (key: string) => Promise<{ value: string | null }>; set: (entry: { key: string; value: string }) => Promise<void>; remove: (entry: { key: string }) => Promise<void> }): PlatformCredentialStore {
+export interface SecureStoragePort {
+  readonly security: 'hardware-backed' | 'encrypted';
+  get(key: string): Promise<{ value: string | null }>;
+  set(entry: { key: string; value: string }): Promise<void>;
+  remove(entry: { key: string }): Promise<void>;
+}
+
+export function createCapacitorCredentialStore(storage: SecureStoragePort): PlatformCredentialStore {
+  if (storage.security !== 'hardware-backed' && storage.security !== 'encrypted') throw new Error('Capacitor secure storage is required');
   return {
     async getAccessToken() { return (await storage.get('bliver_access_token')).value; },
     async setAccessToken(token) { await storage.set({ key: 'bliver_access_token', value: token }); },
     async clear() { await storage.remove({ key: 'bliver_access_token' }); },
   };
+}
+
+export async function handleCapacitorAuthExpiry(store: PlatformCredentialStore, returnTo: string, navigate: (path: string) => void): Promise<void> {
+  await store.clear();
+  navigate(`/login?returnTo=${encodeURIComponent(returnTo)}`);
 }
