@@ -2,9 +2,35 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
+
+import { createConfig } from '../../apps/api/src/bootstrap/config.js';
+import { validateAndroidDeepLinks } from '../capacitor/smoke.js';
 
 const root = resolve(import.meta.dirname, '../..');
 const read = (path: string): Promise<string> => readFile(resolve(root, path), 'utf8');
+
+interface RenderEnvironmentVariable {
+  readonly key: string;
+  readonly value?: string;
+  readonly sync?: boolean;
+}
+
+interface RenderWebService {
+  readonly type: string;
+  readonly name: string;
+  readonly envVars: readonly RenderEnvironmentVariable[];
+}
+
+interface RenderBlueprint {
+  readonly services: readonly RenderWebService[];
+}
+
+async function productionService(): Promise<RenderWebService> {
+  const blueprint = parse(await read('render.yaml')) as RenderBlueprint;
+  expect(blueprint.services).toHaveLength(1);
+  return blueprint.services[0] as RenderWebService;
+}
 
 describe('V2 deployment cutover', () => {
   it('uses only root workspace build, predeploy, start, and exact-SHA commands', async () => {
@@ -33,6 +59,19 @@ describe('V2 deployment cutover', () => {
     for (const name of staleNames) expect(render).not.toContain(name);
   });
 
+  it('boots runtime config from the final production Render Blueprint', async () => {
+    const service = await productionService();
+    const configured = Object.fromEntries(service.envVars.map(({ key, value }) => [key, value])) as NodeJS.ProcessEnv;
+    const config = createConfig({
+      ...configured,
+      RELEASE_SHA: 'a'.repeat(40),
+      DATABASE_URL: 'postgresql://test:test@localhost:5432/bliver',
+      SESSION_SECRET: 'production-session-secret-that-is-long-enough',
+    });
+    expect(service).toMatchObject({ type: 'web', name: 'bliver' });
+    expect(config).toMatchObject({ nodeEnv: 'production', deployEnv: 'production' });
+  });
+
   it('makes V2 gates and the root lock the only CI release graph', async () => {
     const workflow = await read('.github/workflows/ci.yml');
     expect(workflow).toContain('cache-dependency-path: package-lock.json');
@@ -41,11 +80,17 @@ describe('V2 deployment cutover', () => {
     expect(workflow).not.toMatch(/working-directory: (?:frontend|backend)|(?:frontend|backend)\/package-lock\.json/);
   });
 
-  it('keeps Capacitor on the HTTPS V2 shell and removes stale env names', async () => {
+  it('pins Capacitor and Android App Links to the final Render production service', async () => {
+    const service = await productionService();
     const capacitor = JSON.parse(await read('capacitor.config.json')) as { webDir: string; server?: { url?: string; cleartext?: boolean } };
+    const productionOrigin = `https://${service.name}.onrender.com`;
     expect(capacitor.webDir).toBe('apps/web/dist');
-    expect(capacitor.server?.url).toMatch(/^https:\/\//);
+    expect(capacitor.server?.url).toBe(productionOrigin);
     expect(capacitor.server?.cleartext).toBe(false);
+    expect(validateAndroidDeepLinks(await read('android/app/src/main/AndroidManifest.xml'), productionOrigin)).toEqual([]);
+  });
+
+  it('removes stale deployment environment names', async () => {
     const environment = await read('.env.v2.example');
     expect(environment).toContain('DATABASE_URL=');
     expect(environment).toContain('SESSION_SECRET=');

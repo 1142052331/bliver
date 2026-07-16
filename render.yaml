@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: bliver-candidate
+    name: bliver
     runtime: node
     plan: free
     autoDeploy: false
@@ -14,7 +14,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DEPLOY_ENV
-        value: candidate
+        value: production
       - key: RELEASE_SHA
         sync: false
       - key: DATABASE_URL

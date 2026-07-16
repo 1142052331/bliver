@@ -154,7 +154,9 @@ The V1 `window.dispatchEvent(CustomEvent)` bridge and `ws:` conventions are dele
 ```text
 frontend/public/favicon.svg
 frontend/public/icons.svg
+frontend/public/manifest.json
 frontend/public/marker-icon.png
+frontend/public/sw.js
 ```
 
 V2 PWA icons, manifest, service worker, built chunks, and Leaflet runtime assets under `apps/web` are independently owned and remain.
