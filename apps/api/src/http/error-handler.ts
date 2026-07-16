@@ -31,13 +31,14 @@ export const errorHandler: ErrorRequestHandler = (
 ) => {
   void _next;
   const isJsonSyntaxError = error instanceof SyntaxError;
-  const status = isJsonSyntaxError ? 400 : 500;
+  const isPayloadTooLarge = (error as { status?: unknown }).status === 413;
+  const status = isPayloadTooLarge ? 413 : isJsonSyntaxError ? 400 : 500;
 
   sendProblem(response, {
     type: 'about:blank',
-    title: isJsonSyntaxError ? 'Invalid request' : 'Internal Server Error',
+    title: isPayloadTooLarge ? 'Payload too large' : isJsonSyntaxError ? 'Invalid request' : 'Internal Server Error',
     status,
-    code: isJsonSyntaxError ? 'INVALID_JSON' : 'INTERNAL_ERROR',
+    code: isPayloadTooLarge ? 'PAYLOAD_TOO_LARGE' : isJsonSyntaxError ? 'INVALID_JSON' : 'INTERNAL_ERROR',
     requestId: request.id,
   });
 };

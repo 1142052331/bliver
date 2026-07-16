@@ -59,12 +59,24 @@ const requestId: RequestHandler = (request, response, next) => {
   next();
 };
 
+function requestPath(value: string | undefined): string {
+  try { return new URL(value ?? '/', 'http://local.invalid').pathname; }
+  catch { return '/'; }
+}
+
 export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
   app.use(requestId);
-  app.use(pinoHttp({ logger }));
+  app.use(pinoHttp({
+    logger,
+    wrapSerializers: false,
+    serializers: {
+      req(request) { return { id: request.id, method: request.method, url: requestPath(request.url) }; },
+      res(response) { return { statusCode: response.statusCode }; },
+    },
+  }));
   app.use(helmet());
   app.use(express.json({ limit: '1mb' }));
   const identityRepositories = identity ?? createMemoryIdentityRepositories();

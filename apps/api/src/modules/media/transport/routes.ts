@@ -2,7 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { mediaCompleteRequest, mediaSignatureRequest } from '@bliver/contracts';
 
 import type { ApiConfig } from '../../../bootstrap/config.js';
-import { requireActor, type ActorContext } from '../../identity/index.js';
+import { requireActor, validMutationCsrf, type ActorContext } from '../../identity/index.js';
 import type { IdentityRepositories } from '../../identity/application/ports.js';
 import {
   createMemoryMediaRepositories,
@@ -98,8 +98,12 @@ export function mediaRouter(
   const router = Router();
   const actor = requireActor(identity);
   const rateLimit = createRateLimit(options);
+  const csrf = (request: Request, response: Response, next: NextFunction): void => {
+    if (validMutationCsrf(request, actorFrom(request))) { next(); return; }
+    problem(response, request, 403, 'CSRF_ORIGIN_INVALID');
+  };
 
-  router.post('/media/signature', actor, rateLimit, async (request, response) => {
+  router.post('/media/signature', actor, csrf, rateLimit, async (request, response) => {
     const idempotencyKey = request.get('idempotency-key')?.trim();
     if (!idempotencyKey || idempotencyKey.length > 128) {
       problem(response, request, 400, 'IDEMPOTENCY_KEY_REQUIRED');
@@ -123,7 +127,7 @@ export function mediaRouter(
     }
   });
 
-  router.delete('/media/:assetId', actor, async (request, response) => {
+  router.delete('/media/:assetId', actor, csrf, async (request, response) => {
     const context = actorFrom(request);
     try {
       await service.deleteAsset({ actorId: context.userId, assetId: String(request.params.assetId) });
@@ -136,7 +140,7 @@ export function mediaRouter(
       problem(response, request, 500, 'MEDIA_UNAVAILABLE');
     }
   });
-  router.post('/media/:assetId/complete', actor, async (request, response) => {
+  router.post('/media/:assetId/complete', actor, csrf, async (request, response) => {
     const parsed = mediaCompleteRequest.safeParse(request.body);
     if (!parsed.success) {
       problem(response, request, 400, 'INVALID_REQUEST');

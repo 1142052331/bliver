@@ -41,6 +41,7 @@ jobs:
       - run: npm run db:v2:migrate
       - run: npm run verify:v2-foundation
       - run: npm run perf:v2
+      - run: npm run security:v2
 
   backend:
     name: Backend — Tests

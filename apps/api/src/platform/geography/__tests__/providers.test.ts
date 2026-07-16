@@ -7,6 +7,13 @@ afterEach(() => {
 });
 
 describe('Nominatim geography provider', () => {
+  it.each(['http://geo.example', 'https://127.0.0.1', 'https://169.254.169.254', 'https://10.0.0.4', 'https://user:pass@geo.example'])(
+    'rejects SSRF-unsafe provider URL %s',
+    (baseUrl) => {
+      expect(() => createNominatimGeography({ baseUrl })).toThrow('unsafe provider URL');
+    },
+  );
+
   it('returns bounded fallbacks when reverse and search requests time out', async () => {
     vi.useFakeTimers();
     const fetcher = vi.fn(async () => new Promise<Response>(() => undefined));
