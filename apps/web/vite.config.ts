@@ -4,6 +4,15 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          return /node_modules\/(?:react-leaflet|leaflet)\//.test(id.replaceAll('\\', '/')) ? 'map-vendor' : undefined;
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

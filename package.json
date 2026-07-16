@@ -21,13 +21,14 @@
     "dev:v2": "concurrently -n web,api -c blue,green \"npm run dev --workspace @bliver/web\" \"npm run dev --workspace @bliver/api\"",
     "build:v2": "npm run build --workspaces --if-present",
     "test:v2": "vitest run --config vitest.config.ts",
-    "typecheck:v2": "npm run typecheck --workspaces --if-present",
+    "typecheck:v2": "npm run typecheck --workspaces --if-present && tsc -p scripts/tsconfig.json",
     "lint:v2": "npm run lint --workspaces --if-present",
     "architecture:check": "tsx scripts/v2-architecture-check.ts",
     "db:v2:up": "docker compose -f infra/docker-compose.postgres.yml up -d",
     "db:v2:migrate": "tsx apps/api/src/platform/db/migrate.ts",
     "db:v2:seed": "tsx apps/api/src/platform/db/seed.ts",
     "smoke:v2": "tsx scripts/v2-foundation-smoke.ts",
+    "perf:v2": "tsx scripts/perf/run.ts",
     "verify:v2-foundation": "npm run architecture:check && npm run lint:v2 && npm run typecheck:v2 && npm run test:v2 && npm run build:v2"
   },
   "lint-staged": {
