@@ -7,8 +7,11 @@ describe('outbox worker', () => {
     const process = vi.fn(async () => undefined);
     await outbox.append({ id: 'event-1', type: 'FootprintPublished', aggregateId: 'footprint-1', payload: {} });
     const worker = new OutboxWorker({ repository: outbox, process, now: () => 1_700_000_000 });
-    await worker.runOnce();
-    await worker.runOnce();
+    await expect(worker.runOnce()).resolves.toBe(true);
+    await outbox.append({ id: 'event-1', type: 'FootprintPublished', aggregateId: 'footprint-1', payload: { duplicate: true } });
+
+    expect((await outbox.list())[0]).toMatchObject({ processedAt: 1_700_000_000, attempts: 1, payload: {} });
+    await expect(worker.runOnce()).resolves.toBe(false);
     expect(process).toHaveBeenCalledOnce();
   });
 
