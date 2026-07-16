@@ -35,6 +35,8 @@
     "cap:v2:smoke": "tsx scripts/capacitor/smoke.ts",
     "phase7:gates": "npm run verify:v2-foundation && npx playwright test && npm run perf:v2:browser-evidence && npm run build --workspace @bliver/web && npm run lighthouse:v2 && npm run perf:v2 && npm run security:v2 && npm run cap:v2:smoke",
     "release:v2:freeze": "tsx scripts/release/freeze.ts",
+    "legacy:v2:check": "tsx scripts/release/legacy-check.ts",
+    "legacy:v1:inventory": "tsx scripts/release/legacy-check.ts --inventory",
     "verify:v2-foundation": "npm run architecture:check && npm run lint:v2 && npm run typecheck:v2 && npm run test:v2 && npm run build:v2"
   },
   "lint-staged": {
