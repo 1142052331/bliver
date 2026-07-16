@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { V2_TEST_FOOTPRINTS, V2_TEST_SOCIAL, V2_TEST_USERS } from '@bliver/testing';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 import { expectNoAxeViolations, expectNoHorizontalOverflow } from './accessibility.js';
 import { installJourneyApi } from './journey-api.js';
@@ -83,8 +85,19 @@ test('route semantics, labels and long content pass the WCAG axe gate', async ({
   await expectNoHorizontalOverflow(page);
 });
 
-test('filter dialog supports keyboard focus, Escape and focus restoration', async ({ page }) => {
+test('filter dialog supports keyboard focus, Escape and focus restoration', async ({ page }, testInfo) => {
   await page.goto('/activity');
+  await page.evaluate(() => {
+    const samples: number[] = [];
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        const event = entry as PerformanceEntry & { interactionId?: number };
+        if ((event.interactionId ?? 0) > 0) samples.push(event.duration);
+      }
+    });
+    observer.observe({ type: 'event', buffered: true, durationThreshold: 16 } as PerformanceObserverInit);
+    (window as typeof window & { __v2InpSamples?: number[] }).__v2InpSamples = samples;
+  });
   const filter = page.getByRole('button', { name: 'Filter' });
   await filter.focus();
   await expect(filter).toBeFocused();
@@ -96,6 +109,12 @@ test('filter dialog supports keyboard focus, Escape and focus restoration', asyn
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(filter).toBeFocused();
+  await page.waitForTimeout(50);
+  const inpMs = await page.evaluate(() => Math.max(...((window as typeof window & { __v2InpSamples?: number[] }).__v2InpSamples ?? []), -1));
+  expect(inpMs).toBeGreaterThanOrEqual(0);
+  const project = testInfo.project.name.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+  await mkdir(resolve('test-results'), { recursive: true });
+  await writeFile(resolve('test-results', `browser-vitals-${project}.json`), JSON.stringify({ source: 'performance-event-timing', project: testInfo.project.name, inpMs }), 'utf8');
 });
 
 test('keyboard order reaches shell commands before the sign-in form with visible focus', async ({ page }) => {

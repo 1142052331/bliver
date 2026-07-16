@@ -16,6 +16,8 @@ jobs:
       RELEASE_SHA: ci
       DATABASE_URL: postgresql://bliver:bliver@localhost:5432/bliver_v2_test
       SESSION_SECRET: ci-only-session-secret-for-v2-foundation-tests
+      V2_PERF_MODE: release
+      V2_LIGHTHOUSE_REPORT: .artifacts/lighthouse-v2.json
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -42,10 +44,20 @@ jobs:
       - run: npm run db:v2:migrate
       - run: npm run verify:v2-foundation
       - run: npx playwright test
+      - run: npm run build --workspace @bliver/web
+      - run: npm run lighthouse:v2
       - run: npm run perf:v2
       - run: npm run security:v2
       - run: npm run cap:v2:smoke
       - run: git diff --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-hardening-evidence
+          path: |
+            .artifacts/lighthouse-v2.json
+            test-results/
+          if-no-files-found: error
 
   backend:
     name: Backend — Tests
