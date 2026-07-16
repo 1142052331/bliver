@@ -2,29 +2,30 @@
 
 Date: 2026-07-16
 Baseline: `7497177` (accepted Phase 6 implementation evidence)
-Implementation commits: `666d7a1`, `9732099`, `713cc6d`, `519477e`, `ee8ac80`, `5bb8602`, `c6a0d9d`
+Implementation commits: `666d7a1`, `9732099`, `713cc6d`, `519477e`, `ee8ac80`, `5bb8602`, `c6a0d9d`, `c5e64a4`
 Status: `DONE_WITH_CONCERNS`; release acceptance and tag are pending external evidence.
 
 ## Scope verified
 
 - Deterministic guest, admin, user A, and user B fixtures cover public/friends/private and precise/approximate footprints. Route journeys, pending guest actions, governance, two-person messaging, block/revoke, real Socket reconnect, offline map fallback, and deep-link auth return run at 360x800, 390x844, 430x932, and 1440x1000.
 - Axe, keyboard focus/order, Escape/focus restoration, form errors, 44px controls, safe areas, long content, overflow, and reduced motion are browser gates. Leaflet attribution is visibly underlined rather than excluded from axe.
-- The canonical performance budgets are shared by bundle, API, PostGIS, Outbox, reconnect, and optional Lighthouse checks. Security gates cover request policy, dependency exceptions, secret scanning, private data redaction, and safe logs.
+- The canonical performance budgets are shared by bundle, API, PostGIS, Outbox, reconnect, and optional Lighthouse checks. Security gates cover request policy, dependency exceptions, secret scanning, private data redaction, and safe logs. Dependency exceptions reject invalid or expired UTC review dates while remaining valid through the stated review day.
 - Request/Socket/Outbox observability, dependency counters, Sentry tags, health/readiness/version, and graceful shutdown are tested without logging actor IDs, message bodies, credentials, or precise coordinates.
 - PWA/Capacitor checks cover manifest/icons, a private-API-safe offline shell, non-sensitive draft recovery, permission denial, auth expiry, secure storage, custom/verified links, V2 `webDir`, and Android sync.
 - Operational procedures are recorded in [deploy.md](../operations/deploy.md), [rollback.md](../operations/rollback.md), [backup-restore.md](../operations/backup-restore.md), and [incident-response.md](../operations/incident-response.md).
+- The V2 CI job installs Chromium with system dependencies, runs the complete Playwright suite, and finishes with `git diff --check`. The existing V1 backend, frontend, and release dependency graph remains independent of the V2 job.
 
 ## Fresh verification
 
 | Check | Result |
 | --- | --- |
-| `npm.cmd run verify:v2-foundation` | PASS; architecture 320 modules / 692 dependencies; Vitest 81 files passed, 3 skipped; 313 tests passed, 7 skipped; workspace build passed |
+| `npm.cmd run verify:v2-foundation` | PASS; architecture 320 modules / 692 dependencies; Vitest 81 files passed, 3 skipped; 314 tests passed, 7 skipped; workspace build passed |
 | `npx.cmd playwright test` | PASS after gate stabilization; 108/108 across all four viewports using 4 workers |
 | `npm.cmd run perf:v2` | PASS; `index.js` 193,930 B gzip plus runtime 422 B, below the 200,000 B non-map budget; six API classes reported zero errors; Outbox lag 2,000 ms with 2 attempts; reconnect 0.0 ms |
-| `npm.cmd run security:v2` | PASS; config and dependency policy |
+| `npm.cmd run security:v2` | PASS; config and dependency policy, including current non-expired 2026-08-15 review dates |
 | `npm.cmd run cap:v2:smoke` | PASS against `apps/web/dist` |
 | `npx.cmd cap sync android` | PASS; V2 web assets copied and Android plugins updated in 0.047 s |
-| `git diff --check` | PASS before staging the documentation |
+| `git diff --check` | PASS after the CI and exception-expiry gate commit |
 
 The first unconstrained browser run exposed local contention at 16 workers. Failed tests passed unchanged at 4 workers, so the default is now deterministic at 4 local and 2 CI workers. Subsequent full runs exposed and fixed a Socket optimistic/ack assertion race and a real Leaflet attribution WCAG issue; the final complete run passed 108/108.
 
