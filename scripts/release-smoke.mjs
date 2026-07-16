@@ -89,7 +89,7 @@ export async function runSmoke({
     requestId: true,
     ...extras,
   });
-  const releaseMatches = (body) => body?.release === expectedRelease;
+  const releaseMatches = (body) => body?.version === expectedRelease;
   const checks = [
     {
       name: 'root-html',
@@ -102,7 +102,7 @@ export async function runSmoke({
     jsonCheck('health', '/healthz', 200, { noStore: true, validate: releaseMatches }),
     jsonCheck('readiness', '/readyz', 200, {
       noStore: true,
-      validate: (body) => body?.ready === true,
+      validate: releaseMatches,
     }),
     jsonCheck('version', '/versionz', 200, { noStore: true, validate: releaseMatches }),
     jsonCheck('guest-activity', '/api/v1/activity?scope=global&limit=1'),

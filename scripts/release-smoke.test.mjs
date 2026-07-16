@@ -22,9 +22,9 @@ test('release smoke validates required JSON, request id, and release checks', as
   const fetchImpl = async (url) => {
     calls.push(url);
     if (url.endsWith('/')) return response(200, '<!doctype html>', 'text/html');
-    if (url.endsWith('/healthz')) return response(200, { status: 'ok', release: RELEASE_SHA });
-    if (url.endsWith('/readyz')) return response(200, { ready: true });
-    if (url.endsWith('/versionz')) return response(200, { release: RELEASE_SHA });
+    if (url.endsWith('/healthz')) return response(200, { status: 'ok', version: RELEASE_SHA, environment: 'production' });
+    if (url.endsWith('/readyz')) return response(200, { status: 'ok', version: RELEASE_SHA, environment: 'production' });
+    if (url.endsWith('/versionz')) return response(200, { status: 'ok', version: RELEASE_SHA, environment: 'production' });
     if (url.includes('/api/v1/activity') || url.includes('/api/v1/map/footprints')) return response(200, {});
     if (url.includes('/api/v1/users/me')) return response(401, { error: 'Authentication required' });
     if (url.includes('/socket.io/')) return response(200, '0:open', 'text/plain');
