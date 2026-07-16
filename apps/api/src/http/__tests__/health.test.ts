@@ -36,6 +36,7 @@ describe('V2 API foundation routes', () => {
       environment: 'test',
     });
     expect(response.headers['content-type']).toMatch(/application\/json/);
+    expect(response.headers['cache-control']).toBe('no-store');
     expect(response.headers['x-request-id']).toBeTruthy();
   });
 
@@ -57,7 +58,9 @@ describe('V2 API foundation routes', () => {
     ).get('/readyz');
 
     expect(ready.status).toBe(200);
+    expect(ready.headers['cache-control']).toBe('no-store');
     expect(unavailable.status).toBe(503);
+    expect(unavailable.headers['cache-control']).toBe('no-store');
     expect(unavailable.body).toMatchObject({
       type: 'about:blank',
       title: 'Service unavailable',
@@ -77,6 +80,7 @@ describe('V2 API foundation routes', () => {
       version: 'release-test',
       environment: 'test',
     });
+    expect(response.headers['cache-control']).toBe('no-store');
   });
 
   it('returns Problem Details with a request id for missing routes', async () => {

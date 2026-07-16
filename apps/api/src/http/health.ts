@@ -25,6 +25,10 @@ function payload(config: ApiConfig) {
 
 export function healthRouter({ config, db, observability }: HealthDependencies): Router {
   const router = Router();
+  router.use((_request, response, next) => {
+    response.setHeader('cache-control', 'no-store');
+    next();
+  });
 
   router.get('/healthz', (_request, response) => {
     response.json(payload(config));
