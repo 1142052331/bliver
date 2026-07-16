@@ -35,6 +35,7 @@ export const CAPACITOR_COMMAND_GATES: readonly CapacitorCommandGate[] = [
       'apps/web/e2e/auth.spec.ts',
       '--project=mobile-390x844',
       '--grep=Capacitor footprint deep link returns to the footprint after login',
+      '--output=test-results/capacitor-smoke',
     ],
     timeoutMs: 180_000,
   },

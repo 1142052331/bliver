@@ -46,6 +46,7 @@ describe('Capacitor smoke policy', () => {
           'apps/web/e2e/auth.spec.ts',
           '--project=mobile-390x844',
           '--grep=Capacitor footprint deep link returns to the footprint after login',
+          '--output=test-results/capacitor-smoke',
         ]),
       }),
       expect.objectContaining({ label: 'Android sync', args: ['sync', 'android'] }),
