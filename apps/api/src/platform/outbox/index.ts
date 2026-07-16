@@ -41,13 +41,14 @@ export class OutboxWorker {
   private readonly maxAttempts: number;
   private readonly baseDelayMs: number;
   private readonly seen = new Set<string>();
-  constructor(private readonly options: { readonly repository: OutboxRepository; readonly process: (event: ClaimedOutboxEvent) => Promise<void>; readonly now?: () => number; readonly maxAttempts?: number; readonly baseDelayMs?: number }) { this.maxAttempts = options.maxAttempts ?? 5; this.baseDelayMs = options.baseDelayMs ?? 1_000; }
+  constructor(private readonly options: { readonly repository: OutboxRepository; readonly process: (event: ClaimedOutboxEvent) => Promise<void>; readonly now?: () => number; readonly maxAttempts?: number; readonly baseDelayMs?: number; readonly observe?: (kind: 'backlog' | 'retry' | 'failure', event: ClaimedOutboxEvent) => void }) { this.maxAttempts = options.maxAttempts ?? 5; this.baseDelayMs = options.baseDelayMs ?? 1_000; }
   async runOnce(): Promise<boolean> {
     const now = (this.options.now ?? (() => Date.now()))();
     const event = await this.options.repository.claim(now);
     if (!event) return false;
+    this.options.observe?.('backlog', event);
     if (this.seen.has(event.id)) { await this.options.repository.markProcessed(event.id, event.claimedAt, now); return true; }
-    try { await this.options.process(event); this.seen.add(event.id); await this.options.repository.markProcessed(event.id, event.claimedAt, now); } catch (error) { const message = error instanceof Error ? error.message : 'processing failed'; const dead = event.attempts >= this.maxAttempts ? now : undefined; const next = dead ? now : now + this.baseDelayMs * (2 ** (event.attempts - 1)); await this.options.repository.markFailed(event.id, event.claimedAt, message, next, dead); }
+    try { await this.options.process(event); this.seen.add(event.id); await this.options.repository.markProcessed(event.id, event.claimedAt, now); } catch (error) { const message = error instanceof Error ? error.message : 'processing failed'; const dead = event.attempts >= this.maxAttempts ? now : undefined; const next = dead ? now : now + this.baseDelayMs * (2 ** (event.attempts - 1)); this.options.observe?.('retry', event); if (dead) this.options.observe?.('failure', event); await this.options.repository.markFailed(event.id, event.claimedAt, message, next, dead); }
     return true;
   }
 }

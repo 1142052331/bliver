@@ -4,10 +4,11 @@ import pino from 'pino';
 import { pinoHttp } from 'pino-http';
 import { randomUUID } from 'node:crypto';
 
-import type { RequestHandler } from 'express';
+import type { Request as ExpressRequest, RequestHandler } from 'express';
 import type { Logger } from 'pino';
 
 import type { ApiConfig } from '../bootstrap/config.js';
+import { ObservabilityRegistry, hashActorId } from '../platform/observability/index.js';
 import { errorHandler, notFoundHandler } from './error-handler.js';
 import { healthRouter } from './health.js';
 import type { DbPort } from './health.js';
@@ -49,6 +50,7 @@ export interface AppOptions {
   readonly memories?: { readonly query?: MemoryQueryPort };
   readonly notifications?: { readonly service?: NotificationService; readonly vapidPublicKey?: string };
   readonly governance?: { readonly service?: ModerationGovernanceService };
+  readonly observability?: ObservabilityRegistry;
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -56,26 +58,42 @@ const requestId: RequestHandler = (request, response, next) => {
   const id = supplied && /^[\w:.-]{1,128}$/.test(supplied) ? supplied : randomUUID();
   request.id = id;
   response.setHeader('x-request-id', id);
+  const suppliedCorrelation = request.get('x-correlation-id');
+  const correlationId = suppliedCorrelation && /^[\w:.-]{1,128}$/.test(suppliedCorrelation) ? suppliedCorrelation : id;
+  (request as ObservedRequest).correlationId = correlationId;
+  response.setHeader('x-correlation-id', correlationId);
   next();
 };
+
+type ObservedRequest = ExpressRequest & { correlationId?: string; actor?: { userId?: string } };
 
 function requestPath(value: string | undefined): string {
   try { return new URL(value ?? '/', 'http://local.invalid').pathname; }
   catch { return '/'; }
 }
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance, observability = new ObservabilityRegistry(config.sessionSecret, logger) }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
   app.use(requestId);
+  app.use((request, response, next) => {
+    const started = performance.now();
+    response.on('finish', () => {
+      const observed = request as ObservedRequest;
+      const id = String(request.id);
+      observability.request({ requestId: id, correlationId: observed.correlationId ?? id, method: request.method, status: response.statusCode, durationMs: performance.now() - started, ...(observed.actor?.userId ? { actorId: observed.actor.userId } : {}) });
+    });
+    next();
+  });
   app.use(pinoHttp({
     logger,
     wrapSerializers: false,
     serializers: {
-      req(request) { return { id: request.id, method: request.method, url: requestPath(request.url) }; },
+      req(request) { const observed = request as typeof request & { correlationId?: string; actor?: { userId?: string } }; return { id: request.id, correlationId: observed.correlationId, method: request.method, url: requestPath(request.url), ...(observed.actor?.userId ? { actorHash: hashActorId(observed.actor.userId, config.sessionSecret) } : {}) }; },
       res(response) { return { statusCode: response.statusCode }; },
     },
+    customProps(request) { const observed = request as typeof request & { correlationId?: string }; return { requestId: request.id, correlationId: observed.correlationId }; },
   }));
   app.use(helmet());
   app.use(express.json({ limit: '1mb' }));
@@ -100,9 +118,11 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use('/api/v1', notificationsRouter({ service: notificationService, ...(notifications?.vapidPublicKey ? { vapidPublicKey: notifications.vapidPublicKey } : {}) }, identityRepositories));
   const governanceService = governance?.service ?? new ModerationGovernanceService(createMemoryGovernanceRepository());
   app.use('/api/v1', adminRouter(governanceService, identityRepositories));
-  app.use(healthRouter({ config, db }));
+  app.use(healthRouter({ config, db, observability }));
   app.use(notFoundHandler);
   app.use(errorHandler);
+
+  app.locals.observability = observability;
 
   return app;
 }

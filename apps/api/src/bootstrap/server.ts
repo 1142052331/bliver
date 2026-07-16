@@ -21,6 +21,7 @@ import { createNominatimGeography } from '../platform/geography/providers.js';
 import { configureRealtime, emitFootprintPublished } from './realtime.js';
 import { NotificationService, createPostgresNotificationRepository, PushAdapter, PushDeliveryConsumer, WebPushProvider } from '../modules/notifications/index.js';
 import { AuthorizedMemoryQuery, createPostgresMemoryMediaSource, createPostgresMemoryRepository, createPostgresVisitorSource, MemoryProjectionConsumer } from '../modules/memories/index.js';
+import { ObservabilityRegistry } from '../platform/observability/index.js';
 
 export interface ShutdownServerPort {
   close(callback: (error?: Error) => void): unknown;
@@ -52,6 +53,7 @@ export async function shutdownServer(
 export async function startServer(): Promise<void> {
   const config = createConfig();
   const logger = pino({ level: config.nodeEnv === 'production' ? 'info' : 'silent' });
+  const observability = new ObservabilityRegistry(config.sessionSecret, logger);
   const db = createDb(config.databaseUrl);
   const identity = createPostgresIdentityRepositories(db);
   const mediaRepositories = createPostgresMediaRepositories(db);
@@ -108,13 +110,14 @@ export async function startServer(): Promise<void> {
     governance: { service: governance },
     notifications: { service: notificationService, ...(config.push ? { vapidPublicKey: config.push.publicKey } : {}) },
     memories: { query: memories },
+    observability,
   });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });
-  configureRealtime(io, identity, conversationService);
+  configureRealtime(io, identity, conversationService, observability);
   const projection = new DiscoveryProjectionConsumer({ repository: discoveryRepository, source: { async findById(id) { const [publicRecord, fullRecord] = await Promise.all([footprints.findById(id as never), footprints.footprints.findById(id as never)]); if (!publicRecord || !fullRecord) return null; let countryCode: string | null = null; if (fullRecord.metadata.regionId) { const region = await db.query<{ country_code: string }>('SELECT country_code FROM regions WHERE id=$1', [fullRecord.metadata.regionId]); countryCode = region.rows[0]?.country_code ?? null; } return { ...publicRecord, message: fullRecord.message, hasMedia: fullRecord.mediaAssetIds.length > 0, regionId: fullRecord.metadata.regionId, countryCode }; } } });
   const memoryProjection = new MemoryProjectionConsumer(memoryRepository);
-  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), process: async (event) => { if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'FootprintDeleted') await projection.process(event as never); if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'CommentAdded' || event.type === 'ReactionAdded') await memoryProjection.process(event); const notificationEvent={id:event.id,type:event.type,payload:event.payload};const notification=await notificationService.consume(notificationEvent);const recipientId=notificationService.recipientForEvent(notificationEvent);if(notification&&recipientId&&pushDelivery&&(await notificationService.getPreferences(recipientId)).push)await pushDelivery.deliver(recipientId,notification); if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); } });
+  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), observe: (kind, event) => observability.outbox(kind, { requestId: event.id, correlationId: event.aggregateId, status: kind, durationMs: 0 }), process: async (event) => { if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'FootprintDeleted') await projection.process(event as never); if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'CommentAdded' || event.type === 'ReactionAdded') await memoryProjection.process(event); const notificationEvent={id:event.id,type:event.type,payload:event.payload};const notification=await notificationService.consume(notificationEvent);const recipientId=notificationService.recipientForEvent(notificationEvent);if(notification&&recipientId&&pushDelivery&&(await notificationService.getPreferences(recipientId)).push)await pushDelivery.deliver(recipientId,notification); if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); } });
   const workerTimer = setInterval(() => { void outboxWorker.runOnce(); }, 250);
   workerTimer.unref();
 

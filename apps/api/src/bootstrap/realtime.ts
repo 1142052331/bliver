@@ -5,6 +5,12 @@ import type { IdentityRepositories } from '../modules/identity/application/ports
 import { socketMessageInput, socketReadInput, socketTypingInput } from '@bliver/contracts';
 import { parseUserId } from '@bliver/domain';
 import type { ConversationService } from '../modules/conversations/index.js';
+import type { ObservabilityRegistry } from '../platform/observability/index.js';
+
+function observationId(value: string | string[] | undefined, fallback: string): string {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return candidate && /^[\w:.-]{1,128}$/.test(candidate) ? candidate : fallback;
+}
 
 function cookieToken(socket: Socket): string | undefined {
   const cookie = socket.request.headers.cookie ?? '';
@@ -41,24 +47,32 @@ export function createConversationSocketHandlers(service: ConversationService, i
   };
 }
 
-export function configureRealtime(io: SocketServer, identity: IdentityRepositories, conversations?: ConversationService): void {
+export function configureRealtime(io: SocketServer, identity: IdentityRepositories, conversations?: ConversationService, observability?: ObservabilityRegistry): void {
   io.use(async (socket, next) => {
     const bearer = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
     const token = bearer ?? cookieToken(socket);
-    if (!token) { next(new Error('AUTH_REQUIRED')); return; }
+    const requestId = observationId(socket.request.headers['x-request-id'], socket.id);
+    const correlationId = observationId(socket.request.headers['x-correlation-id'], requestId);
+    if (!token) { observability?.socket('auth_failure', { requestId, correlationId, status: 'AUTH_REQUIRED', durationMs: 0 }); next(new Error('AUTH_REQUIRED')); return; }
     const session = await resolveSession(identity, token);
-    if (!session) { next(new Error('AUTH_REQUIRED')); return; }
+    if (!session) { observability?.socket('auth_failure', { requestId, correlationId, status: 'AUTH_REQUIRED', durationMs: 0 }); next(new Error('AUTH_REQUIRED')); return; }
     socket.data.userId = session.user.id;
     socket.data.sessionToken = token;
+    socket.data.requestId = requestId;
+    socket.data.correlationId = correlationId;
     next();
   });
   io.on('connection', (socket) => {
     const userId = socket.data.userId;
+    const connectedAt = Date.now();
+    const dimensions = { requestId: String(socket.data.requestId ?? socket.id), correlationId: String(socket.data.correlationId ?? socket.id), status: 'connected', durationMs: 0, ...(typeof userId === 'string' ? { actorId: userId } : {}) };
+    observability?.socket(socket.recovered ? 'reconnect' : 'connection', dimensions);
+    socket.on('disconnect', (reason) => observability?.socket('disconnect', { ...dimensions, status: reason, durationMs: Date.now() - connectedAt }));
     if (typeof userId === 'string') socket.join(`user:${userId}`);
     if (conversations && typeof userId === 'string') {
       const handlers = createConversationSocketHandlers(conversations, io);
       const ensureSession = async (): Promise<void> => { const token = socket.data.sessionToken; const session = typeof token === 'string' ? await resolveSession(identity, token) : null; if (!session || session.user.id !== userId) throw new Error('AUTH_REQUIRED'); };
-      const failure = (acknowledge: ((result: unknown) => void) | undefined, error: unknown): void => { const code = error instanceof Error ? error.message : 'CONVERSATION_UNAVAILABLE'; acknowledge?.({ ok: false, code }); if (code === 'AUTH_REQUIRED') socket.disconnect(true); };
+      const failure = (acknowledge: ((result: unknown) => void) | undefined, error: unknown): void => { const code = error instanceof Error ? error.message : 'CONVERSATION_UNAVAILABLE'; observability?.socket(code === 'AUTH_REQUIRED' ? 'auth_failure' : 'disconnect', { ...dimensions, status: code, durationMs: Date.now() - connectedAt }); acknowledge?.({ ok: false, code }); if (code === 'AUTH_REQUIRED') socket.disconnect(true); };
       socket.on('conversation:message', (payload: unknown, acknowledge?: (result: unknown) => void) => { void ensureSession().then(() => handlers.message(userId, payload)).then((result) => acknowledge?.({ ok: true, message: result })).catch((error: unknown) => failure(acknowledge, error)); });
       socket.on('conversation:typing', (payload: unknown, acknowledge?: (result: unknown) => void) => { void ensureSession().then(() => handlers.typing(userId, payload)).then((result) => acknowledge?.({ ok: true, ...result })).catch((error: unknown) => failure(acknowledge, error)); });
       socket.on('conversation:read', (payload: unknown, acknowledge?: (result: unknown) => void) => { void ensureSession().then(() => handlers.read(userId, payload)).then((result) => acknowledge?.({ ok: true, ...result })).catch((error: unknown) => failure(acknowledge, error)); });

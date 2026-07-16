@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { healthResponse } from '@bliver/contracts';
 
 import type { ApiConfig } from '../bootstrap/config.js';
+import type { ObservabilityRegistry } from '../platform/observability/index.js';
 
 export interface DbPort {
   query(statement: string): Promise<{ rows: readonly unknown[] }>;
@@ -11,6 +12,7 @@ export interface DbPort {
 interface HealthDependencies {
   readonly config: ApiConfig;
   readonly db: DbPort | undefined;
+  readonly observability?: ObservabilityRegistry;
 }
 
 function payload(config: ApiConfig) {
@@ -21,7 +23,7 @@ function payload(config: ApiConfig) {
   });
 }
 
-export function healthRouter({ config, db }: HealthDependencies): Router {
+export function healthRouter({ config, db, observability }: HealthDependencies): Router {
   const router = Router();
 
   router.get('/healthz', (_request, response) => {
@@ -31,6 +33,7 @@ export function healthRouter({ config, db }: HealthDependencies): Router {
   router.get('/readyz', async (request, response) => {
     try {
       if (!db) {
+        observability?.dependency('dbPool', false);
         response
           .status(503)
           .type('application/problem+json')
@@ -45,9 +48,11 @@ export function healthRouter({ config, db }: HealthDependencies): Router {
       }
 
       await db.query('select 1');
+      observability?.dependency('dbPool', true);
       response.json(payload(config));
     } catch (error: unknown) {
       void error;
+      observability?.dependency('dbPool', false);
       response
         .status(503)
         .type('application/problem+json')
