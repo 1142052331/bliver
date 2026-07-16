@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "verifiedSha": "0cc9f494b1636a0c08147df7c37e0c43bae38f4c",
+  "verifiedAt": "2026-07-16",
+  "result": "RELEASE_READY_WITH_EXTERNAL_BLOCKERS",
+  "checkout": {
+    "kind": "detached-clean-worktree",
+    "relativePath": ".phase8-clean-0cc9f49",
+    "npmInstallCommand": "npm ci --no-audit --no-fund",
+    "packagesInstalled": 959,
+    "preinstallState": {
+      "nodeModulesAbsent": true,
+      "realEnvironmentFilesAbsent": true,
+      "generatedDistributionAbsent": true,
+      "v1RuntimeAbsent": true
+    },
+    "removedAfterVerification": true
+  },
+  "gates": [
+    {
+      "command": "npm run check:node",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run verify:v2-foundation",
+      "exitCode": 0,
+      "architectureModules": 754,
+      "architectureDependencies": 725,
+      "testFilesPassed": 93,
+      "testFilesSkipped": 3,
+      "testsPassed": 366,
+      "testsSkipped": 7
+    },
+    {
+      "command": "npm run render-build",
+      "exitCode": 0,
+      "plainNodeApiGraphImport": "PASS"
+    },
+    {
+      "command": "CI=1 npx playwright test",
+      "exitCode": 0,
+      "testsPassed": 120
+    },
+    {
+      "command": "npm run perf:v2:browser-evidence",
+      "exitCode": 0,
+      "checksPassed": 8,
+      "maxReconnectResyncMs": 34.8,
+      "maxInpMs": 24
+    },
+    {
+      "command": "npm run lighthouse:v2",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run perf:v2",
+      "exitCode": 0,
+      "mainBundleGzipBytes": 193977,
+      "livePostgisExplain": "SKIPPED"
+    },
+    {
+      "command": "npm run security:v2",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run cap:v2:smoke",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "productionProbe": {
+    "process": "PASS",
+    "stdoutBytes": 9099,
+    "stderrBytes": 0,
+    "sensitiveValuesAbsentFromLogs": true,
+    "healthStatus": 200,
+    "readinessStatusWithoutDatabase": 503,
+    "versionStatus": 200,
+    "versionMatchedVerifiedSha": true,
+    "rootStatus": 200,
+    "deepLinkStatus": 200,
+    "unauthenticatedApiStatus": 401,
+    "socketPollingStatus": 200,
+    "manifestStatus": 200,
+    "serviceWorkerStatus": 200,
+    "iconsStatus": 200,
+    "missingAssetStatus": 404
+  },
+  "blocked": [
+    {
+      "gate": "Docker PostGIS startup",
+      "reason": "Docker Desktop daemon was unavailable"
+    },
+    {
+      "gate": "live migration, seed, readiness, and EXPLAIN",
+      "reason": "No reachable clean-room PostgreSQL/PostGIS instance"
+    },
+    {
+      "gate": "backup and isolated restore",
+      "reason": "No reachable candidate database"
+    }
+  ]
+}
