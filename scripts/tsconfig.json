@@ -7,6 +7,7 @@
     "perf/**/*.ts",
     "security/**/*.ts",
     "capacitor/**/*.ts",
+    "release/**/*.ts",
     "process/**/*.ts"
   ]
 }

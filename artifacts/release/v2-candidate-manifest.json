@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "releaseSha": "8aa34867ceefbb296721392cd5dda4b7a8dcd00b",
+  "nodeVersion": "v24.16.0",
+  "npmVersion": "11.13.0",
+  "rootLockSha256": "86dc0b029b4dfe34e95e1ee585d0b7ec07ddba204e960bae91e81b53cc5be69a",
+  "migrationSha256": "3c15d0f2bb67b5e29ce2d460c5899c25aba06f23d4a00d92cf6b63ca042fc213",
+  "migrations": [
+    "0000_extensions.sql",
+    "0001_identity.sql",
+    "0002_geography_media_footprints.sql",
+    "0003_outbox.sql",
+    "0004_media_idempotency.sql",
+    "0005_footprint_metadata.sql",
+    "0006_phase4_discovery_interactions.sql",
+    "0007_social_conversations.sql",
+    "0008_conversations.sql",
+    "0009_memories_notifications_moderation.sql"
+  ],
+  "assetListSha256": "b913775128eba5dea418bfe8dffcb535fa91eaaa7f0b5d85825bee7b0057dee1",
+  "assets": [
+    "assets/index-CxOU7a1O.js",
+    "assets/index-D5SIyQzw.css",
+    "assets/map-vendor-CRCPSjzn.js",
+    "assets/map-vendor-vh-t_kPv.css",
+    "assets/rolldown-runtime-QTnfLwEv.js",
+    "icons/icon-192.png",
+    "icons/icon-432.png",
+    "index.html",
+    "manifest.webmanifest",
+    "sw.js"
+  ]
+}
