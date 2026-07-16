@@ -4,7 +4,7 @@
   "status": "RELEASE_READY_WITH_EXTERNAL_BLOCKERS",
   "publicationStatus": "BLOCKED",
   "sourceFreezeSha": "8aa34867ceefbb296721392cd5dda4b7a8dcd00b",
-  "releaseCandidateSha": "52c20d844e31d451da2c7634243fa97877c6c076",
+  "releaseCandidateSha": "3142819ec28e2d10857ed530830a7bf8d0e39adb",
   "phase8Lineage": [
     {
       "sha": "dd47ac42390377fe7c0045757c95d3eb6ce979b1",
@@ -57,11 +57,19 @@
     {
       "sha": "52c20d844e31d451da2c7634243fa97877c6c076",
       "subject": "fix: align release smoke with health contract"
+    },
+    {
+      "sha": "21a0ba83b4137f8b0dec7d804ced13385b2e90f4",
+      "subject": "release: record post-review V2 candidate evidence"
+    },
+    {
+      "sha": "3142819ec28e2d10857ed530830a7bf8d0e39adb",
+      "subject": "fix: mark health endpoints non-cacheable"
     }
   ],
   "candidateManifest": {
     "path": "artifacts/release/v2-candidate-manifest.json",
-    "sha256": "8589a0ab86ef092b68662573eb0a7bebde2e66a4c41ddbd12c738f62d7c89a16",
+    "sha256": "32acbeba7fa742d37c61bc6460e9325c97c44df3e7b2e641a4c14cdb548180d7",
     "nodeVersion": "v24.16.0",
     "npmVersion": "11.13.0",
     "rootLockSha256": "e054faf354d114d8de344140b311c595f4f14f57a9bfa1f7f79ca2061c61f7a2",
@@ -77,7 +85,7 @@
   },
   "freezeEvidence": {
     "path": "artifacts/release/phase-7-freeze.json",
-    "sha256": "984c0fa91c2c4f893b152e875ded2d54415797a3d6e20f162915ef5955ff890c",
+    "sha256": "d60cb529d9809f600fb0face203dc2a344d7293876bc67a2a55c8a8a5ed38643",
     "passes": 2,
     "countsMatch": true,
     "openApiMatches": true,
@@ -95,10 +103,10 @@
     "testsSkipped": 7,
     "playwrightPassed": 120,
     "browserEvidencePassed": 8,
-    "maxReconnectResyncMs": 46.9262,
+    "maxReconnectResyncMs": 45.2526,
     "maxInpMs": 24,
     "lighthousePerformanceScore": 1,
-    "lighthouseLcpMs": 188.504,
+    "lighthouseLcpMs": 172.693,
     "lighthouseCls": 0,
     "mainBundleGzipBytes": 193977,
     "mapVendorGzipBytes": 48093,
@@ -143,6 +151,16 @@
       "sha": "56107a288c47980ea09ca1429e4b8be5ea3a3231",
       "status": "SUPERSEDED_DO_NOT_DEPLOY",
       "reason": "Release smoke validated legacy health response fields instead of the canonical V2 contract"
+    },
+    {
+      "sha": "52c20d844e31d451da2c7634243fa97877c6c076",
+      "status": "SUPERSEDED_DO_NOT_DEPLOY",
+      "reason": "Health endpoints did not emit the no-store cache policy required by release smoke and deployment operations"
+    },
+    {
+      "sha": "21a0ba83b4137f8b0dec7d804ced13385b2e90f4",
+      "status": "SUPERSEDED_DO_NOT_DEPLOY",
+      "reason": "Evidence-only record for the superseded 52c20d8 candidate; never a deployable candidate"
     }
   ],
   "environmentKeys": [

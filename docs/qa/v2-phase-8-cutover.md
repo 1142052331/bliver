@@ -46,14 +46,14 @@ The untouched Phase 7 record is archived at [v2-phase-7-hardening.md](../archive
 | 7 production topology | `render.yaml`, Capacitor config, Android manifest | PASS; service `bliver`, `DEPLOY_ENV=production`, and `https://bliver.onrender.com` agree |
 | 7 frozen inventory | `git ls-tree 8aa3486 -- frontend/public` | PASS; all 5 tracked assets, including `manifest.json` and `sw.js`, exactly match the archived inventory |
 | 7 Lighthouse cleanup | keep-alive/profile regression plus real gates | PASS, 5/5; two standalone and both freeze-pass Lighthouse runs exited without process/profile leaks |
-| 7 release smoke review | canonical V2 health contract plus `npm run test:release-tools` | P1 FIXED at `52c20d844e31d451da2c7634243fa97877c6c076`; 7/7 pass with `/healthz`, `/readyz`, and `/versionz` exact `version` checks |
-| 7 re-freeze | `npm run release:v2:freeze` at `52c20d844e31d451da2c7634243fa97877c6c076` | PASS twice; 201 suites, 374 tests, 7 PostgreSQL skips, matching 40-path OpenAPI hash |
-| 7 immutable candidate | exact-SHA `npm run render-build` at `52c20d844e31d451da2c7634243fa97877c6c076` | PASS; final runtime package, API, Web, and plain-Node import candidate; provider SHA cross-check enabled |
-| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `8589a0ab86ef092b68662573eb0a7bebde2e66a4c41ddbd12c738f62d7c89a16`; 10 migrations and 10 assets |
+| 7 release smoke review | canonical V2 health contract plus `npm run test:release-tools` | P1 fixed at `52c20d844e31d451da2c7634243fa97877c6c076`; a second P1 fixed at `3142819ec28e2d10857ed530830a7bf8d0e39adb` adds the required `no-store` policy; 7/7 pass with exact `version` and cache checks |
+| 7 re-freeze | `npm run release:v2:freeze` at `3142819ec28e2d10857ed530830a7bf8d0e39adb` | PASS twice; 201 suites, 374 tests, 7 PostgreSQL skips, matching 40-path OpenAPI hash |
+| 7 immutable candidate | exact-SHA `npm run render-build` at `3142819ec28e2d10857ed530830a7bf8d0e39adb` | PASS; final runtime package, API, Web, and plain-Node import candidate; provider SHA cross-check enabled |
+| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `32acbeba7fa742d37c61bc6460e9325c97c44df3e7b2e641a4c14cdb548180d7`; 10 migrations and 10 assets |
 | 7 baseline | `artifacts/release/v2-baseline.json` | `RELEASE_READY_WITH_EXTERNAL_BLOCKERS`; SHA lineage, checksums, counts, metrics, environment key names, and blocked publication gates recorded |
 | 7 foundation | each freeze pass | PASS; architecture 754 modules / 725 dependencies; 95 files passed / 3 skipped; 374 tests passed / 7 skipped |
-| 7 browser | each freeze pass plus final isolated evidence | PASS, 120/120 and 8/8; reconnect max 46.9262 ms, INP max 24 ms |
-| 7 Lighthouse/performance | Lighthouse plus local and release-strict performance | local PASS; score 1, LCP 188.504 ms, CLS 0; strict EXPECTED BLOCK only on missing live PostGIS EXPLAIN |
+| 7 browser | each freeze pass plus final isolated evidence | PASS, 120/120 and 8/8; reconnect max 45.2526 ms, INP max 24 ms |
+| 7 Lighthouse/performance | Lighthouse plus local and release-strict performance | local PASS; score 1, LCP 172.693 ms, CLS 0; strict EXPECTED BLOCK only on missing live PostGIS EXPLAIN |
 | 7 publication | Render, remote `/versionz`, backup/restore, observation, `v2.0.0` | BLOCKED / NOT CREATED; no external result is claimed |
 
 Task 3 initially proved that the inherited TypeScript configuration emitted no API artifact. Candidate verification blocked on the missing server. The dedicated API production build configuration now emits `apps/api/dist/bootstrap/server.js`; a fresh ordered candidate build passed. No migration ran during either build.
@@ -68,6 +68,8 @@ Specification review invalidated the earlier `e9b10e392e2fd6ce410798dc4873246c33
 
 Final code-quality review then invalidated `56107a288c47980ea09ca1429e4b8be5ea3a3231`: the release smoke expected legacy `release` and `ready` response fields, while the canonical V2 health contract exposes `status`, `version`, and `environment`. Real remote smoke would therefore fail even against a healthy matching deployment. Commit `52c20d844e31d451da2c7634243fa97877c6c076` aligns all three health checks to the exact candidate `version`; the release-tool regression suite, two-pass freeze, and exact-SHA candidate build passed after the fix. `56107a2` is `SUPERSEDED_DO_NOT_DEPLOY`.
 
+The follow-up review found that the health endpoints also omitted the `Cache-Control: no-store` header required by the release smoke and deployment operations. Commit `3142819ec28e2d10857ed530830a7bf8d0e39adb` applies that policy to all health routes and adds response-header regression assertions. The targeted health tests, full Foundation gate, two-pass freeze, and exact-SHA candidate build passed after this fix. `52c20d8` and its evidence-only record `21a0ba8` are `SUPERSEDED_DO_NOT_DEPLOY`.
+
 ## Current Release Topology
 
 - `npm run render-build`: verify exact identity, emit runtime packages in dependency order, emit API, build Web, and import the emitted API graph with plain Node.
@@ -81,7 +83,7 @@ Final code-quality review then invalidated `56107a288c47980ea09ca1429e4b8be5ea3a
 
 ## Publish Baseline Decision
 
-The immutable, locally verified release candidate is `52c20d844e31d451da2c7634243fa97877c6c076`. The later commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `e9b10e3`, `7c2ab8e`, `5ef1c1d`, and `56107a2` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
+The immutable, locally verified release candidate is `3142819ec28e2d10857ed530830a7bf8d0e39adb`. The later commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `e9b10e3`, `7c2ab8e`, `5ef1c1d`, `56107a2`, `52c20d8`, and `21a0ba8` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
 
 Local non-database gates are green, but the release exit gate is incomplete. Publication status remains `BLOCKED`, `v2.0.0` does not exist, and no Render deployment, remote release match, backup/restore, or observation result is claimed.
 

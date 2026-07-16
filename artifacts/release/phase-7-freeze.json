@@ -1,5 +1,5 @@
 {
-  "releaseSha": "52c20d844e31d451da2c7634243fa97877c6c076",
+  "releaseSha": "3142819ec28e2d10857ed530830a7bf8d0e39adb",
   "featureFreeze": true,
   "acceptanceException": "Phase 7 tag was not created; Phase 8 freeze starts from the explicitly accepted SHA.",
   "snapshots": [
