@@ -4,7 +4,7 @@
   "status": "RELEASE_READY_WITH_EXTERNAL_BLOCKERS",
   "publicationStatus": "BLOCKED",
   "sourceFreezeSha": "8aa34867ceefbb296721392cd5dda4b7a8dcd00b",
-  "releaseCandidateSha": "3142819ec28e2d10857ed530830a7bf8d0e39adb",
+  "releaseCandidateSha": "3ede0797e2f40cd0fff8f114cbe93372e655046f",
   "phase8Lineage": [
     {
       "sha": "dd47ac42390377fe7c0045757c95d3eb6ce979b1",
@@ -69,7 +69,7 @@
   ],
   "candidateManifest": {
     "path": "artifacts/release/v2-candidate-manifest.json",
-    "sha256": "32acbeba7fa742d37c61bc6460e9325c97c44df3e7b2e641a4c14cdb548180d7",
+    "sha256": "f17141a98442c95461f02d585adb8a71bc1024644d4722ddf9314e8ceadd5723",
     "nodeVersion": "v24.16.0",
     "npmVersion": "11.13.0",
     "rootLockSha256": "e054faf354d114d8de344140b311c595f4f14f57a9bfa1f7f79ca2061c61f7a2",
@@ -85,7 +85,7 @@
   },
   "freezeEvidence": {
     "path": "artifacts/release/phase-7-freeze.json",
-    "sha256": "d60cb529d9809f600fb0face203dc2a344d7293876bc67a2a55c8a8a5ed38643",
+    "sha256": "92c36854c0891e23af41d69c24b64b6e0c499b76d0803494edaa7b986b88537c",
     "passes": 2,
     "countsMatch": true,
     "openApiMatches": true,
@@ -96,17 +96,17 @@
     "plainNodeApiGraphImport": "PASS",
     "architectureModules": 754,
     "architectureDependencies": 725,
-    "testFilesPassed": 95,
-    "testFilesSkipped": 3,
+    "testFilesPassed": 98,
+    "testFilesSkipped": 0,
     "testSuitesPassed": 201,
-    "testsPassed": 374,
-    "testsSkipped": 7,
+    "testsPassed": 381,
+    "testsSkipped": 0,
     "playwrightPassed": 120,
     "browserEvidencePassed": 8,
-    "maxReconnectResyncMs": 45.2526,
+    "maxReconnectResyncMs": 46.7628,
     "maxInpMs": 24,
     "lighthousePerformanceScore": 1,
-    "lighthouseLcpMs": 172.693,
+    "lighthouseLcpMs": 169.207,
     "lighthouseCls": 0,
     "mainBundleGzipBytes": 193977,
     "mapVendorGzipBytes": 48093,
@@ -115,7 +115,25 @@
     "outboxLagMs": 2000,
     "security": "PASS",
     "capacitor": "PASS",
-    "releaseStrictPerformance": "BLOCKED_LIVE_POSTGIS_EXPLAIN"
+    "releaseStrictPerformance": "PASS_LOCAL_ISOLATED_POSTGRESQL",
+    "postgresIntegrationFollowUp": {
+      "commit": "3ede0797e2f40cd0fff8f114cbe93372e655046f",
+      "status": "PASS_LOCAL_ISOLATED_POSTGRESQL",
+      "server": "PostgreSQL 16.14 / PostGIS 3.6",
+      "database": "bliver_v2_test",
+      "migrationsApplied": 10,
+      "seed": "PASS",
+      "targetedTestFilesPassed": 4,
+      "targetedTestsPassed": 8,
+      "targetedTestsSkipped": 0,
+      "fullV2TestFilesPassed": 98,
+      "fullV2TestsPassed": 381,
+      "fullV2TestsSkipped": 0,
+      "livePostgisExplain": "PASS",
+      "releasePerformance": "PASS",
+      "scope": "isolated local cluster; not Docker postgis/postgis:16-3.4 or Render production",
+      "dockerDaemon": "BLOCKED_WSL"
+    }
   },
   "productionTopology": {
     "renderService": "bliver",
@@ -198,9 +216,9 @@
   },
   "blockers": [
     {
-      "gate": "live PostgreSQL/PostGIS migrate, seed, readiness, and EXPLAIN",
+      "gate": "Docker PostGIS image parity and production database readiness",
       "status": "BLOCKED",
-      "reason": "Docker Desktop daemon and an external database were unavailable"
+      "reason": "Local isolated PostgreSQL/PostGIS migration, seed, and EXPLAIN passed; Docker Desktop daemon and production database remain unavailable"
     },
     {
       "gate": "backup and isolated restore",

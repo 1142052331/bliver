@@ -56,6 +56,23 @@ The untouched Phase 7 record is archived at [v2-phase-7-hardening.md](../archive
 | 7 Lighthouse/performance | Lighthouse plus local and release-strict performance | local PASS; score 1, LCP 172.693 ms, CLS 0; strict EXPECTED BLOCK only on missing live PostGIS EXPLAIN |
 | 7 publication | Render, remote `/versionz`, backup/restore, observation, `v2.0.0` | BLOCKED / NOT CREATED; no external result is claimed |
 
+## PostgreSQL Integration Follow-up
+
+The seven PostgreSQL/PostGIS tests that were pending in the historical freeze were rerun on 2026-07-17 against an isolated local PostgreSQL 16.14 cluster on `127.0.0.1:54329`, using the installed PostGIS 3.6 extension. The cluster was initialized in a temporary directory with trust authentication and the `bliver_v2_test` database; it is not a production or Render database.
+
+| Check | Evidence | Result |
+| --- | --- | --- |
+| Docker diagnosis | `docker info`, `docker compose -f infra/docker-compose.postgres.yml up -d`, `docker desktop logs --priority 2` | BLOCKED; Docker Linux engine cannot start because `wsl.exe --version` fails; no Docker evidence is inferred |
+| Migration and seed | `npm run db:v2:migrate`, `npm run db:v2:seed`, direct `psql` verification | PASS; 10 migrations, PostGIS 3.6, and `platform.system_markers/v2-foundation` present |
+| Pending integration tests | Four targeted files, including the seven previously skipped tests | PASS; 4 files, 8 tests passed, 0 skipped |
+| Full V2 tests | `V2_DATABASE_URL=postgresql://... npm run test:v2` | PASS; 98 files, 381 tests passed, 0 skipped |
+| Live query plans | `EXPLAIN (FORMAT JSON)` footprint geography query and discovery region query | PASS; GiST `Index Scan` and `discovery_entries_region_idx` `Index Only Scan` |
+| Release performance | `V2_PERF_MODE=release V2_LIGHTHOUSE_REPORT=.artifacts/lighthouse-v2.json npm run perf:v2` | PASS; live PostGIS EXPLAIN checked, browser evidence refreshed 8/8 |
+
+The follow-up freeze at `3ede0797e2f40cd0fff8f114cbe93372e655046f` produced two matching snapshots: 201 suites, 381 tests passed, 0 skipped, and the same 40-path OpenAPI hash. The exact-SHA `npm run render-build` also passed, and the generated candidate manifest and freeze evidence were refreshed for this SHA.
+
+The discovery integration assertion was corrected in commit `3ede0797e2f40cd0fff8f114cbe93372e655046f`: its EXPLAIN query now includes `deleted_at IS NULL`, matching the partial index predicate and the production repository query. No migration or runtime boundary changed.
+
 Task 3 initially proved that the inherited TypeScript configuration emitted no API artifact. Candidate verification blocked on the missing server. The dedicated API production build configuration now emits `apps/api/dist/bootstrap/server.js`; a fresh ordered candidate build passed. No migration ran during either build.
 
 Task 4 removed 305 tracked application files plus child locks, data models/config, token middleware, routes/events, backfills, compatibility UI, and old assets. It also removed the old root verifier and temporary inventory implementation after the inventory was committed. The retained `cutover:v2:check` verifies a V2-only runtime and direct dependency graph.
@@ -83,7 +100,7 @@ The follow-up review found that the health endpoints also omitted the `Cache-Con
 
 ## Publish Baseline Decision
 
-The immutable, locally verified release candidate is `3142819ec28e2d10857ed530830a7bf8d0e39adb`. The later commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `e9b10e3`, `7c2ab8e`, `5ef1c1d`, `56107a2`, `52c20d8`, and `21a0ba8` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
+The immutable, locally verified release candidate is `3ede0797e2f40cd0fff8f114cbe93372e655046f`. The later commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `3142819`, `e9b10e3`, `7c2ab8e`, `5ef1c1d`, `56107a2`, `52c20d8`, and `21a0ba8` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
 
 Local non-database gates are green, but the release exit gate is incomplete. Publication status remains `BLOCKED`, `v2.0.0` does not exist, and no Render deployment, remote release match, backup/restore, or observation result is claimed.
 
@@ -94,6 +111,6 @@ Local non-database gates are green, but the release exit gate is incomplete. Pub
 - No remote observation window or baseline has started.
 - Backup and isolated restore have not yet been exercised against a real candidate database.
 - Docker Desktop could not start in the clean-room environment. `db:v2:up` could not reach a daemon, migrate could not create the Drizzle schema, and seed received `ECONNREFUSED 127.0.0.1:54329`.
-- No live PostGIS readiness, migration/seed, query-plan, or release-performance result is claimed.
+- Local isolated PostgreSQL/PostGIS migration, seed, query-plan, and release-performance evidence is recorded above. Docker-image parity (`postgis/postgis:16-3.4`), production database readiness, backup/restore, Render deployment, and remote observation remain unverified.
 
 Therefore no production publication, remote observation, Phase 7 tag, or `v2.0.0` tag is claimed.
