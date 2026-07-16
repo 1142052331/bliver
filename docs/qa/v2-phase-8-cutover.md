@@ -170,5 +170,13 @@ Twenty-six Markdown files mention V1 paths/contracts. Canonical files requiring 
 | 1 freeze | `npm run release:v2:freeze` | PASS twice; local external gaps remain |
 | 2 inventory | `npx vitest run scripts/release/legacy-boundary.test.ts` | PASS, 3/3 |
 | 2 boundary | `npm run legacy:v2:check` | PASS before deletion |
+| 3 focused contracts | `npx vitest run apps/api/src/http/__tests__/static-web.test.ts scripts/release/candidate.test.ts scripts/release/deployment-cutover.test.ts apps/api/src/bootstrap/__tests__/config.test.ts` | PASS, 11/11 |
+| 3 root release tools | `node --test scripts/release-smoke.test.mjs scripts/release-tool-config.test.mjs` | PASS, 7/7 |
+| 3 V2 gate | `npm run verify:v2-foundation` | PASS, 93 files passed / 3 skipped; 363 tests passed / 7 skipped |
+| 3 candidate build | `RELEASE_SHA=<HEAD>; RENDER_GIT_COMMIT=<HEAD>; npm run render-build` | PASS; SHA checked before build, API/Web outputs present, candidate rechecked |
+| 3 negative identity | mismatched `RENDER_GIT_COMMIT` with `npm run release:v2:verify-sha` | EXPECTED BLOCK, exit 1 before build or database write |
+| 3 mobile | `npm run cap:v2:smoke` | PASS, 6 Vitest + 1 Playwright + Android sync |
 
 Later task results are appended only after the corresponding commands run.
+
+The first Task 3 candidate-build attempt exposed that the inherited TypeScript configuration set `noEmit: true`, so the API “build” had produced no server artifact. The final candidate check blocked on missing `apps/api/dist/bootstrap/server.js`. A dedicated production `apps/api/tsconfig.build.json` was added; a fresh build then emitted the expected server and the complete ordered candidate command passed. No migration was attempted during either build.

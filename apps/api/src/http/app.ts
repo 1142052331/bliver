@@ -12,6 +12,7 @@ import { ObservabilityRegistry, hashActorId } from '../platform/observability/in
 import { createErrorHandler, notFoundHandler } from './error-handler.js';
 import type { HttpErrorReporter } from './error-handler.js';
 import { healthRouter } from './health.js';
+import { createStaticWebHandlers } from './static-web.js';
 import type { DbPort } from './health.js';
 import { createMemoryIdentityRepositories } from '../modules/identity/application/memory-repositories.js';
 import { identityRouter } from '../modules/identity/transport/routes.js';
@@ -53,6 +54,7 @@ export interface AppOptions {
   readonly governance?: { readonly service?: ModerationGovernanceService };
   readonly observability?: ObservabilityRegistry;
   readonly errorReporter?: HttpErrorReporter;
+  readonly webDistPath?: string;
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -74,7 +76,7 @@ function requestPath(value: string | undefined): string {
   catch { return '/'; }
 }
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance, observability = new ObservabilityRegistry(config.sessionSecret, logger), errorReporter }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance, observability = new ObservabilityRegistry(config.sessionSecret, logger), errorReporter, webDistPath }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -121,6 +123,7 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   const governanceService = governance?.service ?? new ModerationGovernanceService(createMemoryGovernanceRepository());
   app.use('/api/v1', adminRouter(governanceService, identityRepositories));
   app.use(healthRouter({ config, db, observability }));
+  if (webDistPath) app.use(createStaticWebHandlers(webDistPath));
   app.use(notFoundHandler);
   app.use(createErrorHandler(errorReporter));
 

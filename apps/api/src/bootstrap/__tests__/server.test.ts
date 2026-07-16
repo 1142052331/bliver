@@ -7,15 +7,15 @@ describe('API server lifecycle', () => {
   it('configures Sentry release metadata on the real bootstrap path without enabling PII', () => {
     const sentry = { init: vi.fn(), setTag: vi.fn() };
     const config = createConfig({
-      NODE_ENV: 'production', DEPLOY_ENV: 'staging', RELEASE_SHA: 'release-observe',
+      NODE_ENV: 'production', DEPLOY_ENV: 'staging', RELEASE_SHA: 'a'.repeat(40),
       DATABASE_URL: 'postgresql://test:test@localhost:5432/test', SESSION_SECRET: 'server-observability-secret-long-enough',
       SENTRY_DSN: 'https://public@example.ingest.sentry.io/1',
     });
 
     configureServerSentry(config, sentry);
 
-    expect(sentry.init).toHaveBeenCalledWith(expect.objectContaining({ dsn: config.sentryDsn, release: 'release-observe', environment: 'staging', sendDefaultPii: false }));
-    expect(sentry.setTag).toHaveBeenCalledWith('release', 'release-observe');
+    expect(sentry.init).toHaveBeenCalledWith(expect.objectContaining({ dsn: config.sentryDsn, release: 'a'.repeat(40), environment: 'staging', sendDefaultPii: false }));
+    expect(sentry.setTag).toHaveBeenCalledWith('release', 'a'.repeat(40));
     expect(sentry.setTag).toHaveBeenCalledWith('environment', 'staging');
   });
 

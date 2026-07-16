@@ -25,8 +25,8 @@ test('release smoke validates required JSON, request id, and release checks', as
     if (url.endsWith('/healthz')) return response(200, { status: 'ok', release: RELEASE_SHA });
     if (url.endsWith('/readyz')) return response(200, { ready: true });
     if (url.endsWith('/versionz')) return response(200, { release: RELEASE_SHA });
-    if (url.includes('/api/activity') || url.includes('/api/map/footprints')) return response(200, {});
-    if (url.includes('/api/auth/me')) return response(401, { error: 'Authentication required' });
+    if (url.includes('/api/v1/activity') || url.includes('/api/v1/map/footprints')) return response(200, {});
+    if (url.includes('/api/v1/users/me')) return response(401, { error: 'Authentication required' });
     if (url.includes('/socket.io/')) return response(200, '0:open', 'text/plain');
     return response(404, {});
   };
@@ -39,7 +39,7 @@ test('release smoke validates required JSON, request id, and release checks', as
   });
 
   assert.equal(result.ok, true);
-  assert.ok(calls.some((url) => url.includes('/api/activity')));
+  assert.ok(calls.some((url) => url.includes('/api/v1/activity')));
   assert.ok(calls.some((url) => url.includes('/socket.io/')));
   assert.ok(lines.every((line) => /^(PASS|FAIL) /.test(line)));
 });

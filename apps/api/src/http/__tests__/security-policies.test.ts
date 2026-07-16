@@ -13,7 +13,7 @@ const testConfig = createConfig({
   SESSION_SECRET: 'security-test-session-secret-long-enough',
 });
 const productionConfig = createConfig({
-  NODE_ENV: 'production', DEPLOY_ENV: 'production', RELEASE_SHA: 'security-test',
+  NODE_ENV: 'production', DEPLOY_ENV: 'production', RELEASE_SHA: 'a'.repeat(40),
   DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
   SESSION_SECRET: 'security-production-session-secret-long-enough',
 });

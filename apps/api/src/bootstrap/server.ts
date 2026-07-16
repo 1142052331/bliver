@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 
 import pino from 'pino';
 import * as Sentry from '@sentry/node';
@@ -145,6 +146,9 @@ export async function startServer(): Promise<void> {
     memories: { query: memories },
     observability,
     errorReporter: createServerErrorReporter(Sentry),
+    ...(config.nodeEnv === 'production'
+      ? { webDistPath: resolve(import.meta.dirname, '../../../web/dist') }
+      : {}),
   });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });

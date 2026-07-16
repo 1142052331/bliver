@@ -11,12 +11,12 @@ test('root package exposes the release-tools test command', () => {
   assert.equal(packageJson.scripts['test:release-tools'], 'node --test scripts/*.test.mjs');
 });
 
-test('CI lints frontend and runs release-tool tests before the release build', () => {
+test('CI requires V2 gates and runs release-tool tests before the V2 release build', () => {
   const workflow = readFileSync(path.join(rootDir, '.github', 'workflows', 'ci.yml'), 'utf8');
-  const frontendBlock = workflow.match(/\n  frontend:[\s\S]*?(?=\n  release:|$)/)?.[0] || '';
   const releaseBlock = workflow.match(/\n  release:[\s\S]*$/)?.[0] || '';
 
-  assert.match(frontendBlock, /run: npm run lint/);
+  assert.match(workflow, /cache-dependency-path: package-lock\.json/);
+  assert.match(releaseBlock, /needs: \[v2-foundation\]/);
   const toolsIndex = releaseBlock.indexOf('run: npm run test:release-tools');
   const buildIndex = releaseBlock.indexOf('run: npm run render-build');
   assert.ok(toolsIndex >= 0);

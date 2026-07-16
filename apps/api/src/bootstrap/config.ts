@@ -14,6 +14,10 @@ const environmentSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().min(1).optional(),
   VAPID_SUBJECT: z.string().min(1).optional(),
   SENTRY_DSN: z.string().url().optional(),
+}).superRefine((value, context) => {
+  if (value.NODE_ENV === 'production' && !/^[0-9a-f]{40}$/.test(value.RELEASE_SHA)) {
+    context.addIssue({ code: 'custom', path: ['RELEASE_SHA'], message: 'production RELEASE_SHA must be an exact 40-character Git SHA' });
+  }
 });
 
 export type ApiConfig = Readonly<{

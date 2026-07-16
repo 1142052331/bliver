@@ -105,9 +105,9 @@ export async function runSmoke({
       validate: (body) => body?.ready === true,
     }),
     jsonCheck('version', '/versionz', 200, { noStore: true, validate: releaseMatches }),
-    jsonCheck('guest-activity', '/api/activity?scope=global&limit=1'),
-    jsonCheck('guest-map', '/api/map/footprints?scope=global&limit=1'),
-    jsonCheck('unauthenticated-protected', '/api/auth/me', 401),
+    jsonCheck('guest-activity', '/api/v1/activity?scope=global&limit=1'),
+    jsonCheck('guest-map', '/api/v1/map/footprints?west=120&south=30&east=122&north=32'),
+    jsonCheck('unauthenticated-protected', '/api/v1/users/me', 401),
     {
       name: 'socket-polling',
       url: new URL(`/socket.io/?EIO=4&transport=polling&t=${Date.now()}`, origin).toString(),

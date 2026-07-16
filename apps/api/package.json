@@ -34,7 +34,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/bootstrap/server.ts --port 5100",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest run --config vitest.config.ts --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint --config ../../packages/config/eslint.base.mjs . --max-warnings 0"
