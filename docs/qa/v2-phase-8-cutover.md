@@ -47,13 +47,13 @@ The untouched Phase 7 record is archived at [v2-phase-7-hardening.md](../archive
 | 7 frozen inventory | `git ls-tree 8aa3486 -- frontend/public` | PASS; all 5 tracked assets, including `manifest.json` and `sw.js`, exactly match the archived inventory |
 | 7 Lighthouse cleanup | keep-alive/profile regression plus real gates | PASS, 5/5; two standalone and both freeze-pass Lighthouse runs exited without process/profile leaks |
 | 7 release smoke review | canonical V2 health contract plus `npm run test:release-tools` | P1 fixed at `52c20d844e31d451da2c7634243fa97877c6c076`; a second P1 fixed at `3142819ec28e2d10857ed530830a7bf8d0e39adb` adds the required `no-store` policy; 7/7 pass with exact `version` and cache checks |
-| 7 re-freeze | `npm run release:v2:freeze` at `3142819ec28e2d10857ed530830a7bf8d0e39adb` | PASS twice; 201 suites, 374 tests, 7 PostgreSQL skips, matching 40-path OpenAPI hash |
-| 7 immutable candidate | exact-SHA `npm run render-build` at `3142819ec28e2d10857ed530830a7bf8d0e39adb` | PASS; final runtime package, API, Web, and plain-Node import candidate; provider SHA cross-check enabled |
-| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `32acbeba7fa742d37c61bc6460e9325c97c44df3e7b2e641a4c14cdb548180d7`; 10 migrations and 10 assets |
+| 7 re-freeze | `npm run release:v2:freeze` at `3ede0797e2f40cd0fff8f114cbe93372e655046f` | PASS twice; 201 suites, 381 tests, 0 skips, matching 40-path OpenAPI hash; freeze SHA-256 `92c36854c0891e23af41d69c24b64b6e0c499b76d0803494edaa7b986b88537c`; supersedes `3142819` |
+| 7 immutable candidate | exact-SHA `npm run render-build` at `3ede0797e2f40cd0fff8f114cbe93372e655046f` | PASS; final runtime package, API, Web, and plain-Node import candidate; provider SHA cross-check enabled |
+| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `f17141a98442c95461f02d585adb8a71bc1024644d4722ddf9314e8ceadd5723`; 10 migrations and 10 assets |
 | 7 baseline | `artifacts/release/v2-baseline.json` | `RELEASE_READY_WITH_EXTERNAL_BLOCKERS`; SHA lineage, checksums, counts, metrics, environment key names, and blocked publication gates recorded |
-| 7 foundation | each freeze pass | PASS; architecture 754 modules / 725 dependencies; 95 files passed / 3 skipped; 374 tests passed / 7 skipped |
-| 7 browser | each freeze pass plus final isolated evidence | PASS, 120/120 and 8/8; reconnect max 45.2526 ms, INP max 24 ms |
-| 7 Lighthouse/performance | Lighthouse plus local and release-strict performance | local PASS; score 1, LCP 172.693 ms, CLS 0; strict EXPECTED BLOCK only on missing live PostGIS EXPLAIN |
+| 7 foundation | each freeze pass | PASS; architecture 754 modules / 725 dependencies; 98 files passed / 0 skipped; 381 tests passed / 0 skipped |
+| 7 browser | each freeze pass plus final isolated evidence | PASS, 120/120 and 8/8; reconnect max 46.7628 ms, INP max 24 ms |
+| 7 Lighthouse/performance | Lighthouse plus local and release-strict performance | PASS; score 1, LCP 169.207 ms, CLS 0; strict local gate included live isolated PostGIS EXPLAIN |
 | 7 publication | Render, remote `/versionz`, backup/restore, observation, `v2.0.0` | BLOCKED / NOT CREATED; no external result is claimed |
 
 ## PostgreSQL Integration Follow-up
