@@ -224,7 +224,7 @@ async function connectActorSocket(context: BrowserContext): Promise<Socket> {
   return socket;
 }
 
-function emitMessage(socket: Socket, conversationIdValue: string, content: string, idempotencyKey: string): Promise<{ ok: boolean; code?: string }> {
+function emitMessage(socket: Socket, conversationIdValue: string, content: string, idempotencyKey: string): Promise<{ ok: boolean; code?: string; message?: { id: string } }> {
   return new Promise((resolve) => socket.emit('conversation:message', { conversationId: conversationIdValue, content, idempotencyKey }, resolve));
 }
 
@@ -235,8 +235,9 @@ test('real dual-browser Socket uses Outbox delivery, reconnect, block, and sessi
   const userB = await registerRealtimeActor(browser, `socketb${suffix}`);
   let actorSocket: Socket | undefined;
   let recipientSocket: Socket | undefined;
+  let senderSocket: Socket | undefined;
   try {
-    const control = await userA.page.request.put('http://127.0.0.1:5100/__e2e__/outbox-control', { data: { delayMs: 650, failNext: 1 } });
+    const control = await userA.page.request.put('http://127.0.0.1:5100/__e2e__/outbox-control', { data: { delayMs: 650 } });
     expect(control.ok(), await control.text()).toBe(true);
     const greeting = await userA.page.request.post(`/api/v1/users/${userB.userId}/greetings`, {
       headers: { 'x-csrf-token': userA.csrf, 'idempotency-key': `greeting-${suffix}` },
@@ -257,6 +258,7 @@ test('real dual-browser Socket uses Outbox delivery, reconnect, block, and sessi
     await expect(userA.page.getByText('Realtime fixture reply')).toBeVisible();
     await expect(userB.page.getByText('Realtime fixture greeting')).toBeVisible();
     recipientSocket = await connectActorSocket(userA.context);
+    senderSocket = await connectActorSocket(userB.context);
 
     const onlineMessage = `Delivered online ${suffix}`;
     const onlineStartedAt = Date.now();
@@ -265,8 +267,13 @@ test('real dual-browser Socket uses Outbox delivery, reconnect, block, and sessi
         if (payload.content === onlineMessage) resolve(payload);
       });
     });
-    await userB.page.getByRole('textbox', { name: 'Message' }).fill(onlineMessage);
-    await userB.page.getByRole('button', { name: 'Send' }).click();
+    const onlineAck = await emitMessage(senderSocket, conversationIdValue, onlineMessage, `online-${suffix}`);
+    expect(onlineAck).toMatchObject({ ok: true, message: { id: expect.any(String) } });
+    const onlineMessageId = onlineAck.message?.id ?? '';
+    const failureControl = await userA.page.request.put('http://127.0.0.1:5100/__e2e__/outbox-control', {
+      data: { delayMs: 650, failMessageId: onlineMessageId },
+    });
+    expect(failureControl.ok(), await failureControl.text()).toBe(true);
     await userA.page.waitForTimeout(200);
     let deliveredInsideWindow = false;
     void delivered.then(() => { deliveredInsideWindow = true; });
@@ -283,8 +290,11 @@ test('real dual-browser Socket uses Outbox delivery, reconnect, block, and sessi
       attempts: 2,
       processedAt: expect.any(Number),
       lastError: 'E2E_OUTBOX_RETRY',
-      payload: expect.objectContaining({ messageId: deliveredMessage.id }),
+      payload: expect.objectContaining({ messageId: onlineMessageId }),
     }));
+    expect(deliveredMessage.id).toBe(onlineMessageId);
+    senderSocket.close();
+    senderSocket = undefined;
     recipientSocket.close();
     recipientSocket = undefined;
 
@@ -326,6 +336,7 @@ test('real dual-browser Socket uses Outbox delivery, reconnect, block, and sessi
   } finally {
     actorSocket?.close();
     recipientSocket?.close();
+    senderSocket?.close();
     await Promise.all([userA.context.close(), userB.context.close()]);
   }
 });

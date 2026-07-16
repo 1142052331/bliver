@@ -24,7 +24,7 @@ conversationRepository.appendEvent = async (event) => {
   await outbox.append({ ...event, availableAt: Date.now() + journeyState.outboxDelayMs });
 };
 const conversations = new ConversationService(conversationRepository, relationships);
-let failNextMessageDeliveries = 0;
+const failedMessageDeliveries = new Set<string>();
 const productApp = createApp({
   config: {
     nodeEnv: 'test',
@@ -45,14 +45,15 @@ const app = express();
 app.use(express.json({ limit: '16kb' }));
 app.put('/__e2e__/outbox-control', (request, response) => {
   const delayMs = Number(request.body?.delayMs);
-  const failNext = Number(request.body?.failNext ?? 0);
-  if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 5_000 || !Number.isInteger(failNext) || failNext < 0 || failNext > 3) {
+  const failMessageId = request.body?.failMessageId;
+  const validFailureId = failMessageId === undefined || (typeof failMessageId === 'string' && /^[\w-]{1,128}$/.test(failMessageId));
+  if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 5_000 || !validFailureId) {
     response.status(400).json({ code: 'INVALID_OUTBOX_CONTROL' });
     return;
   }
   journeyState.outboxDelayMs = delayMs;
-  failNextMessageDeliveries = failNext;
-  response.json({ delayMs, failNext });
+  if (typeof failMessageId === 'string') failedMessageDeliveries.add(failMessageId);
+  response.json({ delayMs, ...(typeof failMessageId === 'string' ? { failMessageId } : {}) });
 });
 app.get('/__e2e__/outbox-events', (_request, response) => { void outbox.list().then((items) => response.json({ items })); });
 app.use(productApp);
@@ -64,8 +65,8 @@ const outboxWorker = new OutboxWorker({
   repository: outbox,
   baseDelayMs: 100,
   process: async (event) => {
-    if (event.type === 'MessageSent' && failNextMessageDeliveries > 0) {
-      failNextMessageDeliveries -= 1;
+    const messageId = event.payload.messageId;
+    if (event.type === 'MessageSent' && typeof messageId === 'string' && failedMessageDeliveries.delete(messageId)) {
       throw new Error('E2E_OUTBOX_RETRY');
     }
     await consumeConversationEvent(event);
