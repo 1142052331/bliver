@@ -12,7 +12,6 @@
     "dev": "npm run dev:v2",
     "start": "node apps/api/dist/bootstrap/server.js",
     "render-build": "npm run check:node && npm run release:v2:verify-sha && npm run build:v2 && npm run release:v2:verify-candidate",
-    "verify:release": "node scripts/verify-release.mjs",
     "smoke:release": "node scripts/release-smoke.mjs",
     "test:release-tools": "node --test scripts/*.test.mjs",
     "prepare": "husky",
@@ -36,8 +35,7 @@
     "release:v2:verify-sha": "tsx scripts/release/candidate-cli.ts --sha-only",
     "release:v2:verify-candidate": "tsx scripts/release/candidate-cli.ts",
     "release:v2:predeploy": "npm run release:v2:verify-candidate && npm run db:v2:migrate",
-    "legacy:v2:check": "tsx scripts/release/legacy-check.ts",
-    "legacy:v1:inventory": "tsx scripts/release/legacy-check.ts --inventory",
+    "cutover:v2:check": "tsx scripts/release/cutover-check-cli.ts",
     "verify:v2-foundation": "npm run architecture:check && npm run lint:v2 && npm run typecheck:v2 && npm run test:v2 && npm run build:v2"
   },
   "lint-staged": {

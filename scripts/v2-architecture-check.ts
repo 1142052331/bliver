@@ -13,7 +13,7 @@ export interface ArchitectureCheckResult {
 function sourceFiles(directory: string): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (['node_modules', 'dist', 'generated', 'frontend', 'backend'].includes(entry.name)) {
+    if (['node_modules', 'dist', 'generated'].includes(entry.name)) {
       continue;
     }
     const path = join(directory, entry.name);

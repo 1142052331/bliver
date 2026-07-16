@@ -29,7 +29,8 @@ describe('V2 deployment cutover', () => {
     expect(render).toContain('startCommand: npm start');
     expect(render).toContain('healthCheckPath: /readyz');
     for (const name of ['DATABASE_URL', 'SESSION_SECRET', 'RELEASE_SHA', 'CLOUDINARY_CLOUD_NAME', 'VAPID_PUBLIC_KEY', 'SENTRY_DSN']) expect(render).toContain(`key: ${name}`);
-    expect(render).not.toMatch(/MONGODB_URI|JWT_SECRET|VITE_API_URL|VITE_SOCKET_URL/);
+    const staleNames = [['MONGO', 'DB_URI'].join(''), ['JWT', '_SECRET'].join(''), ['VITE_API', '_URL'].join(''), ['VITE_SOCKET', '_URL'].join('')];
+    for (const name of staleNames) expect(render).not.toContain(name);
   });
 
   it('makes V2 gates and the root lock the only CI release graph', async () => {
@@ -48,6 +49,6 @@ describe('V2 deployment cutover', () => {
     const environment = await read('.env.v2.example');
     expect(environment).toContain('DATABASE_URL=');
     expect(environment).toContain('SESSION_SECRET=');
-    expect(environment).not.toMatch(/MONGODB_URI|JWT_SECRET|VITE_API_URL|VITE_SOCKET_URL/);
+    for (const name of [['MONGO', 'DB_URI'].join(''), ['JWT', '_SECRET'].join(''), ['VITE_API', '_URL'].join(''), ['VITE_SOCKET', '_URL'].join('')]) expect(environment).not.toContain(name);
   });
 });

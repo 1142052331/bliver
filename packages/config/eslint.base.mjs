@@ -9,8 +9,6 @@ export default tseslint.config(
       '**/dist/**',
       '**/generated/**',
       '**/node_modules/**',
-      'frontend/**',
-      'backend/**',
     ],
   },
   eslint.configs.recommended,

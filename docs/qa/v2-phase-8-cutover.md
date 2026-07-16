@@ -176,7 +176,18 @@ Twenty-six Markdown files mention V1 paths/contracts. Canonical files requiring 
 | 3 candidate build | `RELEASE_SHA=<HEAD>; RENDER_GIT_COMMIT=<HEAD>; npm run render-build` | PASS; SHA checked before build, API/Web outputs present, candidate rechecked |
 | 3 negative identity | mismatched `RENDER_GIT_COMMIT` with `npm run release:v2:verify-sha` | EXPECTED BLOCK, exit 1 before build or database write |
 | 3 mobile | `npm run cap:v2:smoke` | PASS, 6 Vitest + 1 Playwright + Android sync |
+| 4 pre-delete exit | `npm run cutover:v2:check` | EXPECTED BLOCK: both V1 roots, old root release command, and V1 verifier present |
+| 4 safe deletion | resolve/parent/leaf validation then native PowerShell `Remove-Item -LiteralPath ... -Recurse -Force` | PASS for exact `E:\bliver\.worktrees\bliver-v2\frontend` and `E:\bliver\.worktrees\bliver-v2\backend`; post-delete paths absent |
+| 4 dependency removal | `npm ls mongoose mongodb jsonwebtoken mongodb-memory-server --all` | EXPECTED empty dependency graph; command exit 1 because no requested package is installed |
+| 4 exit boundary | `npx vitest run scripts/release/cutover-check.test.ts && npm run cutover:v2:check` | PASS, 2/2 and V2-only live tree |
+| 4 V2 gate | `npm run verify:v2-foundation` | PASS, 93 files passed / 3 skipped; 362 tests passed / 7 skipped |
+| 4 candidate build | `RELEASE_SHA=<HEAD>; RENDER_GIT_COMMIT=<HEAD>; npm run render-build` | PASS after deletion; API and Web build outputs verified |
+| 4 V2 release tools | `npm run test:release-tools` | PASS, 7/7 |
 
 Later task results are appended only after the corresponding commands run.
 
 The first Task 3 candidate-build attempt exposed that the inherited TypeScript configuration set `noEmit: true`, so the API “build” had produced no server artifact. The final candidate check blocked on missing `apps/api/dist/bootstrap/server.js`. A dedicated production `apps/api/tsconfig.build.json` was added; a fresh build then emitted the expected server and the complete ordered candidate command passed. No migration was attempted during either build.
+
+Task 4 removed 182 tracked frontend files and 123 tracked backend files, including both child locks, all Mongo models/config, JWT middleware, V1 routes and Socket handlers, backfills, and V1 assets. It also removed the root V1 verifier and the temporary pre-deletion inventory implementation after its committed evidence was frozen. The retained cutover checker verifies the V2-only live tree without importing V1.
+
+The raw `mongoose` text scan has one non-documentation exception: `package-lock.json` contains `@opentelemetry/instrumentation-mongoose` as a transitive dependency of `@sentry/node` (both the API and Lighthouse toolchain). `npm ls mongoose ...` proves that Mongoose itself, MongoDB drivers, JWT, and the Mongo memory server are not installed. This instrumentation-name-only lock entry is not a V1 runtime/database path and is retained to preserve the required Sentry and Lighthouse gates. Canonical root docs still contain V1 wording at this commit and are rewritten in Task 5; historical plan/spec references are moved beneath an explicit archive boundary.
