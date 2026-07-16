@@ -2,7 +2,7 @@
 
 Date: 2026-07-16
 Baseline: `3304aae` (Phase 5)
-Final implementation commits: `3cfb5e5`, `86bd2c4`, `9157f5b`, `01e720d`, `bca6500`, `39ad0b2`, `6c1c0de`, `ad82cb2`, `99a3d04`, `31f7441`, `ed8ace9`, `c937269`, `812afbd`
+Final implementation commits: `3cfb5e5`, `86bd2c4`, `9157f5b`, `01e720d`, `bca6500`, `39ad0b2`, `6c1c0de`, `ad82cb2`, `99a3d04`, `31f7441`, `ed8ace9`, `c937269`, `812afbd`, `4ea5488`
 
 ## Scope verified
 
@@ -10,16 +10,16 @@ Final implementation commits: `3cfb5e5`, `86bd2c4`, `9157f5b`, `01e720d`, `bca65
 - `profile_visitors`, `memory_highlights`, projection event deduplication and the continuous migration `0009_memories_notifications_moderation.sql` are present. Existing footprint/media facts are not copied into profile documents.
 - `/me`, `/notifications` and `/admin` are protected by `RequireAuth`; owner/profile timeline, photo and visitor requests preserve the viewed owner id. Browser coverage includes a real Express `createApp` fixture with real registration/session cookies, in addition to deterministic policy mocks.
 - Notifications consume the existing reaction/comment/friendship/greeting/message/report/admin event payloads, deduplicate by event id, honor blocked actors and preferences, and expose only safe target references. Production VAPID/Web Push is assembled when configured, service-worker registration is bounded, delivery attempts are persisted, endpoint ownership is enforced across accounts, and provider failure never removes in-app notifications.
-- Moderation preserves Phase 4 report intake and adds database-authoritative roles, cases, actions and immutable audit rows. Destructive commands recheck role, locked case state/target and affected rows in the same Postgres transaction before mutation/audit/outbox. Suspended users cannot log in, refresh or resolve sessions; moderation-hidden footprints are excluded from reads/discovery/interactions and cannot be changed or deleted by their author. No display-name privilege path remains.
+- Moderation preserves Phase 4 report intake and adds database-authoritative roles, cases, actions and immutable audit rows. ResolveCase updates its originating open report to resolved/dismissed before the case/action/audit/outbox writes, and open report queues exclude resolved reports. Destructive commands recheck role, locked case state/target and affected rows in the same Postgres transaction before mutation/audit/outbox. Suspended users cannot log in, refresh or resolve sessions; moderation-hidden footprints are excluded from reads/discovery/interactions and cannot be changed or deleted by their author. `audit_logs` rejects UPDATE/DELETE through a database trigger. No display-name privilege path remains.
 
 ## Fresh verification
 
 | Check | Result |
 | --- | --- |
-| `npm.cmd run architecture:check` | PASS, 302 modules / 645 dependencies, no violations |
+| `npm.cmd run architecture:check` | PASS, 304 modules / 652 dependencies, no violations |
 | `npm.cmd run typecheck:v2` | PASS |
 | `npm.cmd run lint:v2` | PASS |
-| `npx.cmd vitest run --config vitest.config.ts --pool=threads --maxWorkers=1` | PASS, 74 files: 273 passed, 7 skipped (280 tests) |
+| `npx.cmd vitest run --config vitest.config.ts --pool=threads --maxWorkers=1` | PASS, 73 files: 277 passed, 7 skipped (284 tests) |
 | `npm.cmd run build:v2` | PASS; Vite emits the existing >500 kB chunk advisory |
 | `npx playwright test apps/web/e2e/memories-governance.spec.ts` | PASS, 6/6 (desktop + mobile, including real app fixture) |
 | `npm.cmd run db:v2:migrate` | BLOCKED: `DATABASE_URL` is not configured in this environment |
