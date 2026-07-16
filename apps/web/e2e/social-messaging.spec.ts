@@ -233,7 +233,10 @@ test('real Socket delivery resyncs after a dual-browser offline window', async (
     await userA.context.setOffline(true);
     await userB.page.getByRole('textbox', { name: 'Message' }).fill('Delivered after reconnect resync');
     await userB.page.getByRole('button', { name: 'Send' }).click();
-    await expect(userB.page.getByRole('list').getByText('Delivered after reconnect resync')).toBeVisible();
+    const senderMessage = userB.page.getByRole('list').getByText('Delivered after reconnect resync');
+    await expect(userB.page.locator('.message-bubble--pending')).toHaveCount(0);
+    await expect(senderMessage).toHaveCount(1);
+    await expect(senderMessage).toBeVisible();
     await userA.context.setOffline(false);
     await expect(userA.page.getByRole('list').getByText('Delivered after reconnect resync')).toBeVisible({ timeout: 15_000 });
   } finally {
