@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page, type Route } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page, type Route } from '@playwright/test';
 
 const actorA = '019f0000-0000-7000-8000-000000000001';
 const actorB = '019f0000-0000-7000-8000-000000000002';
@@ -32,6 +32,7 @@ function messageDto(id: string, senderId: string, content: string, kind: 'greeti
 }
 
 async function mockApi(page: Page, actor: Actor, state: SocialMessagingState): Promise<void> {
+  await page.routeWebSocket('**/socket.io/**', () => undefined);
   await page.context().addCookies([
     { name: 'bliver_session', value: `e2e-${actor}`, domain: '127.0.0.1', path: '/' },
     { name: 'bliver_csrf', value: 'e2e-csrf-token', domain: '127.0.0.1', path: '/' },
@@ -183,5 +184,57 @@ test('messaging safety supports block, unblock, and forced revocation on a deep 
     await expectNoHorizontalOverflow(userB.page);
   } finally {
     await userB.close();
+  }
+});
+
+async function registerRealtimeActor(
+  browser: Browser,
+  username: string,
+): Promise<{ context: BrowserContext; page: Page; userId: string; csrf: string }> {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const registration = await page.request.post('/api/v1/auth/register', {
+    data: { username, password: 'browser-fixture-passphrase', displayName: username },
+  });
+  const registrationBody = await registration.text();
+  expect(registration.ok(), registrationBody).toBe(true);
+  const body = JSON.parse(registrationBody) as { user: { id: string } };
+  const csrf = (await context.cookies()).find((cookie) => cookie.name === 'bliver_csrf')?.value;
+  expect(csrf).toBeTruthy();
+  return { context, page, userId: body.user.id, csrf: csrf ?? '' };
+}
+
+test('real Socket delivery resyncs after a dual-browser offline window', async ({ browser }, testInfo) => {
+  const suffix = `${testInfo.project.name}-${testInfo.retry}`.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const userA = await registerRealtimeActor(browser, `socketa${suffix}`);
+  const userB = await registerRealtimeActor(browser, `socketb${suffix}`);
+  try {
+    const greeting = await userA.page.request.post(`/api/v1/users/${userB.userId}/greetings`, {
+      headers: { 'x-csrf-token': userA.csrf, 'idempotency-key': `greeting-${suffix}` },
+      data: { content: 'Realtime fixture greeting' },
+    });
+    expect(greeting.ok()).toBe(true);
+    const conversationIdValue = ((await greeting.json()) as { conversation: { id: string } }).conversation.id;
+    const reply = await userB.page.request.post(`/api/v1/conversations/${conversationIdValue}/reply`, {
+      headers: { 'x-csrf-token': userB.csrf, 'idempotency-key': `reply-${suffix}` },
+      data: { content: 'Realtime fixture reply' },
+    });
+    expect(reply.ok()).toBe(true);
+
+    await Promise.all([
+      userA.page.goto(`/messages/${conversationIdValue}`),
+      userB.page.goto(`/messages/${conversationIdValue}`),
+    ]);
+    await expect(userA.page.getByText('Realtime fixture reply')).toBeVisible();
+    await expect(userB.page.getByText('Realtime fixture greeting')).toBeVisible();
+
+    await userA.context.setOffline(true);
+    await userB.page.getByRole('textbox', { name: 'Message' }).fill('Delivered after reconnect resync');
+    await userB.page.getByRole('button', { name: 'Send' }).click();
+    await expect(userB.page.getByRole('list').getByText('Delivered after reconnect resync')).toBeVisible();
+    await userA.context.setOffline(false);
+    await expect(userA.page.getByRole('list').getByText('Delivered after reconnect resync')).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await Promise.all([userA.context.close(), userB.context.close()]);
   }
 });
