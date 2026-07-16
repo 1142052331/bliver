@@ -18,6 +18,7 @@ import { CreateReport, createPostgresGovernanceRepository, createPostgresReportR
 import { BlockPolicy, SocialService, createPostgresSocialRepository } from '../modules/social/index.js';
 import { ConversationService, createPostgresConversationRepository } from '../modules/conversations/index.js';
 import { createPostgresOutboxRepository, OutboxWorker } from '../platform/outbox/index.js';
+import { OutboxWorkerPump } from '../platform/outbox/pump.js';
 import { Server as SocketServer } from 'socket.io';
 import { createNominatimGeography } from '../platform/geography/providers.js';
 import { configureRealtime, createConversationOutboxConsumer, emitFootprintPublished } from './realtime.js';
@@ -61,7 +62,9 @@ export async function shutdownServer(
   server: ShutdownServerPort,
   closeDatabase: () => Promise<void>,
   timeoutMs = 10_000,
+  drain: () => Promise<void> = async () => undefined,
 ): Promise<void> {
+  await drain();
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
       server.closeAllConnections();
@@ -150,8 +153,12 @@ export async function startServer(): Promise<void> {
   const projection = new DiscoveryProjectionConsumer({ repository: discoveryRepository, source: { async findById(id) { const [publicRecord, fullRecord] = await Promise.all([footprints.findById(id as never), footprints.footprints.findById(id as never)]); if (!publicRecord || !fullRecord) return null; let countryCode: string | null = null; if (fullRecord.metadata.regionId) { const region = await db.query<{ country_code: string }>('SELECT country_code FROM regions WHERE id=$1', [fullRecord.metadata.regionId]); countryCode = region.rows[0]?.country_code ?? null; } return { ...publicRecord, message: fullRecord.message, hasMedia: fullRecord.mediaAssetIds.length > 0, regionId: fullRecord.metadata.regionId, countryCode }; } } });
   const memoryProjection = new MemoryProjectionConsumer(memoryRepository);
   const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), observe: (kind, event) => observability.outbox(kind, { requestId: event.id, correlationId: event.aggregateId, status: kind, durationMs: 0 }), process: async (event) => { await consumeConversationEvent(event); if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'FootprintDeleted') await projection.process(event as never); if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'CommentAdded' || event.type === 'ReactionAdded') await memoryProjection.process(event); const notificationEvent={id:event.id,type:event.type,payload:event.payload};const notification=await notificationService.consume(notificationEvent);const recipientId=notificationService.recipientForEvent(notificationEvent);if(notification&&recipientId&&pushDelivery&&(await notificationService.getPreferences(recipientId)).push)await pushDelivery.deliver(recipientId,notification); if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); } });
-  const workerTimer = setInterval(() => { void outboxWorker.runOnce(); }, 250);
-  workerTimer.unref();
+  const workerPump = new OutboxWorkerPump({
+    worker: outboxWorker,
+    intervalMs: 250,
+    observeError: () => observability.outbox('failure', { status: 'worker_tick', durationMs: 0 }),
+  });
+  workerPump.start();
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
@@ -160,9 +167,10 @@ export async function startServer(): Promise<void> {
 
   let shutdownPromise: Promise<void> | undefined;
   const shutdown = (): Promise<void> => {
-    clearInterval(workerTimer);
-    io.close();
-    shutdownPromise ??= shutdownServer(server, closeDb);
+    shutdownPromise ??= shutdownServer(server, closeDb, 10_000, async () => {
+      await workerPump.stop();
+      io.close();
+    });
     return shutdownPromise;
   };
 

@@ -45,4 +45,26 @@ describe('API server lifecycle', () => {
     expect(server.closeAllConnections).toHaveBeenCalledOnce();
     expect(closeDatabase).toHaveBeenCalledOnce();
   });
+
+  it('drains the worker before closing the server and database', async () => {
+    let finishDrain!: () => void;
+    const drain = vi.fn(() => new Promise<void>((resolve) => { finishDrain = resolve; }));
+    const server = {
+      close: vi.fn((callback: () => void) => callback()),
+      closeAllConnections: vi.fn(),
+    };
+    const closeDatabase = vi.fn(async () => undefined);
+
+    const shutdown = shutdownServer(server, closeDatabase, 100, drain);
+    await Promise.resolve();
+
+    expect(drain).toHaveBeenCalledOnce();
+    expect(server.close).not.toHaveBeenCalled();
+    expect(closeDatabase).not.toHaveBeenCalled();
+
+    finishDrain();
+    await shutdown;
+    expect(server.close).toHaveBeenCalledOnce();
+    expect(closeDatabase).toHaveBeenCalledOnce();
+  });
 });

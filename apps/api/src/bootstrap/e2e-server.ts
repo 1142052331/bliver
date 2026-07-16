@@ -9,6 +9,7 @@ import { createMemoryIdentityRepositories } from '../modules/identity/applicatio
 import { ConversationService, createMemoryConversationRepository } from '../modules/conversations/index.js';
 import { SocialService, createMemorySocialRepository } from '../modules/social/index.js';
 import { InMemoryOutbox, OutboxWorker } from '../platform/outbox/index.js';
+import { OutboxWorkerPump } from '../platform/outbox/pump.js';
 import { configureRealtime, createConversationOutboxConsumer } from './realtime.js';
 
 const identity = createMemoryIdentityRepositories();
@@ -70,12 +71,14 @@ const outboxWorker = new OutboxWorker({
     await consumeConversationEvent(event);
   },
 });
-const workerTimer = setInterval(() => { void outboxWorker.runOnce(); }, 25);
-workerTimer.unref();
+const workerPump = new OutboxWorkerPump({ worker: outboxWorker, intervalMs: 25 });
+workerPump.start();
 server.listen(5100, '127.0.0.1');
 const close = (): void => {
-  clearInterval(workerTimer);
-  io.close(() => server.close(() => process.exit(0)));
+  void workerPump.stop().then(
+    () => io.close(() => server.close(() => process.exit(0))),
+    () => process.exit(1),
+  );
 };
 process.once('SIGINT', close);
 process.once('SIGTERM', close);
