@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-16",
+  "status": "RELEASE_READY_WITH_EXTERNAL_BLOCKERS",
+  "publicationStatus": "BLOCKED",
+  "sourceFreezeSha": "8aa34867ceefbb296721392cd5dda4b7a8dcd00b",
+  "releaseCandidateSha": "e9b10e392e2fd6ce410798dc4873246c33f438a9",
+  "phase8Lineage": [
+    {
+      "sha": "dd47ac42390377fe7c0045757c95d3eb6ce979b1",
+      "subject": "release: freeze V2 candidate"
+    },
+    {
+      "sha": "489cb199ccd89c08fe2d2f070bb35c8a1a5dc87c",
+      "subject": "qa: freeze V1 deletion inventory"
+    },
+    {
+      "sha": "fc282fabca3bb2afc096f2840f31c5f1c042a31a",
+      "subject": "build: switch deployment to V2"
+    },
+    {
+      "sha": "bff6083082ea034207ebac68cb79cb2f08c4158b",
+      "subject": "refactor: remove V1 runtime and MongoDB"
+    },
+    {
+      "sha": "a3d39641e2b0f3e5c1953ce73ba2f7f31fe66dfb",
+      "subject": "docs: make V2 documentation canonical"
+    },
+    {
+      "sha": "0cc9f494b1636a0c08147df7c37e0c43bae38f4c",
+      "subject": "fix: emit V2 runtime packages for release"
+    },
+    {
+      "sha": "e9b10e392e2fd6ce410798dc4873246c33f438a9",
+      "subject": "qa: verify clean V2 release"
+    }
+  ],
+  "candidateManifest": {
+    "path": "artifacts/release/v2-candidate-manifest.json",
+    "sha256": "bb084e2960877c991424df4cb07a5f5c4522ad9750d44775774275961797eda8",
+    "nodeVersion": "v24.16.0",
+    "npmVersion": "11.13.0",
+    "rootLockSha256": "86dc0b029b4dfe34e95e1ee585d0b7ec07ddba204e960bae91e81b53cc5be69a",
+    "migrationSha256": "3c15d0f2bb67b5e29ce2d460c5899c25aba06f23d4a00d92cf6b63ca042fc213",
+    "migrationCount": 10,
+    "assetListSha256": "b913775128eba5dea418bfe8dffcb535fa91eaaa7f0b5d85825bee7b0057dee1",
+    "assetCount": 10
+  },
+  "cleanVerification": {
+    "path": "artifacts/release/phase-8-clean-verification.json",
+    "sha256": "e719308f6ffec59a716f9a12b0db5e246452959d2a3df182a4a930bf3538fe6a"
+  },
+  "verification": {
+    "candidateBuild": "PASS",
+    "plainNodeApiGraphImport": "PASS",
+    "architectureModules": 754,
+    "architectureDependencies": 725,
+    "testFilesPassed": 93,
+    "testFilesSkipped": 3,
+    "testSuitesPassed": 197,
+    "testsPassed": 366,
+    "testsSkipped": 7,
+    "playwrightPassed": 120,
+    "browserEvidencePassed": 8,
+    "maxReconnectResyncMs": 51.6074,
+    "maxInpMs": 32,
+    "lighthousePerformanceScore": 1,
+    "lighthouseLcpMs": 277.744,
+    "lighthouseCls": 0,
+    "mainBundleGzipBytes": 193977,
+    "mapVendorGzipBytes": 48093,
+    "runtimeGzipBytes": 422,
+    "apiPerformanceErrors": 0,
+    "outboxLagMs": 2000,
+    "security": "PASS",
+    "capacitor": "PASS",
+    "releaseStrictPerformance": "BLOCKED_LIVE_POSTGIS_EXPLAIN"
+  },
+  "environmentKeys": [
+    "NODE_ENV",
+    "DEPLOY_ENV",
+    "RELEASE_SHA",
+    "PORT",
+    "DATABASE_URL",
+    "SESSION_SECRET",
+    "POSTGRES_DB",
+    "POSTGRES_USER",
+    "POSTGRES_PASSWORD",
+    "POSTGRES_PORT",
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
+    "VAPID_PUBLIC_KEY",
+    "VAPID_PRIVATE_KEY",
+    "VAPID_SUBJECT",
+    "SENTRY_DSN"
+  ],
+  "dependencyBoundary": {
+    "removedDriverDependencyGraph": [],
+    "checkedPackages": [
+      "mongoose",
+      "mongodb",
+      "mongodb-memory-server",
+      "jsonwebtoken"
+    ],
+    "lockfileNameExceptions": [
+      "@opentelemetry/instrumentation-mongodb",
+      "@opentelemetry/instrumentation-mongoose"
+    ],
+    "exceptionReason": "Sentry and the Lighthouse toolchain install optional OpenTelemetry instrumentation packages; no MongoDB or Mongoose driver is installed"
+  },
+  "blockers": [
+    {
+      "gate": "live PostgreSQL/PostGIS migrate, seed, readiness, and EXPLAIN",
+      "status": "BLOCKED",
+      "reason": "Docker Desktop daemon and an external database were unavailable"
+    },
+    {
+      "gate": "backup and isolated restore",
+      "status": "BLOCKED",
+      "reason": "No reachable candidate database"
+    },
+    {
+      "gate": "Render deployment",
+      "status": "BLOCKED",
+      "reason": "No deployment credentials or external publication authorization were used"
+    },
+    {
+      "gate": "remote /versionz exact-SHA probe",
+      "status": "BLOCKED",
+      "reason": "No deployed candidate exists"
+    },
+    {
+      "gate": "post-deploy observation window",
+      "status": "BLOCKED",
+      "reason": "No deployed candidate exists"
+    },
+    {
+      "gate": "v2.0.0 tag",
+      "status": "NOT_CREATED",
+      "reason": "Publication acceptance is incomplete"
+    }
+  ]
+}

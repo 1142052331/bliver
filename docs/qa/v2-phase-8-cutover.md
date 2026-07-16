@@ -44,12 +44,19 @@ The untouched Phase 7 record is archived at [v2-phase-7-hardening.md](../archive
 | 6 browser performance | `npm run perf:v2:browser-evidence` | PASS, 8/8; reconnect max 34.8 ms, INP max 24 ms |
 | 6 local performance | `npm run perf:v2` | PASS after fresh browser evidence; main bundle 193,977 bytes gzip; live PostGIS EXPLAIN explicitly skipped |
 | 6 database and recovery | Docker daemon, PostGIS migrate/seed, live EXPLAIN, backup/restore | BLOCKED; Docker Desktop could not start, so no live database or recovery evidence exists |
+| 7 immutable candidate | exact-SHA `npm run render-build` at `e9b10e392e2fd6ce410798dc4873246c33f438a9` | PASS; final runtime package, API, Web, and plain-Node import candidate |
+| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `bb084e2960877c991424df4cb07a5f5c4522ad9750d44775774275961797eda8`; 10 migrations and 10 assets |
+| 7 baseline | `artifacts/release/v2-baseline.json` | `RELEASE_READY_WITH_EXTERNAL_BLOCKERS`; SHA lineage, checksums, counts, metrics, environment key names, and blocked publication gates recorded |
+| 7 foundation | `npm run verify:v2-foundation` | PASS; architecture 754 modules / 725 dependencies; 93 files passed / 3 skipped; 366 tests passed / 7 skipped |
+| 7 browser | full Playwright and isolated performance evidence | PASS, 120/120 and 8/8; reconnect max 51.6074 ms, INP max 32 ms |
+| 7 Lighthouse/performance | Lighthouse plus local and release-strict performance | local PASS; score 1, LCP 277.744 ms, CLS 0; strict EXPECTED BLOCK only on missing live PostGIS EXPLAIN |
+| 7 publication | Render, remote `/versionz`, backup/restore, observation, `v2.0.0` | BLOCKED / NOT CREATED; no external result is claimed |
 
 Task 3 initially proved that the inherited TypeScript configuration emitted no API artifact. Candidate verification blocked on the missing server. The dedicated API production build configuration now emits `apps/api/dist/bootstrap/server.js`; a fresh ordered candidate build passed. No migration ran during either build.
 
 Task 4 removed 305 tracked application files plus child locks, data models/config, token middleware, routes/events, backfills, compatibility UI, and old assets. It also removed the old root verifier and temporary inventory implementation after the inventory was committed. The retained `cutover:v2:check` verifies a V2-only runtime and direct dependency graph.
 
-The root lock contains an OpenTelemetry instrumentation package name brought transitively by the required Sentry API integration and Lighthouse toolchain. Direct dependency inspection proves the corresponding database library and removed database/token packages are not installed. This is a third-party lock-name exception, not an application data path.
+The root lock contains `@opentelemetry/instrumentation-mongodb` and `@opentelemetry/instrumentation-mongoose`, brought transitively by the required Sentry API integration and Lighthouse toolchain. `npm ls` proves that `mongodb`, `mongoose`, `mongodb-memory-server`, and `jsonwebtoken` are not installed. These are third-party instrumentation-name exceptions, not database drivers or application data paths.
 
 The first Task 6 clean checkout at `a3d39641e2b0f3e5c1953ce73ba2f7f31fe66dfb` exposed a production-only blocker after the static and browser gates passed: the emitted API imported workspace packages whose exports still targeted TypeScript source. Plain Node failed before binding with `ERR_MODULE_NOT_FOUND` for `packages/domain/src/ids.js`. Regression tests now prove that candidate verification rejects both a missing emitted dependency and a `tsx` source-resolution fallback. `domain`, `contracts`, and `ui` emit runtime distributions in dependency order before API and Web builds, and candidate verification imports the emitted server in an independent plain Node process. The repaired clean checkout and production probes above passed at `0cc9f494b1636a0c08147df7c37e0c43bae38f4c`.
 
@@ -62,6 +69,12 @@ The first Task 6 clean checkout at `a3d39641e2b0f3e5c1953ce73ba2f7f31fe66dfb` ex
 - `/api/v1`: versioned HTTP contract.
 - `/socket.io`: realtime transport.
 - `apps/web/dist`: PWA and Capacitor Web assets.
+
+## Publish Baseline Decision
+
+The immutable, locally verified release candidate is `e9b10e392e2fd6ce410798dc4873246c33f438a9`. The commit containing this baseline record is evidence-only and is not represented as a deployed release. A future deployment must either use that exact candidate or freeze and re-run the complete release gate for a newer SHA.
+
+Local non-database gates are green, but the release exit gate is incomplete. Publication status remains `BLOCKED`, `v2.0.0` does not exist, and no Render deployment, remote release match, backup/restore, or observation result is claimed.
 
 ## External Blockers
 

@@ -13,6 +13,8 @@ npm.cmd run release:v2:verify-sha
 
 Require a clean checkout and exact 40-character SHA. Record root lock, migration, assets, Node/npm, OpenAPI, and test-count checksums with the release manifest tooling.
 
+The candidate SHA is the commit that was built and verified. A later evidence-only commit does not silently replace it: deploy the recorded candidate exactly, or generate a new manifest and repeat every gate for the newer SHA.
+
 ## 2. Required Local Gates
 
 ```powershell
@@ -63,6 +65,8 @@ Create `v2.0.0` only when all of the following exist at the same immutable SHA:
 - remote observation window started with owners and baseline metrics.
 
 Without those facts, record release-ready local evidence and mark publication `BLOCKED`. Do not create the tag, claim deployment, or invent observation results.
+
+The blocked baseline record belongs in `artifacts/release/v2-baseline.json`. It records SHA lineage, checksums, counts, metrics, and environment key names only; it must not contain credentials, response bodies, or an unverified deployment identifier.
 
 ## Environment Names
 
