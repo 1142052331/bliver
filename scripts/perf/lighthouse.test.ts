@@ -1,14 +1,35 @@
 import { Agent, createServer, get, type Server } from 'node:http';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import * as lighthouseModule from './lighthouse.js';
 
 type ShutdownHttpServer = (server: Server, timeoutMs?: number) => Promise<void>;
+type RemoveTemporaryDirectory = (
+  path: string,
+  options?: Readonly<{
+    attempts?: number;
+    retryDelayMs?: number;
+    remove?: (path: string) => Promise<void>;
+  }>,
+) => Promise<void>;
+type ShutdownChrome = (
+  chrome: Readonly<{
+    kill: () => void;
+    process?: Readonly<{ spawnargs?: readonly string[] }>;
+  }>,
+  options?: Parameters<RemoveTemporaryDirectory>[1],
+) => Promise<void>;
 
 const shutdownHttpServer = (lighthouseModule as typeof lighthouseModule & {
   readonly shutdownHttpServer: ShutdownHttpServer;
 }).shutdownHttpServer;
+const removeTemporaryDirectory = (lighthouseModule as typeof lighthouseModule & {
+  readonly removeTemporaryDirectory: RemoveTemporaryDirectory;
+}).removeTemporaryDirectory;
+const shutdownChrome = (lighthouseModule as typeof lighthouseModule & {
+  readonly shutdownChrome: ShutdownChrome;
+}).shutdownChrome;
 
 const servers: Server[] = [];
 const agents: Agent[] = [];
@@ -76,5 +97,34 @@ describe('Lighthouse fixture server shutdown', () => {
     const server = createServer();
     servers.push(server);
     await expect(shutdownHttpServer(server, 100)).resolves.toBeUndefined();
+  });
+
+  it('retries a bounded Windows profile cleanup after transient file locks', async () => {
+    const locked = Object.assign(new Error('profile is still locked'), { code: 'EPERM' });
+    const remove = vi.fn<() => Promise<void>>()
+      .mockRejectedValueOnce(locked)
+      .mockRejectedValueOnce(locked)
+      .mockResolvedValue(undefined);
+
+    await removeTemporaryDirectory('C:\\Temp\\bliver-lighthouse-test', {
+      attempts: 3,
+      retryDelayMs: 0,
+      remove,
+    });
+
+    expect(remove).toHaveBeenCalledTimes(3);
+  });
+
+  it('finishes launcher cleanup when kill reports a transient profile lock', async () => {
+    const locked = Object.assign(new Error('launcher profile is still locked'), { code: 'EPERM' });
+    const remove = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    const chrome = {
+      kill: vi.fn(() => { throw locked; }),
+      process: { spawnargs: ['chrome.exe', '--user-data-dir=C:\\Temp\\lighthouse.test'] },
+    };
+
+    await shutdownChrome(chrome, { attempts: 1, retryDelayMs: 0, remove });
+
+    expect(remove).toHaveBeenCalledWith('C:\\Temp\\lighthouse.test');
   });
 });

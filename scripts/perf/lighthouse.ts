@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:http';
-import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -57,6 +57,58 @@ export async function shutdownHttpServer(server: Server, timeoutMs = 1_000): Pro
   });
 }
 
+interface TemporaryDirectoryOptions {
+  readonly attempts?: number;
+  readonly retryDelayMs?: number;
+  readonly remove?: (path: string) => Promise<void>;
+}
+
+interface ChromeHandle {
+  readonly kill: () => void;
+  readonly process?: Readonly<{ readonly spawnargs?: readonly string[] }>;
+}
+
+const transientCleanupCodes = new Set(['EBUSY', 'ENOTEMPTY', 'EPERM']);
+
+function isTransientCleanupError(error: unknown): boolean {
+  return transientCleanupCodes.has((error as NodeJS.ErrnoException | undefined)?.code ?? '');
+}
+
+export async function removeTemporaryDirectory(
+  path: string,
+  options: TemporaryDirectoryOptions = {},
+): Promise<void> {
+  const attempts = Math.max(1, options.attempts ?? 20);
+  const retryDelayMs = Math.max(0, options.retryDelayMs ?? 100);
+  const remove = options.remove ?? ((candidate: string) => rm(candidate, { force: true, recursive: true }));
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await remove(path);
+      return;
+    } catch (error: unknown) {
+      if (!isTransientCleanupError(error) || attempt === attempts) throw error;
+      if (retryDelayMs > 0) await new Promise((resolveDelay) => setTimeout(resolveDelay, retryDelayMs));
+    }
+  }
+}
+
+export async function shutdownChrome(
+  chrome: ChromeHandle,
+  options: TemporaryDirectoryOptions = {},
+): Promise<void> {
+  const profilePrefix = '--user-data-dir=';
+  const profileArgument = chrome.process?.spawnargs?.find((argument) => argument.startsWith(profilePrefix));
+  const profileDirectory = profileArgument?.slice(profilePrefix.length);
+  let killError: unknown;
+  try {
+    chrome.kill();
+  } catch (error: unknown) {
+    killError = error;
+  }
+  if (profileDirectory) await removeTemporaryDirectory(profileDirectory, options);
+  if (killError && (!profileDirectory || !isTransientCleanupError(killError))) throw killError;
+}
+
 export async function generateLighthouseReport(): Promise<string> {
   await access(resolve(DIST_ROOT, 'index.html'));
   const server = createServer((request, response) => {
@@ -101,7 +153,7 @@ export async function generateLighthouseReport(): Promise<string> {
     return REPORT_PATH;
   } finally {
     try {
-      if (chrome) await chrome.kill();
+      if (chrome) await shutdownChrome(chrome);
     } finally {
       await shutdownHttpServer(server);
     }
