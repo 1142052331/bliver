@@ -4,7 +4,7 @@
   "status": "RELEASE_READY_WITH_EXTERNAL_BLOCKERS",
   "publicationStatus": "BLOCKED",
   "sourceFreezeSha": "8aa34867ceefbb296721392cd5dda4b7a8dcd00b",
-  "releaseCandidateSha": "e9b10e392e2fd6ce410798dc4873246c33f438a9",
+  "releaseCandidateSha": "56107a288c47980ea09ca1429e4b8be5ea3a3231",
   "phase8Lineage": [
     {
       "sha": "dd47ac42390377fe7c0045757c95d3eb6ce979b1",
@@ -33,14 +33,30 @@
     {
       "sha": "e9b10e392e2fd6ce410798dc4873246c33f438a9",
       "subject": "qa: verify clean V2 release"
+    },
+    {
+      "sha": "aa1812e15b026083ab3ca4c5e7fb5188922a4c98",
+      "subject": "release: record V2 baseline readiness"
+    },
+    {
+      "sha": "7c2ab8e110c5a286556f4ea6d89a5ca1e7fe0e51",
+      "subject": "fix: align V2 production release topology"
+    },
+    {
+      "sha": "5ef1c1d77708df452a69d9b570dadd20a4c18852",
+      "subject": "fix: bound Lighthouse fixture shutdown"
+    },
+    {
+      "sha": "56107a288c47980ea09ca1429e4b8be5ea3a3231",
+      "subject": "fix: retry Lighthouse profile cleanup"
     }
   ],
   "candidateManifest": {
     "path": "artifacts/release/v2-candidate-manifest.json",
-    "sha256": "bb084e2960877c991424df4cb07a5f5c4522ad9750d44775774275961797eda8",
+    "sha256": "04ccac450651bbc372314b9f7e2d4eda09f4fe60cc6994dcdbe161da3b4a93d5",
     "nodeVersion": "v24.16.0",
     "npmVersion": "11.13.0",
-    "rootLockSha256": "86dc0b029b4dfe34e95e1ee585d0b7ec07ddba204e960bae91e81b53cc5be69a",
+    "rootLockSha256": "e054faf354d114d8de344140b311c595f4f14f57a9bfa1f7f79ca2061c61f7a2",
     "migrationSha256": "3c15d0f2bb67b5e29ce2d460c5899c25aba06f23d4a00d92cf6b63ca042fc213",
     "migrationCount": 10,
     "assetListSha256": "b913775128eba5dea418bfe8dffcb535fa91eaaa7f0b5d85825bee7b0057dee1",
@@ -48,24 +64,33 @@
   },
   "cleanVerification": {
     "path": "artifacts/release/phase-8-clean-verification.json",
-    "sha256": "e719308f6ffec59a716f9a12b0db5e246452959d2a3df182a4a930bf3538fe6a"
+    "sha256": "e719308f6ffec59a716f9a12b0db5e246452959d2a3df182a4a930bf3538fe6a",
+    "status": "HISTORICAL_PRE_REVIEW_CLEAN_CHECKOUT"
+  },
+  "freezeEvidence": {
+    "path": "artifacts/release/phase-7-freeze.json",
+    "sha256": "82ab728628bac6d2e69417a7fed4985f3ecdc5eceef076c56b0b8b1f2196ab04",
+    "passes": 2,
+    "countsMatch": true,
+    "openApiMatches": true,
+    "openApiSha256": "a30db6c6b1be71a5f71d5cef47ab3c78188292612d51303d630e4a1fe725d37c"
   },
   "verification": {
     "candidateBuild": "PASS",
     "plainNodeApiGraphImport": "PASS",
     "architectureModules": 754,
     "architectureDependencies": 725,
-    "testFilesPassed": 93,
+    "testFilesPassed": 95,
     "testFilesSkipped": 3,
-    "testSuitesPassed": 197,
-    "testsPassed": 366,
+    "testSuitesPassed": 201,
+    "testsPassed": 374,
     "testsSkipped": 7,
     "playwrightPassed": 120,
     "browserEvidencePassed": 8,
-    "maxReconnectResyncMs": 51.6074,
-    "maxInpMs": 32,
+    "maxReconnectResyncMs": 44.0493,
+    "maxInpMs": 24,
     "lighthousePerformanceScore": 1,
-    "lighthouseLcpMs": 277.744,
+    "lighthouseLcpMs": 179.458,
     "lighthouseCls": 0,
     "mainBundleGzipBytes": 193977,
     "mapVendorGzipBytes": 48093,
@@ -76,6 +101,37 @@
     "capacitor": "PASS",
     "releaseStrictPerformance": "BLOCKED_LIVE_POSTGIS_EXPLAIN"
   },
+  "productionTopology": {
+    "renderService": "bliver",
+    "nodeEnv": "production",
+    "deployEnv": "production",
+    "publicOrigin": "https://bliver.onrender.com",
+    "capacitorOrigin": "https://bliver.onrender.com",
+    "androidAppLinkHost": "bliver.onrender.com",
+    "runtimeConfigFromBlueprint": "PASS"
+  },
+  "frozenV1Inventory": {
+    "sourceSha": "8aa34867ceefbb296721392cd5dda4b7a8dcd00b",
+    "trackedPublicAssetCount": 5,
+    "documentMatchesGitTree": true
+  },
+  "supersededCandidates": [
+    {
+      "sha": "e9b10e392e2fd6ce410798dc4873246c33f438a9",
+      "status": "SUPERSEDED_DO_NOT_DEPLOY",
+      "reason": "Render environment, production origin cross-check, and frozen asset inventory review gaps"
+    },
+    {
+      "sha": "7c2ab8e110c5a286556f4ea6d89a5ca1e7fe0e51",
+      "status": "SUPERSEDED_DO_NOT_DEPLOY",
+      "reason": "Lighthouse fixture shutdown fix was not included"
+    },
+    {
+      "sha": "5ef1c1d77708df452a69d9b570dadd20a4c18852",
+      "status": "SUPERSEDED_DO_NOT_DEPLOY",
+      "reason": "Windows Lighthouse profile cleanup retry was not included"
+    }
+  ],
   "environmentKeys": [
     "NODE_ENV",
     "DEPLOY_ENV",

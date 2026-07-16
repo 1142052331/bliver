@@ -15,10 +15,8 @@ The untouched Phase 7 record is archived at [v2-phase-7-hardening.md](../archive
 
 | Task | Command/evidence | Result |
 | --- | --- | --- |
-| 1 freeze | `npm run release:v2:freeze` | PASS twice; each pass exited 0 |
-| 1 counts | structured Vitest reports | 187 passed suites, 349 passed tests, 7 skipped in each pass |
-| 1 OpenAPI | `artifacts/release/phase-7-freeze.json` | 40 paths; identical SHA-256 `a30db6c6b1be71a5f71d5cef47ab3c78188292612d51303d630e4a1fe725d37c` |
-| 1 manifest | `artifacts/release/v2-candidate-manifest.json` | freeze SHA, Node/npm, root lock, migrations, and asset-list hashes recorded |
+| 1 initial freeze | historical `8aa3486` freeze committed at `dd47ac4` | PASS twice; 187 passed suites, 349 passed tests, 7 skipped in each pass |
+| 1 initial OpenAPI | historical `8aa3486` freeze | 40 paths; identical SHA-256 `a30db6c6b1be71a5f71d5cef47ab3c78188292612d51303d630e4a1fe725d37c` |
 | 2 inventory boundary | pre-deletion automated boundary | PASS; no V2 runtime import or direct dependency on the removed roots |
 | 3 focused contracts | static Web, candidate, deployment, production config | PASS, 11/11 |
 | 3 root release tools | V2 smoke and CI config tests | PASS, 7/7 |
@@ -44,12 +42,17 @@ The untouched Phase 7 record is archived at [v2-phase-7-hardening.md](../archive
 | 6 browser performance | `npm run perf:v2:browser-evidence` | PASS, 8/8; reconnect max 34.8 ms, INP max 24 ms |
 | 6 local performance | `npm run perf:v2` | PASS after fresh browser evidence; main bundle 193,977 bytes gzip; live PostGIS EXPLAIN explicitly skipped |
 | 6 database and recovery | Docker daemon, PostGIS migrate/seed, live EXPLAIN, backup/restore | BLOCKED; Docker Desktop could not start, so no live database or recovery evidence exists |
-| 7 immutable candidate | exact-SHA `npm run render-build` at `e9b10e392e2fd6ce410798dc4873246c33f438a9` | PASS; final runtime package, API, Web, and plain-Node import candidate |
-| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `bb084e2960877c991424df4cb07a5f5c4522ad9750d44775774275961797eda8`; 10 migrations and 10 assets |
+| 7 review regressions | deployment topology and frozen inventory tests | PASS, 7/7; real YAML is parsed into `createConfig`, mobile origin is cross-checked, and Git-tree assets equal documentation |
+| 7 production topology | `render.yaml`, Capacitor config, Android manifest | PASS; service `bliver`, `DEPLOY_ENV=production`, and `https://bliver.onrender.com` agree |
+| 7 frozen inventory | `git ls-tree 8aa3486 -- frontend/public` | PASS; all 5 tracked assets, including `manifest.json` and `sw.js`, exactly match the archived inventory |
+| 7 Lighthouse cleanup | keep-alive/profile regression plus real gates | PASS, 5/5; two standalone and both freeze-pass Lighthouse runs exited without process/profile leaks |
+| 7 re-freeze | `npm run release:v2:freeze` at `56107a288c47980ea09ca1429e4b8be5ea3a3231` | PASS twice; 201 suites, 374 tests, 7 PostgreSQL skips, matching 40-path OpenAPI hash |
+| 7 immutable candidate | exact-SHA `npm run render-build` at `56107a288c47980ea09ca1429e4b8be5ea3a3231` | PASS; final runtime package, API, Web, and plain-Node import candidate |
+| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `04ccac450651bbc372314b9f7e2d4eda09f4fe60cc6994dcdbe161da3b4a93d5`; 10 migrations and 10 assets |
 | 7 baseline | `artifacts/release/v2-baseline.json` | `RELEASE_READY_WITH_EXTERNAL_BLOCKERS`; SHA lineage, checksums, counts, metrics, environment key names, and blocked publication gates recorded |
-| 7 foundation | `npm run verify:v2-foundation` | PASS; architecture 754 modules / 725 dependencies; 93 files passed / 3 skipped; 366 tests passed / 7 skipped |
-| 7 browser | full Playwright and isolated performance evidence | PASS, 120/120 and 8/8; reconnect max 51.6074 ms, INP max 32 ms |
-| 7 Lighthouse/performance | Lighthouse plus local and release-strict performance | local PASS; score 1, LCP 277.744 ms, CLS 0; strict EXPECTED BLOCK only on missing live PostGIS EXPLAIN |
+| 7 foundation | each freeze pass | PASS; architecture 754 modules / 725 dependencies; 95 files passed / 3 skipped; 374 tests passed / 7 skipped |
+| 7 browser | each freeze pass plus final isolated evidence | PASS, 120/120 and 8/8; reconnect max 44.0493 ms, INP max 24 ms |
+| 7 Lighthouse/performance | Lighthouse plus local and release-strict performance | local PASS; score 1, LCP 179.458 ms, CLS 0; strict EXPECTED BLOCK only on missing live PostGIS EXPLAIN |
 | 7 publication | Render, remote `/versionz`, backup/restore, observation, `v2.0.0` | BLOCKED / NOT CREATED; no external result is claimed |
 
 Task 3 initially proved that the inherited TypeScript configuration emitted no API artifact. Candidate verification blocked on the missing server. The dedicated API production build configuration now emits `apps/api/dist/bootstrap/server.js`; a fresh ordered candidate build passed. No migration ran during either build.
@@ -60,6 +63,8 @@ The root lock contains `@opentelemetry/instrumentation-mongodb` and `@openteleme
 
 The first Task 6 clean checkout at `a3d39641e2b0f3e5c1953ce73ba2f7f31fe66dfb` exposed a production-only blocker after the static and browser gates passed: the emitted API imported workspace packages whose exports still targeted TypeScript source. Plain Node failed before binding with `ERR_MODULE_NOT_FOUND` for `packages/domain/src/ids.js`. Regression tests now prove that candidate verification rejects both a missing emitted dependency and a `tsx` source-resolution fallback. `domain`, `contracts`, and `ui` emit runtime distributions in dependency order before API and Web builds, and candidate verification imports the emitted server in an independent plain Node process. The repaired clean checkout and production probes above passed at `0cc9f494b1636a0c08147df7c37e0c43bae38f4c`.
 
+Specification review invalidated the earlier `e9b10e392e2fd6ce410798dc4873246c33f438a9` candidate: its Render Blueprint supplied a deploy environment rejected by runtime config, its service name did not prove the mobile production origin, and its frozen V1 asset list omitted two tracked files. That SHA is `SUPERSEDED_DO_NOT_DEPLOY`. Intermediate `7c2ab8e110c5a286556f4ea6d89a5ca1e7fe0e51` and `5ef1c1d77708df452a69d9b570dadd20a4c18852` are also superseded because they lack the complete Lighthouse cleanup fixes.
+
 ## Current Release Topology
 
 - `npm run render-build`: verify exact identity, emit runtime packages in dependency order, emit API, build Web, and import the emitted API graph with plain Node.
@@ -69,10 +74,11 @@ The first Task 6 clean checkout at `a3d39641e2b0f3e5c1953ce73ba2f7f31fe66dfb` ex
 - `/api/v1`: versioned HTTP contract.
 - `/socket.io`: realtime transport.
 - `apps/web/dist`: PWA and Capacitor Web assets.
+- Render service `bliver`, runtime `DEPLOY_ENV=production`, Capacitor origin `https://bliver.onrender.com`, and Android host `bliver.onrender.com` are one tested production topology.
 
 ## Publish Baseline Decision
 
-The immutable, locally verified release candidate is `e9b10e392e2fd6ce410798dc4873246c33f438a9`. The commit containing this baseline record is evidence-only and is not represented as a deployed release. A future deployment must either use that exact candidate or freeze and re-run the complete release gate for a newer SHA.
+The immutable, locally verified release candidate is `56107a288c47980ea09ca1429e4b8be5ea3a3231`. The commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `e9b10e3`, `7c2ab8e`, and `5ef1c1d` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
 
 Local non-database gates are green, but the release exit gate is incomplete. Publication status remains `BLOCKED`, `v2.0.0` does not exist, and no Render deployment, remote release match, backup/restore, or observation result is claimed.
 

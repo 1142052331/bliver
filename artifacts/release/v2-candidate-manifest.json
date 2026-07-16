@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "releaseSha": "e9b10e392e2fd6ce410798dc4873246c33f438a9",
+  "releaseSha": "56107a288c47980ea09ca1429e4b8be5ea3a3231",
   "nodeVersion": "v24.16.0",
   "npmVersion": "11.13.0",
-  "rootLockSha256": "86dc0b029b4dfe34e95e1ee585d0b7ec07ddba204e960bae91e81b53cc5be69a",
+  "rootLockSha256": "e054faf354d114d8de344140b311c595f4f14f57a9bfa1f7f79ca2061c61f7a2",
   "migrationSha256": "3c15d0f2bb67b5e29ce2d460c5899c25aba06f23d4a00d92cf6b63ca042fc213",
   "migrations": [
     "0000_extensions.sql",
