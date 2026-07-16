@@ -7,31 +7,39 @@ import { createMemoryIdentityRepositories } from '../../modules/identity/applica
 import { ConversationService, createMemoryConversationRepository } from '../../modules/conversations/index.js';
 import { parseUserId } from '@bliver/domain';
 import { ObservabilityRegistry } from '../../platform/observability/index.js';
+import { InMemoryOutbox, OutboxWorker } from '../../platform/outbox/index.js';
 
-import { configureRealtime, createConversationSocketHandlers, emitFootprintPublished } from '../realtime.js';
+import { configureRealtime, createConversationOutboxConsumer, createConversationSocketHandlers, emitFootprintPublished } from '../realtime.js';
 
 describe('realtime privacy boundary', () => {
-  it('waits for the configured Outbox delivery delay before emitting', async () => {
-    vi.useFakeTimers();
-    try {
-      const aliceId = parseUserId('019f0000-0000-7000-8000-000000000021');
-      const bobId = parseUserId('019f0000-0000-7000-8000-000000000022');
-      const pair = [aliceId, bobId].sort().join(':');
-      const relationships = { async areFriends(left: string, right: string) { return [left, right].sort().join(':') === pair; }, async isBlocked() { return false; } };
-      const conversations = new ConversationService(createMemoryConversationRepository(), relationships);
-      const conversation = await conversations.getOrCreateDirectConversation(aliceId, bobId);
-      const room = { emit: vi.fn() };
-      const handlers = createConversationSocketHandlers(conversations, { to: () => room }, { deliveryDelayMs: () => 250 });
+  it('delivers a persisted Socket message only after the Outbox worker claims it', async () => {
+    const aliceId = parseUserId('019f0000-0000-7000-8000-000000000021');
+    const bobId = parseUserId('019f0000-0000-7000-8000-000000000022');
+    const pair = [aliceId, bobId].sort().join(':');
+    const relationships = { async areFriends(left: string, right: string) { return [left, right].sort().join(':') === pair; }, async isBlocked() { return false; } };
+    const outbox = new InMemoryOutbox();
+    const repository = createMemoryConversationRepository();
+    const appendEvent = repository.appendEvent.bind(repository);
+    repository.appendEvent = async (event) => {
+      await appendEvent(event);
+      await outbox.append({ ...event, availableAt: 250 });
+    };
+    const conversations = new ConversationService(repository, relationships);
+    const conversation = await conversations.getOrCreateDirectConversation(aliceId, bobId);
+    const room = { emit: vi.fn() };
+    const io = { to: vi.fn(() => room) };
+    const handlers = createConversationSocketHandlers(conversations, io);
 
-      const pending = handlers.message(aliceId, { conversationId: conversation.id, content: 'delayed message' });
-      await vi.advanceTimersByTimeAsync(249);
-      expect(room.emit).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(1);
-      await pending;
-      expect(room.emit).toHaveBeenCalledTimes(2);
-    } finally {
-      vi.useRealTimers();
-    }
+    await expect(handlers.message(aliceId, { conversationId: conversation.id, content: 'outbox message' })).resolves.toMatchObject({ content: 'outbox message' });
+    expect(room.emit).not.toHaveBeenCalled();
+    let current = 249;
+    const worker = new OutboxWorker({ repository: outbox, process: createConversationOutboxConsumer(conversations, io), now: () => current });
+    await expect(worker.runOnce()).resolves.toBe(false);
+    current = 250;
+    await expect(worker.runOnce()).resolves.toBe(true);
+    expect(room.emit).toHaveBeenCalledTimes(2);
+    expect(room.emit).toHaveBeenCalledWith('conversation:message', expect.objectContaining({ content: 'outbox message' }));
+    expect((await outbox.list())[0]).toMatchObject({ attempts: 1, processedAt: 250 });
   });
 
   it('routes publication metadata to the owner room instead of broadcasting globally', () => {
@@ -53,12 +61,17 @@ describe('realtime privacy boundary', () => {
     const bobGrant = await authenticateUser(identity, { username: 'socketbob', password: 'password-123', platform: 'capacitor' });
     const pair = [alice.id, bob.id].sort().join(':');
     const relationships = { async areFriends(left: string, right: string) { return [left, right].sort().join(':') === pair; }, async isBlocked() { return false; } };
-    const conversations = new ConversationService(createMemoryConversationRepository(), relationships);
+    const outbox = new InMemoryOutbox();
+    const repository = createMemoryConversationRepository();
+    const appendEvent = repository.appendEvent.bind(repository);
+    repository.appendEvent = async (event) => { await appendEvent(event); await outbox.append(event); };
+    const conversations = new ConversationService(repository, relationships);
     const conversation = await conversations.getOrCreateDirectConversation(parseUserId(alice.id), parseUserId(bob.id));
     const http = createServer();
     const io = new SocketServer(http);
     const observability = new ObservabilityRegistry();
     configureRealtime(io, identity, conversations, observability);
+    const worker = new OutboxWorker({ repository: outbox, process: createConversationOutboxConsumer(conversations, io) });
     await new Promise<void>((resolve) => http.listen(0, resolve));
     const address = http.address();
     if (!address || typeof address === 'string') throw new Error('server address unavailable');
@@ -74,10 +87,13 @@ describe('realtime privacy boundary', () => {
       const ack = await new Promise<{ ok: boolean; message?: { eventId: string }; code?: string }>((resolve) => clients[0]!.emit('conversation:message', { conversationId: conversation.id, content: 'hello socket', idempotencyKey: 'socket-message-1' }, resolve));
       expect(ack.ok).toBe(true);
       expect(ack.message?.eventId).toBeTruthy();
+      await expect(worker.runOnce()).resolves.toBe(true);
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(received).toHaveLength(1);
       const replay = await new Promise<{ ok: boolean; message?: { eventId: string } }>((resolve) => clients[0]!.emit('conversation:message', { conversationId: conversation.id, content: 'hello socket', idempotencyKey: 'socket-message-1' }, resolve));
       expect(replay).toEqual({ ok: true, message: expect.objectContaining({ eventId: ack.message?.eventId }) });
+      await expect(worker.runOnce()).resolves.toBe(false);
+      expect(received).toHaveLength(1);
       const invalid = await new Promise<{ ok: boolean; code?: string }>((resolve) => clients[0]!.emit('conversation:message', { conversationId: conversation.id, content: '' }, resolve));
       expect(invalid).toEqual({ ok: false, code: 'INVALID_REQUEST' });
       await revokeSession(identity, aliceGrant.session.id);

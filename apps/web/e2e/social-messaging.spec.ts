@@ -228,15 +228,16 @@ function emitMessage(socket: Socket, conversationIdValue: string, content: strin
   return new Promise((resolve) => socket.emit('conversation:message', { conversationId: conversationIdValue, content, idempotencyKey }, resolve));
 }
 
-test('real dual-browser Socket enforces delivery delay, reconnect, block, and session revoke', async ({ browser }, testInfo) => {
+test('real dual-browser Socket uses Outbox delivery, reconnect, block, and session revoke', async ({ browser }, testInfo) => {
   test.setTimeout(60_000);
   const suffix = `${testInfo.project.name}-${testInfo.retry}`.replace(/[^a-z0-9]/gi, '').toLowerCase();
   const userA = await registerRealtimeActor(browser, `socketa${suffix}`);
   const userB = await registerRealtimeActor(browser, `socketb${suffix}`);
   let actorSocket: Socket | undefined;
+  let recipientSocket: Socket | undefined;
   try {
-    const delay = await userA.page.request.put('http://127.0.0.1:5100/__e2e__/outbox-delay', { data: { delayMs: 650 } });
-    expect(delay.ok(), await delay.text()).toBe(true);
+    const control = await userA.page.request.put('http://127.0.0.1:5100/__e2e__/outbox-control', { data: { delayMs: 650, failNext: 1 } });
+    expect(control.ok(), await control.text()).toBe(true);
     const greeting = await userA.page.request.post(`/api/v1/users/${userB.userId}/greetings`, {
       headers: { 'x-csrf-token': userA.csrf, 'idempotency-key': `greeting-${suffix}` },
       data: { content: 'Realtime fixture greeting' },
@@ -255,15 +256,37 @@ test('real dual-browser Socket enforces delivery delay, reconnect, block, and se
     ]);
     await expect(userA.page.getByText('Realtime fixture reply')).toBeVisible();
     await expect(userB.page.getByText('Realtime fixture greeting')).toBeVisible();
+    recipientSocket = await connectActorSocket(userA.context);
 
     const onlineMessage = `Delivered online ${suffix}`;
     const onlineStartedAt = Date.now();
+    const delivered = new Promise<Record<string, unknown>>((resolve) => {
+      recipientSocket!.on('conversation:message', (payload: Record<string, unknown>) => {
+        if (payload.content === onlineMessage) resolve(payload);
+      });
+    });
     await userB.page.getByRole('textbox', { name: 'Message' }).fill(onlineMessage);
     await userB.page.getByRole('button', { name: 'Send' }).click();
     await userA.page.waitForTimeout(200);
-    await expect(userA.page.getByRole('list').getByText(onlineMessage)).toHaveCount(0);
+    let deliveredInsideWindow = false;
+    void delivered.then(() => { deliveredInsideWindow = true; });
+    await userA.page.waitForTimeout(0);
+    expect(deliveredInsideWindow).toBe(false);
+    const deliveredMessage = await delivered;
     await expect(userA.page.getByRole('list').getByText(onlineMessage)).toBeVisible({ timeout: 5_000 });
     expect(Date.now() - onlineStartedAt).toBeGreaterThanOrEqual(500);
+    const outboxResponse = await userA.page.request.get('http://127.0.0.1:5100/__e2e__/outbox-events');
+    expect(outboxResponse.ok(), await outboxResponse.text()).toBe(true);
+    const outboxEvents = (await outboxResponse.json()) as { items: Array<{ type: string; attempts?: number; processedAt?: number; lastError?: string; payload: { messageId?: string } }> };
+    expect(outboxEvents.items).toContainEqual(expect.objectContaining({
+      type: 'MessageSent',
+      attempts: 2,
+      processedAt: expect.any(Number),
+      lastError: 'E2E_OUTBOX_RETRY',
+      payload: expect.objectContaining({ messageId: deliveredMessage.id }),
+    }));
+    recipientSocket.close();
+    recipientSocket = undefined;
 
     await userA.context.setOffline(true);
     const reconnectMessage = `Delivered after reconnect ${suffix}`;
@@ -302,6 +325,7 @@ test('real dual-browser Socket enforces delivery delay, reconnect, block, and se
     await expect(userA.page).toHaveURL(/\/session-expired$/);
   } finally {
     actorSocket?.close();
+    recipientSocket?.close();
     await Promise.all([userA.context.close(), userB.context.close()]);
   }
 });
