@@ -1,0 +1,90 @@
+import { expect, test, type Page, type Route } from '@playwright/test';
+import { V2_TEST_FOOTPRINTS } from '@bliver/testing';
+
+import { expectNoAxeViolations, expectNoHorizontalOverflow } from './accessibility.js';
+
+const longMoment = {
+  ...V2_TEST_FOOTPRINTS[0]!,
+  author: {
+    ...V2_TEST_FOOTPRINTS[0]!.author,
+    name: 'A deliberately long display name that still preserves the activity layout at narrow widths',
+  },
+  message: `A long accessible moment ${'without-horizontal-overflow '.repeat(18)}`,
+};
+
+function json(route: Route, body: unknown, status = 200): Promise<void> {
+  return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+}
+
+async function mockGuestActivity(page: Page): Promise<void> {
+  await page.routeWebSocket('**/socket.io/**', () => undefined);
+  await page.route('**/api/v1/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v1/session') return json(route, { code: 'AUTH_REQUIRED' }, 401);
+    if (path === '/api/v1/activity') return json(route, { items: [longMoment], resolvedScope: 'global' });
+    if (path.endsWith('/comments')) return json(route, { items: [] });
+    if (path === '/api/v1/auth/login') return json(route, { code: 'INVALID_CREDENTIALS' }, 401);
+    return json(route, { code: 'FIXTURE_ROUTE_NOT_FOUND' }, 404);
+  });
+}
+
+test.beforeEach(async ({ page }) => mockGuestActivity(page));
+
+test('route semantics, labels and long content pass the WCAG axe gate', async ({ page }) => {
+  await page.goto('/activity');
+  await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+  await expectNoAxeViolations(page);
+  await expectNoHorizontalOverflow(page);
+});
+
+test('filter dialog supports keyboard focus, Escape and focus restoration', async ({ page }) => {
+  await page.goto('/activity');
+  const filter = page.getByRole('button', { name: 'Filter' });
+  await filter.focus();
+  await expect(filter).toBeFocused();
+  await expect(filter).toHaveCSS('outline-style', 'solid');
+  await filter.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Activity filters' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(filter).toBeFocused();
+});
+
+test('primary controls preserve a 44px touch target through mobile keyboard resizing', async ({ page }) => {
+  await page.goto('/activity');
+  await expect(page.getByRole('button', { name: 'Filter' })).toBeVisible();
+  const controls = page.locator('.activity-route button, .activity-route input, .activity-route select, .activity-route textarea');
+  const count = await controls.count();
+  expect(count).toBeGreaterThan(0);
+  for (let index = 0; index < count; index += 1) {
+    const box = await controls.nth(index).boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+  }
+  await page.setViewportSize({ width: page.viewportSize()?.width ?? 360, height: 420 });
+  await page.getByRole('button', { name: 'Filter' }).click();
+  await expect(page.getByRole('button', { name: 'Close filters' })).toBeInViewport();
+  await expectNoHorizontalOverflow(page);
+});
+
+test('reduced motion removes nonessential transitions without hiding state', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/activity');
+  const button = page.getByRole('button', { name: 'Filter' });
+  await expect(button).toBeVisible();
+  const transitionMs = await button.evaluate((element) => Number.parseFloat(getComputedStyle(element).transitionDuration) * 1_000);
+  expect(transitionMs).toBeLessThanOrEqual(0.01);
+  await button.click();
+  await expect(page.getByRole('dialog', { name: 'Activity filters' })).toBeVisible();
+});
+
+test('authentication failures are announced without displacing keyboard users', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('Username').fill('fixture-user');
+  await page.getByLabel('Password').fill('incorrect-fixture-value');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Sign in failed. Check your details and try again.');
+  await expectNoAxeViolations(page);
+});

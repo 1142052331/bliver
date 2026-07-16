@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expectNoAxeViolations } from './accessibility.js';
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/session', async (route) => { await route.fulfill({ status: 401, contentType: 'application/problem+json', body: JSON.stringify({ type: 'about:blank', title: 'Unauthorized', status: 401, code: 'AUTH_REQUIRED' }) }); });
@@ -10,6 +11,7 @@ test('guest map opens as the primary surface', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Map' })).toBeVisible();
   await expect(page.getByTestId('map-canvas')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Search places' })).toBeVisible();
+  await expectNoAxeViolations(page);
 });
 
 test('authenticated publish flow keeps audience and precision controls explicit', async ({ context, page }) => {

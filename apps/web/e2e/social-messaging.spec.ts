@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page, type Route } from '@playwright/test';
+import { expectNoAxeViolations } from './accessibility.js';
 
 const actorA = '019f0000-0000-7000-8000-000000000001';
 const actorB = '019f0000-0000-7000-8000-000000000002';
@@ -136,6 +137,7 @@ test('two people can request, accept, greet, reply, and see unread state', async
   try {
     await userA.page.goto('/people');
     await expect(userA.page.getByRole('heading', { name: 'People' })).toBeVisible();
+    await expectNoAxeViolations(userA.page);
     await userA.page.getByRole('textbox', { name: 'Person ID', exact: true }).fill(actorB);
     await userA.page.getByRole('button', { name: 'Send request' }).click();
     await expect(userA.page.getByText('Friend request sent.')).toBeVisible();

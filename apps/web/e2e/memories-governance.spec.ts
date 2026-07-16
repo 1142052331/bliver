@@ -1,4 +1,5 @@
 import { expect,test,type Page,type Route } from '@playwright/test';
+import { expectNoAxeViolations } from './accessibility.js';
 const ownerId='019f0000-0000-7000-8000-000000000101';const visitorId='019f0000-0000-7000-8000-000000000102';const footprintId='019f0000-0000-7000-8000-000000000103';const reportId='019f0000-0000-7000-8000-000000000104';const caseId='019f0000-0000-7000-8000-000000000105';const now='2026-07-16T08:00:00.000Z';
 const reply=(route:Route,body:unknown,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
 async function cookies(page:Page){await page.context().addCookies([{name:'bliver_session',value:'e2e-session',domain:'127.0.0.1',path:'/'},{name:'bliver_csrf',value:'e2e-csrf',domain:'127.0.0.1',path:'/'}]);}
@@ -14,7 +15,7 @@ test('owner and visitor see only authorized memories and notifications',async({p
     if(path==='/api/v1/notifications/preferences')return reply(route,{reactions:true,comments:true,social:true,messages:true,moderation:true,push:false});
     if(path==='/api/v1/notifications/notice-1/read'&&request.method()==='POST'){unread=0;return reply(route,{},204);}return reply(route,{},404);
   });
-  await page.goto('/me');await expect(page.getByRole('heading',{name:'Memories'})).toBeVisible();await expect(page.getByText('Harbor morning')).toBeVisible();await page.goto(`/profile/${ownerId}`);await expect(page.getByText('No memories are visible here yet.')).toBeVisible();await page.goto('/notifications');await expect(page.getByText('1 unread')).toBeVisible();await page.getByRole('button',{name:'Mark read'}).click();await expect(page.getByText('0 unread')).toBeVisible();
+  await page.goto('/me');await expect(page.getByRole('heading',{name:'Memories'})).toBeVisible();await expect(page.getByText('Harbor morning')).toBeVisible();await expectNoAxeViolations(page);await page.goto(`/profile/${ownerId}`);await expect(page.getByText('No memories are visible here yet.')).toBeVisible();await page.goto('/notifications');await expect(page.getByText('1 unread')).toBeVisible();await page.getByRole('button',{name:'Mark read'}).click();await expect(page.getByText('0 unread')).toBeVisible();
 });
 
 test('admin resolves a report through a case and sees immutable audit',async({page})=>{
@@ -26,5 +27,5 @@ test('admin resolves a report through a case and sees immutable audit',async({pa
 });
 
 test('real app fixture protects and serves the authenticated memories route',async({page},testInfo)=>{
-  await page.goto('/me');await expect(page).toHaveURL(/\/session-expired$/);const username=`real_${testInfo.project.name}_${Date.now()}`;const response=await page.request.post('/api/v1/auth/register',{data:{username,password:'password-123',displayName:'Real fixture'}});expect(response.ok()).toBe(true);await page.goto('/me');await expect(page.getByRole('heading',{name:'Memories'})).toBeVisible();await expect(page.getByText('No memories are visible here yet.')).toBeVisible();
+  await page.goto('/me');await expect(page).toHaveURL(/\/session-expired$/);const project=testInfo.project.name.replace(/[^a-z0-9]/gi,'').slice(0,20);const username=`real${project}${testInfo.retry}`;const response=await page.request.post('/api/v1/auth/register',{data:{username,password:'password-123',displayName:'Real fixture'}});expect(response.ok()).toBe(true);await page.goto('/me');await expect(page.getByRole('heading',{name:'Memories'})).toBeVisible();await expect(page.getByText('No memories are visible here yet.')).toBeVisible();
 });

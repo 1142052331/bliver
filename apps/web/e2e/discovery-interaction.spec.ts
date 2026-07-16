@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { expectNoAxeViolations } from './accessibility.js';
 
 const footprint = { id: '019f0000-0000-7000-8000-000000000001', author: { id: '019f0000-0000-7000-8000-000000000002', name: 'Lin' }, displayPoint: { lat: 31, lng: 121 }, visibility: 'public', locationPrecision: 'approximate', message: 'By the river', publishedAt: '2026-07-15T08:00:00.000Z', discoveryExpiresAt: '2099-07-16T08:00:00.000Z' };
 const comment = { id: '019f0000-0000-7000-8000-000000000003', footprintId: footprint.id, author: footprint.author, content: 'First note', parentCommentId: null, createdAt: '2026-07-15T08:01:00.000Z', replies: [] };
@@ -26,6 +27,7 @@ test('guest discovery keeps a pending reaction through authentication', async ({
   await page.goto('/activity');
   await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
   await expect(page.getByText('By the river')).toBeVisible();
+  await expectNoAxeViolations(page);
   await page.getByRole('button', { name: 'React with heart' }).click();
   await expect(page.getByText('Sign in to react.')).toBeVisible();
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('bliver:pending-action'))).toContain('reaction');

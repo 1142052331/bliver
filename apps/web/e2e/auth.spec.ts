@@ -9,6 +9,7 @@ import {
   visibleFootprintsFor,
   type V2TestActor,
 } from '@bliver/testing';
+import { expectNoAxeViolations } from './accessibility.js';
 
 function json(route: Route, body: unknown, status = 200): Promise<void> {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -80,6 +81,8 @@ test('guest route contract keeps public surfaces open and protects private works
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
     await assertNoHorizontalOverflow(page);
   }
+  await page.goto('/activity');
+  await expectNoAxeViolations(page);
   for (const path of ['/publish', '/notifications', '/me', '/admin']) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/session-expired$/);

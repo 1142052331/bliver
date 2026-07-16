@@ -1,6 +1,6 @@
 .activity-route { min-height: calc(100vh - 132px); padding: 24px 16px 48px; background: #f5f7f4; color: var(--bliver-color-ink); }
 .activity-route__header { max-width: 720px; margin: 0 auto 20px; display: flex; align-items: end; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--bliver-color-border); padding-bottom: 16px; }
-.activity-route__header p { margin: 0 0 3px; color: var(--bliver-color-coral); font-size: .75rem; font-weight: 750; text-transform: uppercase; }
+.activity-route__header p { margin: 0 0 3px; color: var(--bliver-color-coral-active); font-size: .75rem; font-weight: 750; text-transform: uppercase; }
 .activity-route__header h1 { margin: 0; color: var(--bliver-color-forest); font: 700 2rem/1.05 Georgia, serif; letter-spacing: 0; }
 .activity-route__header span { display: block; margin-top: 5px; color: var(--bliver-color-ink-muted); font-size: .875rem; }
 .activity-route__search { display: grid; gap: 6px; max-width: 720px; margin: 0 auto 18px; color: var(--bliver-color-ink-muted); font-size: .8rem; font-weight: 650; }
