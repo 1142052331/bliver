@@ -24,7 +24,20 @@ export function validateDependencyExceptions(exceptions: readonly DependencyExce
   return failures;
 }
 
-interface AuditReport { readonly vulnerabilities?: Record<string, { readonly via?: readonly (string | { readonly source?: number | string; readonly url?: string })[] }> }
+type AuditSeverity = 'info' | 'low' | 'moderate' | 'high' | 'critical';
+interface AuditReport { readonly vulnerabilities?: Record<string, { readonly severity?: AuditSeverity; readonly via?: readonly (string | { readonly source?: number | string; readonly url?: string })[] }> }
+
+export function collectAuditAdvisoryIds(report: AuditReport, minimumSeverity: AuditSeverity): readonly string[] {
+  const rank: Readonly<Record<AuditSeverity, number>> = { info: 0, low: 1, moderate: 2, high: 3, critical: 4 };
+  return Object.values(report.vulnerabilities ?? {})
+    .filter((item) => rank[item.severity ?? 'info'] >= rank[minimumSeverity])
+    .flatMap((item) => (item.via ?? []).flatMap((entry) => {
+      if (typeof entry === 'string') return [];
+      const fromUrl = entry.url?.match(/GHSA-[A-Za-z0-9-]+/)?.[0];
+      return [fromUrl ?? String(entry.source ?? '')];
+    }))
+    .filter(Boolean);
+}
 
 function npmAudit(args: readonly string[], exceptions: ReadonlySet<string>): boolean {
   const npmCli = process.env.npm_execpath;
@@ -34,11 +47,7 @@ function npmAudit(args: readonly string[], exceptions: ReadonlySet<string>): boo
   if (result.status === 0) return true;
   try {
     const report = JSON.parse(result.stdout) as AuditReport;
-    const advisoryIds = Object.values(report.vulnerabilities ?? {}).flatMap((item) => (item.via ?? []).flatMap((entry) => {
-      if (typeof entry === 'string') return [];
-      const fromUrl = entry.url?.match(/GHSA-[A-Za-z0-9-]+/)?.[0];
-      return [fromUrl ?? String(entry.source ?? '')];
-    })).filter(Boolean);
+    const advisoryIds = collectAuditAdvisoryIds(report, 'high');
     return advisoryIds.length > 0 && advisoryIds.every((advisory) => exceptions.has(advisory));
   } catch { return false; }
 }

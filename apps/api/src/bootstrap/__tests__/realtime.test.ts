@@ -6,6 +6,7 @@ import { authenticateUser, registerUser, revokeSession } from '../../modules/ide
 import { createMemoryIdentityRepositories } from '../../modules/identity/application/memory-repositories.js';
 import { ConversationService, createMemoryConversationRepository } from '../../modules/conversations/index.js';
 import { parseUserId } from '@bliver/domain';
+import { ObservabilityRegistry } from '../../platform/observability/index.js';
 
 import { configureRealtime, createConversationSocketHandlers, emitFootprintPublished } from '../realtime.js';
 
@@ -56,13 +57,18 @@ describe('realtime privacy boundary', () => {
     const conversation = await conversations.getOrCreateDirectConversation(parseUserId(alice.id), parseUserId(bob.id));
     const http = createServer();
     const io = new SocketServer(http);
-    configureRealtime(io, identity, conversations);
+    const observability = new ObservabilityRegistry();
+    configureRealtime(io, identity, conversations, observability);
     await new Promise<void>((resolve) => http.listen(0, resolve));
     const address = http.address();
     if (!address || typeof address === 'string') throw new Error('server address unavailable');
     const clients: Socket[] = [socketClient(`http://127.0.0.1:${address.port}`, { auth: { token: aliceGrant.accessToken }, forceNew: true }), socketClient(`http://127.0.0.1:${address.port}`, { auth: { token: bobGrant.accessToken }, forceNew: true })];
     try {
       await Promise.all(clients.map((client) => new Promise<void>((resolve, reject) => { client.once('connect', () => resolve()); client.once('connect_error', reject); })));
+      clients[0]!.disconnect();
+      clients[0]!.connect();
+      await new Promise<void>((resolve, reject) => { clients[0]!.once('connect', resolve); clients[0]!.once('connect_error', reject); });
+      expect(observability.snapshot().counters).toMatchObject({ socketConnections: 2, socketReconnects: 1 });
       const received: unknown[] = [];
       clients[1]!.on('conversation:message', (payload) => received.push(payload));
       const ack = await new Promise<{ ok: boolean; message?: { eventId: string }; code?: string }>((resolve) => clients[0]!.emit('conversation:message', { conversationId: conversation.id, content: 'hello socket', idempotencyKey: 'socket-message-1' }, resolve));

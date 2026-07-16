@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { executeTransaction, type DatabaseQueryPort } from '../client.js';
+import { executeTransaction, observeDatabaseQuery, type DatabaseQueryPort } from '../client.js';
 
 function queryPort() {
   const statements: string[] = [];
@@ -12,6 +12,16 @@ function queryPort() {
 }
 
 describe('database transaction port', () => {
+  it('reports slow queries and pool failures without exposing SQL', async () => {
+    const dependency = vi.fn();
+    const times = [0, 600, 700, 710];
+    await expect(observeDatabaseQuery(async () => ({ rows: [] }), { dependency }, () => times.shift() ?? 0, 500)).resolves.toEqual({ rows: [] });
+    await expect(observeDatabaseQuery(async () => { throw new Error('pool down'); }, { dependency }, () => times.shift() ?? 0, 500)).rejects.toThrow('pool down');
+    expect(dependency).toHaveBeenCalledWith('slowQuery', false);
+    expect(dependency).toHaveBeenCalledWith('dbPool', false);
+    expect(JSON.stringify(dependency.mock.calls)).not.toMatch(/SELECT|pool down/);
+  });
+
   it('commits after the callback succeeds', async () => {
     const fake = queryPort();
 

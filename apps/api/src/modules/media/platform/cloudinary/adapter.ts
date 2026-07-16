@@ -17,6 +17,7 @@ interface CloudinaryTransportResponse {
 interface CloudinaryAdapterOptions {
   readonly now?: () => number;
   readonly fetch?: typeof fetch;
+  readonly observe?: (healthy: boolean) => void;
 }
 
 function signatureFor(parameters: Record<string, string | number>, apiSecret: string): string {
@@ -41,11 +42,13 @@ export class CloudinaryAdapter implements MediaAdapter {
   private readonly config: CloudinaryConfig | undefined;
   private readonly now: () => number;
   private readonly fetcher: typeof fetch;
+  private readonly observe: ((healthy: boolean) => void) | undefined;
 
   constructor(config: CloudinaryConfig | undefined, options: CloudinaryAdapterOptions = {}) {
     this.config = config;
     this.now = options.now ?? (() => Math.floor(Date.now() / 1_000));
     this.fetcher = options.fetch ?? fetch;
+    this.observe = options.observe;
   }
 
   async signUpload(input: MediaUploadInput): Promise<MediaSignedUpload> {
@@ -76,11 +79,13 @@ export class CloudinaryAdapter implements MediaAdapter {
         headers: { authorization: `Basic ${Buffer.from(`${config.apiKey}:${config.apiSecret}`).toString('base64')}` },
       });
     } catch {
+      this.observe?.(false);
       return null;
     }
-    if (!response.ok) return null;
+    if (!response.ok) { this.observe?.(false); return null; }
     const body = await response.json() as { public_id?: unknown; version?: unknown; width?: unknown; height?: unknown; format?: unknown };
-    if (body.public_id !== publicId || typeof body.version !== 'number' || typeof body.width !== 'number' || typeof body.height !== 'number' || !Number.isInteger(body.version) || !Number.isInteger(body.width) || !Number.isInteger(body.height) || typeof body.format !== 'string' || body.version <= 0 || body.width <= 0 || body.height <= 0 || !body.format) return null;
+    if (body.public_id !== publicId || typeof body.version !== 'number' || typeof body.width !== 'number' || typeof body.height !== 'number' || !Number.isInteger(body.version) || !Number.isInteger(body.width) || !Number.isInteger(body.height) || typeof body.format !== 'string' || body.version <= 0 || body.width <= 0 || body.height <= 0 || !body.format) { this.observe?.(false); return null; }
+    this.observe?.(true);
     return { publicId, version: body.version, width: body.width, height: body.height, format: body.format };
   }
 
@@ -102,15 +107,19 @@ export class CloudinaryAdapter implements MediaAdapter {
         body,
       });
     } catch {
+      this.observe?.(false);
       throw new MediaError('MEDIA_DELETE_FAILED');
     }
     if (!response.ok) {
+      this.observe?.(false);
       throw new MediaError('MEDIA_DELETE_FAILED');
     }
+    this.observe?.(true);
   }
 
   private requireConfig(): CloudinaryConfig {
     if (!this.config?.cloudName || !this.config.apiKey || !this.config.apiSecret) {
+      this.observe?.(false);
       throw new MediaError('MEDIA_CONFIGURATION_MISSING');
     }
     return this.config;

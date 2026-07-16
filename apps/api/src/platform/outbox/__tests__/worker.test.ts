@@ -25,6 +25,14 @@ describe('outbox worker', () => {
     expect((await outbox.list())[0]?.deadLetteredAt).toBeTruthy();
   });
 
+  it('reports backlog, retry and terminal failure from the worker boundary', async () => {
+    const outbox = new InMemoryOutbox();
+    const observe = vi.fn();
+    await outbox.append({ id: 'event-observe', type: 'FootprintPublished', aggregateId: 'footprint-observe', payload: {} });
+    await new OutboxWorker({ repository: outbox, process: async () => { throw new Error('down'); }, now: () => 100, maxAttempts: 1, observe }).runOnce();
+    expect(observe.mock.calls.map(([kind]) => kind)).toEqual(['backlog', 'retry', 'failure']);
+  });
+
   it('does not process events that are not yet available', async () => {
     const outbox = new InMemoryOutbox();
     await outbox.append({ id: 'event-3', type: 'FootprintPublished', aggregateId: 'footprint-3', payload: {}, availableAt: 1_700_000_100 });

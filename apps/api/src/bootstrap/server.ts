@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 
 import pino from 'pino';
+import * as Sentry from '@sentry/node';
 import { parseUserId } from '@bliver/domain';
 
 import { createConfig } from './config.js';
@@ -21,7 +22,15 @@ import { createNominatimGeography } from '../platform/geography/providers.js';
 import { configureRealtime, emitFootprintPublished } from './realtime.js';
 import { NotificationService, createPostgresNotificationRepository, PushAdapter, PushDeliveryConsumer, WebPushProvider } from '../modules/notifications/index.js';
 import { AuthorizedMemoryQuery, createPostgresMemoryMediaSource, createPostgresMemoryRepository, createPostgresVisitorSource, MemoryProjectionConsumer } from '../modules/memories/index.js';
-import { ObservabilityRegistry } from '../platform/observability/index.js';
+import { ObservabilityRegistry, configureSentryRelease, type SentryTagSink } from '../platform/observability/index.js';
+import type { ApiConfig } from './config.js';
+
+export interface ServerSentryPort extends SentryTagSink { init(options: { readonly dsn?: string; readonly release: string; readonly environment: string; readonly sendDefaultPii: boolean; readonly enabled: boolean }): void; }
+
+export function configureServerSentry(config: ApiConfig, sentry: ServerSentryPort): void {
+  sentry.init({ ...(config.sentryDsn ? { dsn: config.sentryDsn } : {}), release: config.releaseSha, environment: config.deployEnv, sendDefaultPii: false, enabled: Boolean(config.sentryDsn) });
+  configureSentryRelease(sentry, config.releaseSha, config.deployEnv);
+}
 
 export interface ShutdownServerPort {
   close(callback: (error?: Error) => void): unknown;
@@ -52,12 +61,13 @@ export async function shutdownServer(
 
 export async function startServer(): Promise<void> {
   const config = createConfig();
+  configureServerSentry(config, Sentry);
   const logger = pino({ level: config.nodeEnv === 'production' ? 'info' : 'silent' });
   const observability = new ObservabilityRegistry(config.sessionSecret, logger);
-  const db = createDb(config.databaseUrl);
+  const db = createDb(config.databaseUrl, { observability });
   const identity = createPostgresIdentityRepositories(db);
   const mediaRepositories = createPostgresMediaRepositories(db);
-  const media = new MediaService({ adapter: new CloudinaryAdapter(config.cloudinary), repositories: mediaRepositories });
+  const media = new MediaService({ adapter: new CloudinaryAdapter(config.cloudinary, { observe: (healthy) => observability.dependency('cloudinary', healthy) }), repositories: mediaRepositories });
   const relationships = createPostgresSocialRepository(db);
   const blockPolicy = new BlockPolicy(relationships);
   const mapAccessFilter = ({ viewerId, addParameter }: { viewerId: string | null; addParameter: (value: unknown) => string }): string => {
@@ -70,14 +80,14 @@ export async function startServer(): Promise<void> {
   const governance = new ModerationGovernanceService(governanceRepository);
   const notificationRepository = createPostgresNotificationRepository(db);
   const notificationService = new NotificationService(notificationRepository, { async isBlocked(recipientId, actorId) { return relationships.isEitherBlocked(parseUserId(recipientId), parseUserId(actorId)); } });
-  const pushDelivery = config.push ? new PushDeliveryConsumer(new PushAdapter(new WebPushProvider(), config.push), notificationRepository) : null;
+  const pushDelivery = config.push ? new PushDeliveryConsumer(new PushAdapter(new WebPushProvider(), config.push, (healthy) => observability.dependency('push', healthy)), notificationRepository) : null;
   const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: relationships, blocks: relationships, moderation: governance, now: () => new Date() });
   const memoryRepository = createPostgresMemoryRepository(db);
   const memories = new AuthorizedMemoryQuery(memoryRepository, policy, createPostgresMemoryMediaSource(db, config.cloudinary?.cloudName), createPostgresVisitorSource(db));
   const map = new MapFootprintQuery({ repository: footprints, policy, cursorSecret: config.sessionSecret });
   const discoveryRepository = createPostgresDiscoveryRepository(db, { accessFilter: (input) => blockPolicy.relationshipVisibilitySql(input) });
   const activity = new DiscoveryQueryService({ repository: discoveryRepository, policy, cursorSecret: config.sessionSecret });
-  const geography = createNominatimGeography();
+  const geography = createNominatimGeography({ observe: (healthy) => observability.dependency('geocoder', healthy) });
   const interactionService = new InteractionService(createPostgresInteractionRepository(db), { async canInteract(actor, footprintId) { return policy.canRead(actor, footprintId); }, async canRead(actor, footprintId) { return policy.canRead(actor, footprintId); }, async isBlocked(actorId, targetId) { return relationships.isEitherBlocked(actorId, targetId); }, async footprintOwner(footprintId) { return (await footprints.findById(footprintId))?.authorId ?? null; } });
   const reportCreate = new CreateReport(createPostgresReportRepository(db), { async canReport(actor, footprintId) { return policy.canRead(actor, footprintId); } });
   const conversationService = new ConversationService(createPostgresConversationRepository(db), relationships);

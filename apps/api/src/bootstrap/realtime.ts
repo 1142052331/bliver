@@ -5,7 +5,7 @@ import type { IdentityRepositories } from '../modules/identity/application/ports
 import { socketMessageInput, socketReadInput, socketTypingInput } from '@bliver/contracts';
 import { parseUserId } from '@bliver/domain';
 import type { ConversationService } from '../modules/conversations/index.js';
-import type { ObservabilityRegistry } from '../platform/observability/index.js';
+import { hashActorId, type ObservabilityRegistry } from '../platform/observability/index.js';
 
 function observationId(value: string | string[] | undefined, fallback: string): string {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -54,6 +54,7 @@ export function createConversationSocketHandlers(service: ConversationService, i
 }
 
 export function configureRealtime(io: SocketServer, identity: IdentityRepositories, conversations?: ConversationService, observability?: ObservabilityRegistry, deliveryOptions?: RealtimeDeliveryOptions): void {
+  const seenSessionKeys = new Set<string>();
   io.use(async (socket, next) => {
     const bearer = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
     const token = bearer ?? cookieToken(socket);
@@ -72,7 +73,11 @@ export function configureRealtime(io: SocketServer, identity: IdentityRepositori
     const userId = socket.data.userId;
     const connectedAt = Date.now();
     const dimensions = { requestId: String(socket.data.requestId ?? socket.id), correlationId: String(socket.data.correlationId ?? socket.id), status: 'connected', durationMs: 0, ...(typeof userId === 'string' ? { actorId: userId } : {}) };
-    observability?.socket(socket.recovered ? 'reconnect' : 'connection', dimensions);
+    const sessionKey = hashActorId(typeof socket.data.sessionToken === 'string' ? socket.data.sessionToken : socket.id, 'socket-session');
+    const reconnected = socket.recovered || seenSessionKeys.has(sessionKey);
+    if (!seenSessionKeys.has(sessionKey) && seenSessionKeys.size >= 10_000) seenSessionKeys.delete(seenSessionKeys.values().next().value ?? '');
+    seenSessionKeys.add(sessionKey);
+    observability?.socket(reconnected ? 'reconnect' : 'connection', dimensions);
     socket.on('disconnect', (reason) => observability?.socket('disconnect', { ...dimensions, status: reason, durationMs: Date.now() - connectedAt }));
     if (typeof userId === 'string') socket.join(`user:${userId}`);
     if (conversations && typeof userId === 'string') {

@@ -42,4 +42,15 @@ describe('CloudinaryAdapter', () => {
 
     await expect(adapter.signUpload({ publicId: 'bliver/asset-1', mimeType: 'image/jpeg', bytes: 100 })).rejects.toMatchObject({ code: 'MEDIA_CONFIGURATION_MISSING' });
   });
+
+  it('reports provider failures through the runtime dependency observer', async () => {
+    const observe = vi.fn();
+    const adapter = new CloudinaryAdapter(
+      { cloudName: 'demo', apiKey: 'public-key', apiSecret: 'private-secret' },
+      { fetch: vi.fn(async () => { throw new Error('offline'); }), observe },
+    );
+
+    await expect(adapter.verifyAsset('bliver/asset-1')).resolves.toBeNull();
+    expect(observe).toHaveBeenCalledWith(false);
+  });
 });

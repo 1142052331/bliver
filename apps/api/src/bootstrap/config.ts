@@ -13,6 +13,7 @@ const environmentSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().min(1).optional(),
   VAPID_PRIVATE_KEY: z.string().min(1).optional(),
   VAPID_SUBJECT: z.string().min(1).optional(),
+  SENTRY_DSN: z.string().url().optional(),
 });
 
 export type ApiConfig = Readonly<{
@@ -30,6 +31,7 @@ export type ApiConfig = Readonly<{
       }>
     | undefined;
   push: Readonly<{ publicKey: string; privateKey: string; subject: string }> | undefined;
+  sentryDsn?: string;
 }>;
 
 export function createConfig(environment: NodeJS.ProcessEnv = process.env): ApiConfig {
@@ -55,5 +57,6 @@ export function createConfig(environment: NodeJS.ProcessEnv = process.env): ApiC
     port: parsed.PORT,
     cloudinary,
     push,
+    ...(parsed.SENTRY_DSN ? { sentryDsn: parsed.SENTRY_DSN } : {}),
   };
 }

@@ -28,4 +28,13 @@ describe('Nominatim geography provider', () => {
     await expect(search).resolves.toEqual([]);
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
+
+  it('reports provider failure at the adapter boundary without exposing coordinates', async () => {
+    const observe = vi.fn();
+    const geography = createNominatimGeography({ fetch: vi.fn(async () => { throw new Error('offline'); }), baseUrl: 'https://geo.test', observe });
+
+    await expect(geography.geocode({ latitude: 31.123456, longitude: 121.654321 })).resolves.toEqual({ place: null, region: null });
+    expect(observe).toHaveBeenCalledWith(false);
+    expect(JSON.stringify(observe.mock.calls)).not.toMatch(/31\.123456|121\.654321/);
+  });
 });

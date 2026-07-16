@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { auditEnvironmentExample, findSecretCandidates } from './config-audit.js';
-import { validateDependencyExceptions } from './dependency-policy.js';
+import { collectAuditAdvisoryIds, validateDependencyExceptions } from './dependency-policy.js';
 import { SECURITY_BEHAVIOR_TEST_FILES } from './run.js';
 
 describe('V2 security audit helpers', () => {
@@ -37,5 +37,13 @@ describe('V2 security audit helpers', () => {
       expect.stringContaining('map-query.test.ts'),
       expect.stringContaining('routes.test.ts'),
     ]));
+  });
+
+  it('ignores moderate advisories when npm audit is gated at high severity', () => {
+    const report = { vulnerabilities: {
+      moderate: { severity: 'moderate', via: [{ url: 'https://github.com/advisories/GHSA-moderate-test' }] },
+      high: { severity: 'high', via: [{ url: 'https://github.com/advisories/GHSA-high-test' }] },
+    } } as const;
+    expect(collectAuditAdvisoryIds(report, 'high')).toEqual(['GHSA-high-test']);
   });
 });
