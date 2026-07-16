@@ -1,7 +1,8 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
-import { V2_TEST_FOOTPRINTS } from '@bliver/testing';
+import { V2_TEST_FOOTPRINTS, V2_TEST_SOCIAL, V2_TEST_USERS } from '@bliver/testing';
 
 import { expectNoAxeViolations, expectNoHorizontalOverflow } from './accessibility.js';
+import { installJourneyApi } from './journey-api.js';
 
 const longMoment = {
   ...V2_TEST_FOOTPRINTS[0]!,
@@ -30,6 +31,51 @@ async function mockGuestActivity(page: Page): Promise<void> {
 
 test.beforeEach(async ({ page }) => mockGuestActivity(page));
 
+test('every route-owned surface passes the WCAG axe gate', async ({ page }) => {
+  test.setTimeout(60_000);
+  await installJourneyApi(page, 'userA');
+  const routes = [
+    ['/', 'Map'],
+    ['/map', 'Map'],
+    ['/activity', 'Activity'],
+    ['/login', 'Sign in'],
+    ['/people', 'People'],
+    ['/messages', 'Messages'],
+    [`/messages/${V2_TEST_SOCIAL.conversationId}`, 'Person 019f0000'],
+    ['/notifications', 'Notifications'],
+    ['/me', 'Memories'],
+    ['/me/map', 'Map memories'],
+    ['/me/timeline', 'Timeline'],
+    ['/me/photos', 'Photos'],
+    ['/me/visitors', 'Visitors'],
+    [`/profile/${V2_TEST_USERS.userB.id}`, 'Profile memories'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories`, 'Profile memories'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories/map`, 'Map memories'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories/timeline`, 'Timeline'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories/photos`, 'Photos'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories/visitors`, 'Visitors'],
+    [`/footprints/${V2_TEST_FOOTPRINTS[0]!.id}`, 'Footprint'],
+    ['/publish?lat=31.231&lng=121.471', 'Publish a footprint'],
+    ['/session-expired', 'Session expired'],
+    ['/missing-route', 'Not found'],
+  ] as const;
+
+  for (const [path, heading] of routes) {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+    await expectNoAxeViolations(page);
+    await expectNoHorizontalOverflow(page);
+  }
+});
+
+test('admin route surface passes the WCAG axe gate', async ({ page }) => {
+  await installJourneyApi(page, 'admin');
+  await page.goto('/admin');
+  await expect(page.getByRole('heading', { name: 'Admin', exact: true })).toBeVisible();
+  await expectNoAxeViolations(page);
+  await expectNoHorizontalOverflow(page);
+});
+
 test('route semantics, labels and long content pass the WCAG axe gate', async ({ page }) => {
   await page.goto('/activity');
   await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
@@ -50,6 +96,17 @@ test('filter dialog supports keyboard focus, Escape and focus restoration', asyn
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(filter).toBeFocused();
+});
+
+test('keyboard order reaches shell commands before the sign-in form with visible focus', async ({ page }) => {
+  await page.goto('/login');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Bliver' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Publish footprint' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Username')).toBeFocused();
+  await expect(page.getByLabel('Username')).toHaveCSS('outline-style', 'solid');
 });
 
 test('primary controls preserve a 44px touch target through mobile keyboard resizing', async ({ page }) => {
