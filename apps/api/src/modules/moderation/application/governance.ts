@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { ActorContext } from '../../identity/index.js';
 
 export type AdminRole = 'moderator' | 'admin';
+export type CaseDisposition = 'resolved' | 'dismissed';
 export interface AdminCommandContext extends ActorContext { readonly caseId: string; readonly reason: string; }
 export interface ModerationCase { readonly id: string; readonly reportId?: string; readonly status: 'open'|'resolved'|'dismissed'; readonly targetType: string; readonly targetId: string; readonly openedBy: string; readonly reason: string; readonly createdAt: Date; readonly resolvedAt?: Date; }
 export interface AuditLog { readonly id:string; readonly caseId:string; readonly actorId:string; readonly action:string; readonly targetType:string; readonly targetId:string; readonly reason:string; readonly before:Record<string,unknown>; readonly after:Record<string,unknown>; readonly createdAt:Date; }
@@ -12,7 +13,7 @@ export class ModerationGovernanceService {
   constructor(private readonly repository:GovernanceRepository){}
   async currentRole(userId:string):Promise<AdminRole|null>{return this.repository.role(userId);}
   async openCase(actor:ActorContext,input:{reportId?:string;targetType:string;targetId:string;reason:string}):Promise<ModerationCase>{await this.requireRole(actor,'moderator');return this.repository.openCase({id:randomUUID(),...(input.reportId?{reportId:input.reportId}:{}),status:'open',targetType:input.targetType,targetId:input.targetId,openedBy:actor.userId,reason:input.reason,createdAt:new Date()});}
-  async resolveCase(context:AdminCommandContext):Promise<AuditLog>{return this.execute(context,'resolve_case','case',context.caseId,'ReportResolved');}
+  async resolveCase(context:AdminCommandContext,disposition:CaseDisposition='resolved'):Promise<AuditLog>{if(disposition!=='resolved'&&disposition!=='dismissed')throw new GovernanceError('INVALID_TARGET');return this.execute(context,'resolve_case','case',context.caseId,'ReportResolved',disposition);}
   async hideFootprint(context:AdminCommandContext,footprintId:string):Promise<AuditLog>{return this.execute(context,'hide_footprint','footprint',footprintId,'FootprintHidden');}
   async restoreFootprint(context:AdminCommandContext,footprintId:string):Promise<AuditLog>{return this.execute(context,'restore_footprint','footprint',footprintId,'FootprintRestored');}
   async suspendUser(context:AdminCommandContext,userId:string):Promise<AuditLog>{return this.execute(context,'suspend_user','user',userId,'UserSuspended');}

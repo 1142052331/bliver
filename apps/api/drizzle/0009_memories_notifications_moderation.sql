@@ -102,6 +102,22 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS audit_logs_created_idx ON audit_logs(created_at DESC);
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION prevent_audit_log_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_logs is append-only';
+END;
+$$;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS audit_logs_immutable_trigger ON audit_logs;
+--> statement-breakpoint
+CREATE TRIGGER audit_logs_immutable_trigger
+BEFORE UPDATE OR DELETE ON audit_logs
+FOR EACH ROW EXECUTE FUNCTION prevent_audit_log_mutation();
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS admin_roles (
   user_id uuid PRIMARY KEY REFERENCES identity_users(id) ON DELETE CASCADE,
   role text NOT NULL CHECK(role IN ('moderator','admin')),
