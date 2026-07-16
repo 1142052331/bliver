@@ -7,9 +7,32 @@ import { createMemoryIdentityRepositories } from '../../modules/identity/applica
 import { ConversationService, createMemoryConversationRepository } from '../../modules/conversations/index.js';
 import { parseUserId } from '@bliver/domain';
 
-import { configureRealtime, emitFootprintPublished } from '../realtime.js';
+import { configureRealtime, createConversationSocketHandlers, emitFootprintPublished } from '../realtime.js';
 
 describe('realtime privacy boundary', () => {
+  it('waits for the configured Outbox delivery delay before emitting', async () => {
+    vi.useFakeTimers();
+    try {
+      const aliceId = parseUserId('019f0000-0000-7000-8000-000000000021');
+      const bobId = parseUserId('019f0000-0000-7000-8000-000000000022');
+      const pair = [aliceId, bobId].sort().join(':');
+      const relationships = { async areFriends(left: string, right: string) { return [left, right].sort().join(':') === pair; }, async isBlocked() { return false; } };
+      const conversations = new ConversationService(createMemoryConversationRepository(), relationships);
+      const conversation = await conversations.getOrCreateDirectConversation(aliceId, bobId);
+      const room = { emit: vi.fn() };
+      const handlers = createConversationSocketHandlers(conversations, { to: () => room }, { deliveryDelayMs: () => 250 });
+
+      const pending = handlers.message(aliceId, { conversationId: conversation.id, content: 'delayed message' });
+      await vi.advanceTimersByTimeAsync(249);
+      expect(room.emit).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      await pending;
+      expect(room.emit).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('routes publication metadata to the owner room instead of broadcasting globally', () => {
     const room = { emit: vi.fn() };
     const io = { to: vi.fn(() => room), emit: vi.fn() };

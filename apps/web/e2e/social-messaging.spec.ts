@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page, type Route } from '@playwright/test';
+import { io as socketClient, type Socket } from 'socket.io-client';
 import { expectNoAxeViolations } from './accessibility.js';
 
 const actorA = '019f0000-0000-7000-8000-000000000001';
@@ -192,7 +193,7 @@ test('messaging safety supports block, unblock, and forced revocation on a deep 
 async function registerRealtimeActor(
   browser: Browser,
   username: string,
-): Promise<{ context: BrowserContext; page: Page; userId: string; csrf: string }> {
+): Promise<{ context: BrowserContext; page: Page; userId: string; csrf: string; sessionId: string }> {
   const context = await browser.newContext();
   const page = await context.newPage();
   const registration = await page.request.post('/api/v1/auth/register', {
@@ -200,17 +201,40 @@ async function registerRealtimeActor(
   });
   const registrationBody = await registration.text();
   expect(registration.ok(), registrationBody).toBe(true);
-  const body = JSON.parse(registrationBody) as { user: { id: string } };
+  const body = JSON.parse(registrationBody) as { user: { id: string }; session: { id: string } };
   const csrf = (await context.cookies()).find((cookie) => cookie.name === 'bliver_csrf')?.value;
   expect(csrf).toBeTruthy();
-  return { context, page, userId: body.user.id, csrf: csrf ?? '' };
+  return { context, page, userId: body.user.id, csrf: csrf ?? '', sessionId: body.session.id };
 }
 
-test('real Socket delivery resyncs after a dual-browser offline window', async ({ browser }, testInfo) => {
+async function connectActorSocket(context: BrowserContext): Promise<Socket> {
+  const session = (await context.cookies()).find((cookie) => cookie.name === 'bliver_session')?.value;
+  expect(session).toBeTruthy();
+  const socket = socketClient('http://127.0.0.1:5100', {
+    transports: ['websocket'],
+    forceNew: true,
+    extraHeaders: { cookie: `bliver_session=${encodeURIComponent(session ?? '')}` },
+  });
+  await new Promise<void>((resolve, reject) => {
+    socket.once('connect', resolve);
+    socket.once('connect_error', reject);
+  });
+  return socket;
+}
+
+function emitMessage(socket: Socket, conversationIdValue: string, content: string, idempotencyKey: string): Promise<{ ok: boolean; code?: string }> {
+  return new Promise((resolve) => socket.emit('conversation:message', { conversationId: conversationIdValue, content, idempotencyKey }, resolve));
+}
+
+test('real dual-browser Socket enforces delivery delay, reconnect, block, and session revoke', async ({ browser }, testInfo) => {
+  test.setTimeout(60_000);
   const suffix = `${testInfo.project.name}-${testInfo.retry}`.replace(/[^a-z0-9]/gi, '').toLowerCase();
   const userA = await registerRealtimeActor(browser, `socketa${suffix}`);
   const userB = await registerRealtimeActor(browser, `socketb${suffix}`);
+  let actorSocket: Socket | undefined;
   try {
+    const delay = await userA.page.request.put('http://127.0.0.1:5100/__e2e__/outbox-delay', { data: { delayMs: 650 } });
+    expect(delay.ok(), await delay.text()).toBe(true);
     const greeting = await userA.page.request.post(`/api/v1/users/${userB.userId}/greetings`, {
       headers: { 'x-csrf-token': userA.csrf, 'idempotency-key': `greeting-${suffix}` },
       data: { content: 'Realtime fixture greeting' },
@@ -230,16 +254,48 @@ test('real Socket delivery resyncs after a dual-browser offline window', async (
     await expect(userA.page.getByText('Realtime fixture reply')).toBeVisible();
     await expect(userB.page.getByText('Realtime fixture greeting')).toBeVisible();
 
-    await userA.context.setOffline(true);
-    await userB.page.getByRole('textbox', { name: 'Message' }).fill('Delivered after reconnect resync');
+    const onlineMessage = `Delivered online ${suffix}`;
+    const onlineStartedAt = Date.now();
+    await userB.page.getByRole('textbox', { name: 'Message' }).fill(onlineMessage);
     await userB.page.getByRole('button', { name: 'Send' }).click();
-    const senderMessage = userB.page.getByRole('list').getByText('Delivered after reconnect resync');
+    await userA.page.waitForTimeout(200);
+    await expect(userA.page.getByRole('list').getByText(onlineMessage)).toHaveCount(0);
+    await expect(userA.page.getByRole('list').getByText(onlineMessage)).toBeVisible({ timeout: 5_000 });
+    expect(Date.now() - onlineStartedAt).toBeGreaterThanOrEqual(500);
+
+    await userA.context.setOffline(true);
+    const reconnectMessage = `Delivered after reconnect ${suffix}`;
+    await userB.page.getByRole('textbox', { name: 'Message' }).fill(reconnectMessage);
+    await userB.page.getByRole('button', { name: 'Send' }).click();
+    const senderMessage = userB.page.getByRole('list').getByText(reconnectMessage);
     await expect(userB.page.locator('.message-bubble--pending')).toHaveCount(0);
     await expect(senderMessage).toHaveCount(1);
     await expect(senderMessage).toBeVisible();
     await userA.context.setOffline(false);
-    await expect(userA.page.getByRole('list').getByText('Delivered after reconnect resync')).toBeVisible({ timeout: 15_000 });
+    await expect(userA.page.getByRole('list').getByText(reconnectMessage)).toBeVisible({ timeout: 15_000 });
+    actorSocket = await connectActorSocket(userA.context);
+
+    const blockResponse = userB.page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/blocks/${userA.userId}`));
+    await userB.page.getByRole('button', { name: 'Block' }).click();
+    expect((await blockResponse).ok()).toBe(true);
+    await expect(userB.page.getByRole('heading', { name: 'Conversation is unavailable' })).toBeVisible();
+    const blockedAck = await emitMessage(actorSocket, conversationIdValue, `Blocked Socket write ${suffix}`, `blocked-${suffix}`);
+    expect(blockedAck).toEqual({ ok: false, code: 'CONVERSATION_NOT_FOUND' });
+    const hiddenMessages = await userB.page.request.get(`/api/v1/conversations/${conversationIdValue}/messages`);
+    expect(hiddenMessages.status()).toBe(404);
+
+    const unblock = await userB.page.request.delete(`/api/v1/blocks/${userA.userId}`, { headers: { 'x-csrf-token': userB.csrf } });
+    expect(unblock.status(), await unblock.text()).toBe(204);
+    await userA.page.reload();
+    await expect(userA.page.getByText('Realtime fixture reply')).toBeVisible();
+    const revocation = await userA.page.request.delete(`/api/v1/sessions/${userA.sessionId}`, { headers: { 'x-csrf-token': userA.csrf } });
+    expect(revocation.status(), await revocation.text()).toBe(204);
+    const revokedAck = await emitMessage(actorSocket, conversationIdValue, `Revoked Socket write ${suffix}`, `revoked-${suffix}`);
+    expect(revokedAck).toEqual({ ok: false, code: 'AUTH_REQUIRED' });
+    await userA.page.reload();
+    await expect(userA.page).toHaveURL(/\/session-expired$/);
   } finally {
+    actorSocket?.close();
     await Promise.all([userA.context.close(), userB.context.close()]);
   }
 });
