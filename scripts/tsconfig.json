@@ -6,6 +6,7 @@
   "include": [
     "perf/**/*.ts",
     "security/**/*.ts",
-    "capacitor/**/*.ts"
+    "capacitor/**/*.ts",
+    "process/**/*.ts"
   ]
 }

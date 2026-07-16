@@ -1,9 +1,9 @@
-import { spawnSync } from 'node:child_process';
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { deepLinkDestination, loginReturnDestination } from '../../apps/web/src/platform/deep-link.js';
+import { portableNodeCommand, spawnPortableNodeCommand } from '../process/portable-node.js';
 
 interface CapacitorConfigInput {
   readonly appId?: string;
@@ -49,7 +49,7 @@ export const CAPACITOR_COMMAND_GATES: readonly CapacitorCommandGate[] = [
 
 function executeCommandGate(command: CapacitorCommandGate): number {
   console.log(`[capacitor] running ${command.label}`);
-  const result = spawnSync(process.execPath, [resolve(command.entryPoint), ...command.args], {
+  const result = spawnPortableNodeCommand(portableNodeCommand({ platform: process.platform, nodeExecutable: process.execPath, root: resolve('.') }, resolve(command.entryPoint), command.args), {
     cwd: resolve('.'),
     env: { ...process.env, FORCE_COLOR: '0' },
     stdio: 'inherit',
