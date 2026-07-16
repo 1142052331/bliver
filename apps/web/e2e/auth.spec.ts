@@ -10,12 +10,14 @@ import {
   type V2TestActor,
 } from '@bliver/testing';
 import { expectNoAxeViolations } from './accessibility.js';
+import { installControlledMapTiles } from './map-fixture.js';
 
 function json(route: Route, body: unknown, status = 200): Promise<void> {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
 async function installJourneyApi(page: Page, actor: V2TestActor): Promise<void> {
+  await installControlledMapTiles(page);
   await page.routeWebSocket('**/socket.io/**', () => undefined);
   if (actor !== 'guest') {
     await page.context().addCookies([
@@ -113,6 +115,10 @@ test('authenticated actors can reach every V2 route-owned workspace', async ({ p
     ['/me/photos', 'Photos'],
     ['/me/visitors', 'Visitors'],
     [`/profile/${V2_TEST_USERS.userB.id}/memories`, 'Profile memories'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories/map`, 'Map memories'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories/timeline`, 'Timeline'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories/photos`, 'Photos'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories/visitors`, 'Visitors'],
     [`/footprints/${V2_TEST_FOOTPRINTS[0]!.id}`, 'Footprint'],
   ] as const;
   for (const [path, heading] of routes) {
@@ -134,18 +140,20 @@ test('map discovery to footprint detail and memory remains one deterministic jou
   await installJourneyApi(page, 'userA');
   await page.goto('/map');
   await expect(page.getByTestId('map-canvas')).toBeVisible();
-  await page.goto('/activity');
-  await expect(page.getByText(V2_TEST_FOOTPRINTS[0]!.message)).toBeVisible();
-  await page.goto(`/footprints/${V2_TEST_FOOTPRINTS[0]!.id}`);
-  await expect(page.getByText(V2_TEST_FOOTPRINTS[0]!.message)).toBeVisible();
-  await page.goto('/me');
+  await page.locator('.leaflet-interactive').first().click({ force: true });
+  await expect(page).toHaveURL(/footprint=[^&]+/);
+  const selectedId = new URL(page.url()).searchParams.get('footprint');
+  const selected = V2_TEST_FOOTPRINTS.find((item) => item.id === selectedId);
+  expect(selected).toBeDefined();
+  await page.getByRole('link', { name: 'Open footprint' }).click();
+  await expect(page.getByText(selected!.message)).toBeVisible();
+  await page.getByRole('link', { name: 'My space' }).click();
   await expect(page.getByText(V2_TEST_FOOTPRINTS[2]!.message)).toBeVisible();
 });
 
 test('captures a tile-independent route screenshot for the configured viewport', async ({ page }, testInfo: TestInfo) => {
   await installJourneyApi(page, 'guest');
   await page.goto('/map');
-  await page.addStyleTag({ content: '.leaflet-tile-pane,.leaflet-control-attribution{visibility:hidden!important}' });
   await expect(page.getByTestId('map-canvas')).toBeVisible();
   await testInfo.attach(`map-${testInfo.project.name}`, {
     body: await page.screenshot({ animations: 'disabled' }),

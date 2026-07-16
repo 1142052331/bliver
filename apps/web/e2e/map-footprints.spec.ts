@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility.js';
+import { installControlledMapTiles } from './map-fixture.js';
+
+test.beforeEach(async ({ page }) => {
+  await installControlledMapTiles(page);
+});
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/session', async (route) => { await route.fulfill({ status: 401, contentType: 'application/problem+json', body: JSON.stringify({ type: 'about:blank', title: 'Unauthorized', status: 401, code: 'AUTH_REQUIRED' }) }); });

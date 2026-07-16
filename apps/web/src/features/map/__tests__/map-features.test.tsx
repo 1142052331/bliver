@@ -24,6 +24,7 @@ describe('V2 map and footprint features', () => {
     rerender(<MemoryRouter><MapRoute state="ready" items={[{ id: 'one', author: { name: 'A' }, displayPoint: { lat: 31, lng: 121 }, visibility: 'friends', locationPrecision: 'approximate', publishedAt: new Date().toISOString() }]} /></MemoryRouter>);
     expect(screen.getByText('Approximate location')).toBeInTheDocument();
     expect(screen.getByText('Friends only')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open footprint' })).toHaveAttribute('href', '/footprints/one');
   });
 
   it('validates publishing before upload and recovers from upload failure', async () => {
