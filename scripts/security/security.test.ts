@@ -18,4 +18,13 @@ describe('V2 security audit helpers', () => {
     expect(validateDependencyExceptions([])).toEqual([]);
     expect(validateDependencyExceptions([{ advisory: 'GHSA-test', owner: '', reason: '', reviewDate: '' }])).toHaveLength(3);
   });
+
+  it('rejects expired dependency exceptions by UTC date while allowing the review day', () => {
+    const exception = { advisory: 'GHSA-expired', owner: 'platform', reason: 'Temporary transitive exception', reviewDate: '2026-07-15' };
+    expect(validateDependencyExceptions([exception], new Date('2026-07-16T00:00:00.000Z'))).toContain(
+      'GHSA-expired exception review date 2026-07-15 expired before 2026-07-16 UTC',
+    );
+    expect(validateDependencyExceptions([{ ...exception, reviewDate: '2026-07-16' }], new Date('2026-07-16T23:59:59.999Z'))).toEqual([]);
+    expect(validateDependencyExceptions([{ ...exception, reviewDate: '2026-08-15' }], new Date('2026-07-16T12:00:00.000Z'))).toEqual([]);
+  });
 });

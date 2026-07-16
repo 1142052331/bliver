@@ -9,12 +9,17 @@ export interface DependencyException {
   readonly reviewDate: string;
 }
 
-export function validateDependencyExceptions(exceptions: readonly DependencyException[]): readonly string[] {
+export function validateDependencyExceptions(exceptions: readonly DependencyException[], now = new Date()): readonly string[] {
   const failures: string[] = [];
+  const today = now.toISOString().slice(0, 10);
   for (const exception of exceptions) {
     if (!exception.owner.trim()) failures.push(`${exception.advisory} exception owner is required`);
     if (!exception.reason.trim()) failures.push(`${exception.advisory} exception reason is required`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(exception.reviewDate)) failures.push(`${exception.advisory} exception review date is required`);
+    const formatted = /^\d{4}-\d{2}-\d{2}$/.test(exception.reviewDate);
+    const parsed = formatted ? new Date(`${exception.reviewDate}T00:00:00.000Z`) : null;
+    const valid = parsed && !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === exception.reviewDate;
+    if (!valid) failures.push(`${exception.advisory} exception review date ${exception.reviewDate || '<missing>'} must be a valid YYYY-MM-DD UTC date`);
+    else if (exception.reviewDate < today) failures.push(`${exception.advisory} exception review date ${exception.reviewDate} expired before ${today} UTC`);
   }
   return failures;
 }
