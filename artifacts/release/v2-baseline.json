@@ -133,6 +133,27 @@
       "releasePerformance": "PASS",
       "scope": "isolated local cluster; not Docker postgis/postgis:16-3.4 or Render production",
       "dockerDaemon": "BLOCKED_WSL"
+    },
+    "databaseParityFollowUp": {
+      "status": "PASS_LOCAL_REFERENCE_ONLY",
+      "baselineScope": "LOCAL_REFERENCE",
+      "server": "PostgreSQL 16.14 / PostGIS 3.6.2",
+      "encoding": "UTF8",
+      "timezone": "Asia/Shanghai",
+      "migrationsApplied": 10,
+      "foundationMarker": "v2-foundation",
+      "criticalIndexesPresent": 5,
+      "localComparison": "PASS",
+      "foundationTestFilesPassed": 99,
+      "foundationTestsPassed": 386,
+      "foundationTestsSkipped": 0,
+      "productionEquivalentComparison": "BLOCKED_NO_TARGET_URL",
+      "baselinePath": "artifacts/release/database-parity-baseline.json",
+      "baselineSha256": "19e9c5c30ca08e199e7db3e61031de97eaa2d041c9991c7a355b7c16932066e0",
+      "resultPath": "artifacts/release/database-parity-local-result.json",
+      "resultSha256": "7257ac603a180ace708d2d22ae740db61d475d65e12491b690257e1269b97b48",
+      "safety": "fingerprints contain configuration and schema digests only; no URL, credentials, host, user, row data, or business values",
+      "candidateLineage": "tooling and evidence follow-up after candidate 3ede079; no newer deployable candidate is claimed until a complete freeze and exact-SHA build"
     }
   },
   "productionTopology": {
@@ -218,7 +239,7 @@
     {
       "gate": "Docker PostGIS image parity and production database readiness",
       "status": "BLOCKED",
-      "reason": "Local isolated PostgreSQL/PostGIS migration, seed, and EXPLAIN passed; Docker Desktop daemon and production database remain unavailable"
+      "reason": "Local PostgreSQL/PostGIS fingerprint baseline and comparison passed; Docker Desktop daemon and a production-equivalent database URL remain unavailable"
     },
     {
       "gate": "backup and isolated restore",

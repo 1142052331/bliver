@@ -56,6 +56,22 @@ The untouched Phase 7 record is archived at [v2-phase-7-hardening.md](../archive
 | 7 Lighthouse/performance | Lighthouse plus local and release-strict performance | PASS; score 1, LCP 169.207 ms, CLS 0; strict local gate included live isolated PostGIS EXPLAIN |
 | 7 publication | Render, remote `/versionz`, backup/restore, observation, `v2.0.0` | BLOCKED / NOT CREATED; no external result is claimed |
 
+## Database Parity Follow-up
+
+Repository-owned database parity tooling now captures and compares safe PostgreSQL metadata outside the application modules. It reads `V2_DATABASE_URL` or `DATABASE_URL`, but fingerprints never contain the URL, host, user, credentials, business rows, coordinates, messages, or provider secrets.
+
+| Check | Evidence | Result |
+| --- | --- | --- |
+| TDD | `scripts/release/database-parity.test.ts` | PASS; comparison and capture tests first failed on the missing module, then passed; a PostgreSQL 16 locale-query regression was reproduced and fixed test-first |
+| Native local fingerprint | `artifacts/release/database-parity-baseline.json` | `LOCAL_REFERENCE`; PostgreSQL 16.14, PostGIS 3.6.2, pgcrypto 1.3, UTF8, Asia/Shanghai, 10 migration hashes, `v2-foundation`, and all 5 critical indexes |
+| Local comparison | `artifacts/release/database-parity-local-result.json` | PASS; exact server, extension, configuration, migration-chain, schema/table, index-definition, and critical-index match |
+| Foundation regression | `V2_DATABASE_URL=<isolated-local-test-db> npm run verify:v2-foundation` plus final full test | PASS; architecture 754/725, 99 test files, 386 tests passed, 0 skipped, API/Web build passed |
+| Production-scope guard | local baseline plus `--require-production-equivalent` | EXPECTED BLOCK, exit 1; a `LOCAL_REFERENCE` cannot satisfy the deployment gate |
+| Production-equivalent target | `V2_DATABASE_URL` / `DATABASE_URL` availability | BLOCKED; no Render or staging PostgreSQL URL was available, so no production-equivalent fingerprint is claimed |
+| Safety review | artifact and source scan | PASS; only configuration/schema metadata and hashes are recorded; no connection or business data appears |
+
+The baseline/result SHA-256 values are recorded in `artifacts/release/v2-baseline.json`. Candidate `3ede0797e2f40cd0fff8f114cbe93372e655046f` remains the last fully frozen candidate at this point in the evidence history. This parity tooling/evidence follow-up does not silently replace it; any later deployable SHA requires a fresh two-pass freeze, candidate manifest, and exact-SHA `render-build`.
+
 ## PostgreSQL Integration Follow-up
 
 The seven PostgreSQL/PostGIS tests that were pending in the historical freeze were rerun on 2026-07-17 against an isolated local PostgreSQL 16.14 cluster on `127.0.0.1:54329`, using the installed PostGIS 3.6 extension. The cluster was initialized in a temporary directory with trust authentication and the `bliver_v2_test` database; it is not a production or Render database.

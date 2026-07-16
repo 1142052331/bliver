@@ -4,7 +4,7 @@ Render deploys one immutable, same-origin API/Web/Socket service from the root n
 
 ## Stop Conditions
 
-Stop when the checkout is dirty, `RELEASE_SHA` is not a 40-character SHA, `RENDER_GIT_COMMIT` differs, a required gate fails, database backup restore has not been proven, migration status is unknown, or candidate resources are not isolated. Never turn a skipped live integration into a pass.
+Stop when the checkout is dirty, `RELEASE_SHA` is not a 40-character SHA, `RENDER_GIT_COMMIT` differs, a required gate fails, database backup restore has not been proven, migration status is unknown, database parity has not been compared with the approved baseline, or candidate resources are not isolated. Never turn a skipped live integration into a pass.
 
 ## Local Candidate Gate
 
@@ -21,6 +21,7 @@ npm.cmd run perf:v2
 npm.cmd run security:v2
 npm.cmd run cap:v2:smoke
 npm.cmd run cutover:v2:check
+npm.cmd run db:v2:parity -- --compare artifacts/release/database-parity-baseline.json --require-production-equivalent
 npm.cmd run render-build
 git diff --check
 ```

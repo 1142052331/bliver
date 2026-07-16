@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-07-16T21:57:29.427Z",
+  "status": "PASS",
+  "baselineScope": "LOCAL_REFERENCE",
+  "fingerprint": {
+    "schemaVersion": 1,
+    "capturedAt": "2026-07-16T21:57:29.361Z",
+    "server": {
+      "major": 16,
+      "minor": 14
+    },
+    "extensions": [
+      {
+        "name": "pgcrypto",
+        "version": "1.3"
+      },
+      {
+        "name": "postgis",
+        "version": "3.6.2"
+      }
+    ],
+    "settings": {
+      "encoding": "UTF8",
+      "collation": "Chinese (Simplified)_China.936",
+      "ctype": "Chinese (Simplified)_China.936",
+      "timezone": "Asia/Shanghai"
+    },
+    "migration": {
+      "tablePresent": true,
+      "count": 10,
+      "hashChainSha256": "f71093854afb4d51be9f0aca06a960d3c4395d8e30eb002188d8bffa49bc3507",
+      "latestHash": "ef5c005c264ecc49870df9da6cc185521fa4e87d04385707eef9180b2d265ba9"
+    },
+    "marker": "v2-foundation",
+    "schemaTablesSha256": "7f57dc9e7975bf2b59b1520c1dac7bb3ee2c3eb347e73bd30734c841b7f7995d",
+    "indexDefinitionsSha256": "d1defea486024f30e19aabde13f7f115ce0c0ab491e6a2f70d4a8dd1b037853b",
+    "criticalIndexes": {
+      "discovery_entries_public_idx": true,
+      "discovery_entries_region_idx": true,
+      "footprints_display_point_gist_idx": true,
+      "outbox_events_ready_idx": true,
+      "places_location_gist_idx": true
+    }
+  },
+  "comparison": {
+    "ok": true,
+    "mismatches": []
+  }
+}

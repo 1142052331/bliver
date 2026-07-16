@@ -15,6 +15,26 @@ npm.cmd run db:v2:seed
 
 Docker Compose exposes PostGIS on port `54329`. A native or hosted PostgreSQL 16/PostGIS instance may use the same migrate and seed commands. Integration tests prefer `V2_DATABASE_URL`; otherwise they may use Testcontainers. A skipped integration test is not live PostGIS evidence.
 
+## Database parity
+
+Capture a machine-readable fingerprint from an approved PostgreSQL target. The command reads `V2_DATABASE_URL` first and falls back to `DATABASE_URL`; neither the URL nor row data is written to the output.
+
+```powershell
+$env:V2_DATABASE_URL = '<target-url>'
+npm.cmd run db:v2:parity -- --write-baseline artifacts/release/database-parity-baseline.json --scope PRODUCTION_EQUIVALENT
+```
+
+The fingerprint records PostgreSQL major/minor, `postgis`/`pgcrypto` versions, encoding and locale settings, Drizzle migration state, the V2 foundation marker, schema/table and index-definition digests, and the required PostGIS/Outbox index presence. Use `--scope LOCAL_REFERENCE` for a developer database. Use `PRODUCTION_EQUIVALENT` only when the source really is the intended staging or production-equivalent target.
+
+Compare another target to the approved baseline without printing connection details:
+
+```powershell
+$env:V2_DATABASE_URL = '<comparison-target-url>'
+npm.cmd run db:v2:parity -- --compare artifacts/release/database-parity-baseline.json --require-production-equivalent --write artifacts/release/database-parity-result.json
+```
+
+The command exits non-zero and reports `BLOCKED` for any mismatch. A local PostgreSQL result does not prove Render parity; record the target identity and operator outside the fingerprint JSON.
+
 ## Run
 
 ```powershell

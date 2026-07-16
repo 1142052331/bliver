@@ -26,6 +26,7 @@
     "db:v2:up": "docker compose -f infra/docker-compose.postgres.yml up -d",
     "db:v2:migrate": "tsx apps/api/src/platform/db/migrate.ts",
     "db:v2:seed": "tsx apps/api/src/platform/db/seed.ts",
+    "db:v2:parity": "tsx scripts/release/database-parity-cli.ts",
     "smoke:v2": "tsx scripts/v2-foundation-smoke.ts",
     "lighthouse:v2": "tsx scripts/perf/lighthouse.ts",
     "perf:v2:browser-evidence": "tsx scripts/perf/collect-browser-evidence.ts",
