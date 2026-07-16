@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+import { createServer, type Server } from 'node:http';
 import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -26,6 +26,37 @@ async function existingFile(pathname: string): Promise<string | null> {
   catch { return null; }
 }
 
+export async function shutdownHttpServer(server: Server, timeoutMs = 1_000): Promise<void> {
+  if (!server.listening) {
+    server.closeAllConnections();
+    return;
+  }
+
+  await new Promise<void>((resolveShutdown) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolveShutdown();
+    };
+    const timeout = setTimeout(() => {
+      server.closeAllConnections();
+      finish();
+    }, Math.max(1, timeoutMs));
+    timeout.unref();
+
+    try {
+      server.close(() => finish());
+      server.closeIdleConnections();
+      server.closeAllConnections();
+    } catch {
+      server.closeAllConnections();
+      finish();
+    }
+  });
+}
+
 export async function generateLighthouseReport(): Promise<string> {
   await access(resolve(DIST_ROOT, 'index.html'));
   const server = createServer((request, response) => {
@@ -47,11 +78,12 @@ export async function generateLighthouseReport(): Promise<string> {
   await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Lighthouse fixture server address is unavailable');
-  const chrome = await launch({
-    chromePath: chromium.executablePath(),
-    chromeFlags: ['--headless', '--no-sandbox', '--disable-dev-shm-usage'],
-  });
+  let chrome: Awaited<ReturnType<typeof launch>> | undefined;
   try {
+    chrome = await launch({
+      chromePath: chromium.executablePath(),
+      chromeFlags: ['--headless', '--no-sandbox', '--disable-dev-shm-usage'],
+    });
     const result = await lighthouse(`http://127.0.0.1:${address.port}/login`, {
       port: chrome.port,
       output: 'json',
@@ -68,8 +100,11 @@ export async function generateLighthouseReport(): Promise<string> {
     await writeFile(REPORT_PATH, report, 'utf8');
     return REPORT_PATH;
   } finally {
-    await chrome.kill();
-    await new Promise<void>((resolveClose, reject) => server.close((error) => error ? reject(error) : resolveClose()));
+    try {
+      if (chrome) await chrome.kill();
+    } finally {
+      await shutdownHttpServer(server);
+    }
   }
 }
 
