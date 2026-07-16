@@ -16,6 +16,7 @@ afterEach(async () => {
 async function builtRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'bliver-candidate-'));
   fixtures.push(root);
+  await writeFile(join(root, 'package.json'), '{"type":"module"}');
   await mkdir(join(root, 'apps/web/dist'), { recursive: true });
   await mkdir(join(root, 'apps/api/dist/bootstrap'), { recursive: true });
   await writeFile(join(root, 'apps/web/dist/index.html'), '<!doctype html>');
@@ -40,5 +41,20 @@ describe('V2 deployment candidate', () => {
     const root = await builtRoot();
     await rm(join(root, 'apps/web/dist/index.html'));
     await expect(verifyCandidate({ root, releaseSha: sha, gitHead: sha })).rejects.toThrow(/apps\/web\/dist\/index.html/);
+  });
+
+  it('fails when the emitted API entrypoint cannot load its runtime module graph', async () => {
+    const root = await builtRoot();
+    await writeFile(join(root, 'apps/api/dist/bootstrap/server.js'), "import './missing-runtime.js';");
+    await expect(verifyCandidate({ root, releaseSha: sha, gitHead: sha })).rejects.toThrow(/missing-runtime/);
+  });
+
+  it('uses plain Node resolution instead of allowing a TypeScript source fallback', async () => {
+    const root = await builtRoot();
+    await mkdir(join(root, 'packages/runtime/src'), { recursive: true });
+    await writeFile(join(root, 'apps/api/dist/bootstrap/server.js'), "import '../../../../packages/runtime/src/index.ts';");
+    await writeFile(join(root, 'packages/runtime/src/index.ts'), "export { runtimeValue } from './value.js';");
+    await writeFile(join(root, 'packages/runtime/src/value.ts'), 'export const runtimeValue = true;');
+    await expect(verifyCandidate({ root, releaseSha: sha, gitHead: sha })).rejects.toThrow(/value\.js/);
   });
 });

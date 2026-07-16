@@ -1,7 +1,11 @@
+import { execFile } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
 const shaPattern = /^[0-9a-f]{40}$/;
+const execFileAsync = promisify(execFile);
 
 export function verifyReleaseIdentity(input: Readonly<{
   releaseSha: string;
@@ -27,6 +31,17 @@ export async function verifyCandidate(input: Readonly<{
   for (const path of required) {
     try { await access(resolve(input.root, path)); }
     catch { throw new Error(`candidate build output is missing: ${path}`); }
+  }
+  const apiEntryPoint = pathToFileURL(resolve(input.root, 'apps/api/dist/bootstrap/server.js')).href;
+  try {
+    await execFileAsync(process.execPath, ['--input-type=module', '--eval', `await import(${JSON.stringify(apiEntryPoint)})`], {
+      cwd: input.root,
+      encoding: 'utf8',
+    });
+  } catch (error: unknown) {
+    const failure = error as { readonly message?: string; readonly stderr?: string };
+    const detail = [failure.message, failure.stderr].filter(Boolean).join('\n');
+    throw new Error(`candidate API runtime import failed: ${detail}`, { cause: error });
   }
   return identity;
 }
