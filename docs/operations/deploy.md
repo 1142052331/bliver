@@ -25,6 +25,10 @@ npm.cmd ci
 npm.cmd run check:node
 npm.cmd run verify:v2-foundation
 npx.cmd playwright test
+npm.cmd run perf:v2:browser-evidence
+npm.cmd run build --workspace @bliver/web
+npm.cmd run lighthouse:v2
+$env:V2_LIGHTHOUSE_REPORT = '.artifacts/lighthouse-v2.json'
 npm.cmd run perf:v2
 npm.cmd run security:v2
 npm.cmd run cap:v2:smoke

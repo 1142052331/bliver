@@ -44,6 +44,7 @@ jobs:
       - run: npm run db:v2:migrate
       - run: npm run verify:v2-foundation
       - run: npx playwright test
+      - run: npm run perf:v2:browser-evidence
       - run: npm run build --workspace @bliver/web
       - run: npm run lighthouse:v2
       - run: npm run perf:v2
@@ -56,6 +57,7 @@ jobs:
           name: v2-hardening-evidence
           path: |
             .artifacts/lighthouse-v2.json
+            .artifacts/browser-performance/
             test-results/
           if-no-files-found: error
 

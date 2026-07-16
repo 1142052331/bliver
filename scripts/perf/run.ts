@@ -6,6 +6,7 @@ import { gzipSync } from 'node:zlib';
 
 import { runApiSmoke } from './api-smoke.js';
 import { V2_BUDGETS } from './budgets.js';
+import { loadBrowserEvidence, type BrowserEvidenceEvaluation } from './browser-evidence.js';
 import { runMapQueryCheck } from './map-query.js';
 import { runOutboxCheck } from './outbox-lag.js';
 
@@ -29,6 +30,16 @@ export function evaluateBrowserMetric(name: string, values: readonly number[], b
     skipped: false,
     valueMs,
   };
+}
+
+export function evaluatePerformanceBrowserEvidence(evidence: BrowserEvidenceEvaluation): {
+  readonly failures: readonly string[];
+  readonly reconnect: BrowserMetricEvaluation;
+  readonly inp: BrowserMetricEvaluation;
+} {
+  const reconnect = evaluateBrowserMetric('Reconnect resync', evidence.reconnectValues, V2_BUDGETS.commandApiP95Ms, true);
+  const inp = evaluateBrowserMetric('INP', evidence.inpValues, V2_BUDGETS.inpMs, true);
+  return { failures: [...evidence.failures, ...reconnect.failures, ...inp.failures], reconnect, inp };
 }
 
 export function evaluateLighthouseReport(report: LighthouseReport): readonly string[] {
@@ -85,23 +96,6 @@ async function bundleCheck(): Promise<{ readonly assets: readonly BundleAsset[];
   return { assets, failures: evaluateBundle(assets, baseline) };
 }
 
-async function browserEvidence(prefix: string, field: string): Promise<{ readonly values: readonly number[]; readonly failures: readonly string[] }> {
-  let files: string[];
-  try { files = await readdir(resolve('test-results')); }
-  catch { return { values: [], failures: [] }; }
-  const values: number[] = [];
-  const failures: string[] = [];
-  for (const file of files.filter((name) => name.startsWith(prefix) && name.endsWith('.json'))) {
-    try {
-      const evidence = JSON.parse(await readFile(resolve('test-results', file), 'utf8')) as Record<string, unknown>;
-      const value = evidence[field];
-      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) failures.push(`${file} has invalid ${field}`);
-      else values.push(value);
-    } catch { failures.push(`${file} is not valid browser evidence`); }
-  }
-  return { values, failures };
-}
-
 export async function runPerformanceGates(): Promise<void> {
   const failures: string[] = [];
   const releaseMode = process.env.V2_PERF_MODE === 'release' || process.env.CI === 'true';
@@ -118,16 +112,12 @@ export async function runPerformanceGates(): Promise<void> {
   const outbox = await runOutboxCheck();
   failures.push(...outbox.failures);
   console.log(`[perf] outbox lag=${outbox.metric.lagMs}ms attempts=${outbox.metric.attempts}`);
-  const reconnectEvidence = await browserEvidence('reconnect-resync-', 'resyncMs');
-  failures.push(...reconnectEvidence.failures);
-  const reconnect = evaluateBrowserMetric('Reconnect resync', reconnectEvidence.values, V2_BUDGETS.commandApiP95Ms, releaseMode);
-  failures.push(...reconnect.failures);
-  console.log(reconnect.skipped ? '[perf] SKIP reconnect resync: local non-release mode has no Playwright evidence' : `[perf] reconnect resync=${reconnect.valueMs?.toFixed(1)}ms`);
-  const inpEvidence = await browserEvidence('browser-vitals-', 'inpMs');
-  failures.push(...inpEvidence.failures);
-  const inp = evaluateBrowserMetric('INP', inpEvidence.values, V2_BUDGETS.inpMs, releaseMode);
-  failures.push(...inp.failures);
-  console.log(inp.skipped ? '[perf] SKIP INP: local non-release mode has no browser Event Timing evidence' : `[perf] INP=${inp.valueMs?.toFixed(1)}ms`);
+  const browserEvidenceDirectory = resolve(process.env.V2_BROWSER_EVIDENCE_DIR ?? '.artifacts/browser-performance/evidence');
+  const browser = evaluatePerformanceBrowserEvidence(await loadBrowserEvidence(browserEvidenceDirectory));
+  failures.push(...browser.failures);
+  console.log(`[perf] browser evidence=${browserEvidenceDirectory}`);
+  console.log(`[perf] reconnect resync=${browser.reconnect.valueMs?.toFixed(1) ?? 'missing'}ms`);
+  console.log(`[perf] INP=${browser.inp.valueMs?.toFixed(1) ?? 'missing'}ms`);
   const reportPath = process.env.V2_LIGHTHOUSE_REPORT;
   failures.push(...evaluateReleaseEvidence({ livePostgis: map.liveExplain, lighthouseReport: Boolean(reportPath) }, releaseMode));
   if (!reportPath) {

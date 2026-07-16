@@ -1,8 +1,8 @@
 import { expect, test, type Browser, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { io as socketClient, type Socket } from 'socket.io-client';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { expectNoAxeViolations } from './accessibility.js';
+import { writeBrowserEvidenceRecord } from '../../../scripts/perf/browser-evidence-writer.js';
+import type { BrowserEvidenceProject } from '../../../scripts/perf/browser-evidence.js';
 
 const actorA = '019f0000-0000-7000-8000-000000000001';
 const actorB = '019f0000-0000-7000-8000-000000000002';
@@ -310,8 +310,7 @@ test('real dual-browser Socket uses Outbox delivery, reconnect, block, and sessi
     await userA.context.setOffline(false);
     await expect(userA.page.getByRole('list').getByText(reconnectMessage)).toBeVisible({ timeout: 15_000 });
     const resyncMs = performance.now() - reconnectStartedAt;
-    await mkdir(resolve('test-results'), { recursive: true });
-    await writeFile(resolve('test-results', `reconnect-resync-${suffix}.json`), JSON.stringify({ source: 'playwright-dual-browser', project: testInfo.project.name, resyncMs }), 'utf8');
+    await writeBrowserEvidenceRecord({ metric: 'reconnect-resync', project: testInfo.project.name as BrowserEvidenceProject, valueMs: resyncMs });
     actorSocket = await connectActorSocket(userA.context);
 
     const blockResponse = userB.page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/blocks/${userA.userId}`));

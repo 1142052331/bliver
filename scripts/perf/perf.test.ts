@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { V2_BUDGETS } from './budgets.js';
-import { evaluateBrowserMetric, evaluateBundle, evaluateLighthouseReport, evaluateReleaseEvidence, type BundleAsset } from './run.js';
+import { evaluateBrowserMetric, evaluateBundle, evaluateLighthouseReport, evaluatePerformanceBrowserEvidence, evaluateReleaseEvidence, type BundleAsset } from './run.js';
 import { percentile } from './api-smoke.js';
 import { inspectExplainPlan } from './map-query.js';
 import { exerciseOutbox } from './outbox-lag.js';
@@ -56,6 +56,21 @@ describe('V2 performance gates', () => {
     expect(evaluateBrowserMetric('Reconnect resync', [], 300, false)).toMatchObject({ failures: [], skipped: true });
     expect(evaluateBrowserMetric('Reconnect resync', [301], 300, true).failures).toContainEqual(expect.stringContaining('exceeds'));
     expect(evaluateBrowserMetric('Reconnect resync', [120, 180], 300, true)).toMatchObject({ failures: [], skipped: false, valueMs: 180 });
+  });
+
+  it('requires complete isolated browser evidence in every performance run', () => {
+    const missing = evaluatePerformanceBrowserEvidence({ failures: ['browser evidence manifest is missing'], reconnectValues: [], inpValues: [] });
+    expect(missing.failures).toEqual(expect.arrayContaining([
+      expect.stringContaining('manifest'),
+      expect.stringContaining('Reconnect resync'),
+      expect.stringContaining('INP'),
+    ]));
+
+    expect(evaluatePerformanceBrowserEvidence({ failures: [], reconnectValues: [40, 50, 60, 70], inpValues: [30, 40, 50, 60] })).toMatchObject({
+      failures: [],
+      reconnect: { skipped: false, valueMs: 70 },
+      inp: { skipped: false, valueMs: 60 },
+    });
   });
 
   it('requires Lighthouse LCP and CLS from an actual report', () => {

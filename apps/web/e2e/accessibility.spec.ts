@@ -1,10 +1,10 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { V2_TEST_FOOTPRINTS, V2_TEST_SOCIAL, V2_TEST_USERS } from '@bliver/testing';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 
 import { expectNoAxeViolations, expectNoHorizontalOverflow } from './accessibility.js';
 import { installJourneyApi } from './journey-api.js';
+import { writeBrowserEvidenceRecord } from '../../../scripts/perf/browser-evidence-writer.js';
+import type { BrowserEvidenceProject } from '../../../scripts/perf/browser-evidence.js';
 
 const longMoment = {
   ...V2_TEST_FOOTPRINTS[0]!,
@@ -109,12 +109,17 @@ test('filter dialog supports keyboard focus, Escape and focus restoration', asyn
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(filter).toBeFocused();
-  await page.waitForTimeout(50);
+  await filter.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect.poll(
+    () => page.evaluate(() => ((window as typeof window & { __v2InpSamples?: number[] }).__v2InpSamples ?? []).length),
+    { timeout: 2_000 },
+  ).toBeGreaterThan(0);
   const inpMs = await page.evaluate(() => Math.max(...((window as typeof window & { __v2InpSamples?: number[] }).__v2InpSamples ?? []), -1));
   expect(inpMs).toBeGreaterThanOrEqual(0);
-  const project = testInfo.project.name.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
-  await mkdir(resolve('test-results'), { recursive: true });
-  await writeFile(resolve('test-results', `browser-vitals-${project}.json`), JSON.stringify({ source: 'performance-event-timing', project: testInfo.project.name, inpMs }), 'utf8');
+  await writeBrowserEvidenceRecord({ metric: 'inp', project: testInfo.project.name as BrowserEvidenceProject, valueMs: inpMs });
 });
 
 test('keyboard order reaches shell commands before the sign-in form with visible focus', async ({ page }) => {

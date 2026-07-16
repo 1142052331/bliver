@@ -29,6 +29,7 @@
     "db:v2:seed": "tsx apps/api/src/platform/db/seed.ts",
     "smoke:v2": "tsx scripts/v2-foundation-smoke.ts",
     "lighthouse:v2": "tsx scripts/perf/lighthouse.ts",
+    "perf:v2:browser-evidence": "tsx scripts/perf/collect-browser-evidence.ts",
     "perf:v2": "tsx scripts/perf/run.ts",
     "security:v2": "tsx scripts/security/run.ts",
     "cap:v2:smoke": "tsx scripts/capacitor/smoke.ts",
