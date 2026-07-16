@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { configureServerSentry, shutdownServer } from '../server.js';
+import { configureServerSentry, createServerErrorReporter, shutdownServer } from '../server.js';
 import { createConfig } from '../config.js';
 
 describe('API server lifecycle', () => {
@@ -17,6 +17,17 @@ describe('API server lifecycle', () => {
     expect(sentry.init).toHaveBeenCalledWith(expect.objectContaining({ dsn: config.sentryDsn, release: 'release-observe', environment: 'staging', sendDefaultPii: false }));
     expect(sentry.setTag).toHaveBeenCalledWith('release', 'release-observe');
     expect(sentry.setTag).toHaveBeenCalledWith('environment', 'staging');
+  });
+
+  it('adapts sanitized HTTP failures to Sentry exception capture', () => {
+    const sentry = { captureException: vi.fn() };
+    const reporter = createServerErrorReporter(sentry);
+    const error = new Error('Unhandled HTTP request failure');
+    const context = { requestId: 'request-1', correlationId: 'correlation-1', method: 'POST', status: 500 };
+
+    reporter.capture(error, context);
+
+    expect(sentry.captureException).toHaveBeenCalledWith(error, { contexts: { http: context } });
   });
 
   it('forces lingering connections closed after the shutdown deadline', async () => {

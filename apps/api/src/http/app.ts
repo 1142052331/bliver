@@ -9,7 +9,8 @@ import type { Logger } from 'pino';
 
 import type { ApiConfig } from '../bootstrap/config.js';
 import { ObservabilityRegistry, hashActorId } from '../platform/observability/index.js';
-import { errorHandler, notFoundHandler } from './error-handler.js';
+import { createErrorHandler, notFoundHandler } from './error-handler.js';
+import type { HttpErrorReporter } from './error-handler.js';
 import { healthRouter } from './health.js';
 import type { DbPort } from './health.js';
 import { createMemoryIdentityRepositories } from '../modules/identity/application/memory-repositories.js';
@@ -51,6 +52,7 @@ export interface AppOptions {
   readonly notifications?: { readonly service?: NotificationService; readonly vapidPublicKey?: string };
   readonly governance?: { readonly service?: ModerationGovernanceService };
   readonly observability?: ObservabilityRegistry;
+  readonly errorReporter?: HttpErrorReporter;
 }
 
 const requestId: RequestHandler = (request, response, next) => {
@@ -72,7 +74,7 @@ function requestPath(value: string | undefined): string {
   catch { return '/'; }
 }
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance, observability = new ObservabilityRegistry(config.sessionSecret, logger) }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance, observability = new ObservabilityRegistry(config.sessionSecret, logger), errorReporter }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -120,7 +122,7 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use('/api/v1', adminRouter(governanceService, identityRepositories));
   app.use(healthRouter({ config, db, observability }));
   app.use(notFoundHandler);
-  app.use(errorHandler);
+  app.use(createErrorHandler(errorReporter));
 
   app.locals.observability = observability;
 

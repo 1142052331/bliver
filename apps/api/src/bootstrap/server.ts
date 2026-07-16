@@ -8,6 +8,7 @@ import { parseUserId } from '@bliver/domain';
 import { createConfig } from './config.js';
 import { closeDb, createDb } from '../platform/db/client.js';
 import { createApp } from '../http/app.js';
+import type { HttpErrorContext, HttpErrorReporter } from '../http/error-handler.js';
 import { createPostgresIdentityRepositories } from '../modules/identity/infrastructure/postgres-repositories.js';
 import { CloudinaryAdapter, MediaService, createPostgresMediaRepositories } from '../modules/media/index.js';
 import { FootprintVisibilityPolicy, MapFootprintQuery, createPostgresFootprintRepositories } from '../modules/footprints/index.js';
@@ -26,6 +27,25 @@ import { ObservabilityRegistry, configureSentryRelease, type SentryTagSink } fro
 import type { ApiConfig } from './config.js';
 
 export interface ServerSentryPort extends SentryTagSink { init(options: { readonly dsn?: string; readonly release: string; readonly environment: string; readonly sendDefaultPii: boolean; readonly enabled: boolean }): void; }
+
+export type ServerSentryCapturePort = Pick<typeof Sentry, 'captureException'>;
+
+export function createServerErrorReporter(sentry: ServerSentryCapturePort): HttpErrorReporter {
+  return {
+    capture(error, context) {
+      sentry.captureException(error, {
+        contexts: {
+          http: {
+            requestId: context.requestId,
+            correlationId: context.correlationId,
+            method: context.method,
+            status: context.status,
+          },
+        },
+      });
+    },
+  };
+}
 
 export function configureServerSentry(config: ApiConfig, sentry: ServerSentryPort): void {
   sentry.init({ ...(config.sentryDsn ? { dsn: config.sentryDsn } : {}), release: config.releaseSha, environment: config.deployEnv, sendDefaultPii: false, enabled: Boolean(config.sentryDsn) });
@@ -121,6 +141,7 @@ export async function startServer(): Promise<void> {
     notifications: { service: notificationService, ...(config.push ? { vapidPublicKey: config.push.publicKey } : {}) },
     memories: { query: memories },
     observability,
+    errorReporter: createServerErrorReporter(Sentry),
   });
   const server = createServer(app);
   const io = new SocketServer(server, { cors: { origin: false } });
