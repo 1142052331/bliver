@@ -1,26 +1,26 @@
-# Bliver V2 Foundation
+# Bliver V2 Architecture
 
-V2 is a strict TypeScript npm workspaces monorepo on Node.js 24.
+Bliver is a Node.js 24/npm 11 npm workspaces monorepo. `apps/web` is the React/Vite/PWA client and `apps/api` is an Express 5 modular monolith with Socket.IO and an Outbox worker. PostgreSQL 16 with PostGIS is the only source of truth; Drizzle owns ordered migrations.
 
-## Ownership
+## Module Ownership
 
-- `apps/web`: React/Vite route shell and future feature slices.
-- `apps/api`: Express 5 modular monolith, transport adapters, and platform lifecycle.
-- `packages/contracts`: Zod DTOs, Problem Details, event envelopes, and OpenAPI generation.
-- `packages/domain`: pure values and policies; no HTTP, database, DOM, or environment access.
-- `packages/ui`: Natural City tokens and accessible, feature-agnostic primitives.
-- `packages/config`: shared TypeScript, ESLint, and Vitest configuration.
-- `packages/testing`: cross-workspace test setup and fixtures.
+- `packages/contracts`: public DTOs, Problem Details, typed events, OpenAPI.
+- `packages/domain`: pure IDs, values, and policies.
+- `packages/ui`: accessible feature-independent UI primitives and tokens.
+- `apps/api/src/modules/*`: domain/application/infrastructure/transport slices.
+- `apps/api/src/platform/*`: database, Outbox, geography, observability, pagination.
+- `apps/web/src/features/*`: route-owned browser features.
 
-PostgreSQL + PostGIS is the single source of truth. Drizzle migrations are append-only and must be
-safe to run repeatedly. The API publishes typed health, readiness, and version responses at
-`/healthz`, `/readyz`, and `/versionz`; errors use RFC 9457 Problem Details.
+Web imports public packages, never API source. An API module communicates through ports or another module's public index, never its infrastructure directory. Domain has no framework or platform ownership. `npm run architecture:check` and `npm run verify:v2-foundation` enforce the dependency graph.
 
-## Boundaries
+## Runtime Flow
 
-Web may consume public contracts, domain policies, and UI primitives, but never API internals. API
-may consume contracts and domain policies, but never Web or UI feature implementations. Domain stays
-platform-independent. The architecture checker and `npm run verify:v2-foundation` enforce these rules.
+The production API process owns one HTTP server. API routes are mounted at `/api/v1`, Socket.IO at `/socket.io`, and health at `/healthz`, `/readyz`, and `/versionz`. Only after those namespaces are registered does Express serve `apps/web/dist` and route-like SPA fallback. Missing assets never return the shell.
 
-The `frontend/` and `backend/` trees are frozen V1 reference/runtime code until Phase 8. They are not
-workspace packages and are intentionally excluded from V2 dependency checks.
+Commands append an Outbox event in the same database transaction as state changes. The worker claims events with bounded retry and idempotent consumers for discovery, memories, conversations, notifications, and push delivery. Socket emission is downstream of durable state.
+
+## Data and Security
+
+Migrations in `apps/api/drizzle` enable PostGIS and define identity, footprints/media, Outbox, discovery/interactions, social/conversations, memories, notifications, moderation, and audit. Sessions use secure cookies for Web and bounded bearer flows for Capacitor. Privacy and block policies are applied before repository reads expose rows. Errors use RFC 9457 Problem Details; logs and Sentry exclude bodies, credentials, actor IDs, and precise coordinates.
+
+The release graph is root-lock based. `npm run render-build` verifies SHA identity, emits the API, builds the Web shell, and checks both artifacts. `npm run release:v2:predeploy` verifies the same candidate before migrations; `npm start` runs it. `npm run cutover:v2:check` rejects old runtime roots, direct legacy dependencies, stale environment names, and unversioned API paths.

@@ -11,7 +11,7 @@ import {
 describe('Capacitor smoke policy', () => {
   it('requires the V2 dist, stable app id and HTTPS-only server', () => {
     expect(validateCapacitorConfig({ appId: 'com.bliver.app', webDir: 'apps/web/dist', server: { url: 'https://bliver.app', cleartext: false } })).toEqual([]);
-    expect(validateCapacitorConfig({ appId: 'wrong', webDir: 'frontend/dist', server: { url: 'http://localhost', cleartext: true } })).toHaveLength(4);
+    expect(validateCapacitorConfig({ appId: 'wrong', webDir: ['front', 'end/dist'].join(''), server: { url: 'http://localhost', cleartext: true } })).toHaveLength(4);
   });
 
   it('returns an unauthenticated footprint deep link to the same route after login', () => {

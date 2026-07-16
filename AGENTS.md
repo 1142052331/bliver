@@ -1,80 +1,44 @@
-# Bliver — 地图朋友圈
+# Bliver Engineering Instructions
 
-全栈位置分享社交应用。用户在地图上打卡，留下心情/照片/留言，实时看到朋友的足迹。
+Bliver is a Node.js 24/npm 11 npm workspaces monorepo. The current runtime is React/Vite in `apps/web`, Express/Socket.IO in `apps/api`, and PostgreSQL/PostGIS through Drizzle. HTTP is same-origin and versioned under `/api/v1`.
 
-- **前端**: React 18 + Vite + Tailwind CSS + Leaflet (react-leaflet v4) + Socket.IO Client
-- **后端**: Express + MongoDB (Mongoose) + Socket.IO v4 + JWT + Cloudinary
-- **部署**: Render (backend), Vite 构建前端
+## Ownership
 
-## 项目结构
+- `apps/web`: routes, browser state, feature UI, PWA, same-origin HTTP and Socket clients.
+- `apps/api`: bootstrap, HTTP/Socket transports, application services, PostGIS adapters, Outbox worker.
+- `packages/contracts`: public Zod DTOs, event envelopes, Problem Details, OpenAPI.
+- `packages/domain`: pure values and policies only.
+- `packages/ui`: feature-independent Natural City UI primitives.
+- `scripts`: release, clean cutover, performance, security, and mobile verification.
 
-```
-Bliver/
-├── frontend/src/
-│   ├── App.jsx              # 主应用：状态中心、路由、Socket、所有 handler
-│   ├── api.js               # Axios 实例，自动注入 JWT
-│   ├── auth.js              # localStorage 封装
-│   └── components/          # UI 组件（NavBar, Modals, Drawers, Map 图层等）
-├── backend/
-│   ├── index.js             # Express + HTTP + Socket.IO 入口
-│   ├── config/db.js         # Mongoose 连接
-│   ├── middleware/          # auth.js (JWT+admin), upload.js (Multer+Cloudinary)
-│   ├── models/             # User, Footprint, Notification
-│   ├── routes/             # api.js (认证/足迹/评论/表态/通知/个人主页), admin.js
-│   ├── services/           # nominatim.js (逆地理编码), weather.js
-│   └── socket/             # Socket.IO 事件处理
-```
+Web never imports API internals. One API module never imports another module's infrastructure. Domain code never owns HTTP, database, browser, or environment concerns. Run `npm run architecture:check` after boundary changes.
 
-## 关键架构决策
+## Commands
 
-- **游客模式**: 地图对所有人可见，互动操作需登录（requireLogin() 拦截 → AuthModal）
-- **抽屉式交互**: ProfileDrawer (右滑)、ClusterDetailPanel (底部)、TimelineDrawer (右侧)，非页面跳转
-- **实时更新**: Socket 事件同时派发 `window.dispatchEvent(CustomEvent)`（前缀 `ws:`），供独立组件监听
-- **管理员**: "阿森"自动提升为 admin，AdminPanel 提供用户管理/踢人功能
-- **评论安全**: 后端从 `req.user.name` 取用户名，不信任客户端传入值
-
-## 本地开发
-
-Node.js 24.16.0 and npm 11.13.0 are the release toolchain (`.nvmrc`, Node range `>=24 <25`).
-
-```bash
-npm run dev          # 前端(:5173) + 后端(:5000) 同时启动
-npm run dev:frontend # 仅前端
-npm run dev:backend  # 仅后端
+```powershell
+npm.cmd ci
+npm.cmd run db:v2:up
+npm.cmd run db:v2:migrate
+npm.cmd run db:v2:seed
+npm.cmd run dev
+npm.cmd run verify:v2-foundation
+npx.cmd playwright test
+npm.cmd run cutover:v2:check
 ```
 
-Release verification runs from the repository root:
+Release verification adds `perf:v2:browser-evidence`, `lighthouse:v2`, `perf:v2`, `security:v2`, `cap:v2:smoke`, and `git diff --check`. Production build/start are `npm run render-build`, `npm run release:v2:predeploy`, and `npm start`.
 
-```bash
-npm run check:node
-npm run render-build
-test -f frontend/dist/index.html
-```
+## Environment and Release
 
-## 环境变量（Render）
+Production uses `DATABASE_URL`, `SESSION_SECRET`, exact `RELEASE_SHA`, Cloudinary credentials, VAPID keys/subject, `SENTRY_DSN`, `NODE_ENV`, `DEPLOY_ENV`, and `PORT`. Never print or commit values. Candidate verification must run before a migration or any other database write. `/healthz`, `/readyz`, and `/versionz` must report the same release; API routes use `/api/v1` and Socket.IO uses `/socket.io`.
 
-MONGODB_URI, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, OPENWEATHERMAP_API_KEY, JWT_SECRET, PORT=5000
+No external deploy, tag, observation result, backup result, or provider credential may be inferred. Record unavailable evidence as `BLOCKED` or skipped with its exact reason.
 
-API and Socket.IO are same-origin by default. Only deployment environments may inject optional
-`VITE_API_URL` / `VITE_SOCKET_URL` overrides and other real environment values; do not commit them.
+## Working Rules
 
-## V2 canonical foundation
-
-V2 is the active target architecture: Node.js 24, npm workspaces, strict TypeScript, React/Vite in
-`apps/web`, and Express 5 in `apps/api`. Shared contracts and pure policies live in
-`packages/contracts` and `packages/domain`; Natural City primitives live in `packages/ui`.
-
-PostgreSQL + PostGIS is the V2 source of truth and Drizzle owns migrations. Run
-`npm run verify:v2-foundation` before handing off work. `npm run smoke:v2 -- --api-url ...
---expected-release ...` is an explicit network check for a running API.
-
-The `frontend/` and `backend/` directories are frozen V1 reference/runtime code until Phase 8. Do not
-add V2 behavior there, change their lockfiles, or treat their legacy MongoDB/JWT descriptions as the
-V2 architecture.
-
-## Token 优化规则
-
-- 读取大文件（App.jsx 587行, ProfileDrawer.jsx 408行, api.js 376行）时只读取需要的行范围，不读整个文件
-- 查找符号/函数优先用 Grep，定位到行号后再 Read 相关区间
-- 路由表、数据模型等细节通过读取源文件获取，不需要记忆
-- 独立功能完成后建议 /clear 开启新对话
+- Search with `rg` before reading broad files; read only relevant ranges in large modules.
+- Use repository patterns and public module interfaces; do not create compatibility bridges.
+- Apply migrations only through the ordered files in `apps/api/drizzle`.
+- Use TDD for behavior changes and run fresh verification before claiming completion.
+- Preserve user changes in a dirty worktree and use absolute-path checks before recursive deletion.
+- Canonical instructions are this file, `README.md`, `CLAUDE.md`, and `docs/operations/`; `docs/archive/` is historical only.

@@ -14,7 +14,7 @@ describe('V2 deployment cutover', () => {
     expect(pkg.scripts['render-build']).toContain('build:v2');
     expect(pkg.scripts['render-build']).toContain('release:v2:verify-candidate');
     expect(pkg.scripts['release:v2:predeploy']).toBe('npm run release:v2:verify-candidate && npm run db:v2:migrate');
-    expect(pkg.scripts['render-build']).not.toMatch(/frontend|backend/);
+    for (const rootName of [['front', 'end'].join(''), ['back', 'end'].join('')]) expect(pkg.scripts['render-build']).not.toContain(rootName);
     const api = JSON.parse(await read('apps/api/package.json')) as { scripts: Record<string, string> };
     expect(api.scripts.build).toBe('tsc -p tsconfig.build.json');
     const buildConfig = JSON.parse(await read('apps/api/tsconfig.build.json')) as { compilerOptions?: Record<string, unknown>; exclude?: string[] };

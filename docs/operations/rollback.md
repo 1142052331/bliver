@@ -1,40 +1,22 @@
 # V2 Rollback Runbook
 
-Rollback restores the whole accepted application SHA. Do not roll back only the web client or only the API, and do not run reverse SQL against the V2 migrations.
+Rollback replaces the whole accepted application SHA. Never roll back only the Web shell or API, and never run reverse SQL against ordered migrations.
 
-## Preconditions
+## Triggers
 
-The release checklist must record the previous SHA and deploy identifier, rollback owner, candidate/current database identifier, backup identifier, restore rehearsal identifier, and the observation start time. These are opaque identifiers; do not record database URLs, tokens, message content, media URLs, or coordinates.
+Rollback for an exact-SHA mismatch, repeated `/readyz` 503, authentication/privacy exposure, destructive moderation error, migration inconsistency, sustained 5xx/latency regression, broken core Socket messaging, or an Outbox backlog that cannot drain during observation.
 
-## Decision triggers
+## Application Rollback
 
-Rollback immediately for a release SHA mismatch, repeated `/readyz` 503, authentication or private-coordinate exposure, destructive moderation error, migration inconsistency, sustained 5xx/latency regression, Socket failure that breaks core messaging, or Outbox failure that cannot drain within the observation window.
-
-Provider-only failures may remain in degraded mode when the core application is healthy and the procedures in [incident-response.md](./incident-response.md) contain the impact.
-
-## Application rollback
-
-1. Freeze new deployments and assign the incident commander and rollback owner.
-2. Record timestamps, affected SHA, request/correlation IDs, and aggregate metrics. Do not capture bodies or secrets.
-3. Stop the new service and its Outbox worker as one unit so no second worker races the replacement.
+1. Freeze deploys and assign incident/rollback owners.
+2. Record timestamps, current and previous SHAs, deploy identifiers, sanitized request/correlation IDs, backup/restore identifiers, and aggregate metrics.
+3. Stop the new API and Outbox worker as one service.
 4. Redeploy the recorded previous whole-service SHA.
-5. Verify `/healthz`, `/readyz`, `/versionz`, guest map access, authenticated login, and Socket polling. `/versionz.version` must equal the rollback SHA.
-6. Observe for at least 30 minutes and record residual Outbox backlog/dead-letter counts.
+5. Verify `/healthz`, `/readyz`, `/versionz`, `/api/v1` guest/auth behavior, Socket polling, the PWA shell, and a missing asset 404.
+6. Confirm `/versionz.version` is exactly the rollback SHA and observe at least 30 minutes.
 
-The current Phase 7 repository has no production V2 Render command. Until Phase 8 replaces V1 deployment wiring, rollback is exercised only in the isolated candidate environment.
+## Database Decision
 
-## Database decision
+Migrations are forward-only. Keep the migrated schema when the previous application is compatible. Otherwise keep the affected database read-only, restore the pre-deploy backup into a new PostGIS database using [backup-restore.md](./backup-restore.md), re-run idempotent migrations, verify extensions/schema/counts/indexes/authorized reads, and repoint the rollback service in one controlled change.
 
-Migrations are forward-only. If the previous application is compatible with the migrated schema, leave the schema in place and roll back code only. If incompatible writes or DDL make that unsafe:
-
-1. Keep the affected database read-only and preserve it for investigation.
-2. Restore the pre-deploy backup into a new database by following [backup-restore.md](./backup-restore.md).
-3. Verify migrations, extensions, aggregate counts, representative authorized reads, and required indexes in the restored database.
-4. Repoint the whole rollback service to the restored database in one controlled configuration change.
-5. Re-run readiness, release, browser, Socket, and privacy smoke before reopening writes.
-
-Never overwrite the only production database during restore, delete Outbox payloads, clear audit rows, or manually mark failed events processed.
-
-## Closeout evidence
-
-Record the rollback reason, decision time, operator roles, old/new deploy IDs, old/new SHAs, database decision, backup/restore identifiers, smoke results, observation duration, unresolved dead-letter count, and follow-up owner. A rollback is not closed until the incident commander confirms readiness and privacy checks.
+Never overwrite the only database, delete Outbox or audit rows, clear leases manually, or mark failed events processed. Closeout requires readiness, exact release, privacy checks, Outbox convergence, observation duration, unresolved dead-letter count, owners, and follow-up dates.
