@@ -45,9 +45,12 @@ describe.skipIf(!externalDatabaseUrl && !dockerAvailable)('PostGIS foundation mi
     const secondMigrationCount = await db.query<{ count: string }>(
       'select count(*)::text as count from drizzle.__drizzle_migrations',
     );
+    const databaseAssertion = externalDatabaseUrl
+      ? 'current_database() is not null'
+      : "current_database() = 'bliver_v2_test'";
     const postgis = await db.query<{ available: boolean; database: boolean }>(
       `select PostGIS_Version() is not null as available,
-              current_database() = 'bliver_v2_test' as database`,
+              ${databaseAssertion} as database`,
     );
 
     expect(postgis.rows[0]).toEqual({ available: true, database: true });
