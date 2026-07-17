@@ -49,4 +49,22 @@ describe('Phase 8 cutover exit', () => {
       expect.stringContaining('unversioned V1 API path'),
     ]));
   });
+
+  it('permits the Mongo driver only in the isolated migration tool', async () => {
+    const root = await fixture();
+    await mkdir(join(root, 'tools/legacy-migration'), { recursive: true });
+    await writeFile(join(root, 'tools/legacy-migration/package.json'), JSON.stringify({ dependencies: { mongodb: '7.0.0' } }));
+    expect(await findCutoverViolations(root)).toEqual([]);
+
+    await writeFile(join(root, 'apps/api/package.json'), JSON.stringify({ dependencies: { mongodb: '7.0.0' } }));
+    expect(await findCutoverViolations(root)).toContain('apps/api/package.json directly depends on mongodb');
+  });
+
+  it('rejects runtime imports from the isolated migration tool', async () => {
+    const root = await fixture();
+    await writeFile(join(root, 'apps/api/src/leak.ts'), "import '../../../../tools/legacy-migration/src/index.js';\n");
+    expect(await findCutoverViolations(root)).toContain(
+      'apps/api/src/leak.ts imports isolated legacy migration tooling',
+    );
+  });
 });

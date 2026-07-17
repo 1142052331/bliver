@@ -4,6 +4,7 @@ import { extname, relative, resolve, sep } from 'node:path';
 const legacyRoots = [['front', 'end'].join(''), ['back', 'end'].join('')] as const;
 const forbiddenDependencies = [
   ['mongo', 'ose'].join(''),
+  ['mongo', 'db'].join(''),
   ['mongo', 'db-memory-server'].join(''),
   ['json', 'webtoken'].join(''),
 ] as const;
@@ -78,6 +79,9 @@ export async function findCutoverViolations(rootInput: string): Promise<readonly
     .filter((path) => textExtensions.has(extname(path).toLowerCase()));
   for (const path of runtimeFiles) {
     const content = await readFile(path, 'utf8');
+    if (/from\s*['"][^'"]*tools\/legacy-migration|import\s*['"][^'"]*tools\/legacy-migration/.test(content.replaceAll('\\', '/'))) {
+      violations.push(`${normalized(root, path)} imports isolated legacy migration tooling`);
+    }
     for (const token of forbiddenRuntimeTokens) {
       if (content.includes(token)) violations.push(`${normalized(root, path)} contains legacy runtime token ${token}`);
     }

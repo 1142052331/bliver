@@ -9,6 +9,12 @@ test-results/
 playwright-report/
 artifacts/openapi/
 .artifacts/
+.migration/
+*.age
+*.bson
+*.archive
+migration-ledger*.json
+migration-public-report*.json
 packages/contracts/generated/
 LING.env
 .mcp.json

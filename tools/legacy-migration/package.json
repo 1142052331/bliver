@@ -1,0 +1,31 @@
+{
+  "name": "@bliver/legacy-migration",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "archive": "tsx src/cli.ts archive",
+    "migrate": "tsx src/cli.ts migrate",
+    "preflight": "tsx src/cli.ts preflight",
+    "test": "vitest run --config vitest.config.ts --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json",
+    "verify-archive": "tsx src/cli.ts verify-archive",
+    "verify-target": "tsx src/cli.ts verify-target"
+  },
+  "dependencies": {
+    "mongodb": "7.0.0",
+    "pg": "8.16.3",
+    "uuid": "11.1.0",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/pg": "8.15.5",
+    "tsx": "4.19.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  }
+}
