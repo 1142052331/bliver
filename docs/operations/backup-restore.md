@@ -2,6 +2,8 @@
 
 Every production migration or V2 promotion requires a restorable Postgres backup. A successful `pg_dump` without a successful isolated restore does not pass the release gate.
 
+The V1 Mongo source has a separate boundary: it is read only by the standalone `tools/legacy-migration` package during the approved offline migration. Its encrypted BSON archive must be restored into an isolated Mongo instance before any PostgreSQL load. The V2 runtime never connects to MongoDB.
+
 ## Ownership and evidence policy
 
 The database owner creates the backup and a second operator verifies the restore when possible. Evidence contains only the provider backup ID or encrypted file checksum, source database identifier, tool/Postgres versions, timestamps, aggregate counts, schema/index checks, restore database identifier, and operator roles. Never record connection strings, passwords, row contents, Outbox payloads, messages, media URLs, or coordinates.

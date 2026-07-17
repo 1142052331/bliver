@@ -65,4 +65,15 @@ describe('V2 canonical documentation', () => {
     expect(phase7).toContain('DONE_WITH_CONCERNS');
     expect(phase7).toContain('Do not create `v2-phase-7-hardening`');
   });
+
+  it('documents the offline V1 migration gates and keeps its CI dependency graph isolated', async () => {
+    const migration = await readFile(resolve(root, 'docs/operations/v1-data-migration.md'), 'utf8');
+    const qa = await readFile(resolve(root, 'docs/qa/v1-data-migration.md'), 'utf8');
+    const workflow = await readFile(resolve(root, '.github/workflows/ci.yml'), 'utf8');
+    for (const token of ['explicit database name', 'read-only', 'encrypted', 'empty PostgreSQL', 'Outbox', 'destroy', 'exact-SHA']) expect(migration).toContain(token);
+    expect(qa).toContain('BLOCKED_SOURCE_ACCESS');
+    expect(workflow).toContain('tools/legacy-migration/package-lock.json');
+    expect(workflow).toContain('npm ci');
+    expect(workflow).toContain('npm run typecheck');
+  });
 });

@@ -7,6 +7,25 @@ on:
     branches: [main]
 
 jobs:
+  legacy-migration-tool:
+    name: Legacy migration tool
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: tools/legacy-migration/package-lock.json
+      - run: npm ci
+        working-directory: tools/legacy-migration
+      - run: npm run typecheck
+        working-directory: tools/legacy-migration
+      - run: npm test
+        working-directory: tools/legacy-migration
+      - run: npm run preflight -- --fixture fixtures/v1-complete.json --dry-run
+        working-directory: tools/legacy-migration
+
   v2-foundation:
     name: V2 foundation
     runs-on: ubuntu-latest
