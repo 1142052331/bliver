@@ -1,13 +1,13 @@
 {
-  "releaseSha": "3ede0797e2f40cd0fff8f114cbe93372e655046f",
+  "releaseSha": "2b36d744bc1dba35b2edeaab8884e3948b4a5656",
   "featureFreeze": true,
   "acceptanceException": "Phase 7 tag was not created; Phase 8 freeze starts from the explicitly accepted SHA.",
   "snapshots": [
     {
       "pass": 1,
       "gateExitCode": 0,
-      "testSuitesPassed": 201,
-      "testsPassed": 381,
+      "testSuitesPassed": 203,
+      "testsPassed": 386,
       "testsSkipped": 0,
       "openApiSha256": "a30db6c6b1be71a5f71d5cef47ab3c78188292612d51303d630e4a1fe725d37c",
       "openApiPathCount": 40
@@ -15,8 +15,8 @@
     {
       "pass": 2,
       "gateExitCode": 0,
-      "testSuitesPassed": 201,
-      "testsPassed": 381,
+      "testSuitesPassed": 203,
+      "testsPassed": 386,
       "testsSkipped": 0,
       "openApiSha256": "a30db6c6b1be71a5f71d5cef47ab3c78188292612d51303d630e4a1fe725d37c",
       "openApiPathCount": 40

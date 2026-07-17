@@ -4,7 +4,7 @@
   "status": "RELEASE_READY_WITH_EXTERNAL_BLOCKERS",
   "publicationStatus": "BLOCKED",
   "sourceFreezeSha": "8aa34867ceefbb296721392cd5dda4b7a8dcd00b",
-  "releaseCandidateSha": "3ede0797e2f40cd0fff8f114cbe93372e655046f",
+  "releaseCandidateSha": "2b36d744bc1dba35b2edeaab8884e3948b4a5656",
   "phase8Lineage": [
     {
       "sha": "dd47ac42390377fe7c0045757c95d3eb6ce979b1",
@@ -65,11 +65,27 @@
     {
       "sha": "3142819ec28e2d10857ed530830a7bf8d0e39adb",
       "subject": "fix: mark health endpoints non-cacheable"
+    },
+    {
+      "sha": "3ede0797e2f40cd0fff8f114cbe93372e655046f",
+      "subject": "test: align discovery explain with partial index"
+    },
+    {
+      "sha": "959be3c4af830031a76845e06a79df722d30f7f6",
+      "subject": "qa: accept local postgres integration evidence"
+    },
+    {
+      "sha": "1f057ce1cd06ac799a4174ad85dfc953f11ea42c",
+      "subject": "docs: align final postgres candidate evidence"
+    },
+    {
+      "sha": "2b36d744bc1dba35b2edeaab8884e3948b4a5656",
+      "subject": "feat: add database parity verification"
     }
   ],
   "candidateManifest": {
     "path": "artifacts/release/v2-candidate-manifest.json",
-    "sha256": "f17141a98442c95461f02d585adb8a71bc1024644d4722ddf9314e8ceadd5723",
+    "sha256": "3a249e463c5fe774fab5e6b283a58b9b1d10b6613e94b21deb777a409943f32a",
     "nodeVersion": "v24.16.0",
     "npmVersion": "11.13.0",
     "rootLockSha256": "e054faf354d114d8de344140b311c595f4f14f57a9bfa1f7f79ca2061c61f7a2",
@@ -85,7 +101,7 @@
   },
   "freezeEvidence": {
     "path": "artifacts/release/phase-7-freeze.json",
-    "sha256": "92c36854c0891e23af41d69c24b64b6e0c499b76d0803494edaa7b986b88537c",
+    "sha256": "6150c02dd935ec5233aba3e12170498a0f1362f0105202bd081bdfffc39aab68",
     "passes": 2,
     "countsMatch": true,
     "openApiMatches": true,
@@ -96,10 +112,10 @@
     "plainNodeApiGraphImport": "PASS",
     "architectureModules": 754,
     "architectureDependencies": 725,
-    "testFilesPassed": 98,
+    "testFilesPassed": 99,
     "testFilesSkipped": 0,
-    "testSuitesPassed": 201,
-    "testsPassed": 381,
+    "testSuitesPassed": 203,
+    "testsPassed": 386,
     "testsSkipped": 0,
     "playwrightPassed": 120,
     "browserEvidencePassed": 8,
@@ -153,7 +169,7 @@
       "resultPath": "artifacts/release/database-parity-local-result.json",
       "resultSha256": "7257ac603a180ace708d2d22ae740db61d475d65e12491b690257e1269b97b48",
       "safety": "fingerprints contain configuration and schema digests only; no URL, credentials, host, user, row data, or business values",
-      "candidateLineage": "tooling and evidence follow-up after candidate 3ede079; no newer deployable candidate is claimed until a complete freeze and exact-SHA build"
+      "candidateLineage": "database parity tooling is included in candidate 2b36d74, which passed a two-pass freeze and exact-SHA render-build; this later baseline record is evidence-only"
     }
   },
   "productionTopology": {
@@ -200,6 +216,11 @@
       "sha": "21a0ba83b4137f8b0dec7d804ced13385b2e90f4",
       "status": "SUPERSEDED_DO_NOT_DEPLOY",
       "reason": "Evidence-only record for the superseded 52c20d8 candidate; never a deployable candidate"
+    },
+    {
+      "sha": "3ede0797e2f40cd0fff8f114cbe93372e655046f",
+      "status": "SUPERSEDED_DO_NOT_DEPLOY",
+      "reason": "Database parity fingerprinting and the production-equivalent scope guard were not included"
     }
   ],
   "environmentKeys": [
