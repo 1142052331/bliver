@@ -47,9 +47,9 @@ The untouched Phase 7 record is archived at [v2-phase-7-hardening.md](../archive
 | 7 frozen inventory | `git ls-tree 8aa3486 -- frontend/public` | PASS; all 5 tracked assets, including `manifest.json` and `sw.js`, exactly match the archived inventory |
 | 7 Lighthouse cleanup | keep-alive/profile regression plus real gates | PASS, 5/5; two standalone and both freeze-pass Lighthouse runs exited without process/profile leaks |
 | 7 release smoke review | canonical V2 health contract plus `npm run test:release-tools` | P1 fixed at `52c20d844e31d451da2c7634243fa97877c6c076`; a second P1 fixed at `3142819ec28e2d10857ed530830a7bf8d0e39adb` adds the required `no-store` policy; 7/7 pass with exact `version` and cache checks |
-| 7 re-freeze | `npm run release:v2:freeze` at `2b36d744bc1dba35b2edeaab8884e3948b4a5656` | PASS twice; 203 suites, 386 tests, 0 skips, matching 40-path OpenAPI hash; freeze SHA-256 `6150c02dd935ec5233aba3e12170498a0f1362f0105202bd081bdfffc39aab68`; supersedes `3ede079` |
-| 7 immutable candidate | exact-SHA `npm run render-build` at `2b36d744bc1dba35b2edeaab8884e3948b4a5656` | PASS; database parity tooling, runtime packages, API, Web, and plain-Node import candidate; provider SHA cross-check enabled |
-| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `3a249e463c5fe774fab5e6b283a58b9b1d10b6613e94b21deb777a409943f32a`; 10 migrations and 10 assets |
+| 7 re-freeze | `npm run release:v2:freeze` at `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` | PASS twice; 203 suites, 386 tests, 0 skips, matching 40-path OpenAPI hash; freeze SHA-256 `a20d236bade4478eec7e857149cc31c7354ab68ed30610f7d15abbb80b9a1f44`; supersedes `2b36d74` |
+| 7 immutable candidate | exact-SHA `npm run render-build` at `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` | PASS; database parity tooling, configured-target PostGIS test fix, runtime packages, API, Web, and plain-Node import candidate; provider SHA cross-check enabled |
+| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `219d4143fa0550db247047d6ee051ec2f0b483fbcff51810310a268ddd48c5bd`; 10 migrations and 10 assets |
 | 7 baseline | `artifacts/release/v2-baseline.json` | `RELEASE_READY_WITH_EXTERNAL_BLOCKERS`; SHA lineage, checksums, counts, metrics, environment key names, and blocked publication gates recorded |
 | 7 foundation | each freeze pass | PASS; architecture 754 modules / 725 dependencies; 99 files passed / 0 skipped; 386 tests passed / 0 skipped |
 | 7 browser | each freeze pass plus final isolated evidence | PASS, 120/120 and 8/8; reconnect max 46.7628 ms, INP max 24 ms |
@@ -65,12 +65,15 @@ Repository-owned database parity tooling now captures and compares safe PostgreS
 | TDD | `scripts/release/database-parity.test.ts` | PASS; comparison and capture tests first failed on the missing module, then passed; a PostgreSQL 16 locale-query regression was reproduced and fixed test-first |
 | Native local fingerprint | `artifacts/release/database-parity-baseline.json` | `LOCAL_REFERENCE`; PostgreSQL 16.14, PostGIS 3.6.2, pgcrypto 1.3, UTF8, Asia/Shanghai, 10 migration hashes, `v2-foundation`, and all 5 critical indexes |
 | Local comparison | `artifacts/release/database-parity-local-result.json` | PASS; exact server, extension, configuration, migration-chain, schema/table, index-definition, and critical-index match |
+| Isolated local staging | ignored `.env.v2` and `.local/postgres-v2-staging` | PASS; independent native PostgreSQL 16.14/PostGIS 3.6.2 cluster, new role/database, migrate, seed, and parity compare; credentials are ignored and absent from evidence |
+| Configured-target regression | staging database directly, without a hardcoded test database name | PASS; 4 files / 8 tests, including all 7 live PostgreSQL checks; Testcontainers retains its `bliver_v2_test` assertion |
+| Readiness and query plan | local staging `/readyz` plus repository live EXPLAIN gate | PASS; readiness 200/`ok`, PostGIS EXPLAIN live with no plan failures |
 | Foundation regression | `V2_DATABASE_URL=<isolated-local-test-db> npm run verify:v2-foundation` plus final full test | PASS; architecture 754/725, 99 test files, 386 tests passed, 0 skipped, API/Web build passed |
 | Production-scope guard | local baseline plus `--require-production-equivalent` | EXPECTED BLOCK, exit 1; a `LOCAL_REFERENCE` cannot satisfy the deployment gate |
 | Production-equivalent target | `V2_DATABASE_URL` / `DATABASE_URL` availability | BLOCKED; no Render or staging PostgreSQL URL was available, so no production-equivalent fingerprint is claimed |
 | Safety review | artifact and source scan | PASS; only configuration/schema metadata and hashes are recorded; no connection or business data appears |
 
-The baseline/result SHA-256 values are recorded in `artifacts/release/v2-baseline.json`. Candidate `2b36d744bc1dba35b2edeaab8884e3948b4a5656` includes the parity tooling and is the immutable, fully frozen candidate. The later commit containing the refreshed manifest, freeze, and baseline records is evidence-only and is not a deployable replacement.
+The baseline/result SHA-256 values are recorded in `artifacts/release/v2-baseline.json`. Candidate `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` includes the parity tooling and configured-target integration fix and is the immutable, fully frozen candidate. The later commit containing the refreshed manifest, freeze, and baseline records is evidence-only and is not a deployable replacement.
 
 ## PostgreSQL Integration Follow-up
 
@@ -85,7 +88,7 @@ The seven PostgreSQL/PostGIS tests that were pending in the historical freeze we
 | Live query plans | `EXPLAIN (FORMAT JSON)` footprint geography query and discovery region query | PASS; GiST `Index Scan` and `discovery_entries_region_idx` `Index Only Scan` |
 | Release performance | `V2_PERF_MODE=release V2_LIGHTHOUSE_REPORT=.artifacts/lighthouse-v2.json npm run perf:v2` | PASS; live PostGIS EXPLAIN checked, browser evidence refreshed 8/8 |
 
-The historical PostgreSQL follow-up freeze at `3ede0797e2f40cd0fff8f114cbe93372e655046f` produced two matching snapshots: 201 suites, 381 tests passed, 0 skipped, and the same 40-path OpenAPI hash. It is now superseded by the parity-tooling candidate `2b36d744bc1dba35b2edeaab8884e3948b4a5656`, whose two matching snapshots contain 203 suites, 386 tests passed, and 0 skipped.
+The historical PostgreSQL follow-up freeze at `3ede0797e2f40cd0fff8f114cbe93372e655046f` produced two matching snapshots: 201 suites, 381 tests passed, 0 skipped, and the same 40-path OpenAPI hash. It was superseded by parity-tooling candidate `2b36d744bc1dba35b2edeaab8884e3948b4a5656`; that candidate was then superseded by `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` after the configured-target integration fix. The current candidate's two matching snapshots contain 203 suites, 386 tests passed, and 0 skipped.
 
 The discovery integration assertion was corrected in commit `3ede0797e2f40cd0fff8f114cbe93372e655046f`: its EXPLAIN query now includes `deleted_at IS NULL`, matching the partial index predicate and the production repository query. No migration or runtime boundary changed.
 
@@ -116,7 +119,7 @@ The follow-up review found that the health endpoints also omitted the `Cache-Con
 
 ## Publish Baseline Decision
 
-The immutable, locally verified release candidate is `2b36d744bc1dba35b2edeaab8884e3948b4a5656`. The later commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `3ede079`, `3142819`, `e9b10e3`, `7c2ab8e`, `5ef1c1d`, `56107a2`, `52c20d8`, and `21a0ba8` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
+The immutable, locally verified release candidate is `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92`. The later commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `2b36d74`, `3ede079`, `3142819`, `e9b10e3`, `7c2ab8e`, `5ef1c1d`, `56107a2`, `52c20d8`, and `21a0ba8` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
 
 Local non-database gates are green, but the release exit gate is incomplete. Publication status remains `BLOCKED`, `v2.0.0` does not exist, and no Render deployment, remote release match, backup/restore, or observation result is claimed.
 

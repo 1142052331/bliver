@@ -4,7 +4,7 @@
   "status": "RELEASE_READY_WITH_EXTERNAL_BLOCKERS",
   "publicationStatus": "BLOCKED",
   "sourceFreezeSha": "8aa34867ceefbb296721392cd5dda4b7a8dcd00b",
-  "releaseCandidateSha": "2b36d744bc1dba35b2edeaab8884e3948b4a5656",
+  "releaseCandidateSha": "4f1578f4f4c0370d7a3832bc58fa06fc7a788c92",
   "phase8Lineage": [
     {
       "sha": "dd47ac42390377fe7c0045757c95d3eb6ce979b1",
@@ -81,11 +81,15 @@
     {
       "sha": "2b36d744bc1dba35b2edeaab8884e3948b4a5656",
       "subject": "feat: add database parity verification"
+    },
+    {
+      "sha": "4f1578f4f4c0370d7a3832bc58fa06fc7a788c92",
+      "subject": "test: support configured postgres targets"
     }
   ],
   "candidateManifest": {
     "path": "artifacts/release/v2-candidate-manifest.json",
-    "sha256": "3a249e463c5fe774fab5e6b283a58b9b1d10b6613e94b21deb777a409943f32a",
+    "sha256": "219d4143fa0550db247047d6ee051ec2f0b483fbcff51810310a268ddd48c5bd",
     "nodeVersion": "v24.16.0",
     "npmVersion": "11.13.0",
     "rootLockSha256": "e054faf354d114d8de344140b311c595f4f14f57a9bfa1f7f79ca2061c61f7a2",
@@ -101,7 +105,7 @@
   },
   "freezeEvidence": {
     "path": "artifacts/release/phase-7-freeze.json",
-    "sha256": "6150c02dd935ec5233aba3e12170498a0f1362f0105202bd081bdfffc39aab68",
+    "sha256": "a20d236bade4478eec7e857149cc31c7354ab68ed30610f7d15abbb80b9a1f44",
     "passes": 2,
     "countsMatch": true,
     "openApiMatches": true,
@@ -160,6 +164,7 @@
       "foundationMarker": "v2-foundation",
       "criticalIndexesPresent": 5,
       "localComparison": "PASS",
+      "configuredTargetIntegration": "PASS_8_OF_8",
       "foundationTestFilesPassed": 99,
       "foundationTestsPassed": 386,
       "foundationTestsSkipped": 0,
@@ -169,7 +174,7 @@
       "resultPath": "artifacts/release/database-parity-local-result.json",
       "resultSha256": "7257ac603a180ace708d2d22ae740db61d475d65e12491b690257e1269b97b48",
       "safety": "fingerprints contain configuration and schema digests only; no URL, credentials, host, user, row data, or business values",
-      "candidateLineage": "database parity tooling is included in candidate 2b36d74, which passed a two-pass freeze and exact-SHA render-build; this later baseline record is evidence-only"
+      "candidateLineage": "database parity tooling and configured-target test fix are included in candidate 4f1578f, which passed a two-pass freeze and exact-SHA render-build; this later baseline record is evidence-only"
     }
   },
   "productionTopology": {
@@ -221,6 +226,11 @@
       "sha": "3ede0797e2f40cd0fff8f114cbe93372e655046f",
       "status": "SUPERSEDED_DO_NOT_DEPLOY",
       "reason": "Database parity fingerprinting and the production-equivalent scope guard were not included"
+    },
+    {
+      "sha": "2b36d744bc1dba35b2edeaab8884e3948b4a5656",
+      "status": "SUPERSEDED_DO_NOT_DEPLOY",
+      "reason": "PostGIS integration test still hardcoded the Testcontainers database name for configured targets"
     }
   ],
   "environmentKeys": [
