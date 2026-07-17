@@ -34,6 +34,7 @@ export interface UserRepository {
 export interface CredentialRepository {
   findByUserId(userId: UserId): Promise<CredentialRecord | null>;
   create(record: CredentialRecord): Promise<void>;
+  replaceHash(userId: UserId, expectedHash: string, replacementHash: string): Promise<boolean>;
 }
 export interface DeviceRepository {
   create(record: DeviceRecord): Promise<DeviceRecord>;

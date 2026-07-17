@@ -1,7 +1,7 @@
 import { v7 } from 'uuid';
 import { createUserId, type UserId } from '@bliver/domain';
 import type { IdentityRepositories, Role, SessionRecord } from './ports.js';
-import { hashPassword, verifyPassword } from '../domain/password.js';
+import { hashPassword, hashVerifiedLegacyPassword, verifyPassword } from '../domain/password.js';
 import { capacitorSessionPolicy, webSessionPolicy, createOpaqueToken, hashToken, isExpired, normalizeDeviceName, type SessionPlatform } from '../domain/session.js';
 
 export class IdentityError extends Error { constructor(readonly code: string) { super(code); } }
@@ -25,9 +25,18 @@ export async function registerUser(repos: IdentityRepositories, input: { usernam
 
 export async function authenticateUser(repos: IdentityRepositories, input: { username: string; password: string; platform: SessionPlatform; deviceName?: string }): Promise<SessionGrant> {
   const user = await repos.users.findByUsername(input.username.trim());
-  const credential = user ? await repos.credentials.findByUserId(user.id) : null;
-  if (!user || !credential || !(await verifyPassword(credential.passwordHash, input.password))) throw new IdentityError('INVALID_CREDENTIALS');
+  let credential = user ? await repos.credentials.findByUserId(user.id) : null;
+  const verification = credential ? await verifyPassword(credential.passwordHash, input.password) : { valid: false, needsRehash: false };
+  if (!user || !credential || !verification.valid) throw new IdentityError('INVALID_CREDENTIALS');
   if (await repos.suspensions?.isSuspended(user.id)) throw new IdentityError('USER_SUSPENDED');
+  if (verification.needsRehash) {
+    const replacementHash = await hashVerifiedLegacyPassword(input.password);
+    if (!(await repos.credentials.replaceHash(user.id, credential.passwordHash, replacementHash))) {
+      credential = await repos.credentials.findByUserId(user.id);
+      const concurrent = credential ? await verifyPassword(credential.passwordHash, input.password) : { valid: false, needsRehash: false };
+      if (!credential || !concurrent.valid || concurrent.needsRehash) throw new IdentityError('INVALID_CREDENTIALS');
+    }
+  }
   const now = new Date();
   const policy = input.platform === 'web' ? webSessionPolicy : capacitorSessionPolicy;
   const access = createOpaqueToken();

@@ -16,6 +16,12 @@ export function createMemoryIdentityRepositories(): IdentityRepositories {
   const credentialRepo: CredentialRepository = {
     async findByUserId(userId) { return credentials.get(userId) ?? null; },
     async create(record) { credentials.set(record.userId, record); },
+    async replaceHash(userId, expectedHash, replacementHash) {
+      const current = credentials.get(userId);
+      if (!current || current.passwordHash !== expectedHash) return false;
+      credentials.set(userId, { ...current, passwordHash: replacementHash });
+      return true;
+    },
   };
   const deviceRepo: DeviceRepository = { async create(record) { devices.set(record.id, record); return record; } };
   const sessionRepo: SessionRepository = {

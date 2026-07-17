@@ -15,6 +15,7 @@ export function createPostgresIdentityRepositories(db: DatabaseClient): Identity
   const credentials: CredentialRepository = {
     async findByUserId(userId) { const result = await db.query<Row>('SELECT user_id, password_hash FROM identity_credentials WHERE user_id = $1', [userId]); const row = result.rows[0]; return row ? { userId: row.user_id as UserId, passwordHash: String(row.password_hash) } : null; },
     async create(record: CredentialRecord) { await db.query('INSERT INTO identity_credentials (user_id, password_hash) VALUES ($1, $2)', [record.userId, record.passwordHash]); },
+    async replaceHash(userId, expectedHash, replacementHash) { const result = await db.query('UPDATE identity_credentials SET password_hash = $3, updated_at = now() WHERE user_id = $1 AND password_hash = $2', [userId, expectedHash, replacementHash]); return result.rowCount === 1; },
   };
   const devices: DeviceRepository = { async create(record: DeviceRecord) { await db.query('INSERT INTO identity_devices (id, user_id, name, platform) VALUES ($1, $2, $3, $4)', [record.id, record.userId, record.name, record.platform]); return record; } };
   const sessions: SessionRepository = {
