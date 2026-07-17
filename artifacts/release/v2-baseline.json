@@ -4,7 +4,7 @@
   "status": "RELEASE_READY_WITH_EXTERNAL_BLOCKERS",
   "publicationStatus": "BLOCKED",
   "sourceFreezeSha": "8aa34867ceefbb296721392cd5dda4b7a8dcd00b",
-  "releaseCandidateSha": "4f1578f4f4c0370d7a3832bc58fa06fc7a788c92",
+  "releaseCandidateSha": "20624bed9676fc326a7f2c88ceef0490f365e9f3",
   "phase8Lineage": [
     {
       "sha": "dd47ac42390377fe7c0045757c95d3eb6ce979b1",
@@ -85,11 +85,19 @@
     {
       "sha": "4f1578f4f4c0370d7a3832bc58fa06fc7a788c92",
       "subject": "test: support configured postgres targets"
+    },
+    {
+      "sha": "75bd47b7343111c9d3f6d8372348be7d7a037a81",
+      "subject": "release: record configured database target evidence"
+    },
+    {
+      "sha": "20624bed9676fc326a7f2c88ceef0490f365e9f3",
+      "subject": "release: accept Render database parity baseline"
     }
   ],
   "candidateManifest": {
     "path": "artifacts/release/v2-candidate-manifest.json",
-    "sha256": "219d4143fa0550db247047d6ee051ec2f0b483fbcff51810310a268ddd48c5bd",
+    "sha256": "709124e587e96d0bf12b445d76bada79a5e794fb078865d07d396e359623fe80",
     "nodeVersion": "v24.16.0",
     "npmVersion": "11.13.0",
     "rootLockSha256": "e054faf354d114d8de344140b311c595f4f14f57a9bfa1f7f79ca2061c61f7a2",
@@ -105,7 +113,7 @@
   },
   "freezeEvidence": {
     "path": "artifacts/release/phase-7-freeze.json",
-    "sha256": "a20d236bade4478eec7e857149cc31c7354ab68ed30610f7d15abbb80b9a1f44",
+    "sha256": "d1da0fa2327e94d766c1cfede8237a479dee64f5ef08cf72238598ff7f6e0c94",
     "passes": 2,
     "countsMatch": true,
     "openApiMatches": true,
@@ -180,7 +188,7 @@
       "resultPath": "artifacts/release/database-parity-local-result.json",
       "resultSha256": "7257ac603a180ace708d2d22ae740db61d475d65e12491b690257e1269b97b48",
       "safety": "fingerprints contain configuration and schema digests only; no URL, credentials, host, user, row data, or business values",
-      "candidateLineage": "the production-equivalent baseline changes the candidate input after 4f1578f; a fresh two-pass freeze and exact-SHA render-build are required before this input can advance"
+      "candidateLineage": "candidate 20624be includes the Render production-equivalent baseline and passed a two-pass freeze against that database plus exact-SHA render-build; this later baseline record is evidence-only"
     }
   },
   "productionTopology": {
@@ -237,6 +245,11 @@
       "sha": "2b36d744bc1dba35b2edeaab8884e3948b4a5656",
       "status": "SUPERSEDED_DO_NOT_DEPLOY",
       "reason": "PostGIS integration test still hardcoded the Testcontainers database name for configured targets"
+    },
+    {
+      "sha": "4f1578f4f4c0370d7a3832bc58fa06fc7a788c92",
+      "status": "SUPERSEDED_DO_NOT_DEPLOY",
+      "reason": "Render production-equivalent database baseline was not included"
     }
   ],
   "environmentKeys": [

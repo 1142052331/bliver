@@ -47,9 +47,9 @@ The untouched Phase 7 record is archived at [v2-phase-7-hardening.md](../archive
 | 7 frozen inventory | `git ls-tree 8aa3486 -- frontend/public` | PASS; all 5 tracked assets, including `manifest.json` and `sw.js`, exactly match the archived inventory |
 | 7 Lighthouse cleanup | keep-alive/profile regression plus real gates | PASS, 5/5; two standalone and both freeze-pass Lighthouse runs exited without process/profile leaks |
 | 7 release smoke review | canonical V2 health contract plus `npm run test:release-tools` | P1 fixed at `52c20d844e31d451da2c7634243fa97877c6c076`; a second P1 fixed at `3142819ec28e2d10857ed530830a7bf8d0e39adb` adds the required `no-store` policy; 7/7 pass with exact `version` and cache checks |
-| 7 re-freeze | `npm run release:v2:freeze` at `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` | PASS twice; 203 suites, 386 tests, 0 skips, matching 40-path OpenAPI hash; freeze SHA-256 `a20d236bade4478eec7e857149cc31c7354ab68ed30610f7d15abbb80b9a1f44`; supersedes `2b36d74` |
-| 7 immutable candidate | exact-SHA `npm run render-build` at `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` | PASS; database parity tooling, configured-target PostGIS test fix, runtime packages, API, Web, and plain-Node import candidate; provider SHA cross-check enabled |
-| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `219d4143fa0550db247047d6ee051ec2f0b483fbcff51810310a268ddd48c5bd`; 10 migrations and 10 assets |
+| 7 re-freeze | `npm run release:v2:freeze` at `20624bed9676fc326a7f2c88ceef0490f365e9f3` with the Render production-equivalent database | PASS twice; 203 suites, 386 tests, 0 skips, matching 40-path OpenAPI hash; freeze SHA-256 `d1da0fa2327e94d766c1cfede8237a479dee64f5ef08cf72238598ff7f6e0c94`; supersedes `4f1578f` |
+| 7 immutable candidate | exact-SHA `npm run render-build` at `20624bed9676fc326a7f2c88ceef0490f365e9f3` | PASS; Render database baseline, parity tooling, configured-target PostGIS test fix, runtime packages, API, Web, and plain-Node import candidate; provider SHA cross-check enabled |
+| 7 candidate manifest | `artifacts/release/v2-candidate-manifest.json` | PASS; SHA-256 `709124e587e96d0bf12b445d76bada79a5e794fb078865d07d396e359623fe80`; 10 migrations and 10 assets |
 | 7 baseline | `artifacts/release/v2-baseline.json` | `RELEASE_READY_WITH_EXTERNAL_BLOCKERS`; SHA lineage, checksums, counts, metrics, environment key names, and blocked publication gates recorded |
 | 7 foundation | each freeze pass | PASS; architecture 754 modules / 725 dependencies; 99 files passed / 0 skipped; 386 tests passed / 0 skipped |
 | 7 browser | each freeze pass plus final isolated evidence | PASS, 120/120 and 8/8; reconnect max 46.7628 ms, INP max 24 ms |
@@ -75,7 +75,7 @@ Repository-owned database parity tooling now captures and compares safe PostgreS
 | Production-scope guard | Render target plus `--require-production-equivalent` | PASS; exact server, extension, configuration, migration-chain, schema/table, and index-definition match |
 | Safety review | artifact and source scan | PASS; only configuration/schema metadata and hashes are recorded; no connection or business data appears |
 
-The production-equivalent baseline SHA-256 is recorded in `artifacts/release/v2-baseline.json`. Candidate `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` remains the last fully frozen candidate before this production baseline input. The commit containing this input must pass a new two-pass freeze and exact-SHA build before it becomes deployable.
+The production-equivalent baseline SHA-256 is recorded in `artifacts/release/v2-baseline.json`. Candidate `20624bed9676fc326a7f2c88ceef0490f365e9f3` includes this baseline and passed a new two-pass freeze against the Render database plus exact-SHA build. The later commit containing refreshed evidence is not a deployable replacement.
 
 ## PostgreSQL Integration Follow-up
 
@@ -90,7 +90,7 @@ The seven PostgreSQL/PostGIS tests that were pending in the historical freeze we
 | Live query plans | `EXPLAIN (FORMAT JSON)` footprint geography query and discovery region query | PASS; GiST `Index Scan` and `discovery_entries_region_idx` `Index Only Scan` |
 | Release performance | `V2_PERF_MODE=release V2_LIGHTHOUSE_REPORT=.artifacts/lighthouse-v2.json npm run perf:v2` | PASS; live PostGIS EXPLAIN checked, browser evidence refreshed 8/8 |
 
-The historical PostgreSQL follow-up freeze at `3ede0797e2f40cd0fff8f114cbe93372e655046f` produced two matching snapshots: 201 suites, 381 tests passed, 0 skipped, and the same 40-path OpenAPI hash. It was superseded by parity-tooling candidate `2b36d744bc1dba35b2edeaab8884e3948b4a5656`; that candidate was then superseded by `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` after the configured-target integration fix. The current candidate's two matching snapshots contain 203 suites, 386 tests passed, and 0 skipped.
+The historical PostgreSQL follow-up freeze at `3ede0797e2f40cd0fff8f114cbe93372e655046f` produced two matching snapshots: 201 suites, 381 tests passed, 0 skipped, and the same 40-path OpenAPI hash. It was superseded by parity-tooling candidate `2b36d744bc1dba35b2edeaab8884e3948b4a5656`, then by configured-target candidate `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92`, and finally by Render production-equivalent candidate `20624bed9676fc326a7f2c88ceef0490f365e9f3`. The current candidate's two matching snapshots contain 203 suites, 386 tests passed, and 0 skipped.
 
 The discovery integration assertion was corrected in commit `3ede0797e2f40cd0fff8f114cbe93372e655046f`: its EXPLAIN query now includes `deleted_at IS NULL`, matching the partial index predicate and the production repository query. No migration or runtime boundary changed.
 
@@ -121,7 +121,7 @@ The follow-up review found that the health endpoints also omitted the `Cache-Con
 
 ## Publish Baseline Decision
 
-The immutable, locally verified release candidate is `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92`. The later commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `2b36d74`, `3ede079`, `3142819`, `e9b10e3`, `7c2ab8e`, `5ef1c1d`, `56107a2`, `52c20d8`, and `21a0ba8` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
+The immutable, production-equivalent-database-verified release candidate is `20624bed9676fc326a7f2c88ceef0490f365e9f3`. The later commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `4f1578f`, `2b36d74`, `3ede079`, `3142819`, `e9b10e3`, `7c2ab8e`, `5ef1c1d`, `56107a2`, `52c20d8`, and `21a0ba8` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
 
 Local gates and Render production-equivalent database parity are green, but the release exit gate is incomplete. Publication status remains `BLOCKED`, `v2.0.0` does not exist, and no Render application deployment, remote release match, backup/restore, or observation result is claimed.
 
