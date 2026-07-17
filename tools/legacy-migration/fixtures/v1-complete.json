@@ -1,0 +1,66 @@
+{
+  "AdminBootstrap": [{ "_id": "admin-setup", "state": "completed", "userId": "507f1f77bcf86cd799439011", "ownerToken": "fixture-owner-token" }],
+  "Announcement": [
+    { "_id": "507f1f77bcf86cd799439101", "title": "one", "content": "archived", "author": "legacy_admin" },
+    { "_id": "507f1f77bcf86cd799439102", "title": "two", "content": "archived", "author": "legacy_admin" },
+    { "_id": "507f1f77bcf86cd799439103", "title": "three", "content": "archived", "author": "legacy_admin" }
+  ],
+  "AuditLog": [
+    { "_id": "507f1f77bcf86cd799439111", "type": "login", "actor": "legacy_user", "target": "", "detail": "archived", "ip": "192.0.2.1" },
+    { "_id": "507f1f77bcf86cd799439112", "type": "report_action", "actor": "legacy_admin", "target": "footprint", "detail": "archived", "ip": "192.0.2.2" }
+  ],
+  "BackfillDiscoveryWindow": [
+    { "_id": "507f1f77bcf86cd799439121", "token": "window-one", "slot": 1 },
+    { "_id": "507f1f77bcf86cd799439122", "token": "window-two", "slot": 2 }
+  ],
+  "Block": [{ "_id": "507f1f77bcf86cd799439131", "blockerId": "507f1f77bcf86cd799439011", "blockedId": "507f1f77bcf86cd799439013", "createdAt": "2026-01-05T00:00:00.000Z" }],
+  "Conversation": [{ "_id": "507f1f77bcf86cd799439141", "userA": "507f1f77bcf86cd799439011", "userB": "507f1f77bcf86cd799439012", "state": "unlocked", "createdAt": "2026-01-06T00:00:00.000Z", "updatedAt": "2026-01-08T00:00:00.000Z" }],
+  "Feedback": [
+    { "_id": "507f1f77bcf86cd799439151", "userId": "507f1f77bcf86cd799439011", "rating": 5, "content": "archived" },
+    { "_id": "507f1f77bcf86cd799439152", "userId": "507f1f77bcf86cd799439012", "rating": 4, "content": "archived" },
+    { "_id": "507f1f77bcf86cd799439153", "userId": "507f1f77bcf86cd799439013", "rating": 3, "content": "archived" }
+  ],
+  "Footprint": [
+    {
+      "_id": "507f1f77bcf86cd799439021", "userId": "507f1f77bcf86cd799439011",
+      "location": { "lat": 31.2304, "lng": 121.4737 }, "realLocation": { "lat": 31.2305, "lng": 121.4738 },
+      "placeName": "People Square", "message": "public footprint", "mood": "calm", "photoUrl": "", "visibility": "public", "locationPrecision": "approximate", "countryCode": "CN", "regionCode": "SH", "createdAt": "2026-01-07T00:00:00.000Z", "updatedAt": "2026-01-07T00:00:00.000Z",
+      "reactions": [{ "_id": "507f1f77bcf86cd799439211", "userId": "507f1f77bcf86cd799439012", "emoji": "heart", "createdAt": "2026-01-07T01:00:00.000Z" }],
+      "comments": [{ "_id": "507f1f77bcf86cd799439221", "userId": "507f1f77bcf86cd799439012", "content": "hello", "createdAt": "2026-01-07T02:00:00.000Z", "isDeleted": false }]
+    },
+    {
+      "_id": "507f1f77bcf86cd799439022", "userId": "507f1f77bcf86cd799439012",
+      "location": { "lat": 39.9042, "lng": 116.4074 }, "placeName": "", "message": "friends footprint", "mood": "happy", "photoUrl": "", "visibility": "friends", "locationPrecision": "precise", "countryCode": "CN", "regionCode": "BJ", "createdAt": "2026-01-08T00:00:00.000Z", "updatedAt": "2026-01-08T00:00:00.000Z",
+      "reactions": [],
+      "comments": [{ "_id": "507f1f77bcf86cd799439222", "userId": "507f1f77bcf86cd799439011", "content": "", "createdAt": "2026-01-08T01:00:00.000Z", "isDeleted": true, "deletedAt": "2026-01-08T02:00:00.000Z" }]
+    },
+    {
+      "_id": "507f1f77bcf86cd799439023", "userId": "507f1f77bcf86cd799439013",
+      "location": { "lat": 22.3193, "lng": 114.1694 }, "placeName": "Harbour", "message": "legacy visibility", "mood": "quiet", "photoUrl": "", "locationPrecision": "approximate", "countryCode": "HK", "regionCode": "HK", "createdAt": "2026-01-09T00:00:00.000Z", "updatedAt": "2026-01-09T00:00:00.000Z",
+      "reactions": [], "comments": []
+    }
+  ],
+  "FootprintRead": [{ "_id": "507f1f77bcf86cd799439161", "userId": "507f1f77bcf86cd799439012", "footprintId": "507f1f77bcf86cd799439021", "readAt": "2026-01-09T01:00:00.000Z" }],
+  "Friendship": [{ "_id": "507f1f77bcf86cd799439171", "requester": "507f1f77bcf86cd799439011", "recipient": "507f1f77bcf86cd799439012", "status": "accepted", "createdAt": "2026-01-03T00:00:00.000Z", "updatedAt": "2026-01-04T00:00:00.000Z" }],
+  "Message": [
+    { "_id": "507f1f77bcf86cd799439181", "conversationId": "507f1f77bcf86cd799439141", "senderId": "507f1f77bcf86cd799439011", "receiverId": "507f1f77bcf86cd799439012", "content": "hello", "kind": "greeting", "isRead": true, "createdAt": "2026-01-06T01:00:00.000Z", "updatedAt": "2026-01-06T02:00:00.000Z" },
+    { "_id": "507f1f77bcf86cd799439182", "conversationId": "507f1f77bcf86cd799439141", "senderId": "507f1f77bcf86cd799439012", "receiverId": "507f1f77bcf86cd799439011", "content": "reply", "kind": "text", "isRead": false, "createdAt": "2026-01-07T01:00:00.000Z" },
+    { "_id": "507f1f77bcf86cd799439183", "conversationId": null, "senderId": "507f1f77bcf86cd799439011", "receiverId": "507f1f77bcf86cd799439012", "content": "later", "kind": "text", "isRead": false, "createdAt": "2026-01-08T01:00:00.000Z" }
+  ],
+  "Notification": [
+    { "_id": "507f1f77bcf86cd799439191", "recipientId": "507f1f77bcf86cd799439011", "senderId": "507f1f77bcf86cd799439012", "type": "reaction", "footprintId": "507f1f77bcf86cd799439021", "content": "reacted", "isRead": false, "createdAt": "2026-01-07T01:00:00.000Z" },
+    { "_id": "507f1f77bcf86cd799439192", "recipientId": "507f1f77bcf86cd799439011", "senderId": "507f1f77bcf86cd799439012", "type": "comment", "footprintId": "507f1f77bcf86cd799439021", "content": "commented", "isRead": true, "createdAt": "2026-01-07T02:00:00.000Z" },
+    { "_id": "507f1f77bcf86cd799439193", "recipientId": "507f1f77bcf86cd799439011", "senderId": "507f1f77bcf86cd799439013", "type": "profile_view", "content": "viewed", "isRead": false, "createdAt": "2026-01-07T03:00:00.000Z" },
+    { "_id": "507f1f77bcf86cd799439194", "recipientId": "507f1f77bcf86cd799439012", "senderId": "507f1f77bcf86cd799439011", "type": "reaction", "footprintId": "507f1f77bcf86cd799439022", "content": "reacted", "isRead": false, "createdAt": "2026-01-08T03:00:00.000Z" }
+  ],
+  "PushSubscription": [{ "_id": "507f1f77bcf86cd799439201", "userId": "507f1f77bcf86cd799439011", "endpoint": "https://push.invalid/fixture", "keys": { "p256dh": "fixture-p256dh", "auth": "fixture-auth" } }],
+  "Report": [
+    { "_id": "507f1f77bcf86cd799439231", "reporterId": "507f1f77bcf86cd799439012", "targetType": "footprint", "targetId": "507f1f77bcf86cd799439021", "footprintId": "507f1f77bcf86cd799439021", "reason": "spam", "status": "pending", "createdAt": "2026-01-10T00:00:00.000Z" },
+    { "_id": "507f1f77bcf86cd799439232", "reporterId": "507f1f77bcf86cd799439012", "targetType": "comment", "targetId": "507f1f77bcf86cd799439221", "footprintId": "507f1f77bcf86cd799439021", "reason": "spam", "status": "pending", "createdAt": "2026-01-10T01:00:00.000Z" }
+  ],
+  "User": [
+    { "_id": "507f1f77bcf86cd799439011", "name": "legacy_user", "password": "$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy", "role": "user", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-02T00:00:00.000Z", "avatarUrl": "https://archive.invalid/avatar", "profileVisitors": [{ "visitorId": "507f1f77bcf86cd799439012", "visitedAt": "2026-01-09T00:00:00.000Z" }] },
+    { "_id": "507f1f77bcf86cd799439012", "name": "legacy_friend", "password": "$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy", "role": "user", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-02T00:00:00.000Z", "profileVisitors": [] },
+    { "_id": "507f1f77bcf86cd799439013", "name": "legacy_admin", "password": "$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy", "role": "admin", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-02T00:00:00.000Z", "profileVisitors": [] }
+  ]
+}
