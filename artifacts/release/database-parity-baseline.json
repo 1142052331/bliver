@@ -16,9 +16,9 @@
   ],
   "settings": {
     "encoding": "UTF8",
-    "collation": "Chinese (Simplified)_China.936",
-    "ctype": "Chinese (Simplified)_China.936",
-    "timezone": "Asia/Shanghai"
+    "collation": "en_US.UTF8",
+    "ctype": "en_US.UTF8",
+    "timezone": "UTC"
   },
   "migration": {
     "tablePresent": true,
@@ -36,5 +36,5 @@
     "outbox_events_ready_idx": true,
     "places_location_gist_idx": true
   },
-  "scope": "LOCAL_REFERENCE"
+  "scope": "PRODUCTION_EQUIVALENT"
 }

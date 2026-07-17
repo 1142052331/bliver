@@ -155,26 +155,32 @@
       "dockerDaemon": "BLOCKED_WSL"
     },
     "databaseParityFollowUp": {
-      "status": "PASS_LOCAL_REFERENCE_ONLY",
-      "baselineScope": "LOCAL_REFERENCE",
+      "status": "PASS_PRODUCTION_EQUIVALENT",
+      "baselineScope": "PRODUCTION_EQUIVALENT",
       "server": "PostgreSQL 16.14 / PostGIS 3.6.2",
       "encoding": "UTF8",
-      "timezone": "Asia/Shanghai",
+      "collation": "en_US.UTF8",
+      "timezone": "UTC",
       "migrationsApplied": 10,
+      "migration": "PASS",
+      "seed": "PASS",
       "foundationMarker": "v2-foundation",
       "criticalIndexesPresent": 5,
-      "localComparison": "PASS",
+      "localComparison": "HISTORICAL_PASS_LOCAL_REFERENCE",
       "configuredTargetIntegration": "PASS_8_OF_8",
       "foundationTestFilesPassed": 99,
       "foundationTestsPassed": 386,
       "foundationTestsSkipped": 0,
-      "productionEquivalentComparison": "BLOCKED_NO_TARGET_URL",
+      "productionEquivalentComparison": "PASS_RENDER_POSTGRESQL",
+      "provider": "Render managed PostgreSQL Free",
+      "region": "Oregon",
+      "expiresOn": "2026-08-16",
       "baselinePath": "artifacts/release/database-parity-baseline.json",
-      "baselineSha256": "19e9c5c30ca08e199e7db3e61031de97eaa2d041c9991c7a355b7c16932066e0",
+      "baselineSha256": "47bad0e3ebbdbb175e60d549d438356d5dcdc9b827801c5c93b0af757f0aabc4",
       "resultPath": "artifacts/release/database-parity-local-result.json",
       "resultSha256": "7257ac603a180ace708d2d22ae740db61d475d65e12491b690257e1269b97b48",
       "safety": "fingerprints contain configuration and schema digests only; no URL, credentials, host, user, row data, or business values",
-      "candidateLineage": "database parity tooling and configured-target test fix are included in candidate 4f1578f, which passed a two-pass freeze and exact-SHA render-build; this later baseline record is evidence-only"
+      "candidateLineage": "the production-equivalent baseline changes the candidate input after 4f1578f; a fresh two-pass freeze and exact-SHA render-build are required before this input can advance"
     }
   },
   "productionTopology": {
@@ -267,11 +273,6 @@
     "exceptionReason": "Sentry and the Lighthouse toolchain install optional OpenTelemetry instrumentation packages; no MongoDB or Mongoose driver is installed"
   },
   "blockers": [
-    {
-      "gate": "Docker PostGIS image parity and production database readiness",
-      "status": "BLOCKED",
-      "reason": "Local PostgreSQL/PostGIS fingerprint baseline and comparison passed; Docker Desktop daemon and a production-equivalent database URL remain unavailable"
-    },
     {
       "gate": "backup and isolated restore",
       "status": "BLOCKED",

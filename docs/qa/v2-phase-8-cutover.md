@@ -63,17 +63,19 @@ Repository-owned database parity tooling now captures and compares safe PostgreS
 | Check | Evidence | Result |
 | --- | --- | --- |
 | TDD | `scripts/release/database-parity.test.ts` | PASS; comparison and capture tests first failed on the missing module, then passed; a PostgreSQL 16 locale-query regression was reproduced and fixed test-first |
-| Native local fingerprint | `artifacts/release/database-parity-baseline.json` | `LOCAL_REFERENCE`; PostgreSQL 16.14, PostGIS 3.6.2, pgcrypto 1.3, UTF8, Asia/Shanghai, 10 migration hashes, `v2-foundation`, and all 5 critical indexes |
-| Local comparison | `artifacts/release/database-parity-local-result.json` | PASS; exact server, extension, configuration, migration-chain, schema/table, index-definition, and critical-index match |
+| Historical local reference | `artifacts/release/database-parity-local-result.json` and Git history | PASS; PostgreSQL 16.14/PostGIS 3.6.2 local reference matched its original locale, migration, schema, and index baseline |
 | Isolated local staging | ignored `.env.v2` and `.local/postgres-v2-staging` | PASS; independent native PostgreSQL 16.14/PostGIS 3.6.2 cluster, new role/database, migrate, seed, and parity compare; credentials are ignored and absent from evidence |
 | Configured-target regression | staging database directly, without a hardcoded test database name | PASS; 4 files / 8 tests, including all 7 live PostgreSQL checks; Testcontainers retains its `bliver_v2_test` assertion |
 | Readiness and query plan | local staging `/readyz` plus repository live EXPLAIN gate | PASS; readiness 200/`ok`, PostGIS EXPLAIN live with no plan failures |
 | Foundation regression | `V2_DATABASE_URL=<isolated-local-test-db> npm run verify:v2-foundation` plus final full test | PASS; architecture 754/725, 99 test files, 386 tests passed, 0 skipped, API/Web build passed |
-| Production-scope guard | local baseline plus `--require-production-equivalent` | EXPECTED BLOCK, exit 1; a `LOCAL_REFERENCE` cannot satisfy the deployment gate |
-| Production-equivalent target | `V2_DATABASE_URL` / `DATABASE_URL` availability | BLOCKED; no Render or staging PostgreSQL URL was available, so no production-equivalent fingerprint is claimed |
+| Render database | Render `bliver-v2-staging`, Free, Oregon, PostgreSQL 16 | AVAILABLE; managed database expires 2026-08-16 and is not the Render application deployment |
+| Remote migration and seed | ignored `.env.render.v2` with TLS verification | PASS; 10 migrations and `v2-foundation` seed applied; no connection metadata or values recorded |
+| Remote database tests | full `npm run test:v2` against Render PostgreSQL | PASS; 99 files, 386 tests passed, 0 skipped |
+| Production-equivalent baseline | `artifacts/release/database-parity-baseline.json` | PASS; PostgreSQL 16.14, PostGIS 3.6.2, pgcrypto 1.3, UTF8, `en_US.UTF8`, UTC, 10 migration hashes, and all 5 critical indexes |
+| Production-scope guard | Render target plus `--require-production-equivalent` | PASS; exact server, extension, configuration, migration-chain, schema/table, and index-definition match |
 | Safety review | artifact and source scan | PASS; only configuration/schema metadata and hashes are recorded; no connection or business data appears |
 
-The baseline/result SHA-256 values are recorded in `artifacts/release/v2-baseline.json`. Candidate `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` includes the parity tooling and configured-target integration fix and is the immutable, fully frozen candidate. The later commit containing the refreshed manifest, freeze, and baseline records is evidence-only and is not a deployable replacement.
+The production-equivalent baseline SHA-256 is recorded in `artifacts/release/v2-baseline.json`. Candidate `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92` remains the last fully frozen candidate before this production baseline input. The commit containing this input must pass a new two-pass freeze and exact-SHA build before it becomes deployable.
 
 ## PostgreSQL Integration Follow-up
 
@@ -121,15 +123,14 @@ The follow-up review found that the health endpoints also omitted the `Cache-Con
 
 The immutable, locally verified release candidate is `4f1578f4f4c0370d7a3832bc58fa06fc7a788c92`. The later commit containing this baseline record is evidence-only and is not represented as a deployed release. Only that exact candidate may advance; `2b36d74`, `3ede079`, `3142819`, `e9b10e3`, `7c2ab8e`, `5ef1c1d`, `56107a2`, `52c20d8`, and `21a0ba8` are explicitly superseded and must not be deployed. A newer SHA requires a new manifest and complete release gate.
 
-Local non-database gates are green, but the release exit gate is incomplete. Publication status remains `BLOCKED`, `v2.0.0` does not exist, and no Render deployment, remote release match, backup/restore, or observation result is claimed.
+Local gates and Render production-equivalent database parity are green, but the release exit gate is incomplete. Publication status remains `BLOCKED`, `v2.0.0` does not exist, and no Render application deployment, remote release match, backup/restore, or observation result is claimed.
 
 ## External Blockers
 
-- No real Render deployment credentials or deployment result are available.
+- No Render application deployment result exists; the managed database does not prove the application deployment.
 - No remote `/versionz` exact-SHA result exists.
 - No remote observation window or baseline has started.
 - Backup and isolated restore have not yet been exercised against a real candidate database.
-- Docker Desktop could not start in the clean-room environment. `db:v2:up` could not reach a daemon, migrate could not create the Drizzle schema, and seed received `ECONNREFUSED 127.0.0.1:54329`.
-- Local isolated PostgreSQL/PostGIS migration, seed, query-plan, and release-performance evidence is recorded above. Docker-image parity (`postgis/postgis:16-3.4`), production database readiness, backup/restore, Render deployment, and remote observation remain unverified.
+- The Render Free PostgreSQL resource expires on 2026-08-16; retention or migration must be decided before that date.
 
 Therefore no production publication, remote observation, Phase 7 tag, or `v2.0.0` tag is claimed.
