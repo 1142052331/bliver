@@ -112,7 +112,7 @@ Expected: FAIL because the checker does not yet inspect runtime imports for the 
 Create a private ESM package with scripts `test`, `typecheck`, `preflight`, `migrate`, `verify-target`, `archive` and exact dependencies installed by:
 
 ```powershell
-npm install --prefix tools/legacy-migration --save-exact mongodb@7.0.0 pg@8.16.3 uuid@11.1.0 zod@4.1.12
+npm install --prefix tools/legacy-migration --save-exact mongodb@7.0.0 pg@8.16.3 uuid@11.1.1 zod@4.1.12
 npm install --prefix tools/legacy-migration --save-dev --save-exact @types/node@24.10.1 @types/pg@8.15.5 tsx@4.19.4 typescript@6.0.3 vitest@4.1.6
 ```
 
