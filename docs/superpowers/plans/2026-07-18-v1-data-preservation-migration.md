@@ -6,7 +6,7 @@
 
 **Architecture:** A standalone `tools/legacy-migration` package owns Mongo/BSON parsing, source validation, Cloudinary inventory, deterministic transformation, encrypted evidence and PostgreSQL loading. It has its own package lock and is excluded from the root runtime dependency graph; `apps/api` never imports it. The only V2 runtime change remains inside identity: recognize bcrypt, verify it, CAS-upgrade the credential to Argon2id, then issue the normal V2 session. Historical import writes existing tables in one serializable transaction without Outbox, Socket, push or audit side effects.
 
-**Tech Stack:** Node.js 24.16, TypeScript 6 strict mode, Vitest 4, MongoDB Node driver 7 in the standalone tool only, PostgreSQL `pg`, PostGIS 3.6, UUIDv5, Zod, bcryptjs, Argon2id, Cloudinary Admin API, Mongo Database Tools, age encryption.
+**Tech Stack:** Node.js 24.16, TypeScript 6 strict mode, Vitest 4, MongoDB Node driver 7 in the standalone tool only, PostgreSQL `pg`, PostGIS 3.6, deterministic UUIDv7, Zod, bcryptjs, Argon2id, Cloudinary Admin API, Mongo Database Tools, age encryption.
 
 ---
 
@@ -31,7 +31,7 @@ tools/legacy-migration/
 ├── src/cli.ts                       # preflight, migrate, verify and archive command routing
 ├── src/config.ts                    # secret-safe environment validation
 ├── src/domain/types.ts              # V1 input, V2 row and manifest types
-├── src/domain/ids.ts                # fixed UUIDv5 namespace and canonical keys
+├── src/domain/ids.ts                # fixed deterministic UUIDv7 mapping and canonical keys
 ├── src/domain/preflight.ts          # classification and referential validation
 ├── src/domain/transform.ts          # orchestration only; no I/O
 ├── src/domain/identity.ts           # users, credentials and roles
@@ -148,9 +148,10 @@ git commit -m "build: isolate legacy migration tooling"
 expect(loadConfig({ LEGACY_MONGO_URL: 'mongodb://host', LEGACY_MONGO_DATABASE: '' }))
   .toMatchObject({ ok: false, code: 'MONGO_DATABASE_REQUIRED' });
 expect(legacyUuid('user', '507F1F77BCF86CD799439011'))
-  .toBe('1affe023-1ff6-5815-84fe-1479219eac70');
+  .toBe('013a7092-e8d8-7d55-9fd5-a6ce0697160b');
 expect(legacyUuid('footprint', '507f1f77bcf86cd799439012'))
-  .toBe('6d3b32ba-ad39-5a10-bba8-b2f5369c6a02');
+  .toBe('013a7092-e8d8-7a27-a32c-a48a35763e20');
+expect(version(legacyUuid('user', '507f1f77bcf86cd799439011'))).toBe(7);
 expect(() => canonicalObjectId('not-an-object-id')).toThrow('INVALID_OBJECT_ID');
 ```
 
@@ -164,10 +165,11 @@ Expected: FAIL because the modules do not exist.
 
 - [ ] **Step 3: Implement strict types and deterministic IDs**
 
-Use the fixed namespace and typed classification:
+Use the fixed mapping namespace and typed classification. ObjectId keys supply their embedded timestamp; derived canonical keys use the fixed `2026-07-18T00:00:00.000Z` migration epoch. SHA-256 supplies the remaining bits, with UUID version and variant bits set explicitly:
 
 ```ts
 export const LEGACY_NAMESPACE = '7290d9d2-4307-5ebf-a8fd-57483b403f67';
+export const MIGRATION_DERIVED_EPOCH_MS = Date.UTC(2026, 6, 18);
 export type Classification = 'migrated' | 'archived-only' | 'blocked';
 export function canonicalObjectId(value: string): string {
   const normalized = value.toLowerCase();
@@ -175,7 +177,7 @@ export function canonicalObjectId(value: string): string {
   return normalized;
 }
 export function legacyUuid(entity: string, key: string): string {
-  return v5(`${entity}:${key.toLowerCase()}`, LEGACY_NAMESPACE);
+  return deterministicUuidV7(LEGACY_NAMESPACE, entity, key, MIGRATION_DERIVED_EPOCH_MS);
 }
 ```
 
@@ -353,7 +355,7 @@ Assert exact user UUID, unchanged username/hash, both `user` and `admin` role ro
 
 ```ts
 expect(result.users[0]).toMatchObject({
-  id: '1affe023-1ff6-5815-84fe-1479219eac70',
+  id: '013a7092-e8d8-7d55-9fd5-a6ce0697160b',
   username: 'legacy_user', displayName: 'legacy_user',
 });
 expect(result.footprints[0].privatePoint).toEqual({ lat: 31.2304, lng: 121.4737 });

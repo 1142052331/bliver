@@ -74,7 +74,7 @@
 
 | V1 | V2 | 规则 |
 | --- | --- | --- |
-| `User._id` | `identity_users.id` | `uuid5(namespace, "user:" + canonicalObjectId)` |
+| `User._id` | `identity_users.id` | 按第 5 节生成确定性合法 UUIDv7 |
 | `User.name` | `identity_users.username`, `display_name` | 保留 trim 后完全相同的登录名；不改大小写、不拼后缀、不音译 |
 | `User.password` | `identity_credentials.password_hash` | 仅接受合法 bcrypt 编码并原样保存 |
 | timestamps | user/credential timestamps | 保留 V1 `createdAt`/`updatedAt` |
@@ -142,9 +142,11 @@ V1 没有可靠来源的数据不制造默认历史行：不生成 memory highli
 
 ## 5. 确定性 UUID 与规范化
 
-固定 UUIDv5 namespace 为 `7290d9d2-4307-5ebf-a8fd-57483b403f67`。名称使用 UTF-8，格式为 `<entity>:<canonical-key>`，其中 Mongo ObjectId 统一为 24 位小写十六进制，组合键各部分以冒号连接且按明确顺序排列。实体前缀至少包括 `user`、`footprint`、`media`、`footprint-media`、`comment`、`friendship`、`friendship-history`、`conversation`、`message`、`message-event`、`notification`、`push-subscription`、`report`、`region` 和 `place`。
+V2 domain 对 `UserId`、`FootprintId`、`ConversationId` 和 `EventId` 强制执行 UUIDv7，因此迁移映射也必须生成确定性合法 UUIDv7；不得放宽 runtime 解析器以接受 UUIDv5。固定映射命名空间为 `7290d9d2-4307-5ebf-a8fd-57483b403f67`。哈希输入使用 UTF-8，格式为 `<namespace>:<entity>:<canonical-key>`，通过 SHA-256 产生 UUIDv7 的随机位，并显式设置 version 7 与 RFC variant bits。
 
-同一输入在任何机器、任何批次大小和任何重试中必须得到相同 UUID。预检为所有计划写入的 UUID 建立反向集合；不同源实体发生目标 UUID 冲突立即阻断。UUID 测试向量及其预期值属于实现测试和加密账本，不向运行时暴露源 ID。
+Mongo ObjectId 统一为 24 位小写十六进制，其前 4 bytes 秒级时间戳乘以 1000 后写入 UUIDv7 的 48-bit 毫秒时间字段。没有单一 ObjectId 的 derived entity 使用固定时间 `2026-07-18T00:00:00.000Z`，其规范键必须完全由稳定源值组成：无序用户对先排序，region/place 使用规范化 country/region/provider key，link/history/receipt 使用明确的父实体和源实体 ID。任何 ID 都不得使用“首条扫描记录”的时间、当前时间、批次号或数据库序列。实体前缀至少包括 `user`、`footprint`、`media`、`footprint-media`、`comment`、`friendship`、`friendship-history`、`conversation`、`message`、`message-event`、`notification`、`push-subscription`、`report`、`region` 和 `place`。
+
+同一输入在任何机器、任何批次大小、任何扫描顺序和任何重试中必须得到相同 UUID，并通过现有 `isUuidV7` 及对应 `parse*Id`。预检为所有计划写入的 UUID 建立反向集合；不同源实体发生目标 UUID 冲突立即阻断。UUID 固定测试向量及其预期值属于实现测试和加密账本，不向运行时暴露源 ID。
 
 ## 6. bcrypt 兼容与首次登录升级
 
