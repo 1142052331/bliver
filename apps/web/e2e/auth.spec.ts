@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import {
   V2_TEST_FOOTPRINTS,
@@ -5,9 +6,54 @@ import {
 } from '@bliver/testing';
 import { expectNoAxeViolations } from './accessibility.js';
 import { installJourneyApi } from './journey-api.js';
+import { CONTROLLED_MAP_BACKGROUND_RGB } from './map-fixture.js';
 
 async function assertNoHorizontalOverflow(page: Page): Promise<void> {
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+}
+
+async function expectInteractiveMapReady(page: Page) {
+  const map = page.getByTestId('map-canvas');
+  await expect(map).toHaveAttribute('data-map-ready', 'true');
+  const canvas = map.locator('canvas.maplibregl-canvas');
+  await expect(canvas).toHaveCount(1);
+  await expect(canvas).toBeVisible();
+  return canvas;
+}
+
+async function inspectControlledCanvasPixels(page: Page, png: Buffer) {
+  return page.evaluate(async ({ base64, background }) => {
+    const binary = atob(base64);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const bitmap = await createImageBitmap(new Blob([bytes.buffer], { type: 'image/png' }));
+    const decoder = document.createElement('canvas');
+    decoder.width = bitmap.width;
+    decoder.height = bitmap.height;
+    const context = decoder.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Could not create a PNG decoding context');
+    context.drawImage(bitmap, 0, 0);
+    bitmap.close();
+
+    const pixels = context.getImageData(0, 0, decoder.width, decoder.height).data;
+    let backgroundPixels = 0;
+    let nonBackgroundPixels = 0;
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      const distance = Math.max(
+        Math.abs(pixels[offset]! - background[0]),
+        Math.abs(pixels[offset + 1]! - background[1]),
+        Math.abs(pixels[offset + 2]! - background[2]),
+      );
+      if (pixels[offset + 3] === 255 && distance <= 6) backgroundPixels += 1;
+      else nonBackgroundPixels += 1;
+    }
+    return {
+      background: backgroundPixels,
+      height: decoder.height,
+      nonBackground: nonBackgroundPixels,
+      total: decoder.width * decoder.height,
+      width: decoder.width,
+    };
+  }, { base64: png.toString('base64'), background: CONTROLLED_MAP_BACKGROUND_RGB });
 }
 
 test('guest route contract keeps public surfaces open and protects private workspaces', async ({ page }) => {
@@ -24,6 +70,7 @@ test('guest route contract keeps public surfaces open and protects private works
   for (const [path, heading] of publicRoutes) {
     await page.goto(path);
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+    if (path === '/' || path === '/map') await expectInteractiveMapReady(page);
     await assertNoHorizontalOverflow(page);
   }
   await page.goto('/activity');
@@ -82,8 +129,12 @@ test('admin fixture reaches governance without changing domain ownership', async
 test('map discovery to footprint detail and memory remains one deterministic journey', async ({ page }) => {
   await installJourneyApi(page, 'userA');
   await page.goto('/map');
-  await expect(page.getByTestId('map-canvas')).toBeVisible();
-  await page.locator('.leaflet-interactive').first().click({ force: true });
+  await expectInteractiveMapReady(page);
+  await page
+    .getByRole('button', { name: new RegExp(V2_TEST_FOOTPRINTS[0]!.author.name, 'i') })
+    .and(page.getByTestId('map-footprint-item'))
+    .first()
+    .click();
   await expect(page).toHaveURL(/footprint=[^&]+/);
   const selectedId = new URL(page.url()).searchParams.get('footprint');
   const selected = V2_TEST_FOOTPRINTS.find((item) => item.id === selectedId);
@@ -97,7 +148,35 @@ test('map discovery to footprint detail and memory remains one deterministic jou
 test('captures a tile-independent route screenshot for the configured viewport', async ({ page }, testInfo: TestInfo) => {
   await installJourneyApi(page, 'guest');
   await page.goto('/map');
-  await expect(page.getByTestId('map-canvas')).toBeVisible();
+  const canvas = await expectInteractiveMapReady(page);
+  await expect(page.getByTestId('map-footprint-item')).toHaveCount(1);
+  const canvasScreenshot = await canvas.screenshot({
+    animations: 'disabled',
+    style: [
+      '.map-canvas__semantic,',
+      '.map-canvas__attribution,',
+      '.map-route__controls,',
+      '.map-route__empty,',
+      '.map-route__preview { visibility: hidden !important; }',
+    ].join('\n'),
+  });
+  const pixelStats = await inspectControlledCanvasPixels(page, canvasScreenshot);
+  expect(pixelStats.background).toBeGreaterThan(pixelStats.total * 0.9);
+  expect(pixelStats.nonBackground).toBeGreaterThan(50);
+  await testInfo.attach(`map-canvas-${testInfo.project.name}`, {
+    body: canvasScreenshot,
+    contentType: 'image/png',
+  });
+  const pixelEvidence = Buffer.from(JSON.stringify({
+    viewport: testInfo.project.name,
+    ...pixelStats,
+  }, null, 2));
+  const pixelEvidencePath = testInfo.outputPath(`map-canvas-pixels-${testInfo.project.name}.json`);
+  await writeFile(pixelEvidencePath, pixelEvidence);
+  await testInfo.attach(`map-canvas-pixels-${testInfo.project.name}`, {
+    path: pixelEvidencePath,
+    contentType: 'application/json',
+  });
   await testInfo.attach(`map-${testInfo.project.name}`, {
     body: await page.screenshot({ animations: 'disabled' }),
     contentType: 'image/png',

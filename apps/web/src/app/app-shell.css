@@ -355,7 +355,7 @@ textarea {
 
   .app-shell__main > .map-route,
   .app-shell__main > .map-route .map-canvas,
-  .app-shell__main > .map-route .map-canvas .leaflet-container {
+  .app-shell__main > .map-route .map-canvas__viewport {
     height: calc(100dvh - var(--app-shell-header-height));
     min-height: calc(100dvh - var(--app-shell-header-height));
   }

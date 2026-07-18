@@ -10,14 +10,12 @@
     "@bliver/contracts": "0.0.0",
     "@bliver/ui": "0.0.0",
     "@tanstack/react-query": "^5.90.20",
-    "@types/leaflet": "^1.9.21",
     "i18next": "^26.3.6",
-    "leaflet": "^1.9.4",
     "lucide-react": "^1.25.0",
+    "maplibre-gl": "^5.24.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-i18next": "^17.0.10",
-    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.9.6",
     "socket.io-client": "^4.8.3"
   },
@@ -36,8 +34,8 @@
     "vite": "^8.1.4"
   },
   "scripts": {
-    "dev": "vite --port 5173",
-    "build": "vite build",
+    "dev": "vite --mode v2 --port 5173",
+    "build": "vite build --mode v2",
     "test:e2e": "playwright test --config ../../playwright.config.ts",
     "test": "vitest run --config vitest.config.ts --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json",

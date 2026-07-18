@@ -3,12 +3,16 @@
 import '@testing-library/jest-dom/vitest';
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AppRouter } from '../router.js';
 import { BliverI18nProvider } from '../../i18n/I18nProvider.js';
 import { createBliverI18n } from '../../i18n/i18n.js';
 import type { AppLocale } from '../../i18n/locale.js';
+
+vi.mock('../../features/map/MapCanvas.js', () => ({
+  MapCanvas: () => <div data-testid="map-canvas" />,
+}));
 
 function renderRouter(path: string | undefined, locale: AppLocale = 'en') {
   return render(

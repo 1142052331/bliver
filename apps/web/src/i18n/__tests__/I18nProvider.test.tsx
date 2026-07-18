@@ -31,4 +31,17 @@ describe('BliverI18nProvider', () => {
     expect(screen.getByText('足跡を残す')).toBeVisible();
     expect(document.documentElement).toHaveAttribute('lang', 'ja');
   });
+
+  it('provides localized map vocabulary and English footprint plurals', () => {
+    const english = createBliverI18n('en');
+    const chinese = createBliverI18n('zh-CN');
+    const japanese = createBliverI18n('ja');
+
+    expect(english.t('map.footprintCount', { count: 1 })).toBe('1 footprint');
+    expect(english.t('map.footprintCount', { count: 2 })).toBe('2 footprints');
+    expect(chinese.t('map.nearbyFootprints')).toBe('附近足迹');
+    expect(japanese.t('map.staticUnavailableTitle')).toBe(
+      'インタラクティブ地図を利用できません',
+    );
+  });
 });
