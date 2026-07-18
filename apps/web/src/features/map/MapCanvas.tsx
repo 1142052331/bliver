@@ -239,10 +239,8 @@ export function MapCanvas({
         center: [runtimeCenter.lng, runtimeCenter.lat],
         zoom: runtimeViewport ? 8 : 11,
         renderWorldCopies: false,
-        maxBounds: [
-          [-180, -WEB_MERCATOR_MAX_LATITUDE],
-          [180, WEB_MERCATOR_MAX_LATITUDE],
-        ],
+        // MapLibre 5.24 crashes during its first resize when full-world
+        // maxBounds are supplied before projection matrices exist.
         ...(runtimeViewport
           ? {
               bounds: [

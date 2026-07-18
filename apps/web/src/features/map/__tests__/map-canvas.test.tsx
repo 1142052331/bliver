@@ -206,10 +206,10 @@ describe('MapCanvas MapLibre runtime', () => {
         'NavigationControl.ZoomIn': 'Zoom in',
         'NavigationControl.ZoomOut': 'Zoom out',
       },
-      maxBounds: [[-180, -85.051129], [180, 85.051129]],
       renderWorldCopies: false,
       style: 'https://tiles.openfreemap.org/styles/liberty',
     }));
+    expect(maplibre.constructorSpy.mock.calls[0]?.[0]).not.toHaveProperty('maxBounds');
 
     const runtime = maplibre.instances[0];
     expect(runtime).toBeDefined();
