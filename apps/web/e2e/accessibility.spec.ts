@@ -59,7 +59,7 @@ test('every route-owned surface passes the WCAG axe gate', async ({ page }) => {
     [`/footprints/${V2_TEST_FOOTPRINTS[0]!.id}`, 'Footprint'],
     ['/publish?lat=31.231&lng=121.471', 'Publish a footprint'],
     ['/session-expired', 'Session expired'],
-    ['/missing-route', 'Not found'],
+    ['/missing-route', 'Page not found'],
   ] as const;
 
   for (const [path, heading] of routes) {
@@ -127,7 +127,11 @@ test('keyboard order reaches shell commands before the sign-in form with visible
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Bliver' })).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: 'Publish footprint' })).toBeFocused();
+  await expect(page.getByRole('combobox', { name: 'Language' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Notifications' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Leave footprint' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByLabel('Username')).toBeFocused();
   await expect(page.getByLabel('Username')).toHaveCSS('outline-style', 'solid');

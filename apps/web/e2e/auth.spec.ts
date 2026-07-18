@@ -19,7 +19,7 @@ test('guest route contract keeps public surfaces open and protects private works
     ['/login', 'Sign in'],
     [`/footprints/${V2_TEST_FOOTPRINTS[0]!.id}`, 'Footprint'],
     [`/profile/${V2_TEST_USERS.userA.id}`, 'Profile memories'],
-    ['/missing-route', 'Not found'],
+    ['/missing-route', 'Page not found'],
   ] as const;
   for (const [path, heading] of publicRoutes) {
     await page.goto(path);
