@@ -303,6 +303,91 @@ test('expanded search and denied location expose stable feedback without overlap
   await expect(locationDenied).toHaveText('Location is unavailable. You can keep browsing the map.');
 });
 
+test('successful place search hands the selected map point to publishing', async ({ context, page }) => {
+  const place = {
+    id: 'shibuya-crossing',
+    name: 'Shibuya Crossing',
+    lat: 35.6595,
+    lng: 139.7005,
+    countryCode: 'JP',
+  };
+  await context.addCookies([{
+    name: 'bliver_session',
+    value: 'e2e-session',
+    domain: '127.0.0.1',
+    path: '/',
+  }]);
+  await page.route('**/api/v1/session', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: '00000000-0000-4000-8000-000000000001',
+        deviceName: 'E2E',
+        createdAt: new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(),
+        current: true,
+      }),
+    });
+  });
+  await page.route('**/api/v1/map/footprints**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    });
+  });
+  await page.route('**/api/v1/places/search**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [place], query: place.name }),
+    });
+  });
+  let publishBody: string | undefined;
+  await page.route('**/api/v1/footprints', async (route) => {
+    publishBody = route.request().postData() ?? undefined;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ footprint: { id: 'searched-place-footprint' } }),
+    });
+  });
+
+  await page.goto('/map');
+  await expectInteractiveMapReady(page);
+  await page.getByRole('button', { name: 'Search places' }).click();
+  await page.getByLabel('Place search').fill(place.name);
+  await page.getByLabel('Place search').press('Enter');
+
+  await expect.poll(() => Number(new URL(page.url()).searchParams.get('lat')))
+    .toBeCloseTo(place.lat, 5);
+  await expect.poll(() => Number(new URL(page.url()).searchParams.get('lng')))
+    .toBeCloseTo(place.lng, 5);
+  const searchedViewport = readViewportFromUrl(page.url());
+  expect(searchedViewport.west).toBeLessThan(place.lng);
+  expect(searchedViewport.east).toBeGreaterThan(place.lng);
+  expect(searchedViewport.south).toBeLessThan(place.lat);
+  expect(searchedViewport.north).toBeGreaterThan(place.lat);
+  expect((searchedViewport.west + searchedViewport.east) / 2)
+    .toBeCloseTo(place.lng, 5);
+  expect((searchedViewport.south + searchedViewport.north) / 2)
+    .toBeCloseTo(place.lat, 5);
+  await page.getByRole('button', { name: 'Leave footprint' }).click();
+  await expect(page).toHaveURL(/\/publish(?:\?|$)/);
+  await page.getByLabel('Message').fill('A crossing found from the map');
+  await page.locator('.publish-route')
+    .getByRole('button', { name: 'Publish footprint' })
+    .click();
+
+  await expect.poll(() => publishBody).toBeTruthy();
+  const submitted = JSON.parse(publishBody ?? '{}') as {
+    readonly privatePoint?: { readonly lat?: number; readonly lng?: number };
+  };
+  expect(submitted.privatePoint?.lat).toBeCloseTo(place.lat, 5);
+  expect(submitted.privatePoint?.lng).toBeCloseTo(place.lng, 5);
+});
+
 test('Japanese map controls retain their full labels at the configured viewport', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('bliver.locale', 'ja'));
   await page.route('**/api/v1/map/footprints**', async (route) => {

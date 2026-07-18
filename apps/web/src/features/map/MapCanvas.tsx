@@ -193,6 +193,7 @@ export function MapCanvas({
   const latestViewport = useRef(viewport);
   const onSelectRef = useRef(onSelect);
   const onViewportChangeRef = useRef(onViewportChange);
+  const lastAppliedViewportRef = useRef<MapViewportBounds | null>(viewport ?? null);
   const lastReportedViewportRef = useRef<MapViewportBounds | null>(null);
   const motionPreference = useReducedMotion();
   const reducedMotion = motionPreference.reduced;
@@ -519,8 +520,14 @@ export function MapCanvas({
       && boundsMatch(lastReportedViewportRef.current, nextViewport)
     ) {
       lastReportedViewportRef.current = null;
+      lastAppliedViewportRef.current = nextViewport;
       return;
     }
+    if (
+      lastAppliedViewportRef.current
+      && boundsMatch(lastAppliedViewportRef.current, nextViewport)
+    ) return;
+    lastAppliedViewportRef.current = nextViewport;
     map.fitBounds(
       [
         [viewportWest, viewportSouth],

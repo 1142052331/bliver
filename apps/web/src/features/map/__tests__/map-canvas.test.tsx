@@ -181,7 +181,10 @@ function setReducedMotion(matches: boolean) {
 }
 
 describe('MapCanvas MapLibre runtime', () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   beforeEach(() => {
     maplibre.reset();
@@ -192,6 +195,13 @@ describe('MapCanvas MapLibre runtime', () => {
 
   it('owns the MapLibre lifecycle, synchronizes bounds, and reports camera changes', async () => {
     const onViewportChange = vi.fn();
+    const resizeDisconnect = vi.fn();
+    const resizeObserve = vi.fn();
+    vi.stubGlobal('ResizeObserver', class {
+      readonly disconnect = resizeDisconnect;
+      readonly observe = resizeObserve;
+      readonly unobserve = vi.fn();
+    });
     const initialViewport = { west: 120, south: 30, east: 122, north: 32 };
     const { rerenderMap, unmount } = renderMapCanvas({
       items: [firstItem],
@@ -214,6 +224,7 @@ describe('MapCanvas MapLibre runtime', () => {
     const runtime = maplibre.instances[0];
     expect(runtime).toBeDefined();
     act(() => runtime?.emit('load'));
+    expect(runtime?.fitBounds).not.toHaveBeenCalled();
 
     const geoJsonSource = runtime?.addSource.mock.calls.find((call) => {
       const source = call[1] as { readonly type?: string } | undefined;
@@ -255,7 +266,43 @@ describe('MapCanvas MapLibre runtime', () => {
     expect(runtime?.fitBounds).toHaveBeenCalledTimes(fitCountAfterViewportReport ?? 0);
 
     unmount();
+    expect(resizeObserve).toHaveBeenCalledOnce();
+    expect(resizeDisconnect).toHaveBeenCalledOnce();
+    expect(runtime?.off).toHaveBeenCalledWith('load', expect.any(Function));
+    expect(runtime?.off).toHaveBeenCalledWith(
+      'click',
+      'bliver-footprint-points',
+      expect.any(Function),
+    );
     expect(runtime?.remove).toHaveBeenCalledOnce();
+  });
+
+  it('updates GeoJSON when footprints or selection change', async () => {
+    const { rerenderMap } = renderMapCanvas({ items: [firstItem] });
+
+    await waitFor(() => expect(maplibre.constructorSpy).toHaveBeenCalledOnce());
+    act(() => maplibre.instances[0]?.emit('load'));
+    maplibre.sourceSetData.mockClear();
+
+    rerenderMap({
+      items: [firstItem, secondItem],
+      selectedId: secondItem.id,
+    });
+
+    expect(maplibre.sourceSetData).toHaveBeenCalledOnce();
+    expect(maplibre.sourceSetData).toHaveBeenCalledWith({
+      type: 'FeatureCollection',
+      features: [
+        expect.objectContaining({
+          id: firstItem.id,
+          properties: expect.objectContaining({ selected: false }),
+        }),
+        expect.objectContaining({
+          id: secondItem.id,
+          properties: expect.objectContaining({ selected: true }),
+        }),
+      ],
+    });
   });
 
   it('keeps reported camera bounds inside the single supported world', async () => {
