@@ -23,6 +23,14 @@ function cookies(response: request.Response): string {
   return (Array.isArray(header) ? header : [String(header ?? '')]).join('; ');
 }
 
+function cspSources(policy: string, directive: string): string[] {
+  const entry = policy
+    .split(';')
+    .map((value) => value.trim())
+    .find((value) => value === directive || value.startsWith(`${directive} `));
+  return entry?.split(/\s+/).slice(1) ?? [];
+}
+
 describe('V2 production security policies', () => {
   it('sets production session cookies with HttpOnly, Secure and SameSite', async () => {
     const response = await request(createApp({ config: productionConfig }))
@@ -53,8 +61,25 @@ describe('V2 production security policies', () => {
     const health = await request(app).get('/healthz').set('origin', 'https://evil.example');
     expect(health.headers['access-control-allow-origin']).toBeUndefined();
     expect(health.headers['access-control-allow-credentials']).toBeUndefined();
-    expect(health.headers['content-security-policy']).toContain("default-src 'self'");
-    expect(health.headers['content-security-policy']).toContain("img-src 'self' data: https://*.tile.openstreetmap.org");
+    const policy = String(health.headers['content-security-policy']);
+    expect(cspSources(policy, 'default-src')).toEqual(["'self'"]);
+    expect(cspSources(policy, 'connect-src')).toEqual([
+      "'self'",
+      'https://api.cloudinary.com',
+      'https://tiles.openfreemap.org',
+    ]);
+    expect(cspSources(policy, 'img-src')).toEqual([
+      "'self'",
+      'data:',
+      'blob:',
+      'https://res.cloudinary.com',
+      'https://tiles.openfreemap.org',
+    ]);
+    expect(cspSources(policy, 'worker-src')).toEqual(["'self'", 'blob:']);
+    expect(cspSources(policy, 'style-src')).toEqual(["'self'"]);
+    expect(cspSources(policy, 'style-src-attr')).toEqual(["'unsafe-inline'"]);
+    expect(cspSources(policy, 'font-src')).toEqual(["'self'", 'data:']);
+    expect(policy).not.toContain('https://*.tile.openstreetmap.org');
     const tooLarge = await request(app).post('/api/v1/auth/register').set('content-type', 'application/json').send(JSON.stringify({ username: 'large_body', password: 'x'.repeat(1_100_000) }));
     expect(tooLarge.status).toBe(413);
     expect(tooLarge.body.code).toBe('PAYLOAD_TOO_LARGE');

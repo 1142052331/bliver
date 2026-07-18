@@ -6,11 +6,18 @@ import { gzipSync } from 'node:zlib';
 
 import { runApiSmoke } from './api-smoke.js';
 import { V2_BUDGETS } from './budgets.js';
+import {
+  bundleGzipBytes,
+  classifyViteBundle,
+  evaluateBundle,
+  manifestJavaScriptAssets,
+  type BundleAsset,
+  type ViteManifest,
+} from './bundle.js';
 import { loadBrowserEvidence, type BrowserEvidenceEvaluation } from './browser-evidence.js';
 import { runMapQueryCheck } from './map-query.js';
 import { runOutboxCheck } from './outbox-lag.js';
 
-export interface BundleAsset { readonly name: string; readonly gzipBytes: number; }
 interface LighthouseReport { readonly audits?: Readonly<Record<string, { readonly numericValue?: number }>>; }
 
 export interface BrowserMetricEvaluation {
@@ -59,41 +66,42 @@ export function evaluateReleaseEvidence(evidence: { readonly livePostgis: boolea
   return failures;
 }
 
-function canonicalAssetName(name: string): string {
-  const stem = name.endsWith('.js') ? name.slice(0, -3) : name;
-  const separator = stem.lastIndexOf('-');
-  const hash = separator >= 0 ? stem.slice(separator + 1) : '';
-  return separator >= 0 && hash.length >= 8 && /^[A-Za-z0-9_]+$/.test(hash)
-    ? `${stem.slice(0, separator)}.js`
-    : name;
-}
-
-export function evaluateBundle(assets: readonly BundleAsset[], baseline: Readonly<Record<string, number>>): readonly string[] {
-  const failures: string[] = [];
-  const nonMapBytes = assets.filter((asset) => !asset.name.startsWith('map-')).reduce((total, asset) => total + asset.gzipBytes, 0);
-  if (nonMapBytes > V2_BUDGETS.initialNonMapJsGzipBytes) failures.push(`initial non-map JS ${nonMapBytes} bytes exceeds ${V2_BUDGETS.initialNonMapJsGzipBytes}`);
-  for (const asset of assets) {
-    const approved = baseline[asset.name];
-    if (approved === undefined) { failures.push(`${asset.name} is missing a baseline entry`); continue; }
-    if (asset.gzipBytes > approved * (1 + V2_BUDGETS.routeChunkRegressionRatio)) failures.push(`${asset.name} exceeds baseline ${approved} by more than ${V2_BUDGETS.routeChunkRegressionRatio * 100}%`);
-  }
-  return failures;
-}
-
-async function bundleCheck(): Promise<{ readonly assets: readonly BundleAsset[]; readonly failures: readonly string[] }> {
+async function bundleCheck(): Promise<{
+  readonly assets: readonly BundleAsset[];
+  readonly failures: readonly string[];
+  readonly initialShellBytes: number;
+  readonly spatialRuntimeBytes: number;
+}> {
   const npmCli = process.env.npm_execpath;
   const build = npmCli
-    ? spawnSync(process.execPath, [npmCli, 'run', 'build', '--workspace', '@bliver/web'], { encoding: 'utf8', stdio: 'pipe' })
-    : spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build', '--workspace', '@bliver/web'], { encoding: 'utf8', stdio: 'pipe', shell: process.platform === 'win32' });
+    ? spawnSync(process.execPath, [npmCli, 'run', 'build', '--workspace', '@bliver/web', '--', '--manifest'], { encoding: 'utf8', stdio: 'pipe' })
+    : spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build', '--workspace', '@bliver/web', '--', '--manifest'], { encoding: 'utf8', stdio: 'pipe', shell: process.platform === 'win32' });
   if (build.status !== 0) throw new Error(`V2 web build failed: ${build.error?.message ?? build.stderr ?? build.stdout ?? 'unknown build error'}`);
-  const assetDirectory = resolve('apps/web/dist/assets');
-  const files = (await readdir(assetDirectory)).filter((name) => name.endsWith('.js'));
-  const assets = await Promise.all(files.map(async (file) => ({
-    name: canonicalAssetName(file),
-    gzipBytes: gzipSync(await readFile(resolve(assetDirectory, file))).byteLength,
+  const distributionDirectory = resolve('apps/web/dist');
+  const manifest = JSON.parse(await readFile(resolve(distributionDirectory, '.vite/manifest.json'), 'utf8')) as ViteManifest;
+  const indexHtml = await readFile(resolve(distributionDirectory, 'index.html'), 'utf8');
+  const descriptors = manifestJavaScriptAssets(manifest);
+  const outputJavaScript = new Set((await readdir(resolve(distributionDirectory, 'assets')))
+    .filter((name) => name.endsWith('.js'))
+    .map((name) => `assets/${name}`));
+  const manifestJavaScript = new Set(descriptors.map((asset) => asset.file));
+  const inventoryFailures = [
+    ...[...outputJavaScript].filter((file) => !manifestJavaScript.has(file)).map((file) => `${file} is missing from the Vite manifest`),
+    ...[...manifestJavaScript].filter((file) => !outputJavaScript.has(file)).map((file) => `${file} is missing from the build output`),
+  ];
+  const assets = await Promise.all(descriptors.map(async ({ name, file }) => ({
+    name,
+    file,
+    gzipBytes: gzipSync(await readFile(resolve(distributionDirectory, file))).byteLength,
   })));
+  const classification = classifyViteBundle(manifest, indexHtml);
   const baseline = JSON.parse(await readFile(resolve('scripts/perf/chunk-baseline.json'), 'utf8')) as Record<string, number>;
-  return { assets, failures: evaluateBundle(assets, baseline) };
+  return {
+    assets,
+    failures: [...inventoryFailures, ...evaluateBundle(assets, baseline, classification)],
+    initialShellBytes: bundleGzipBytes(assets, classification.initialShellJs),
+    spatialRuntimeBytes: bundleGzipBytes(assets, classification.spatialIncrementJs),
+  };
 }
 
 export async function runPerformanceGates(): Promise<void> {
@@ -103,6 +111,7 @@ export async function runPerformanceGates(): Promise<void> {
   const bundle = await bundleCheck();
   failures.push(...bundle.failures);
   console.log(`[perf] bundle ${bundle.assets.map((asset) => `${asset.name}=${asset.gzipBytes}B gzip`).join(', ')}`);
+  console.log(`[perf] initial shell JS=${bundle.initialShellBytes}B gzip; spatial runtime increment=${bundle.spatialRuntimeBytes}B gzip`);
   const api = await runApiSmoke();
   failures.push(...api.failures);
   for (const metric of api.metrics) console.log(`[perf] api ${metric.name} p50=${metric.p50Ms.toFixed(1)}ms p95=${metric.p95Ms.toFixed(1)}ms errors=${metric.errorRate}`);

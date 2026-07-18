@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { V2_BUDGETS } from './budgets.js';
-import { evaluateBrowserMetric, evaluateBundle, evaluateLighthouseReport, evaluatePerformanceBrowserEvidence, evaluateReleaseEvidence, type BundleAsset } from './run.js';
+import {
+  classifyViteBundle,
+  evaluateBundle,
+  type BundleAsset,
+  type ViteManifest,
+} from './bundle.js';
+import { evaluateBrowserMetric, evaluateLighthouseReport, evaluatePerformanceBrowserEvidence, evaluateReleaseEvidence } from './run.js';
 import { percentile } from './api-smoke.js';
 import { inspectExplainPlan } from './map-query.js';
 import { exerciseOutbox } from './outbox-lag.js';
@@ -9,7 +15,8 @@ import { exerciseOutbox } from './outbox-lag.js';
 describe('V2 performance gates', () => {
   it('keeps the canonical product budgets in one object', () => {
     expect(V2_BUDGETS).toMatchObject({
-      initialNonMapJsGzipBytes: 200_000,
+      initialShellJsGzipBytes: 160_000,
+      spatialRuntimeJsGzipBytes: 500_000,
       lcpMs: 2_500,
       inpMs: 200,
       cls: 0.1,
@@ -24,18 +31,103 @@ describe('V2 performance gates', () => {
     expect(percentile([9, 1, 5, 2, 4], 0.95)).toBe(9);
   });
 
-  it('excludes named map chunks and rejects unapproved bundle regressions', () => {
+  it('classifies the initial shell and spatial increment from the Vite dependency graph', () => {
+    const manifest: ViteManifest = {
+      'index.html': {
+        file: 'assets/index-12345678.js',
+        name: 'index',
+        isEntry: true,
+        imports: ['_shared.js'],
+        dynamicImports: ['_activity.js'],
+        css: ['assets/index-12345678.css'],
+      },
+      '_activity.js': { file: 'assets/activity.route-12345678.js', name: 'activity.route' },
+      '_shared.js': { file: 'assets/shared-12345678.js', name: 'shared' },
+      '_spatial.js': { file: 'assets/dist-12345678.js', name: 'dist', imports: ['_shared.js'] },
+      '_spatial-effect.js': { file: 'assets/spatial-effect-12345678.js', name: 'spatial-effect' },
+      'src/app/routes/map.route.tsx': {
+        file: 'assets/map.route-12345678.js',
+        name: 'map.route',
+        src: 'src/app/routes/map.route.tsx',
+        isDynamicEntry: true,
+        imports: ['index.html', '_spatial.js'],
+        dynamicImports: ['_spatial-effect.js'],
+        css: ['assets/map-12345678.css'],
+      },
+    };
+    const indexHtml = `
+      <script type="module" src="/assets/index-12345678.js"></script>
+      <link rel="modulepreload" href="/assets/shared-12345678.js">
+      <link rel="stylesheet" href="/assets/index-12345678.css">
+    `;
+
+    expect(classifyViteBundle(manifest, indexHtml)).toEqual({
+      initialShellJs: ['index.js', 'shared.js'],
+      spatialIncrementJs: ['dist.js', 'map.route.js', 'spatial-effect.js'],
+      spatialIncrementFiles: [
+        'assets/dist-12345678.js',
+        'assets/map-12345678.css',
+        'assets/map.route-12345678.js',
+        'assets/spatial-effect-12345678.js',
+      ],
+      indexHtmlEagerFiles: [
+        'assets/index-12345678.css',
+        'assets/index-12345678.js',
+        'assets/shared-12345678.js',
+      ],
+      mapRouteInInitialShell: false,
+    });
+  });
+
+  it('enforces separate shell and spatial budgets without relying on chunk prefixes', () => {
     const assets: BundleAsset[] = [
-      { name: 'index.js', gzipBytes: 150_000 },
-      { name: 'map-vendor.js', gzipBytes: 90_000 },
+      { name: 'index.js', file: 'assets/index-a.js', gzipBytes: 150_000 },
+      { name: 'map.route.js', file: 'assets/map.route-b.js', gzipBytes: 300_000 },
+      { name: 'dist.js', file: 'assets/dist-c.js', gzipBytes: 190_000 },
     ];
-    expect(evaluateBundle(assets, { 'index.js': 150_000, 'map-vendor.js': 90_000 })).toEqual([]);
-    expect(evaluateBundle([{ name: 'index.js', gzipBytes: 210_000 }], { 'index.js': 150_000 })).toContainEqual(
-      expect.stringContaining('initial non-map JS'),
+    const classification = {
+      initialShellJs: ['index.js'],
+      spatialIncrementJs: ['map.route.js', 'dist.js'],
+      spatialIncrementFiles: ['assets/map.route-b.js', 'assets/dist-c.js'],
+      indexHtmlEagerFiles: ['assets/index-a.js'],
+      mapRouteInInitialShell: false,
+    };
+    const baseline = { 'index.js': 150_000, 'map.route.js': 300_000, 'dist.js': 190_000 };
+    expect(evaluateBundle(assets, baseline, classification)).toEqual([]);
+
+    const oversizedShell = [{ name: 'index.js', file: 'assets/index-a.js', gzipBytes: 160_001 }];
+    expect(evaluateBundle(oversizedShell, { 'index.js': 160_001 }, { ...classification, spatialIncrementJs: [] })).toContainEqual(
+      expect.stringContaining('initial shell JS'),
     );
-    expect(evaluateBundle([{ name: 'index.js', gzipBytes: 170_000 }], { 'index.js': 150_000 })).toContainEqual(
-      expect.stringContaining('baseline'),
+
+    const oversizedSpatial = assets.map((asset) => asset.name === 'dist.js' ? { ...asset, gzipBytes: 200_001 } : asset);
+    expect(evaluateBundle(oversizedSpatial, { ...baseline, 'dist.js': 200_001 }, classification)).toContainEqual(
+      expect.stringContaining('spatial runtime JS'),
     );
+
+    const regressed = assets.map((asset) => asset.name === 'index.js' ? { ...asset, gzipBytes: 155_001 } : asset);
+    expect(evaluateBundle(regressed, { ...baseline, 'index.js': 140_000 }, classification)).toContainEqual(expect.stringContaining('baseline'));
+  });
+
+  it('rejects eager spatial assets even when their filenames do not start with map', () => {
+    const assets: BundleAsset[] = [
+      { name: 'index.js', file: 'assets/index-a.js', gzipBytes: 100_000 },
+      { name: 'map.route.js', file: 'assets/map.route-b.js', gzipBytes: 300_000 },
+      { name: 'dist.js', file: 'assets/dist-c.js', gzipBytes: 100_000 },
+    ];
+    const baseline = { 'index.js': 100_000, 'map.route.js': 300_000, 'dist.js': 100_000 };
+    const classification = {
+      initialShellJs: ['index.js'],
+      spatialIncrementJs: ['map.route.js', 'dist.js'],
+      spatialIncrementFiles: ['assets/map.route-b.js', 'assets/dist-c.js', 'assets/map-c.css'],
+      indexHtmlEagerFiles: ['assets/index-a.js', 'assets/dist-c.js', 'assets/map-c.css'],
+      mapRouteInInitialShell: false,
+    };
+
+    expect(evaluateBundle(assets, baseline, classification)).toEqual(expect.arrayContaining([
+      expect.stringContaining('assets/dist-c.js'),
+      expect.stringContaining('assets/map-c.css'),
+    ]));
   });
 
   it('rejects sequential scans above the approved fixture threshold', () => {

@@ -102,7 +102,22 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
-        imgSrc: ["'self'", 'data:', 'https://*.tile.openstreetmap.org'],
+        connectSrc: [
+          "'self'",
+          'https://api.cloudinary.com',
+          'https://tiles.openfreemap.org',
+        ],
+        imgSrc: [
+          "'self'",
+          'data:',
+          'blob:',
+          'https://res.cloudinary.com',
+          'https://tiles.openfreemap.org',
+        ],
+        workerSrc: ["'self'", 'blob:'],
+        styleSrc: ["'self'"],
+        styleSrcAttr: ["'unsafe-inline'"],
+        fontSrc: ["'self'", 'data:'],
       },
     },
   }));

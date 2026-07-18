@@ -6,7 +6,7 @@ Bliver is a mobile-first location social network built around a living map. Peop
 
 - Node.js 24.16.0 and npm 11.13.0
 - npm workspaces with strict TypeScript
-- React 19, Vite 8, Tailwind CSS 4, Leaflet, and Socket.IO Client in `apps/web`
+- React 19, Vite 8, Tailwind CSS 4, MapLibre GL, and Socket.IO Client in `apps/web`
 - Express 5 and Socket.IO in `apps/api`
 - PostgreSQL 16 with PostGIS, Drizzle migrations, and session/cookie authentication
 - Capacitor 8 Android shell using `apps/web/dist`
@@ -47,7 +47,9 @@ The Web dev server is `http://localhost:5173`; the API is `http://localhost:5100
 
 ## Environment
 
-Production names are `NODE_ENV`, `DEPLOY_ENV`, `RELEASE_SHA`, `PORT`, `DATABASE_URL`, `SESSION_SECRET`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and `SENTRY_DSN`. Do not commit values. Production requires `RELEASE_SHA` to be the exact 40-character Git SHA.
+Production names are `NODE_ENV`, `DEPLOY_ENV`, `RELEASE_SHA`, `PORT`, `DATABASE_URL`, `SESSION_SECRET`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `SENTRY_DSN`, `VITE_MAP_STYLE_URL`, and `VITE_MAP_ATTRIBUTION_JSON`. `MAP_PROVIDER_EMERGENCY` and `MAP_PROVIDER_EMERGENCY_EXPIRES_AT` exist only for an approved provider outage. Do not commit values. Production requires `RELEASE_SHA` to be the exact 40-character Git SHA.
+
+`VITE_MAP_STYLE_URL` and structured `VITE_MAP_ATTRIBUTION_JSON` are compiled into the Web bundle during the Vite build. The browser accepts a relative URL, an absolute URL on the deployed page origin, or `https://tiles.openfreemap.org`; every other origin is rejected. The release gate is stricter: a normal production candidate must use an audited root-relative style URL and provide every legally required attribution as JSON `{ "label", "href" }` entries. OpenFreeMap is the keyless local-development fallback and may be released only with `MAP_PROVIDER_EMERGENCY=1` plus an ISO expiry no more than seven days away. If provider validation or MapLibre initialization fails, the map retains its static geographic summary and actionable semantic footprint list.
 
 ## API and Health
 

@@ -35,12 +35,16 @@ async function productionService(): Promise<RenderWebService> {
 describe('V2 deployment cutover', () => {
   it('uses only root workspace build, predeploy, start, and exact-SHA commands', async () => {
     const pkg = JSON.parse(await read('package.json')) as { scripts: Record<string, string> };
+    const renderBuild = pkg.scripts['render-build'] ?? '';
     expect(pkg.scripts.start).toBe('node apps/api/dist/bootstrap/server.js');
-    expect(pkg.scripts['render-build']).toContain('release:v2:verify-sha');
-    expect(pkg.scripts['render-build']).toContain('build:v2');
-    expect(pkg.scripts['render-build']).toContain('release:v2:verify-candidate');
+    expect(renderBuild).toContain('release:v2:verify-sha');
+    expect(renderBuild).toContain('release:v2:verify-map-provider');
+    expect(renderBuild).toContain('build:v2');
+    expect(renderBuild).toContain('release:v2:verify-candidate');
+    expect(renderBuild.indexOf('release:v2:verify-map-provider'))
+      .toBeLessThan(renderBuild.indexOf('build:v2'));
     expect(pkg.scripts['release:v2:predeploy']).toBe('npm run release:v2:verify-candidate && npm run db:v2:migrate');
-    for (const rootName of [['front', 'end'].join(''), ['back', 'end'].join('')]) expect(pkg.scripts['render-build']).not.toContain(rootName);
+    for (const rootName of [['front', 'end'].join(''), ['back', 'end'].join('')]) expect(renderBuild).not.toContain(rootName);
     const api = JSON.parse(await read('apps/api/package.json')) as { scripts: Record<string, string> };
     expect(api.scripts.build).toBe('tsc -p tsconfig.build.json');
     const buildConfig = JSON.parse(await read('apps/api/tsconfig.build.json')) as { compilerOptions?: Record<string, unknown>; exclude?: string[] };
@@ -54,7 +58,18 @@ describe('V2 deployment cutover', () => {
     expect(render).toContain('preDeployCommand: npm run release:v2:predeploy');
     expect(render).toContain('startCommand: npm start');
     expect(render).toContain('healthCheckPath: /readyz');
-    for (const name of ['DATABASE_URL', 'SESSION_SECRET', 'RELEASE_SHA', 'CLOUDINARY_CLOUD_NAME', 'VAPID_PUBLIC_KEY', 'SENTRY_DSN']) expect(render).toContain(`key: ${name}`);
+    for (const name of [
+      'DATABASE_URL',
+      'SESSION_SECRET',
+      'RELEASE_SHA',
+      'CLOUDINARY_CLOUD_NAME',
+      'VAPID_PUBLIC_KEY',
+      'SENTRY_DSN',
+      'VITE_MAP_STYLE_URL',
+      'VITE_MAP_ATTRIBUTION_JSON',
+      'MAP_PROVIDER_EMERGENCY',
+      'MAP_PROVIDER_EMERGENCY_EXPIRES_AT',
+    ]) expect(render).toContain(`key: ${name}`);
     const staleNames = [['MONGO', 'DB_URI'].join(''), ['JWT', '_SECRET'].join(''), ['VITE_API', '_URL'].join(''), ['VITE_SOCKET', '_URL'].join('')];
     for (const name of staleNames) expect(render).not.toContain(name);
   });

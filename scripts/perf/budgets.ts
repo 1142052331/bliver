@@ -1,5 +1,6 @@
 export const V2_BUDGETS = {
-  initialNonMapJsGzipBytes: 200_000,
+  initialShellJsGzipBytes: 160_000,
+  spatialRuntimeJsGzipBytes: 500_000,
   lcpMs: 2_500,
   inpMs: 200,
   cls: 0.1,
