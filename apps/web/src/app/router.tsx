@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { geoPoint, publishFootprintRequest, type PublishFootprintRequest } from '@bliver/contracts';
 import { StatusView } from '@bliver/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -9,27 +8,24 @@ import {
   Navigate,
   RouterProvider,
   useLocation,
-  useNavigate,
-  useSearchParams,
   Link,
-  useParams,
 } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
-import { MapRoute } from '../features/map/MapRoute.js';
-import { FootprintDetailRoute } from '../features/footprints/FootprintDetailRoute.js';
-import { PublishFootprintRoute } from '../features/footprints/PublishFootprintRoute.js';
-import type { PublishFootprintRouteProps } from '../features/footprints/PublishFootprintRoute.js';
-import { uploadMedia } from '../features/footprints/media-upload.js';
-import { RequireAuth } from './guards/RequireAuth.js';
-import { ActivityRoute } from '../features/activity/ActivityRoute.js';
-import { LoginRoute } from '../features/auth/LoginRoute.js';
-import { PeopleRoute } from '../features/social/PeopleRoute.js';
-import { ConversationRoute, MessagesRoute } from '../features/conversations/routes.js';
-import { MemoriesRoute } from '../features/memories/index.js';
-import { NotificationsRoute } from '../features/notifications/index.js';
-import { AdminRoute } from '../features/moderation/index.js';
-import { SessionProvider } from './providers/SessionProvider.js';
+
+const lazyMapRoute = () => import('./routes/map.route.js');
+const lazyActivityRoute = () => import('./routes/activity.route.js');
+const lazyLoginRoute = () => import('./routes/login.route.js');
+const lazyPeopleRoute = () => import('./routes/people.route.js');
+const lazyMessagesRoute = () => import('./routes/messages.route.js');
+const lazyConversationRoute = () => import('./routes/conversation.route.js');
+const lazyMemoriesRoute = () => import('./routes/memories.route.js');
+const lazyNotificationsRoute = () =>
+  import('./routes/notifications.route.js');
+const lazyFootprintRoute = () => import('./routes/footprint.route.js');
+const lazyPublishRoute = () => import('./routes/publish.route.js');
+const lazyAdminRoute = () => import('./routes/admin.route.js');
+const lazyAuthGuardRoute = () => import('./routes/auth-guard.route.js');
 
 function NotFound() {
   const { t } = useTranslation();
@@ -72,46 +68,116 @@ function SessionExpired() {
     </div>
   );
 }
-function pointFrom(value: unknown): { readonly lat: number; readonly lng: number } | undefined { const parsed = geoPoint.safeParse(value); return parsed.success ? parsed.data : undefined; }
-function FootprintRoute() { const footprintId = useParams().footprintId ?? ''; const navigate = useNavigate(); const close = (): void => { if (typeof window !== 'undefined' && typeof window.history.state?.idx === 'number' && window.history.state.idx > 0) navigate(-1); else navigate('/map', { replace: true }); }; return <FootprintDetailRoute loadFromApi onClose={close} footprint={{ id: footprintId, message: 'Footprint detail', visibility: 'public', locationPrecision: 'approximate' }} />; }
-async function publishFootprint(input: PublishFootprintRouteProps['publish'] extends (value: infer T) => Promise<void> ? T : never): Promise<void> {
-  const payload: PublishFootprintRequest = publishFootprintRequest.parse({ ...input, mediaAssetIds: input.mediaAssetIds ?? [] });
-  const response = await fetch('/api/v1/footprints', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify(payload) });
-  if (!response.ok) throw new Error('Publish failed');
+
+function RouteLoading() {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      aria-live="polite"
+      className="app-shell__status-shell"
+      role="status"
+    >
+      <StatusView
+        body={t('session.loadingBody')}
+        title={t('common.loading')}
+      />
+    </div>
+  );
 }
-function PublishRoute() { const [params] = useSearchParams(); const location = useLocation(); const statePoint = pointFrom((location.state as { initialPoint?: unknown } | null)?.initialPoint); const lat = params.get('lat'); const lng = params.get('lng'); const queryPoint = lat !== null && lng !== null ? pointFrom({ lat: Number(lat), lng: Number(lng) }) : undefined; const initialPoint = statePoint ?? queryPoint; return <PublishFootprintRoute {...(initialPoint ? { initialPoint } : {})} signUpload={uploadMedia} publish={publishFootprint} />; }
+
+const routeLoadingElement = <RouteLoading />;
+
 const routes = [
   {
     path: '/',
     element: <AppShell />,
     children: [
       { index: true, element: <Navigate to="/map" replace /> },
-      { path: 'map', element: <MapRoute state="ready" loadFromApi /> },
-      { path: 'activity', element: <ActivityRoute loadFromApi /> },
-      { path: 'login', element: <LoginRoute /> },
-      { path: 'people', element: <PeopleRoute /> },
-      { path: 'messages', element: <MessagesRoute /> },
-      { path: 'messages/:conversationId', element: <ConversationRoute /> },
-      { path: 'notifications', element: <RequireAuth />, children: [{ index: true, element: <NotificationsRoute /> }] },
-      { path: 'me', element: <RequireAuth />, children: [
-        { index: true, element: <MemoriesRoute /> },
-        { path: 'map', element: <MemoriesRoute /> },
-        { path: 'timeline', element: <MemoriesRoute /> },
-        { path: 'photos', element: <MemoriesRoute /> },
-        { path: 'visitors', element: <MemoriesRoute /> },
+      {
+        path: 'map',
+        lazy: lazyMapRoute,
+        hydrateFallbackElement: routeLoadingElement,
+      },
+      {
+        path: 'activity',
+        lazy: lazyActivityRoute,
+        hydrateFallbackElement: routeLoadingElement,
+      },
+      {
+        path: 'login',
+        lazy: lazyLoginRoute,
+        hydrateFallbackElement: routeLoadingElement,
+      },
+      {
+        path: 'people',
+        lazy: lazyPeopleRoute,
+        hydrateFallbackElement: routeLoadingElement,
+      },
+      {
+        path: 'messages',
+        lazy: lazyMessagesRoute,
+        hydrateFallbackElement: routeLoadingElement,
+      },
+      {
+        path: 'messages/:conversationId',
+        lazy: lazyConversationRoute,
+        hydrateFallbackElement: routeLoadingElement,
+      },
+      {
+        path: 'notifications',
+        lazy: lazyAuthGuardRoute,
+        hydrateFallbackElement: routeLoadingElement,
+        children: [
+          {
+            index: true,
+            lazy: lazyNotificationsRoute,
+            hydrateFallbackElement: routeLoadingElement,
+          },
+        ],
+      },
+      { path: 'me', lazy: lazyAuthGuardRoute, hydrateFallbackElement: routeLoadingElement, children: [
+        { index: true, lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+        { path: 'map', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+        { path: 'timeline', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+        { path: 'photos', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+        { path: 'visitors', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
       ] },
-      { path: 'profile/:userId/memories', element: <MemoriesRoute /> },
-      { path: 'profile/:userId/memories/map', element: <MemoriesRoute /> },
-      { path: 'profile/:userId/memories/timeline', element: <MemoriesRoute /> },
-      { path: 'profile/:userId/memories/photos', element: <MemoriesRoute /> },
-      { path: 'profile/:userId/memories/visitors', element: <MemoriesRoute /> },
-      { path: 'profile/:userId', element: <MemoriesRoute /> },
+      { path: 'profile/:userId/memories', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+      { path: 'profile/:userId/memories/map', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+      { path: 'profile/:userId/memories/timeline', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+      { path: 'profile/:userId/memories/photos', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+      { path: 'profile/:userId/memories/visitors', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+      { path: 'profile/:userId', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
       {
         path: 'footprints/:footprintId',
-        element: <FootprintRoute />,
+        lazy: lazyFootprintRoute,
+        hydrateFallbackElement: routeLoadingElement,
       },
-      { path: 'publish', element: <RequireAuth />, children: [{ index: true, element: <PublishRoute /> }] },
-      { path: 'admin', element: <RequireAuth />, children: [{ index: true, element: <AdminRoute /> }] },
+      {
+        path: 'publish',
+        lazy: lazyAuthGuardRoute,
+        hydrateFallbackElement: routeLoadingElement,
+        children: [
+          {
+            index: true,
+            lazy: lazyPublishRoute,
+            hydrateFallbackElement: routeLoadingElement,
+          },
+        ],
+      },
+      {
+        path: 'admin',
+        lazy: lazyAuthGuardRoute,
+        hydrateFallbackElement: routeLoadingElement,
+        children: [
+          {
+            index: true,
+            lazy: lazyAdminRoute,
+            hydrateFallbackElement: routeLoadingElement,
+          },
+        ],
+      },
       { path: 'session-expired', element: <SessionExpired /> },
       { path: '*', element: <NotFound /> },
     ],
@@ -130,5 +196,9 @@ export function AppRouter({ initialEntries }: AppRouterProps) {
       : createBrowserRouter(routes),
   );
 
-  return <QueryClientProvider client={queryClient}><SessionProvider><RouterProvider router={router} /></SessionProvider></QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  );
 }

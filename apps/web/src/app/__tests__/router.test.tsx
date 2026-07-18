@@ -31,13 +31,15 @@ describe('V2 web route contract', () => {
     ['/messages', 'Messages'],
     ['/profile/test-user', 'Profile'],
     ['/footprints/test-footprint', 'Footprint'],
-  ])('renders a route-owned empty state for %s', (path, heading) => {
+  ])('renders a route-owned empty state for %s', async (path, heading) => {
     renderRouter(path);
 
     if (path === '/map') {
-      expect(screen.getByRole('status')).toHaveTextContent(heading);
+      expect(await screen.findByText(heading)).toBeVisible();
     } else {
-      expect(screen.getByRole('heading', { name: heading })).toBeVisible();
+      expect(
+        await screen.findByRole('heading', { name: heading }),
+      ).toBeVisible();
     }
     if (
       path === '/map' ||
@@ -54,16 +56,16 @@ describe('V2 web route contract', () => {
 
   it.each(['/me', '/notifications', '/admin'])(
     'guards %s behind an authenticated session',
-    (path) => {
+    async (path) => {
       renderRouter(path);
-      expect(screen.getByRole('status')).toHaveTextContent('Loading session');
+      expect(await screen.findByText('Loading session')).toBeVisible();
     },
   );
 
-  it('exposes four navigation destinations and separate shell commands', () => {
+  it('exposes four navigation destinations and separate shell commands', async () => {
     renderRouter('/map');
 
-    const navigation = screen.getByRole('navigation', {
+    const navigation = await screen.findByRole('navigation', {
       name: 'Primary navigation',
     });
     expect(within(navigation).getAllByRole('link')).toHaveLength(4);
@@ -110,27 +112,31 @@ describe('V2 web route contract', () => {
     ).toBeVisible();
   });
 
-  it('renders the authenticated-route loading state in Japanese', () => {
+  it('renders the authenticated-route loading state in Japanese', async () => {
     renderRouter('/me', 'ja');
 
-    expect(screen.getByRole('status')).toHaveTextContent(
+    expect(await screen.findByText(
       'ログイン状態を確認中',
-    );
+    )).toBeVisible();
   });
 
-  it('uses the browser location when no test history is supplied', () => {
+  it('uses the browser location when no test history is supplied', async () => {
     window.history.replaceState({}, '', '/profile/test-user');
 
     renderRouter(undefined);
 
-    expect(screen.getByRole('heading', { name: 'Profile' })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Profile' }),
+    ).toBeVisible();
   });
 
   it('closes a direct footprint deep link back to the map fallback', async () => {
     renderRouter('/footprints/test-footprint');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close footprint' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Close footprint' }),
+    );
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Loading map');
+    expect(await screen.findByText('Loading map')).toBeVisible();
   });
 });

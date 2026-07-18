@@ -124,6 +124,7 @@ test('filter dialog supports keyboard focus, Escape and focus restoration', asyn
 
 test('keyboard order reaches shell commands before the sign-in form with visible focus', async ({ page }) => {
   await page.goto('/login');
+  await expect(page.getByLabel('Username')).toBeVisible();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Bliver' })).toBeFocused();
   await page.keyboard.press('Tab');

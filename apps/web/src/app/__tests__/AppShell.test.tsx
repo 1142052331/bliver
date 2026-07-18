@@ -114,4 +114,18 @@ describe('responsive app shell', () => {
       '"initialPoint":{"lat":31.2,"lng":121.4}',
     );
   });
+
+  it.each([
+    '/map?lat=Infinity&lng=121.4',
+    '/map?lat=91&lng=121.4',
+    '/map?lat=31.2&lng=181',
+  ])('does not pass invalid map coordinates from %s', async (path) => {
+    renderShell(path);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leave footprint' }));
+
+    expect(await screen.findByTestId('publish-location')).not.toHaveTextContent(
+      'initialPoint',
+    );
+  });
 });

@@ -1,4 +1,3 @@
-import { geoPoint } from '@bliver/contracts';
 import { Button } from '@bliver/ui';
 import {
   Bell,
@@ -21,6 +20,31 @@ const destinations = [
   { href: '/me', key: 'nav.me', Icon: UserRound },
 ] as const;
 
+function pointFromSearch(search: string):
+  | { readonly lat: number; readonly lng: number }
+  | undefined {
+  const params = new URLSearchParams(search);
+  const latParam = params.get('lat');
+  const lngParam = params.get('lng');
+
+  if (latParam === null || lngParam === null) return undefined;
+
+  const lat = Number(latParam);
+  const lng = Number(lngParam);
+  if (
+    !Number.isFinite(lat) ||
+    lat < -90 ||
+    lat > 90 ||
+    !Number.isFinite(lng) ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    return undefined;
+  }
+
+  return { lat, lng };
+}
+
 export function AppShell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -40,13 +64,7 @@ export function AppShell() {
   const publishLabel = t('actions.publish');
 
   const publish = (): void => {
-    const params = new URLSearchParams(location.search);
-    const lat = params.get('lat');
-    const lng = params.get('lng');
-    const point =
-      lat !== null && lng !== null
-        ? geoPoint.safeParse({ lat: Number(lat), lng: Number(lng) }).data
-        : undefined;
+    const point = pointFromSearch(location.search);
 
     navigate(
       '/publish',
