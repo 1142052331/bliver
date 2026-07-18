@@ -45,8 +45,8 @@ describe('isolated browser performance evidence', () => {
   it('accepts one fresh record for both metrics from every viewport', () => {
     expect(evaluateBrowserEvidence(manifest, records, { nowMs })).toEqual({
       failures: [],
-      reconnectValues: [45, 45, 45, 45],
-      inpValues: [64, 64, 64, 64],
+      reconnectValues: BROWSER_EVIDENCE_PROJECTS.map(() => 45),
+      inpValues: BROWSER_EVIDENCE_PROJECTS.map(() => 64),
     });
   });
 

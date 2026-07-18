@@ -2,7 +2,9 @@ export const BROWSER_EVIDENCE_PROJECTS = [
   'mobile-360x800',
   'mobile-390x844',
   'mobile-430x932',
+  'tablet-1024x768',
   'desktop-1440x1000',
+  'wide-1920x1080',
 ] as const;
 
 export const BROWSER_EVIDENCE_METRICS = ['reconnect-resync', 'inp'] as const;
