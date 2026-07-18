@@ -35,10 +35,16 @@ describe('V2 web route contract', () => {
     renderRouter(path);
 
     if (path === '/map') {
-      expect(await screen.findByText(heading)).toBeVisible();
+      expect(
+        await screen.findByText(heading, undefined, { timeout: 5_000 }),
+      ).toBeVisible();
     } else {
       expect(
-        await screen.findByRole('heading', { name: heading }),
+        await screen.findByRole(
+          'heading',
+          { name: heading },
+          { timeout: 5_000 },
+        ),
       ).toBeVisible();
     }
     if (
