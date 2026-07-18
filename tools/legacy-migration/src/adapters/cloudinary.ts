@@ -14,6 +14,35 @@ export interface CloudinaryMetadataPort {
   resource(publicId: string): Promise<VerifiedMedia | null>;
 }
 
+export function createCloudinaryMetadataPort(
+  cloudName: string,
+  apiKey: string,
+  apiSecret: string,
+  request: typeof fetch = fetch,
+): CloudinaryMetadataPort {
+  const authorization = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`;
+  return {
+    async resource(publicId) {
+      const encodedPublicId = publicId.split('/').map(encodeURIComponent).join('/');
+      const response = await request(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/resources/image/upload/${encodedPublicId}`, {
+        headers: { authorization },
+      });
+      if (response.status === 404) return null;
+      if (!response.ok) throw new MigrationError('MEDIA_METADATA_REQUEST_FAILED');
+      const value = await response.json() as Record<string, unknown>;
+      return {
+        publicId: String(value.public_id ?? ''),
+        mimeType: `image/${String(value.format ?? '')}`,
+        bytes: Number(value.bytes),
+        version: Number(value.version),
+        width: Number(value.width),
+        height: Number(value.height),
+        format: String(value.format ?? ''),
+      };
+    },
+  };
+}
+
 function publicIdFromUrl(rawUrl: string, expectedCloud: string): string {
   let url: URL;
   try { url = new URL(rawUrl); } catch { throw new MigrationError('MEDIA_URL_INVALID'); }

@@ -15,6 +15,7 @@ const objectId = (record: LegacyRecord): string => String(record._id ?? '');
 const ref = (record: LegacyRecord, key: string): string => String(record[key] ?? '');
 
 function isArchivedOnly(collection: LegacyModel, row: LegacyRecord): boolean {
+  if (row.migrationArchiveOnly === true) return true;
   if (archivedCollections.has(collection)) return true;
   if (collection === 'Notification') return row.type === 'profile_view';
   if (collection === 'Report') return row.targetType === 'comment';
@@ -36,10 +37,10 @@ export function preflight(collections: LegacyCollections): PreflightResult {
 
   for (const user of collections.User) {
     const name = String(user.name ?? '');
-    if (name !== name.trim() || !/^[a-zA-Z0-9_]{3,32}$/.test(name)) add('USERNAME_V2_INCOMPATIBLE', 'User', user);
+    if (name !== name.trim() || !/^[^\u0000-\u001f\u007f]{1,32}$/u.test(name)) add('USERNAME_V2_INCOMPATIBLE', 'User', user);
     if (usernames.has(name)) add('USERNAME_DUPLICATE', 'User', user);
     usernames.add(name);
-    if (!bcryptPattern.test(String(user.password ?? ''))) add('BCRYPT_HASH_INVALID', 'User', user);
+    if (user.migrationSynthetic !== true && !bcryptPattern.test(String(user.password ?? ''))) add('BCRYPT_HASH_INVALID', 'User', user);
     for (const visitor of Array.isArray(user.profileVisitors) ? user.profileVisitors as LegacyRecord[] : []) {
       if (!users.has(ref(visitor, 'visitorId'))) add('PROFILE_VISITOR_MISSING', 'User', user);
     }
@@ -91,17 +92,20 @@ export function preflight(collections: LegacyCollections): PreflightResult {
     if (row.conversationId && !conversations.has(String(row.conversationId))) add('MESSAGE_CONVERSATION_MISSING', 'Message', row);
   }
   for (const row of collections.Notification) {
+    if (row.migrationArchiveOnly === true) continue;
     if (!users.has(ref(row, 'recipientId')) || (row.senderId && !users.has(ref(row, 'senderId')))) add('NOTIFICATION_USER_MISSING', 'Notification', row);
     if (row.type !== 'profile_view' && !footprints.has(ref(row, 'footprintId'))) add('NOTIFICATION_FOOTPRINT_MISSING', 'Notification', row);
   }
-  for (const row of collections.PushSubscription) if (!users.has(ref(row, 'userId'))) add('PUSH_USER_MISSING', 'PushSubscription', row);
+  for (const row of collections.PushSubscription) if (row.migrationArchiveOnly !== true && !users.has(ref(row, 'userId'))) add('PUSH_USER_MISSING', 'PushSubscription', row);
   for (const row of collections.Report) {
+    if (row.migrationArchiveOnly === true) continue;
     if (!users.has(ref(row, 'reporterId')) || !footprints.has(ref(row, 'footprintId'))) add('REPORT_REFERENCE_MISSING', 'Report', row);
   }
 
   let source = 0; let migrated = 0; let archivedOnly = 0;
   for (const [collection, rows] of Object.entries(collections) as Array<[LegacyModel, LegacyRecord[]]>) {
     for (const row of rows) {
+      if (row.migrationSynthetic === true) continue;
       source += 1;
       if (blocked.has(`${collection}:${objectId(row)}`)) continue;
       if (isArchivedOnly(collection, row)) archivedOnly += 1;

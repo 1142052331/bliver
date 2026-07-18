@@ -81,7 +81,9 @@
 | `role=user` | `identity_roles(user)` | 每个用户必须具有 `user` 角色 |
 | `role=admin` | `identity_roles(admin)`、`admin_roles(admin)` | 同时保留基础 `user` 角色；不依据用户名或 `systemIdentity` 自动提权 |
 
-V2 username 数据库约束和登录契约要求 `^[a-zA-Z0-9_]{3,32}$`。如果源用户名 trim 后变化、格式不合法、为空、重复或会破坏“原用户名登录”，预检必须停止。工具不得自动改名。该情况只能在另一个经用户批准的 identity 范围决策后重新开始本迁移。
+真实源预检确认部分 V1 登录名包含非 ASCII 字符或短于 3 字符。经批准的 identity 范围决策是：V2 新注册仍严格要求 `^[a-zA-Z0-9_]{3,32}$`；登录契约和数据库存储允许 1–32 个无控制字符、无首尾空白的历史登录名。迁移保留原登录名，不改大小写、不拼后缀、不音译；空值、首尾空白、控制字符、超长或重复仍阻断。
+
+历史内容引用已从 V1 `User` 删除的身份时，迁移层按源 ID 创建确定性、不可登录的 deleted-user tombstone，仅含 `identity_users` 与基础 `user` 角色，不创建 credential。早期评论缺少 `userId` 但保留 username 快照时，仅在快照唯一匹配现存用户时恢复真实作者；缺失或歧义仍阻断。该兼容逻辑只存在于离线迁移工具和 identity 存储约束，不进入其他业务模块。
 
 ### 4.2 地理、足迹和发现投影
 
@@ -109,10 +111,10 @@ V1 只有 `photoUrl`，而 V2 `media_assets` 要求受控 Cloudinary `public_id`
 
 ### 4.4 表态与评论
 
-- V1 reaction 以 `(footprintId,userId)` 映射到 `footprint_reactions`，保留 emoji 和时间。V2 每用户每足迹只允许一个表态；若源中存在重复，只有完全相同的重复才可去重并计数，emoji 或时间冲突则阻断。
+- V1 reaction 以 `(footprintId,userId)` 映射到 `footprint_reactions`，保留 emoji。真实 V1 reaction 子文档没有独立时间时，使用所属 footprint 的 `createdAt` 作为确定性历史基线并单独计数。V2 每用户每足迹只允许一个表态；若源中存在重复，只有 emoji 与确定性时间完全相同的重复才可去重并计数，冲突则阻断。
 - V1 comment subdocument `_id` 确定性映射到 `footprint_comments.id`，`userId` 映射为 `author_id`，保留 content、createdAt 和 deletedAt。
 - 顶层评论 `parent_comment_id=NULL`；回复只映射到其顶层 `parentCommentId`。`replyToCommentId` 和 `replyToUser` 仅在 BSON 备份保留，不进入 V2。
-- 被删除且 content 为空的评论用固定 tombstone `"[deleted]"` 满足 V2 约束，同时保留 `deleted_at`；未删除的空评论、超过 2000 字符、缺失用户、跨足迹 parent、缺失 parent 或超过两级均阻断。
+- 被删除且 content 为空的评论用固定 tombstone `"[deleted]"` 满足 V2 约束，同时保留 `deleted_at`；早期缺少 `userId` 的评论只允许按唯一 username 快照恢复作者。未删除的空评论、超过 2000 字符、无法唯一恢复的用户、跨足迹 parent、缺失 parent 或超过两级均阻断。
 
 ### 4.5 社交关系
 

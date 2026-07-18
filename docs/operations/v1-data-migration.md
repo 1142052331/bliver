@@ -23,7 +23,7 @@ Create a full encrypted archive before reading records. The archive must cover a
 
 ## Target and load gates
 
-Create a new PostgreSQL 16/PostGIS database, apply the existing ten V2 migrations and foundation seed, and verify the approved production-equivalent baseline. The target must be an empty PostgreSQL database apart from migration metadata and the foundation marker; business tables must be empty before the load. Run the migration tool against the restored read-only Mongo copy:
+Create a new PostgreSQL 16/PostGIS database, apply the existing eleven V2 migrations and foundation seed, and verify the approved production-equivalent baseline. Migration 0010 permits exact legacy login names in storage while registration remains restricted by the identity application rule. The target must be an empty PostgreSQL database apart from migration metadata and the foundation marker; business tables must be empty before the load. Run the migration tool against the restored read-only Mongo copy:
 
 ```powershell
 npm.cmd --prefix tools/legacy-migration run preflight -- --source restored-mongo --config .env.legacy-migration.local --dry-run
@@ -31,7 +31,9 @@ npm.cmd --prefix tools/legacy-migration run migrate -- --source restored-mongo -
 npm.cmd --prefix tools/legacy-migration run verify-target -- --config .env.legacy-migration.local --ledger .migration/migration-ledger.json.age
 ```
 
-The load is one serializable transaction. It writes only current V2 formal tables and never appends Outbox, Socket, push, audit, delivery-attempt or processed-event history. Any conflict, digest mismatch, invalid media, VAPID mismatch, orphan, invalid username or malformed bcrypt hash aborts the run. On failure, destroy the new target database and rerun from the same verified archive; do not patch a dirty target or write to Mongo.
+The load is one serializable transaction. It writes only current V2 formal tables and never appends Outbox, Socket, push, audit, delivery-attempt or processed-event history. Missing historical identities become deterministic users without credentials; uniquely matched comment username snapshots recover their real author. Notifications and reports whose footprint no longer exists, plus push subscriptions whose owner no longer exists, remain archive-only. Any unresolved conflict, digest mismatch, invalid media, VAPID mismatch, incompatible username or malformed bcrypt hash aborts the run. On failure, destroy the new target database and rerun from the same verified archive; do not patch a dirty target or write to Mongo.
+
+On hosts whose system resolver cannot resolve Atlas SRV records, set `LEGACY_MONGO_DNS_SERVERS` to an approved comma-separated resolver list. Do not put the Mongo URL or any credential in command arguments.
 
 ## Release and observation
 

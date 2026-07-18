@@ -7,10 +7,10 @@ export function transformIdentity(users: readonly LegacyRecord[], ids = new Dete
   const userRows = users.map((source) => {
     const id = ids.id('user', String(source._id));
     const username = String(source.name).trim();
-    return { id, username, displayName: username, email: null, createdAt: asDate(source.createdAt), updatedAt: asDate(source.updatedAt) };
+    return { id, username, displayName: source.migrationSynthetic === true ? 'Deleted user' : username, email: null, createdAt: asDate(source.createdAt), updatedAt: asDate(source.updatedAt) };
   });
   const userIdBySource = new Map(users.map((source, index) => [String(source._id), userRows[index]!.id]));
-  const credentials = users.map((source) => ({
+  const credentials = users.filter((source) => source.migrationSynthetic !== true).map((source) => ({
     userId: userIdBySource.get(String(source._id))!,
     passwordHash: String(source.password),
     createdAt: asDate(source.createdAt),

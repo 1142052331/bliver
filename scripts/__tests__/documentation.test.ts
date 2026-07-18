@@ -71,7 +71,9 @@ describe('V2 canonical documentation', () => {
     const qa = await readFile(resolve(root, 'docs/qa/v1-data-migration.md'), 'utf8');
     const workflow = await readFile(resolve(root, '.github/workflows/ci.yml'), 'utf8');
     for (const token of ['explicit database name', 'read-only', 'encrypted', 'empty PostgreSQL', 'Outbox', 'destroy', 'exact-SHA']) expect(migration).toContain(token);
-    expect(qa).toContain('BLOCKED_SOURCE_ACCESS');
+    expect(qa).toContain('LOCAL_LOAD_VERIFIED_RENDER_PENDING');
+    expect(qa).toContain('680 source / 486 migrated / 194 archived-only / 0 blocked');
+    expect(qa).toContain('Render staging has not been loaded');
     expect(workflow).toContain('tools/legacy-migration/package-lock.json');
     expect(workflow).toContain('npm ci');
     expect(workflow).toContain('npm run typecheck');

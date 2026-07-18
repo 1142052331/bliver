@@ -25,9 +25,9 @@ describe('legacy source preflight', () => {
     expect(preflight(clean).errors).toContainEqual({ code: 'COMMENT_AUTHOR_MISSING', collection: 'Footprint' });
   });
 
-  it('blocks a username that cannot preserve the V2 login contract', () => {
+  it('blocks a username containing a database-incompatible control character', () => {
     const user = clean.User[0] as Record<string, unknown>;
-    user.name = '不兼容用户名';
+    user.name = 'invalid\u0000username';
     expect(preflight(clean).errors).toContainEqual({ code: 'USERNAME_V2_INCOMPATIBLE', collection: 'User' });
   });
 

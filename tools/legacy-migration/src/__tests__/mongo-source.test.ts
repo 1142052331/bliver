@@ -18,3 +18,34 @@ describe('explicit read-only Mongo source', () => {
     expect(factory).not.toHaveBeenCalled();
   });
 });
+import { createMongoCollectionsSource } from '../adapters/mongo-source.js';
+
+describe('Mongo collection source', () => {
+  it('reads all fifteen explicit V1 collections without writing', async () => {
+    const calls: string[] = [];
+    const collections = new Map([
+      ['users', [{ _id: 'u1', name: 'alice' }]],
+      ['footprints', [{ _id: 'f1', userId: 'u1' }]],
+    ]);
+    const source = await createMongoCollectionsSource('mongodb://source.invalid', 'test', async () => ({
+      db(name: string) {
+        expect(name).toBe('test');
+        return {
+          collection(collectionName: string) {
+            calls.push(collectionName);
+            return { async find() { return { async toArray() { return collections.get(collectionName) ?? []; } }; } };
+          },
+        };
+      },
+      async close() { calls.push('close'); },
+    }));
+    const records = await source.collections();
+    await source.close();
+    expect(Object.keys(records)).toHaveLength(15);
+    expect(records.User).toEqual([{ _id: 'u1', name: 'alice' }]);
+    expect(calls).toContain('users');
+    expect(calls).toContain('footprints');
+    expect(calls).toContain('close');
+    expect(calls.some((call) => /insert|update|delete/i.test(call))).toBe(false);
+  });
+});

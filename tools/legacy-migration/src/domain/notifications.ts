@@ -15,11 +15,12 @@ export function transformNotifications(
   keys: { readonly v1VapidPublicKey?: string; readonly v2VapidPublicKey?: string },
   ids = new DeterministicIdRegistry(),
 ) {
-  if (pushSources.length && (!keys.v1VapidPublicKey || !keys.v2VapidPublicKey || fingerprint(keys.v1VapidPublicKey) !== fingerprint(keys.v2VapidPublicKey))) {
+  const activePushSources = pushSources.filter((source) => source.migrationArchiveOnly !== true);
+  if (activePushSources.length && (!keys.v1VapidPublicKey || !keys.v2VapidPublicKey || fingerprint(keys.v1VapidPublicKey) !== fingerprint(keys.v2VapidPublicKey))) {
     throw new MigrationError('VAPID_KEY_MISMATCH');
   }
   const notifications = notificationSources
-    .filter((source) => source.type === 'reaction' || source.type === 'comment')
+    .filter((source) => source.migrationArchiveOnly !== true && (source.type === 'reaction' || source.type === 'comment'))
     .map((source) => {
       const id = ids.id('notification', String(source._id));
       return {
@@ -35,7 +36,7 @@ export function transformNotifications(
         dedupeKey: id,
       };
     });
-  const pushSubscriptions = pushSources.map((source) => ({
+  const pushSubscriptions = activePushSources.map((source) => ({
     id: ids.id('push-subscription', String(source._id)),
     userId: ids.id('user', String(source.userId)),
     endpoint: String(source.endpoint),
@@ -45,7 +46,7 @@ export function transformNotifications(
     updatedAt: date(source.createdAt ?? '2026-07-18T00:00:00.000Z'),
   }));
   const preferences = [...new Set(pushSubscriptions.map((source) => source.userId))].map((userId) => ({ userId, reactions: true, comments: true, social: true, messages: true, moderation: true, push: true, updatedAt: new Date('2026-07-18T00:00:00.000Z') }));
-  const reports = reportSources.filter((source) => source.targetType === 'footprint').map((source) => ({
+  const reports = reportSources.filter((source) => source.migrationArchiveOnly !== true && source.targetType === 'footprint').map((source) => ({
     id: ids.id('report', String(source._id)),
     footprintId: ids.id('footprint', String(source.footprintId)),
     reporterId: ids.id('user', String(source.reporterId)),
