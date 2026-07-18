@@ -1,16 +1,19 @@
+import { Button, StatusView } from '@bliver/ui';
 import { Component } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { ErrorInfo, ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
   readonly children: ReactNode;
+  readonly fallback: ReactNode;
 }
 
 interface ErrorBoundaryState {
   readonly hasError: boolean;
 }
 
-export class AppErrorBoundary extends Component<
+class ErrorBoundaryCore extends Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
@@ -27,10 +30,30 @@ export class AppErrorBoundary extends Component<
   }
 
   public override render(): ReactNode {
-    if (this.state.hasError) {
-      return <main role="alert">Something went wrong. Please try again.</main>;
-    }
-
-    return this.props.children;
+    return this.state.hasError ? this.props.fallback : this.props.children;
   }
+}
+
+export function AppErrorBoundary({ children }: { readonly children: ReactNode }) {
+  const { t } = useTranslation();
+  const fallback = (
+    <main
+      className="app-shell__status-shell app-shell__status-shell--standalone"
+      role="alert"
+    >
+      <StatusView
+        action={
+          <Button onClick={() => window.location.reload()}>
+            {t('common.retry')}
+          </Button>
+        }
+        body={t('errors.unexpectedBody')}
+        title={t('errors.unexpectedTitle')}
+      />
+    </main>
+  );
+
+  return (
+    <ErrorBoundaryCore fallback={fallback}>{children}</ErrorBoundaryCore>
+  );
 }

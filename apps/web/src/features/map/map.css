@@ -1,5 +1,5 @@
 .map-route { position: relative; min-height: calc(100vh - 132px); background: #e5eee9; overflow: hidden; }
-.map-route__title { position: absolute; top: 12px; left: 16px; z-index: 500; margin: 0; color: #173b31; font-size: 1.25rem; }
+.map-route__title { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; margin: -1px; padding: 0; border: 0; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .map-canvas, .map-canvas .leaflet-container { height: calc(100vh - 132px); min-height: 520px; width: 100%; }
 .map-canvas .leaflet-control-attribution a { text-decoration: underline; text-underline-offset: 2px; }
 .map-route__controls { position: absolute; top: 16px; right: 16px; z-index: 500; display: flex; gap: 8px; }

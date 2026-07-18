@@ -5,6 +5,7 @@ export interface FoundationTranslation {
     readonly brand: string;
     readonly notifications: string;
     readonly language: string;
+    readonly primaryNavigation: string;
     readonly retry: string;
     readonly close: string;
     readonly loading: string;
@@ -25,6 +26,7 @@ export interface FoundationTranslation {
   };
   readonly session: {
     readonly loading: string;
+    readonly loadingBody: string;
     readonly expiredTitle: string;
     readonly expiredBody: string;
     readonly signIn: string;
@@ -42,6 +44,7 @@ const en = {
     brand: 'Bliver',
     notifications: 'Notifications',
     language: 'Language',
+    primaryNavigation: 'Primary navigation',
     retry: 'Try again',
     close: 'Close',
     loading: 'Loading',
@@ -56,6 +59,7 @@ const en = {
   locale: { zhCN: '简体中文', en: 'English', ja: '日本語' },
   session: {
     loading: 'Loading session',
+    loadingBody: 'Preparing your map and account.',
     expiredTitle: 'Session expired',
     expiredBody: 'Sign in again to continue.',
     signIn: 'Continue to sign in',
@@ -73,6 +77,7 @@ const zhCN = {
     brand: 'Bliver',
     notifications: '通知',
     language: '语言',
+    primaryNavigation: '主导航',
     retry: '重试',
     close: '关闭',
     loading: '加载中',
@@ -82,6 +87,7 @@ const zhCN = {
   locale: { zhCN: '简体中文', en: 'English', ja: '日本語' },
   session: {
     loading: '正在确认登录状态',
+    loadingBody: '正在准备地图和账号信息。',
     expiredTitle: '登录已过期',
     expiredBody: '请重新登录后继续。',
     signIn: '前往登录',
@@ -99,6 +105,7 @@ const ja = {
     brand: 'Bliver',
     notifications: '通知',
     language: '言語',
+    primaryNavigation: 'メインナビゲーション',
     retry: 'もう一度試す',
     close: '閉じる',
     loading: '読み込み中',
@@ -113,6 +120,7 @@ const ja = {
   locale: { zhCN: '简体中文', en: 'English', ja: '日本語' },
   session: {
     loading: 'ログイン状態を確認中',
+    loadingBody: '地図とアカウント情報を準備しています。',
     expiredTitle: 'セッションの有効期限が切れました',
     expiredBody: '続けるには、もう一度サインインしてください。',
     signIn: 'サインインへ進む',

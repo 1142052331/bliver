@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { geoPoint, publishFootprintRequest, type PublishFootprintRequest } from '@bliver/contracts';
+import { StatusView } from '@bliver/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   createBrowserRouter,
   createMemoryRouter,
@@ -14,7 +16,6 @@ import {
 } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
-import { RoutePlaceholder } from './routes/RoutePlaceholder.js';
 import { MapRoute } from '../features/map/MapRoute.js';
 import { FootprintDetailRoute } from '../features/footprints/FootprintDetailRoute.js';
 import { PublishFootprintRoute } from '../features/footprints/PublishFootprintRoute.js';
@@ -30,8 +31,47 @@ import { NotificationsRoute } from '../features/notifications/index.js';
 import { AdminRoute } from '../features/moderation/index.js';
 import { SessionProvider } from './providers/SessionProvider.js';
 
-function NotFound() { return <RoutePlaceholder title="Not found" />; }
-function SessionExpired() { const location = useLocation(); const destination = typeof location.state?.from === 'string' ? location.state.from : '/map'; return <section><h1>Session expired</h1><p>Please sign in again to continue.</p><Link to="/login" state={{ from: destination }}>Continue to sign in</Link></section>; }
+function NotFound() {
+  const { t } = useTranslation();
+  return (
+    <div className="app-shell__status-shell">
+      <StatusView
+        action={
+          <Link className="app-shell__status-link" to="/map">
+            {t('nav.map')}
+          </Link>
+        }
+        body={t('errors.notFoundBody')}
+        title={t('errors.notFoundTitle')}
+      />
+    </div>
+  );
+}
+
+function SessionExpired() {
+  const { t } = useTranslation();
+  const location = useLocation();
+  const destination =
+    typeof location.state?.from === 'string' ? location.state.from : '/map';
+
+  return (
+    <div className="app-shell__status-shell">
+      <StatusView
+        action={
+          <Link
+            className="app-shell__status-link"
+            state={{ from: destination }}
+            to="/login"
+          >
+            {t('session.signIn')}
+          </Link>
+        }
+        body={t('session.expiredBody')}
+        title={t('session.expiredTitle')}
+      />
+    </div>
+  );
+}
 function pointFrom(value: unknown): { readonly lat: number; readonly lng: number } | undefined { const parsed = geoPoint.safeParse(value); return parsed.success ? parsed.data : undefined; }
 function FootprintRoute() { const footprintId = useParams().footprintId ?? ''; const navigate = useNavigate(); const close = (): void => { if (typeof window !== 'undefined' && typeof window.history.state?.idx === 'number' && window.history.state.idx > 0) navigate(-1); else navigate('/map', { replace: true }); }; return <FootprintDetailRoute loadFromApi onClose={close} footprint={{ id: footprintId, message: 'Footprint detail', visibility: 'public', locationPrecision: 'approximate' }} />; }
 async function publishFootprint(input: PublishFootprintRouteProps['publish'] extends (value: infer T) => Promise<void> ? T : never): Promise<void> {
