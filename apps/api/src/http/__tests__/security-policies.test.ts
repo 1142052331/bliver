@@ -54,6 +54,7 @@ describe('V2 production security policies', () => {
     expect(health.headers['access-control-allow-origin']).toBeUndefined();
     expect(health.headers['access-control-allow-credentials']).toBeUndefined();
     expect(health.headers['content-security-policy']).toContain("default-src 'self'");
+    expect(health.headers['content-security-policy']).toContain("img-src 'self' data: https://*.tile.openstreetmap.org");
     const tooLarge = await request(app).post('/api/v1/auth/register').set('content-type', 'application/json').send(JSON.stringify({ username: 'large_body', password: 'x'.repeat(1_100_000) }));
     expect(tooLarge.status).toBe(413);
     expect(tooLarge.body.code).toBe('PAYLOAD_TOO_LARGE');

@@ -99,7 +99,13 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
     },
     customProps(request) { const observed = request as typeof request & { correlationId?: string }; return { requestId: request.id, correlationId: observed.correlationId }; },
   }));
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        imgSrc: ["'self'", 'data:', 'https://*.tile.openstreetmap.org'],
+      },
+    },
+  }));
   app.use(express.json({ limit: '1mb' }));
   const identityRepositories = identity ?? createMemoryIdentityRepositories();
   app.use('/api/v1', identityRouter(identityRepositories, config));
