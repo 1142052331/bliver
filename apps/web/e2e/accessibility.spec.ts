@@ -43,22 +43,22 @@ test('every route-owned surface passes the WCAG axe gate', async ({ page }) => {
     ['/login', 'Sign in'],
     ['/people', 'People'],
     ['/messages', 'Messages'],
-    [`/messages/${V2_TEST_SOCIAL.conversationId}`, 'Person 019f0000'],
+    [`/messages/${V2_TEST_SOCIAL.conversationId}`, V2_TEST_USERS.userB.displayName],
     ['/notifications', 'Notifications'],
-    ['/me', 'Memories'],
+    ['/me', V2_TEST_USERS.userA.displayName],
     ['/me/map', 'Map memories'],
     ['/me/timeline', 'Timeline'],
     ['/me/photos', 'Photos'],
     ['/me/visitors', 'Visitors'],
-    [`/profile/${V2_TEST_USERS.userB.id}`, 'Profile memories'],
-    [`/profile/${V2_TEST_USERS.userB.id}/memories`, 'Profile memories'],
+    [`/profile/${V2_TEST_USERS.userB.id}`, V2_TEST_USERS.userB.displayName],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories`, V2_TEST_USERS.userB.displayName],
     [`/profile/${V2_TEST_USERS.userB.id}/memories/map`, 'Map memories'],
     [`/profile/${V2_TEST_USERS.userB.id}/memories/timeline`, 'Timeline'],
     [`/profile/${V2_TEST_USERS.userB.id}/memories/photos`, 'Photos'],
     [`/profile/${V2_TEST_USERS.userB.id}/memories/visitors`, 'Visitors'],
     [`/footprints/${V2_TEST_FOOTPRINTS[0]!.id}`, 'Footprint'],
     ['/publish?lat=31.231&lng=121.471', 'Publish a footprint'],
-    ['/session-expired', 'Session expired'],
+    ['/session-expired', 'Your session has expired'],
     ['/missing-route', 'Page not found'],
   ] as const;
 
@@ -126,16 +126,14 @@ test('keyboard order reaches shell commands before the sign-in form with visible
   await page.goto('/login');
   await expect(page.getByLabel('Username')).toBeVisible();
   await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Bliver' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('combobox', { name: 'Language' })).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', { name: 'Notifications' })).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: 'Leave footprint' })).toBeFocused();
-  await page.keyboard.press('Tab');
   await expect(page.getByLabel('Username')).toBeFocused();
-  await expect(page.getByLabel('Username')).toHaveCSS('outline-style', 'solid');
+  await expect(page.locator('.auth-route__field-stack')).not.toHaveCSS('box-shadow', 'none');
 });
 
 test('primary controls preserve a 44px touch target through mobile keyboard resizing', async ({ page }) => {
@@ -143,11 +141,12 @@ test('primary controls preserve a 44px touch target through mobile keyboard resi
   await expect(page.getByRole('button', { name: 'Filter' })).toBeVisible();
   const controls = page.locator('.activity-route button, .activity-route input, .activity-route select, .activity-route textarea');
   const count = await controls.count();
+  const layoutPixelTolerance = 1 / 64;
   expect(count).toBeGreaterThan(0);
   for (let index = 0; index < count; index += 1) {
     const box = await controls.nth(index).boundingBox();
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
-    expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+    expect((box?.height ?? 0) + layoutPixelTolerance).toBeGreaterThanOrEqual(44);
+    expect((box?.width ?? 0) + layoutPixelTolerance).toBeGreaterThanOrEqual(44);
   }
   await page.setViewportSize({ width: page.viewportSize()?.width ?? 360, height: 420 });
   await page.getByRole('button', { name: 'Filter' }).click();

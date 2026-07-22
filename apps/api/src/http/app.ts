@@ -15,7 +15,7 @@ import { healthRouter } from './health.js';
 import { createStaticWebHandlers } from './static-web.js';
 import type { DbPort } from './health.js';
 import { createMemoryIdentityRepositories } from '../modules/identity/application/memory-repositories.js';
-import { identityRouter } from '../modules/identity/transport/routes.js';
+import { identityRouter, type PublicProfileAccess } from '../modules/identity/transport/routes.js';
 import type { IdentityRepositories } from '../modules/identity/application/ports.js';
 import { mediaRouter } from '../modules/media/transport/routes.js';
 import { defaultService as defaultMediaService } from '../modules/media/transport/routes.js';
@@ -41,6 +41,7 @@ export interface AppOptions {
   readonly db?: DbPort;
   readonly logger?: Logger;
   readonly identity?: IdentityRepositories;
+  readonly identityProfileAccess?: PublicProfileAccess;
   readonly media?: MediaService;
   readonly footprints?: FootprintRouterOptions;
   readonly map?: MapRouterOptions;
@@ -76,7 +77,7 @@ function requestPath(value: string | undefined): string {
   catch { return '/'; }
 }
 
-export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance, observability = new ObservabilityRegistry(config.sessionSecret, logger), errorReporter, webDistPath }: AppOptions) {
+export function createApp({ config, db, logger = pino({ level: 'silent' }), identity, identityProfileAccess, media, footprints, map, discovery, interactions, reports, social, conversations, memories, notifications, governance, observability = new ObservabilityRegistry(config.sessionSecret, logger), errorReporter, webDistPath }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -123,7 +124,7 @@ export function createApp({ config, db, logger = pino({ level: 'silent' }), iden
   }));
   app.use(express.json({ limit: '1mb' }));
   const identityRepositories = identity ?? createMemoryIdentityRepositories();
-  app.use('/api/v1', identityRouter(identityRepositories, config));
+  app.use('/api/v1', identityRouter(identityRepositories, config, identityProfileAccess));
   app.use('/api/v1', mediaRouter(identityRepositories, config, { service: media ?? defaultMediaService(config) }));
   app.use('/api/v1', footprintRouter(identityRepositories, footprints));
   app.use('/api/v1', mapRouter(map, identityRepositories));

@@ -99,7 +99,10 @@ export async function startServer(): Promise<void> {
     const viewer = addParameter(viewerId);
     return `f.moderation_hidden_at IS NULL AND ${blockPolicy.relationshipVisibilitySql({ actorParameter: viewer, authorColumn: 'f.author_id', visibilityColumn: 'f.visibility', discoveryExpiresAtColumn: 'f.discovery_expires_at', relationship: 'all' })}`;
   };
-  const footprints = createPostgresFootprintRepositories(db, { mapAccessFilter });
+  const footprints = createPostgresFootprintRepositories(db, {
+    mapAccessFilter,
+    ...(config.cloudinary ? { cloudName: config.cloudinary.cloudName } : {}),
+  });
   const governanceRepository = createPostgresGovernanceRepository(db);
   const governance = new ModerationGovernanceService(governanceRepository);
   const notificationRepository = createPostgresNotificationRepository(db);
@@ -109,7 +112,10 @@ export async function startServer(): Promise<void> {
   const memoryRepository = createPostgresMemoryRepository(db);
   const memories = new AuthorizedMemoryQuery(memoryRepository, policy, createPostgresMemoryMediaSource(db, config.cloudinary?.cloudName), createPostgresVisitorSource(db));
   const map = new MapFootprintQuery({ repository: footprints, policy, cursorSecret: config.sessionSecret });
-  const discoveryRepository = createPostgresDiscoveryRepository(db, { accessFilter: (input) => blockPolicy.relationshipVisibilitySql(input) });
+  const discoveryRepository = createPostgresDiscoveryRepository(db, {
+    accessFilter: (input) => blockPolicy.relationshipVisibilitySql(input),
+    ...(config.cloudinary ? { cloudName: config.cloudinary.cloudName } : {}),
+  });
   const activity = new DiscoveryQueryService({ repository: discoveryRepository, policy, cursorSecret: config.sessionSecret });
   const geography = createNominatimGeography({ observe: (healthy) => observability.dependency('geocoder', healthy) });
   const interactionService = new InteractionService(createPostgresInteractionRepository(db), { async canInteract(actor, footprintId) { return policy.canRead(actor, footprintId); }, async canRead(actor, footprintId) { return policy.canRead(actor, footprintId); }, async isBlocked(actorId, targetId) { return relationships.isEitherBlocked(actorId, targetId); }, async footprintOwner(footprintId) { return (await footprints.findById(footprintId))?.authorId ?? null; } });
@@ -126,6 +132,7 @@ export async function startServer(): Promise<void> {
     db,
     logger,
     identity,
+    identityProfileAccess: blockPolicy,
     media,
     footprints: {
       repositories: footprints,

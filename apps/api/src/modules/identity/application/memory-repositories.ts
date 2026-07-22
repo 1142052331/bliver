@@ -11,6 +11,7 @@ export function createMemoryIdentityRepositories(): IdentityRepositories {
   const userRepo: UserRepository = {
     async findByUsername(username) { return [...users.values()].find((u) => u.username === username) ?? null; },
     async findById(id) { return users.get(id) ?? null; },
+    async findByIds(ids) { return ids.flatMap((id) => { const user = users.get(id); return user ? [user] : []; }); },
     async create(input) { const record = { ...input, createdAt: new Date() }; users.set(record.id, record); roles.set(record.id, ['user']); return record; },
   };
   const credentialRepo: CredentialRepository = {

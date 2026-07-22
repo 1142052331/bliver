@@ -10,6 +10,11 @@ export function createPostgresIdentityRepositories(db: DatabaseClient): Identity
   const users: UserRepository = {
     async findByUsername(username) { const result = await db.query<Row>('SELECT id, username, email, display_name, created_at FROM identity_users WHERE username = $1', [username]); return result.rows[0] ? userFrom(result.rows[0]) : null; },
     async findById(id) { const result = await db.query<Row>('SELECT id, username, email, display_name, created_at FROM identity_users WHERE id = $1', [id]); return result.rows[0] ? userFrom(result.rows[0]) : null; },
+    async findByIds(ids) {
+      if (ids.length === 0) return [];
+      const result = await db.query<Row>('SELECT id, username, email, display_name, created_at FROM identity_users WHERE id = ANY($1::uuid[]) ORDER BY array_position($1::uuid[], id)', [ids]);
+      return result.rows.map(userFrom);
+    },
     async create(input) { const result = await db.query<Row>("WITH new_user AS (INSERT INTO identity_users (id, username, email, display_name) VALUES ($1, $2, $3, $4) RETURNING id, username, email, display_name, created_at), new_role AS (INSERT INTO identity_roles (user_id, role) SELECT id, 'user' FROM new_user) SELECT * FROM new_user", [input.id, input.username, input.email, input.displayName]); const row = result.rows[0]; if (!row) throw new Error('USER_CREATE_FAILED'); return userFrom(row); },
   };
   const credentials: CredentialRepository = {

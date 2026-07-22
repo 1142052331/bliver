@@ -110,7 +110,7 @@ export function verifyMapProviderRelease(
 
   return {
     mode: 'openfreemap-emergency',
-    styleUrl: styleUrl || `${OPENFREEMAP_STYLE_ORIGIN}/styles/liberty`,
+    styleUrl: styleUrl || `${OPENFREEMAP_STYLE_ORIGIN}/styles/positron`,
     attributions: [],
   };
 }

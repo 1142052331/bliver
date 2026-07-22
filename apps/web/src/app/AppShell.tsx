@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { LocaleSwitcher } from './LocaleSwitcher.js';
+import { RouteSceneDirector } from './SceneDirector.js';
 import './app-shell.css';
 
 const destinations = [
@@ -19,6 +20,16 @@ const destinations = [
   { href: '/messages', key: 'nav.messages', Icon: MessageCircle },
   { href: '/me', key: 'nav.me', Icon: UserRound },
 ] as const;
+
+const workPrefixes = ['/messages', '/notifications', '/people', '/admin'];
+const storyPrefixes = ['/activity', '/footprints', '/me', '/profile'];
+const authPrefixes = ['/login', '/session-expired'];
+
+function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
+  return prefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 function pointFromSearch(search: string):
   | { readonly lat: number; readonly lng: number }
@@ -49,31 +60,55 @@ export function AppShell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const spatial = location.pathname === '/map' || location.pathname === '/publish';
+  const work = matchesPrefix(location.pathname, workPrefixes);
+  const story = matchesPrefix(location.pathname, storyPrefixes);
+  const auth = matchesPrefix(location.pathname, authPrefixes);
+  const routeId = location.pathname.split('/')[1] || 'map';
+  const publishing = routeId === 'publish';
 
-  const contextKey = location.pathname.startsWith('/activity')
-    ? 'nav.activity'
-    : location.pathname.startsWith('/messages')
-      ? 'nav.messages'
-      : location.pathname.startsWith('/me')
-        ? 'nav.me'
-        : location.pathname.startsWith('/notifications')
-          ? 'common.notifications'
-          : location.pathname.startsWith('/publish')
-            ? 'actions.publish'
-            : 'nav.map';
+  const contextKey = ([
+    ['/activity', 'nav.activity'],
+    ['/messages', 'nav.messages'],
+    ['/people', 'nav.people'],
+    ['/admin', 'nav.admin'],
+    ['/login', 'session.signIn'],
+    ['/footprints', 'map.preview'],
+    ['/me', 'nav.me'],
+    ['/profile', 'nav.me'],
+    ['/notifications', 'common.notifications'],
+    ['/publish', 'actions.publish'],
+    ['/session-expired', 'session.signIn'],
+  ] as const).find(([prefix]) => location.pathname.startsWith(prefix))?.[1]
+    ?? 'nav.map';
   const publishLabel = t('actions.publish');
 
   const publish = (): void => {
     const point = pointFromSearch(location.search);
 
     navigate(
-      '/publish',
+      { pathname: '/publish', search: location.search },
       point ? { state: { initialPoint: point } } : undefined,
     );
   };
 
   return (
-    <div className="app-shell">
+    <div
+      data-route={routeId}
+      data-scene={spatial ? 'spatial' : work ? 'work' : story ? 'story' : auth ? 'auth' : 'content'}
+      className={spatial
+        ? 'app-shell app-shell--spatial'
+          : work
+            ? 'app-shell app-shell--work'
+          : story
+            ? 'app-shell app-shell--story'
+            : auth
+              ? 'app-shell app-shell--auth'
+            : 'app-shell app-shell--content'}
+    >
+      <a className="app-shell__skip-link" href="#main-content">
+        {t('common.skipToContent')}
+      </a>
       <header className="app-shell__header">
         <Link className="app-shell__brand" to="/map">
           {t('common.brand')}
@@ -89,20 +124,28 @@ export function AppShell() {
           >
             <Bell aria-hidden="true" />
           </Link>
-          <Button
-            aria-label={publishLabel}
-            className="app-shell__publish"
-            title={publishLabel}
-            variant="publish"
-            onClick={publish}
-          >
-            <Plus aria-hidden="true" />
-            <span className="app-shell__publish-label">{publishLabel}</span>
-          </Button>
+          {!auth && !publishing ? (
+            <Button
+              aria-label={publishLabel}
+              className="app-shell__publish"
+              title={publishLabel}
+              variant="publish"
+              onClick={publish}
+            >
+              <Plus aria-hidden="true" />
+              <span className="app-shell__publish-label">{publishLabel}</span>
+            </Button>
+          ) : null}
         </div>
       </header>
-      <main className="app-shell__main" id="main-content">
-        <Outlet />
+      <main className="app-shell__main" id="main-content" tabIndex={-1}>
+        {spatial ? (
+          <Outlet />
+        ) : (
+          <RouteSceneDirector>
+            <Outlet />
+          </RouteSceneDirector>
+        )}
       </main>
       <nav
         aria-label={t('common.primaryNavigation')}
@@ -112,8 +155,9 @@ export function AppShell() {
           <NavLink
             key={href}
             to={href}
+            title={t(key)}
             className={({ isActive }) =>
-              isActive
+              isActive || (publishing && href === '/map')
                 ? 'app-shell__nav-link is-active'
                 : 'app-shell__nav-link'
             }

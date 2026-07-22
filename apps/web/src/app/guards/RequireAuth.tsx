@@ -1,7 +1,8 @@
-import { StatusView } from '@bliver/ui';
+import { LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
+import { AppStatusScene } from '../AppStatusScene.js';
 import { useSession } from '../providers/SessionProvider.js';
 
 export function RequireAuth() {
@@ -13,10 +14,12 @@ export function RequireAuth() {
     return (
       <div
         aria-live="polite"
-        className="app-shell__status-shell"
+        className="app-shell__status-shell app-shell__status-shell--scene"
         role="status"
       >
-        <StatusView
+        <AppStatusScene
+          Icon={LoaderCircle}
+          busy
           body={t('session.loadingBody')}
           title={t('session.loading')}
         />

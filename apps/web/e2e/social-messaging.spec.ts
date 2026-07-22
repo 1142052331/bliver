@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Browser, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { io as socketClient, type Socket } from 'socket.io-client';
 import { expectNoAxeViolations } from './accessibility.js';
@@ -53,6 +54,19 @@ async function mockApi(page: Page, actor: Actor, state: SocialMessagingState): P
     if (path === '/api/v1/users/me') {
       if (state.revoked.has(actor)) return response(route, { code: 'SESSION_INVALID' }, 401);
       return response(route, { id: userId(actor), username: `person-${actor}`, displayName: `Person ${actor.toUpperCase()}`, email: null, roles: ['user'] });
+    }
+    if (path === '/api/v1/users' && url.searchParams.has('ids')) {
+      const requested = new Set(
+        (url.searchParams.get('ids') ?? '').split(',').map((id) => id.trim()).filter(Boolean),
+      );
+      const items = (['a', 'b'] as const)
+        .map((candidate) => ({
+          id: userId(candidate),
+          username: `person-${candidate}`,
+          displayName: `Person ${candidate.toUpperCase()}`,
+        }))
+        .filter((profile) => requested.has(profile.id));
+      return response(route, { items });
     }
     if (path === '/api/v1/friendships/requests' && method === 'GET') {
       const incoming = state.friendship === 'pending' && actor === 'b' ? [{ id: friendshipId, userId: actorA, createdAt: now }] : [];
@@ -152,7 +166,7 @@ test('two people can request, accept, greet, reply, and see unread state', async
     await expect(userA.page.getByText('Messages are unlocked')).toBeVisible();
 
     await userA.page.goto('/messages');
-    await userA.page.getByRole('textbox', { name: 'Person ID', exact: true }).fill(actorB);
+    await userA.page.getByRole('button', { name: 'Person B @person-b Friend' }).click();
     await userA.page.getByRole('textbox', { name: 'Greeting', exact: true }).fill('Hello from the river');
     await userA.page.getByRole('button', { name: 'Send greeting' }).click();
     await expect(userA.page).toHaveURL(new RegExp(`/messages/${conversationId}$`));
@@ -185,7 +199,7 @@ test('messaging safety supports block, unblock, and forced revocation on a deep 
     state.revoked.add('b');
     await userB.page.reload();
     await expect(userB.page).toHaveURL(/\/session-expired$/);
-    await expect(userB.page.getByRole('heading', { name: 'Session expired' })).toBeVisible();
+    await expect(userB.page.getByRole('heading', { name: 'Your session has expired' })).toBeVisible();
     await expectNoHorizontalOverflow(userB.page);
   } finally {
     await userB.close();
@@ -230,7 +244,7 @@ function emitMessage(socket: Socket, conversationIdValue: string, content: strin
 
 test('real dual-browser Socket uses Outbox delivery, reconnect, block, and session revoke', async ({ browser }, testInfo) => {
   test.setTimeout(60_000);
-  const suffix = `${testInfo.project.name}-${testInfo.retry}`.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const suffix = randomUUID().replaceAll('-', '').slice(0, 16);
   const userA = await registerRealtimeActor(browser, `socketa${suffix}`);
   const userB = await registerRealtimeActor(browser, `socketb${suffix}`);
   let actorSocket: Socket | undefined;

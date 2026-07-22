@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildOpenApiDocument,
   eventEnvelope,
+  footprintDto,
   healthResponse,
   locationPrecision,
   mediaCompleteRequest,
@@ -69,6 +70,30 @@ describe('V2 contracts', () => {
     expect(() => mediaCompleteRequest.parse({ publicId: 'bliver/asset', version: 42, width: 0, height: 900, format: 'jpg' })).toThrow();
   });
 
+  it('exposes footprint media as delivery-only preview metadata', () => {
+    const input = {
+      id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70',
+      author: { id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b71', name: 'Lin' },
+      displayPoint: { lat: 31, lng: 121 },
+      visibility: 'public',
+      locationPrecision: 'approximate',
+      mood: 'calm',
+      primaryMedia: {
+        url: 'https://res.cloudinary.com/demo/image/upload/v42/bliver/asset.jpg',
+        width: 1600,
+        height: 1200,
+      },
+      publishedAt: '2026-07-15T00:00:00.000Z',
+    };
+
+    expect(footprintDto.parse(input).primaryMedia).toEqual(input.primaryMedia);
+    expect(footprintDto.parse(input).mood).toBe('calm');
+    expect(footprintDto.safeParse({
+      ...input,
+      primaryMedia: { ...input.primaryMedia, publicId: 'bliver/asset' },
+    }).success).toBe(false);
+  });
+
   it('models the wrapped publish response without exposing an unwrapped DTO contract', () => {
     const result = publishFootprintResponse.parse({
       footprint: {
@@ -95,8 +120,10 @@ describe('V2 contracts', () => {
   });
 
   it('keeps discovery expiry and UUID media validation in the shared publish request', () => {
-    const input = { message: 'Shared schema', privatePoint: { lat: 31, lng: 121 }, visibility: 'public', locationPrecision: 'approximate', mediaAssetIds: ['019c2f52-3e9b-7d1f-8d68-cf35d75d9b70'], discoveryExpiresAt: '2026-07-16T00:00:00.000Z' };
+    const input = { message: 'Shared schema', mood: 'radiant', privatePoint: { lat: 31, lng: 121 }, visibility: 'public', locationPrecision: 'approximate', mediaAssetIds: ['019c2f52-3e9b-7d1f-8d68-cf35d75d9b70'], discoveryExpiresAt: '2026-07-16T00:00:00.000Z' };
     expect(publishFootprintRequest.safeParse(input).success).toBe(true);
+    expect(publishFootprintRequest.parse(input).mood).toBe('radiant');
+    expect(publishFootprintRequest.safeParse({ ...input, mood: 'unknown' }).success).toBe(false);
     expect(publishFootprintRequest.safeParse({ ...input, mediaAssetIds: ['not-a-uuid'] }).success).toBe(false);
   });
 
@@ -140,6 +167,7 @@ describe('V2 contracts', () => {
       '/api/v1/reports',
       '/api/v1/session',
       '/api/v1/sessions',
+      '/api/v1/users',
       '/api/v1/users/me',
       '/api/v1/users/{userId}/greetings',
       '/healthz',
@@ -160,6 +188,9 @@ describe('V2 contracts', () => {
     expect(document.paths?.['/api/v1/friendships']?.post?.responses?.[201]).toBeDefined();
     expect(document.paths?.['/api/v1/conversations/{conversationId}/messages']?.get?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/relationships/{userId}']?.get?.responses?.[404]).toBeDefined();
+    const publicProfilesResponses = document.paths?.['/api/v1/users']?.get?.responses;
+    expect(publicProfilesResponses?.[200]?.description).toBe('Visible public profiles for the requested user ids');
+    expect(publicProfilesResponses?.[401]).toBeUndefined();
     expect(document.paths?.['/api/v1/places/search']?.get?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/location/resolve']?.post?.responses?.[200]).toBeDefined();
     const queryParameters = document.paths?.['/api/v1/map/footprints']?.get?.parameters ?? [];

@@ -9,12 +9,14 @@ import { deepLinkDestination, loginReturnDestination } from '../deep-link.js';
 import { createCapacitorCredentialStore, handleCapacitorAuthExpiry } from '../credentials.js';
 import { requestNativePermission } from '../permissions.js';
 
+const publicRoot = resolve(import.meta.dirname, '../../../public');
+
 beforeEach(() => localStorage.clear());
 
 describe('PWA and Capacitor client boundaries', () => {
   it('persists recoverable form fields without coordinates, media or credentials', () => {
-    saveFootprintDraft({ message: 'Offline note', visibility: 'friends', locationPrecision: 'approximate' });
-    expect(loadFootprintDraft()).toEqual({ message: 'Offline note', visibility: 'friends', locationPrecision: 'approximate' });
+    saveFootprintDraft({ message: 'Offline note', mood: 'quiet', visibility: 'friends', locationPrecision: 'approximate' });
+    expect(loadFootprintDraft()).toEqual({ message: 'Offline note', mood: 'quiet', visibility: 'friends', locationPrecision: 'approximate' });
     expect(localStorage.getItem('bliver:footprint-draft')).not.toMatch(/lat|lng|token|file/i);
     clearFootprintDraft();
     expect(loadFootprintDraft()).toBeNull();
@@ -51,7 +53,7 @@ describe('PWA and Capacitor client boundaries', () => {
   });
 
   it('ships an offline shell that never caches private API or credential requests', async () => {
-    const worker = await readFile(resolve('apps/web/public/sw.js'), 'utf8');
+    const worker = await readFile(resolve(publicRoot, 'sw.js'), 'utf8');
     expect(worker).toContain("pathname.startsWith('/api/')");
     expect(worker).toContain("request.mode === 'navigate'");
     expect(worker).toContain("caches.match('/index.html')");
@@ -60,7 +62,7 @@ describe('PWA and Capacitor client boundaries', () => {
   });
 
   it('ships every icon referenced by the install manifest', async () => {
-    const manifest = JSON.parse(await readFile(resolve('apps/web/public/manifest.webmanifest'), 'utf8')) as { icons: Array<{ src: string }> };
-    await Promise.all(manifest.icons.map(({ src }) => access(resolve('apps/web/public', src.replace(/^\//, '')))));
+    const manifest = JSON.parse(await readFile(resolve(publicRoot, 'manifest.webmanifest'), 'utf8')) as { icons: Array<{ src: string }> };
+    await Promise.all(manifest.icons.map(({ src }) => access(resolve(publicRoot, src.replace(/^\//, '')))));
   });
 });

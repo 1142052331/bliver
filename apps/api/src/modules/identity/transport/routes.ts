@@ -1,10 +1,14 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { registerRequest, loginRequest, refreshRequest } from '@bliver/contracts';
+import { loginRequest, publicProfileIds, publicProfilesQuery, refreshRequest, registerRequest } from '@bliver/contracts';
+import type { UserId } from '@bliver/domain';
 import type { ApiConfig } from '../../../bootstrap/config.js';
 import { authenticateUser, IdentityError, registerUser, resolveSession, revokeSession, rotateSession } from '../application/commands.js';
 import type { IdentityRepositories, Role } from '../application/ports.js';
 
 export interface ActorContext { readonly userId: string; readonly sessionId: string; readonly roles: readonly Role[]; readonly transport: 'cookie' | 'bearer'; readonly displayName?: string; }
+export interface PublicProfileAccess {
+  canAccess(actorId: UserId, targetId: UserId): Promise<boolean>;
+}
 
 function parseCookies(request: Request): Record<string, string> {
   const header = request.get('cookie') ?? '';
@@ -48,20 +52,26 @@ function problem(response: Response, status: number, code: string, request: Requ
 
 function publicSession(grant: { session: { id: string; deviceName: string; createdAt: string; lastSeenAt: string; current: boolean } }) { return grant.session; }
 
+async function resolveActorContext(repos: IdentityRepositories, request: Request): Promise<ActorContext | null> {
+  const cookies = parseCookies(request);
+  const bearer = request.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const token = bearer ?? cookies.bliver_session;
+  if (!token) return null;
+  const resolved = await resolveSession(repos, token);
+  if (!resolved) return null;
+  return { userId: resolved.user.id, sessionId: resolved.session.id, roles: resolved.user.roles, transport: bearer ? 'bearer' : 'cookie', displayName: resolved.user.displayName };
+}
+
 export function requireActor(repos: IdentityRepositories) {
   return async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    const cookies = parseCookies(request);
-    const bearer = request.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
-    const token = bearer ?? cookies.bliver_session;
-    if (!token) { problem(response, 401, 'AUTH_REQUIRED', request); return; }
-    const resolved = await resolveSession(repos, token);
-    if (!resolved) { problem(response, 401, 'SESSION_INVALID', request); return; }
-    (request as Request & { actor?: ActorContext }).actor = { userId: resolved.user.id, sessionId: resolved.session.id, roles: resolved.user.roles, transport: bearer ? 'bearer' : 'cookie', displayName: resolved.user.displayName };
+    const context = await resolveActorContext(repos, request);
+    if (!context) { problem(response, 401, request.get('authorization') || parseCookies(request).bliver_session ? 'SESSION_INVALID' : 'AUTH_REQUIRED', request); return; }
+    (request as Request & { actor?: ActorContext }).actor = context;
     next();
   };
 }
 
-export function identityRouter(repos: IdentityRepositories, config: ApiConfig): Router {
+export function identityRouter(repos: IdentityRepositories, config: ApiConfig, profileAccess?: PublicProfileAccess): Router {
   const secureCookies = config.nodeEnv === 'production';
   const router = Router();
   const actor = requireActor(repos);
@@ -91,6 +101,20 @@ export function identityRouter(repos: IdentityRepositories, config: ApiConfig): 
   });
   router.post('/auth/logout', actor, async (request, response) => { const context = (request as Request & { actor: ActorContext }).actor; if (!sameOrigin(request) || (context.transport === 'cookie' && !validCookieCsrf(request))) { problem(response, 403, 'CSRF_ORIGIN_INVALID', request); return; } await revokeSession(repos, context.sessionId); clearSessionCookie(response, secureCookies); response.status(204).end(); });
   router.get('/session', actor, async (request, response) => { const context = (request as Request & { actor: ActorContext }).actor; const session = await repos.sessions.findById(context.sessionId); if (!session) { problem(response, 401, 'SESSION_INVALID', request); return; } response.json({ id: session.id, deviceName: 'Current device', createdAt: session.createdAt.toISOString(), lastSeenAt: session.lastSeenAt.toISOString(), current: true }); });
+  router.get('/users', async (request, response) => {
+    const query = publicProfilesQuery.safeParse(request.query);
+    if (!query.success) { problem(response, 400, 'INVALID_REQUEST', request); return; }
+    const parsedIds = publicProfileIds.safeParse(query.data.ids.split(',').map((id) => id.trim()));
+    if (!parsedIds.success) { problem(response, 400, 'INVALID_REQUEST', request); return; }
+    const ids = [...new Set(parsedIds.data)] as UserId[];
+    const context = await resolveActorContext(repos, request);
+    if (context) (request as Request & { actor?: ActorContext }).actor = context;
+    const visibleIds = context && profileAccess
+      ? (await Promise.all(ids.map(async (id) => ({ id, allowed: await profileAccess.canAccess(context.userId as UserId, id) })))).filter(({ allowed }) => allowed).map(({ id }) => id)
+      : ids;
+    const users = await repos.users.findByIds(visibleIds);
+    response.json({ items: users.map((user) => ({ id: user.id, username: user.username, displayName: user.displayName })) });
+  });
   router.get('/users/me', actor, async (request, response) => { const context = (request as Request & { actor: ActorContext }).actor; const user = await repos.users.findById(context.userId as never); if (!user) { problem(response, 404, 'USER_NOT_FOUND', request); return; } response.json({ id: user.id, username: user.username, displayName: user.displayName, email: user.email, roles: await repos.roles.listByUserId(user.id) }); });
   router.get('/sessions', actor, async (request, response) => { const context = (request as Request & { actor: ActorContext }).actor; const sessions = await repos.sessions.listByUserId(context.userId as never); response.json({ sessions: sessions.filter((s) => !s.revokedAt).map((s) => ({ id: s.id, deviceName: 'Device', createdAt: s.createdAt.toISOString(), lastSeenAt: s.lastSeenAt.toISOString(), current: s.id === context.sessionId })) }); });
   router.delete('/sessions/:sessionId', actor, async (request, response) => { const context = (request as Request & { actor: ActorContext }).actor; if (!sameOrigin(request) || (context.transport === 'cookie' && !validCookieCsrf(request))) { problem(response, 403, 'CSRF_ORIGIN_INVALID', request); return; } const sessionId = String(request.params.sessionId); const target = await repos.sessions.findById(sessionId); if (!target || target.userId !== context.userId) { problem(response, 404, 'SESSION_NOT_FOUND', request); return; } await revokeSession(repos, target.id); response.status(204).end(); });

@@ -65,6 +65,9 @@ describe('responsive app shell', () => {
       name: 'Primary navigation',
     });
     expect(screen.getAllByRole('navigation')).toHaveLength(1);
+    expect(
+      screen.getByRole('link', { name: 'Skip to content' }),
+    ).toHaveAttribute('href', '#main-content');
     expect(within(navigation).getAllByRole('link')).toHaveLength(4);
     expect(within(navigation).getByRole('link', { name: 'Map' })).toHaveAttribute(
       'href',

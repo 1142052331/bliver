@@ -5,6 +5,7 @@ import { createPlaywrightWebServers } from './scripts/process/playwright-servers
 export default defineConfig({
   testDir: './apps/web/e2e',
   outputDir: './test-results',
+  snapshotPathTemplate: '{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-projectName}{ext}',
   timeout: 30_000,
   fullyParallel: true,
   workers: process.env.CI ? 2 : 4,

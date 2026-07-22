@@ -208,7 +208,7 @@ accessibility, browser, and performance gates. Do not maintain two production
 map engines.
 
 Development defaults to the OpenFreeMap Liberty style at
-`https://tiles.openfreemap.org/styles/liberty`. Deployment may inject a
+`https://tiles.openfreemap.org/styles/positron`. Deployment may inject a
 provider-controlled `VITE_MAP_STYLE_URL`. No provider key or real environment
 value is committed. Release acceptance must verify tile terms, attribution,
 availability, and CSP; a public no-SLA endpoint is not accepted as the sole

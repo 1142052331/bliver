@@ -1,7 +1,11 @@
 :root {
   color-scheme: light;
   --bliver-color-paper: #faf8f3;
+  --bliver-color-canvas: #f4f6f2;
   --bliver-color-surface: #ffffff;
+  --bliver-color-matte: #edf2ee;
+  --bliver-color-overlay: #faf8f3;
+  --bliver-color-scrim: rgb(23 59 49 / 52%);
   --bliver-color-forest: #173b31;
   --bliver-color-forest-soft: #2d594d;
   --bliver-color-sage: #a9c9bf;
@@ -37,11 +41,19 @@
   --bliver-z-modal: 50;
   --bliver-z-toast: 60;
   --bliver-z-tooltip: 70;
+  --bliver-z-motion: 80;
   --bliver-duration-fast: 150ms;
   --bliver-duration-normal: 220ms;
+  --bliver-duration-micro: 150ms;
+  --bliver-duration-state: 220ms;
+  --bliver-duration-route: 420ms;
+  --bliver-duration-cinematic: 760ms;
   --bliver-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --bliver-ease-in-expo: cubic-bezier(0.7, 0, 0.84, 0);
   --bliver-focus-ring: 0 0 0 3px rgb(197 75 54 / 28%);
   --bliver-shadow-control: 0 4px 14px rgb(23 59 49 / 10%);
+  --bliver-shadow-raised: 0 18px 48px rgb(23 59 49 / 12%);
+  --bliver-shadow-overlay: 0 28px 72px rgb(23 59 49 / 24%);
   --bliver-shadow-sheet: 0 -18px 44px rgb(23 59 49 / 18%);
 }
 
@@ -405,6 +417,10 @@
   :root {
     --bliver-duration-fast: 0ms;
     --bliver-duration-normal: 0ms;
+    --bliver-duration-micro: 0ms;
+    --bliver-duration-state: 0ms;
+    --bliver-duration-route: 0ms;
+    --bliver-duration-cinematic: 0ms;
   }
 
   *,

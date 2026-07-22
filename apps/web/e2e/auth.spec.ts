@@ -64,7 +64,7 @@ test('guest route contract keeps public surfaces open and protects private works
     ['/activity', 'Activity'],
     ['/login', 'Sign in'],
     [`/footprints/${V2_TEST_FOOTPRINTS[0]!.id}`, 'Footprint'],
-    [`/profile/${V2_TEST_USERS.userA.id}`, 'Profile memories'],
+    [`/profile/${V2_TEST_USERS.userA.id}`, V2_TEST_USERS.userA.displayName],
     ['/missing-route', 'Page not found'],
   ] as const;
   for (const [path, heading] of publicRoutes) {
@@ -99,12 +99,12 @@ test('authenticated actors can reach every V2 route-owned workspace', async ({ p
     ['/people', 'People'],
     ['/messages', 'Messages'],
     ['/notifications', 'Notifications'],
-    ['/me', 'Memories'],
+    ['/me', V2_TEST_USERS.userA.displayName],
     ['/me/map', 'Map memories'],
     ['/me/timeline', 'Timeline'],
     ['/me/photos', 'Photos'],
     ['/me/visitors', 'Visitors'],
-    [`/profile/${V2_TEST_USERS.userB.id}/memories`, 'Profile memories'],
+    [`/profile/${V2_TEST_USERS.userB.id}/memories`, V2_TEST_USERS.userB.displayName],
     [`/profile/${V2_TEST_USERS.userB.id}/memories/map`, 'Map memories'],
     [`/profile/${V2_TEST_USERS.userB.id}/memories/timeline`, 'Timeline'],
     [`/profile/${V2_TEST_USERS.userB.id}/memories/photos`, 'Photos'],
@@ -130,19 +130,27 @@ test('map discovery to footprint detail and memory remains one deterministic jou
   await installJourneyApi(page, 'userA');
   await page.goto('/map');
   await expectInteractiveMapReady(page);
-  await page
+  const firstFootprint = page
     .getByRole('button', { name: new RegExp(V2_TEST_FOOTPRINTS[0]!.author.name, 'i') })
     .and(page.getByTestId('map-footprint-item'))
-    .first()
-    .click();
+    .first();
+  await firstFootprint.focus();
+  await firstFootprint.press('Enter');
   await expect(page).toHaveURL(/footprint=[^&]+/);
   const selectedId = new URL(page.url()).searchParams.get('footprint');
   const selected = V2_TEST_FOOTPRINTS.find((item) => item.id === selectedId);
   expect(selected).toBeDefined();
   await page.getByRole('link', { name: 'Open footprint' }).click();
-  await expect(page.getByText(selected!.message)).toBeVisible();
-  await page.getByRole('link', { name: 'My space' }).click();
-  await expect(page.getByText(V2_TEST_FOOTPRINTS[2]!.message)).toBeVisible();
+  await expect(page).toHaveURL(/\/footprints\//);
+  await expect(
+    page.locator('.footprint-detail').getByText(selected!.message, { exact: true }),
+  ).toBeVisible();
+  await page.locator('.app-shell__nav')
+    .getByRole('link', { name: 'My space' })
+    .click();
+  await expect(
+    page.locator('.memories-route').getByText(V2_TEST_FOOTPRINTS[2]!.message, { exact: true }),
+  ).toBeVisible();
 });
 
 test('captures a tile-independent route screenshot for the configured viewport', async ({ page }, testInfo: TestInfo) => {
@@ -156,7 +164,7 @@ test('captures a tile-independent route screenshot for the configured viewport',
       '.map-canvas__semantic,',
       '.map-canvas__attribution,',
       '.map-route__controls,',
-      '.map-route__empty,',
+      '[data-map-stage-status="empty"],',
       '.map-route__preview { visibility: hidden !important; }',
     ].join('\n'),
   });

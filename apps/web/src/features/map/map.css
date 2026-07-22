@@ -1,7 +1,8 @@
 .map-route {
   position: relative;
-  height: calc(100dvh - var(--app-shell-header-height) - var(--app-shell-nav-height));
-  min-height: 520px;
+  width: 100%;
+  height: 100dvh;
+  min-height: 32rem;
   overflow: hidden;
   background: var(--bliver-color-sage-soft);
   isolation: isolate;
@@ -36,8 +37,8 @@
 
 .map-canvas__viewport {
   position: absolute;
-  inset: 0;
   z-index: 0;
+  inset: 0;
   background: var(--bliver-color-sage-soft);
 }
 
@@ -47,313 +48,165 @@
 
 .map-canvas__fallback {
   position: absolute;
-  inset: 0;
   z-index: 1;
+  inset: 0;
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: var(--bliver-space-md);
-  padding: var(--bliver-space-2xl) var(--bliver-space-xl) 12rem;
+  gap: 0.75rem;
+  padding: 5rem 1.5rem 10rem;
   background: var(--bliver-color-sage-soft);
   color: var(--bliver-color-forest);
   text-align: center;
 }
 
 .map-canvas__fallback svg {
-  width: 42px;
-  height: 42px;
-  stroke-width: 1.5;
+  width: 32px;
+  height: 32px;
+  stroke-width: 1.55;
 }
 
 .map-canvas__fallback strong {
-  max-width: 32rem;
-  font-family: Newsreader, "Noto Serif SC", "Noto Serif JP", Georgia, serif;
-  font-size: 1.75rem;
-  line-height: 1.15;
-  letter-spacing: 0;
+  max-width: 30rem;
+  font-size: 1.125rem;
+  font-weight: 740;
+  line-height: 1.3;
 }
 
 .map-canvas__fallback p {
-  max-width: 36rem;
+  max-width: 34rem;
   margin: 0;
-  color: #53665e;
+  color: var(--bliver-color-forest-soft);
+  font-size: 0.875rem;
   line-height: 1.55;
 }
 
-.map-canvas__attribution {
+/* Map tools are separate instruments, not one floating toolbar card. */
+.map-route__controls {
   position: absolute;
-  z-index: 5;
-  top: 68px;
-  right: max(var(--bliver-space-md), var(--bliver-safe-area-right));
-  color: var(--bliver-color-forest);
+  z-index: 7;
+  top: calc(
+    var(--app-shell-header-height, 64px) + var(--bliver-safe-area-top) + 8px
+  );
+  right: max(12px, var(--bliver-safe-area-right));
+  display: grid;
+  width: auto;
+  max-width: calc(100% - 24px);
+  grid-template-columns: 44px 44px minmax(84px, 7rem);
+  align-items: center;
+  justify-content: end;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.map-route__controls > * {
   pointer-events: auto;
 }
 
-.map-canvas__attribution summary {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  width: 44px;
-  height: 44px;
-  border: 1px solid rgb(23 59 49 / 16%);
-  border-radius: var(--bliver-radius-control);
-  place-items: center;
-  background: rgb(255 255 255 / 94%);
-  box-shadow: var(--bliver-shadow-control);
-  cursor: pointer;
-  list-style: none;
-  backdrop-filter: blur(12px);
-}
-
-.map-canvas__attribution summary::-webkit-details-marker {
-  display: none;
-}
-
-.map-canvas__attribution summary svg {
-  width: 17px;
-  height: 17px;
-}
-
-.map-canvas__attribution > div {
-  position: absolute;
-  top: calc(100% + var(--bliver-space-sm));
-  right: 0;
-  display: grid;
-  width: min(18rem, calc(100vw - 1.5rem));
-  gap: var(--bliver-space-sm);
-  padding: var(--bliver-space-md);
+.map-route__icon-control.bliver-icon-button,
+.map-route__visibility-control,
+.map-route__search-field,
+.map-route__control-notice {
   border: 1px solid rgb(23 59 49 / 14%);
-  border-radius: var(--bliver-radius-surface);
-  background: rgb(250 248 243 / 98%);
-  box-shadow: var(--bliver-shadow-control);
-}
-
-.map-canvas__attribution a {
-  display: flex;
-  min-width: 44px;
-  min-height: 44px;
-  align-items: center;
-  padding: 0 var(--bliver-space-sm);
-  color: var(--bliver-color-forest);
-  font-size: 0.75rem;
-  line-height: 1.35;
-  text-underline-offset: 3px;
-}
-
-.map-canvas__attribution summary:focus-visible,
-.map-canvas__attribution a:focus-visible {
-  border-radius: var(--bliver-radius-control);
-  outline: 3px solid var(--bliver-color-forest);
-  outline-offset: 2px;
-}
-
-.map-canvas__semantic {
-  position: absolute;
-  z-index: 4;
-  top: 68px;
-  left: max(var(--bliver-space-md), var(--bliver-safe-area-left));
-  width: min(17rem, calc(100% - 1.5rem));
-  max-height: min(34vh, 220px);
-  overflow: hidden;
-  border: 1px solid rgb(23 59 49 / 14%);
-  border-radius: var(--bliver-radius-surface);
-  background: rgb(250 248 243 / 94%);
-  box-shadow: 0 16px 38px rgb(23 59 49 / 16%);
-  color: var(--bliver-color-ink);
-  backdrop-filter: blur(16px);
-}
-
-.map-canvas__semantic-heading {
-  display: flex;
-  min-height: 42px;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--bliver-space-md);
-  padding: var(--bliver-space-md) var(--bliver-space-lg) var(--bliver-space-sm);
-  border-bottom: 1px solid rgb(23 59 49 / 10%);
-}
-
-.map-canvas__semantic-heading > span {
-  color: var(--bliver-color-forest);
-  font-size: 0.8125rem;
-  font-weight: 750;
-}
-
-.map-canvas__semantic-heading small {
-  flex: 0 0 auto;
-  color: var(--bliver-color-ink-muted);
-  font-size: 0.6875rem;
-}
-
-.map-canvas__semantic ol {
-  max-height: calc(min(34vh, 220px) - 42px);
-  overflow: auto;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  overscroll-behavior: contain;
-}
-
-.map-canvas__semantic li + li {
-  border-top: 1px solid rgb(23 59 49 / 9%);
-}
-
-.map-canvas__semantic li > button {
-  display: grid;
-  width: 100%;
-  min-height: 56px;
-  grid-template-columns: 2rem minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--bliver-space-sm);
-  border: 0;
-  padding: var(--bliver-space-sm) var(--bliver-space-md) var(--bliver-space-sm) var(--bliver-space-sm);
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color var(--bliver-duration-fast) var(--bliver-ease-out-expo),
-    box-shadow var(--bliver-duration-fast) var(--bliver-ease-out-expo);
-}
-
-.map-canvas__semantic li > button:hover {
-  background: var(--bliver-color-sage-soft);
-}
-
-.map-canvas__semantic li > button[aria-pressed='true'] {
-  background: rgb(229 238 233 / 82%);
-  box-shadow: inset 0 0 0 2px rgb(23 59 49 / 38%);
-}
-
-.map-canvas__semantic-index {
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--bliver-radius-control);
-  place-items: center;
-  background: rgb(169 201 191 / 34%);
-  color: var(--bliver-color-forest-soft);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 0.6875rem;
-  font-weight: 750;
-  transition:
-    transform var(--bliver-duration-fast) var(--bliver-ease-out-expo),
-    background-color var(--bliver-duration-fast) var(--bliver-ease-out-expo),
-    color var(--bliver-duration-fast) var(--bliver-ease-out-expo);
-}
-
-.map-canvas__semantic li > button[aria-pressed='true'] .map-canvas__semantic-index {
-  background: var(--bliver-color-forest);
-  color: var(--bliver-color-surface);
-  transform: scale(1.06);
-}
-
-.map-canvas__semantic-copy {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.map-canvas__semantic-copy strong {
-  color: var(--bliver-color-forest);
-  font-size: 0.8125rem;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
-.map-canvas__semantic-copy small {
-  color: #53665e;
-  font-size: 0.6875rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.map-canvas__selected {
-  border: 1px solid rgb(23 59 49 / 28%);
-  border-radius: var(--bliver-radius-pill);
-  padding: 2px 6px;
-  background: rgb(255 255 255 / 72%);
-  color: var(--bliver-color-forest);
-  font-size: 0.625rem;
-  font-weight: 750;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.map-route__controls {
-  position: absolute;
-  z-index: 6;
-  top: var(--bliver-space-md);
-  right: max(var(--bliver-space-md), var(--bliver-safe-area-right));
-  display: flex;
-  width: min(22rem, calc(100% - 1.5rem));
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--bliver-space-sm);
+  border-radius: 6px;
+  background: rgb(250 248 243 / 91%);
+  box-shadow: 0 8px 22px rgb(23 59 49 / 11%);
+  backdrop-filter: blur(14px);
 }
 
 .map-route__icon-control.bliver-icon-button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   border-color: rgb(23 59 49 / 14%);
-  background: rgb(255 255 255 / 94%);
-  box-shadow: var(--bliver-shadow-control);
-  backdrop-filter: blur(12px);
+  color: var(--bliver-color-forest);
 }
 
 .map-route__icon-control svg {
   width: 19px;
   height: 19px;
+  stroke-width: 1.8;
 }
 
-.map-route__search-input,
-.map-route__controls select {
+.map-route__visibility-control {
+  display: flex;
+  min-width: 0;
   min-height: 44px;
-  border: 1px solid rgb(23 59 49 / 16%);
-  border-radius: var(--bliver-radius-control);
-  background: rgb(255 255 255 / 96%);
-  color: var(--bliver-color-ink);
-  box-shadow: var(--bliver-shadow-control);
+  align-items: stretch;
+  overflow: hidden;
 }
 
-.map-route__search-input {
+.map-route__visibility-control select {
   width: 100%;
-  padding: 0 52px 0 var(--bliver-space-md);
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 1.65rem 0 0.7rem;
+  background: transparent;
+  color: var(--bliver-color-forest);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
 }
 
 .map-route__search-field {
   position: relative;
   display: flex;
-  flex: 1 0 100%;
+  width: min(20rem, calc(100vw - 24px));
+  min-height: 46px;
+  grid-column: 1 / -1;
+  justify-self: end;
+  overflow: hidden;
+}
+
+.map-route__search-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  padding: 0 52px 0 13px;
+  background: transparent;
+  color: var(--bliver-color-ink);
+  font-size: 0.9375rem;
+  outline: 0;
+}
+
+.map-route__search-input::placeholder {
+  color: var(--bliver-color-ink-muted);
+  opacity: 1;
 }
 
 .map-route__search-close.bliver-icon-button {
   position: absolute;
-  top: 0;
-  right: 0;
-  border-color: transparent;
+  top: 1px;
+  right: 1px;
+  width: 44px;
+  height: 44px;
+  border: 0;
   background: transparent;
   box-shadow: none;
 }
 
 .map-route__control-notice {
   display: flex;
-  min-height: 44px;
-  flex: 1 0 100%;
+  width: min(20rem, calc(100vw - 24px));
+  min-height: 46px;
+  grid-column: 1 / -1;
   align-items: center;
-  gap: var(--bliver-space-sm);
-  border: 1px solid rgb(23 59 49 / 16%);
-  border-left: 3px solid var(--bliver-color-info);
-  border-radius: var(--bliver-radius-control);
-  padding: var(--bliver-space-xs) var(--bliver-space-xs) var(--bliver-space-xs) var(--bliver-space-md);
-  background: rgb(255 255 255 / 97%);
-  box-shadow: var(--bliver-shadow-control);
+  justify-self: end;
+  gap: 8px;
+  padding: 1px 1px 1px 12px;
+  border-color: rgb(53 111 145 / 40%);
   color: var(--bliver-color-ink);
   font-size: 0.8125rem;
   line-height: 1.35;
 }
 
 .map-route__control-notice--error {
-  border-left-color: var(--bliver-color-danger);
+  border-color: rgb(184 59 59 / 42%);
 }
 
 .map-route__control-notice > span {
@@ -364,28 +217,40 @@
 
 .map-route__control-notice .bliver-icon-button {
   flex: 0 0 44px;
-  border-color: transparent;
+  border: 0;
   background: transparent;
+  box-shadow: none;
 }
 
-.map-route__controls select {
-  max-width: 10rem;
-  padding: 0 1.7rem 0 var(--bliver-space-md);
-  color: var(--bliver-color-forest);
-  font-size: 0.8125rem;
-  font-weight: 650;
-  cursor: pointer;
+.map-route__icon-control:focus-visible,
+.map-route__visibility-control:focus-within,
+.map-route__search-field:focus-within,
+.map-route__control-notice .bliver-icon-button:focus-visible {
+  outline: 3px solid var(--bliver-color-forest);
+  outline-offset: 2px;
 }
 
 .map-canvas .maplibregl-ctrl-bottom-left {
-  bottom: 148px;
-  z-index: 3;
+  z-index: 4;
+  top: calc(
+    var(--app-shell-header-height, 64px) + var(--bliver-safe-area-top) + 64px
+  );
+  right: auto;
+  bottom: auto;
+  left: max(12px, var(--bliver-safe-area-left));
+}
+
+.map-canvas .maplibregl-ctrl-bottom-left .maplibregl-ctrl {
+  margin: 0;
 }
 
 .map-canvas .maplibregl-ctrl-group {
   overflow: hidden;
-  border-radius: var(--bliver-radius-control);
-  box-shadow: var(--bliver-shadow-control);
+  border: 1px solid rgb(23 59 49 / 13%);
+  border-radius: 6px;
+  background: rgb(250 248 243 / 91%);
+  box-shadow: 0 8px 22px rgb(23 59 49 / 10%);
+  backdrop-filter: blur(14px);
 }
 
 .map-canvas .maplibregl-ctrl-group button {
@@ -405,125 +270,513 @@
   box-shadow: inset 0 0 0 3px var(--bliver-color-forest);
 }
 
-.map-route:has(.map-route__search-field) .map-canvas__semantic,
-.map-route:has(.map-route__search-field) .map-canvas__attribution,
-.map-route:has(.map-route__control-notice) .map-canvas__semantic,
-.map-route:has(.map-route__control-notice) .map-canvas__attribution {
-  top: 120px;
-}
-
-.map-route:has(.map-route__search-field):has(.map-route__control-notice) .map-canvas__semantic,
-.map-route:has(.map-route__search-field):has(.map-route__control-notice) .map-canvas__attribution {
-  top: 184px;
-}
-
-.map-route__empty,
-.map-route__preview {
+.map-canvas__attribution {
   position: absolute;
   z-index: 5;
-  right: max(var(--bliver-space-md), var(--bliver-safe-area-right));
-  bottom: max(var(--bliver-space-md), var(--bliver-safe-area-bottom));
-  left: max(var(--bliver-space-md), var(--bliver-safe-area-left));
-  padding: var(--bliver-space-lg);
-  border: 1px solid rgb(23 59 49 / 12%);
-  box-shadow: 0 16px 38px rgb(23 59 49 / 16%);
-}
-
-.map-route__empty h2,
-.map-route__preview strong {
-  margin: 0;
+  top: calc(
+    var(--app-shell-header-height, 64px) + var(--bliver-safe-area-top) + 162px
+  );
+  left: max(12px, var(--bliver-safe-area-left));
   color: var(--bliver-color-forest);
+  pointer-events: auto;
 }
 
-.map-route__preview strong {
-  display: block;
-  overflow-wrap: anywhere;
+.map-canvas__attribution summary {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(23 59 49 / 13%);
+  border-radius: 6px;
+  place-items: center;
+  background: rgb(250 248 243 / 91%);
+  box-shadow: 0 8px 22px rgb(23 59 49 / 10%);
+  cursor: pointer;
+  list-style: none;
+  backdrop-filter: blur(14px);
 }
 
-.map-route__empty h2 {
-  font-size: 1.125rem;
+.map-canvas__attribution summary::-webkit-details-marker {
+  display: none;
 }
 
-.map-route__empty p,
-.map-route__preview p {
-  margin: var(--bliver-space-sm) 0 0;
-  color: var(--bliver-color-ink-muted);
-  line-height: 1.4;
+.map-canvas__attribution summary svg {
+  width: 17px;
+  height: 17px;
 }
 
-.map-route__preview a {
-  display: inline-flex;
+.map-canvas__attribution > div {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  display: grid;
+  width: min(17rem, calc(100vw - 4.5rem));
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid rgb(23 59 49 / 14%);
+  border-radius: 8px;
+  background: rgb(250 248 243 / 97%);
+  box-shadow: 0 14px 36px rgb(23 59 49 / 16%);
+}
+
+.map-canvas__attribution a {
+  display: flex;
+  min-width: 44px;
   min-height: 44px;
   align-items: center;
-  margin-top: var(--bliver-space-sm);
+  border-radius: 6px;
+  padding: 0 10px;
   color: var(--bliver-color-forest);
-  font-weight: 750;
+  font-size: 0.75rem;
+  line-height: 1.35;
   text-underline-offset: 3px;
 }
 
-.map-route--state {
+.map-canvas__attribution summary:focus-visible,
+.map-canvas__attribution a:focus-visible {
+  outline: 3px solid var(--bliver-color-forest);
+  outline-offset: 2px;
+}
+
+/* The semantic list remains available to assistive technology and degraded
+ * maps. Interactive pointer users enter moments through the map markers. */
+.map-canvas__semantic {
+  position: absolute;
+  z-index: 6;
+  top: calc(var(--app-shell-header-height, 64px) + 12px);
+  left: 12px;
+  width: 0;
+  height: 0;
+  max-height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  background: transparent;
+  box-shadow: none;
+  color: var(--bliver-color-ink);
+  white-space: nowrap;
+}
+
+.map-canvas[data-mode='static'][data-has-items='true'] .map-canvas__semantic,
+.map-canvas[data-mode='interactive'] .map-canvas__semantic:focus-within {
+  z-index: 11;
+  top: auto;
+  right: max(12px, var(--bliver-safe-area-right));
+  bottom: calc(90px + var(--bliver-safe-area-bottom));
+  left: max(12px, var(--bliver-safe-area-left));
+  width: auto;
+  height: auto;
+  max-height: min(14rem, calc(100dvh - 12rem));
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid rgb(23 59 49 / 18%);
+  border-radius: 8px;
+  clip: auto;
+  clip-path: none;
+  background: rgb(250 248 243 / 96%);
+  box-shadow: var(--bliver-shadow-raised);
+  white-space: normal;
+}
+
+.map-route:has(.map-canvas__semantic:focus-within) .chrono-lens,
+.map-route:has(.map-canvas__semantic:focus-within) .moment-deck {
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.map-canvas__semantic-heading {
+  display: none;
+}
+
+.map-canvas__semantic ol {
+  display: flex;
+  max-height: none;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0;
+  padding: 3px;
+  list-style: none;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.map-canvas__semantic ol::-webkit-scrollbar {
+  display: none;
+}
+
+.map-canvas__semantic li {
+  flex: 0 0 min(13rem, 72vw);
+  scroll-snap-align: start;
+}
+
+.map-canvas__semantic li > button {
   display: grid;
+  width: 100%;
+  min-height: 60px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--bliver-duration-fast) var(--bliver-ease-out-expo),
+    color var(--bliver-duration-fast) var(--bliver-ease-out-expo);
+}
+
+.map-canvas__semantic li > button:hover,
+.map-canvas__semantic li > button:focus-visible {
+  background: var(--bliver-color-sage-soft);
+  color: var(--bliver-color-forest);
+}
+
+.map-canvas__semantic li > button:focus-visible {
+  outline: 3px solid var(--bliver-color-forest);
+  outline-offset: -3px;
+}
+
+.map-canvas__semantic li > button[aria-pressed='true'] {
+  background: var(--bliver-color-forest);
+  color: var(--bliver-color-surface);
+}
+
+.map-canvas__semantic-index {
+  display: none;
+}
+
+.map-canvas__semantic-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.map-canvas__semantic-copy strong,
+.map-canvas__semantic-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-canvas__semantic-copy strong {
+  color: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.map-canvas__semantic-copy small {
+  color: var(--bliver-color-ink-muted);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.map-canvas__semantic li > button[aria-pressed='true']
+  .map-canvas__semantic-copy small {
+  color: rgb(255 255 255 / 78%);
+}
+
+.map-canvas__selected {
+  display: none;
+}
+
+/* Data states read like map captions attached to the stage edge. */
+.map-route__stage-status {
+  position: absolute;
+  z-index: 9;
+  right: auto;
+  bottom: calc(90px + var(--bliver-safe-area-bottom));
+  left: 0;
+  display: grid;
+  width: min(20.5rem, calc(100% - 2.75rem));
+  min-height: 58px;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  border: 0;
+  border-block: 1px solid rgb(23 59 49 / 15%);
+  border-inline-end: 1px solid rgb(23 59 49 / 15%);
+  border-radius: 0 8px 8px 0;
+  padding:
+    9px 10px 9px
+    max(14px, var(--bliver-safe-area-left));
+  background: rgb(250 248 243 / 88%);
+  box-shadow: 0 12px 28px rgb(23 59 49 / 11%);
+  color: var(--bliver-color-ink);
+  backdrop-filter: blur(16px);
+}
+
+.map-route__stage-status--error {
+  border-color: rgb(184 59 59 / 34%);
+}
+
+.map-route__stage-status-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
   place-items: center;
-  padding: var(--bliver-space-xl);
-  background: var(--bliver-color-paper);
+  color: var(--bliver-color-forest);
+}
+
+.map-route__stage-status--error .map-route__stage-status-icon {
+  color: var(--bliver-color-danger);
+}
+
+.map-route__stage-status-icon svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.7;
+}
+
+.map-route__stage-status-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.map-route__stage-status-copy h2,
+.map-route__stage-status-copy strong,
+.map-route__stage-status-copy > span {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.map-route__stage-status-copy h2,
+.map-route__stage-status-copy strong {
+  color: var(--bliver-color-forest);
+  font-size: 0.875rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.map-route__stage-status-copy > span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--bliver-color-ink-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.map-route__stage-status .bliver-button {
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 11px;
+}
+
+/* The map owns preview placement; Moment Ticket owns the preview's internals. */
+.map-route__preview {
+  position: absolute;
+  z-index: 10;
+  right: max(14px, var(--bliver-safe-area-right));
+  bottom: calc(94px + var(--bliver-safe-area-bottom));
+  left: max(14px, var(--bliver-safe-area-left));
+  display: block;
+  width: auto;
+  min-height: 11.75rem;
+  max-height: min(22rem, calc(100dvh - 13.5rem));
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  contain: layout;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .map-route__icon-control.bliver-icon-button:hover,
+  .map-route__visibility-control:hover,
+  .map-canvas__attribution summary:hover {
+    background: var(--bliver-color-surface);
+    border-color: rgb(23 59 49 / 26%);
+  }
+
+}
+
+@media (max-width: 22.5rem) {
+  .map-route__controls {
+    grid-template-columns: 44px 44px minmax(78px, 6.5rem);
+  }
+
+  .map-route__preview {
+    right: 10px;
+    left: 10px;
+  }
+
+}
+
+@media (max-height: 43.75rem) and (max-width: 47.99rem) {
+  .map-route__preview {
+    bottom: calc(88px + var(--bliver-safe-area-bottom));
+    min-height: 10.25rem;
+  }
+
 }
 
 @media (min-width: 48rem) {
-  .map-canvas__semantic {
-    top: var(--bliver-space-xl);
-    left: var(--bliver-space-xl);
-    width: 19rem;
-    max-height: calc(100% - 3rem);
+  .map-route__controls {
+    top: calc(
+      var(--app-shell-header-height, 64px) + var(--bliver-safe-area-top) + 16px
+    );
+    right: 24px;
+  }
+
+  .map-canvas .maplibregl-ctrl-bottom-left {
+    top: auto;
+    right: 24px;
+    bottom: 24px;
+    left: auto;
+  }
+
+  .map-canvas__attribution {
+    top: auto;
+    right: 24px;
+    bottom: 124px;
+    left: auto;
+  }
+
+  .map-canvas__attribution > div {
+    top: auto;
+    right: 0;
+    bottom: calc(100% + 8px);
+    left: auto;
+  }
+
+  .map-canvas[data-mode='static'][data-has-items='true'] .map-canvas__semantic,
+  .map-canvas[data-mode='interactive'] .map-canvas__semantic:focus-within {
+    top: calc(
+      var(--app-shell-header-height, 64px) + var(--bliver-safe-area-top) + 24px
+    );
+    right: auto;
+    bottom: auto;
+    left: 24px;
+    width: min(19rem, calc(100% - 25rem));
+    height: auto;
+    max-height: calc(100dvh - 8rem);
+    overflow: hidden;
+    margin: 0;
+    border: 1px solid rgb(23 59 49 / 14%);
+    border-radius: 8px;
+    clip: auto;
+    clip-path: none;
+    background: rgb(250 248 243 / 94%);
+    box-shadow: 0 18px 48px rgb(23 59 49 / 16%);
+    white-space: normal;
+  }
+
+  .map-canvas__semantic-heading {
+    display: flex;
+    min-height: 44px;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px 9px;
+    border-bottom: 1px solid rgb(23 59 49 / 10%);
+  }
+
+  .map-canvas__semantic-heading > span {
+    color: var(--bliver-color-forest);
+    font-size: 0.8125rem;
+    font-weight: 750;
+  }
+
+  .map-canvas__semantic-heading small {
+    color: var(--bliver-color-ink-muted);
+    font-size: 0.75rem;
   }
 
   .map-canvas__semantic ol {
-    max-height: calc(100dvh - 13rem);
+    display: block;
+    max-height: calc(100dvh - 11rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 4px;
   }
 
-  .map-route__controls {
-    top: var(--bliver-space-xl);
-    right: var(--bliver-space-xl);
+  .map-canvas__semantic li {
+    width: 100%;
+  }
+
+  .map-canvas__semantic li + li {
+    border-top: 1px solid rgb(23 59 49 / 8%);
+  }
+
+  .map-canvas__semantic li > button {
+    min-height: 58px;
+  }
+
+  /* Keep the off-canvas semantic rail measurable and keyboard-addressable.
+   * The visible desktop presentation below remains a vertical panel; the
+   * hidden interactive state keeps the compact horizontal geometry used by
+   * the mobile fallback so long labels never measure against zero width. */
+  .map-canvas[data-mode='interactive'] .map-canvas__semantic:not(:focus-within) ol {
+    display: flex;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .map-canvas[data-mode='interactive'] .map-canvas__semantic:not(:focus-within) li {
     width: auto;
-    max-width: calc(100% - 24rem);
+    flex: 0 0 min(13rem, 72vw);
   }
 
-  .map-canvas__attribution,
-  .map-route:has(.map-route__search-field) .map-canvas__attribution,
-  .map-route:has(.map-route__control-notice) .map-canvas__attribution,
-  .map-route:has(.map-route__search-field):has(.map-route__control-notice) .map-canvas__attribution {
-    top: var(--bliver-space-xl);
-    right: auto;
-    left: 21.5rem;
-  }
-
-  .map-route:has(.map-route__search-field) .map-canvas__semantic,
-  .map-route:has(.map-route__control-notice) .map-canvas__semantic,
-  .map-route:has(.map-route__search-field):has(.map-route__control-notice) .map-canvas__semantic {
-    top: var(--bliver-space-xl);
-  }
-
-  .map-route__empty,
-  .map-route__preview {
-    right: var(--bliver-space-xl);
-    bottom: var(--bliver-space-xl);
+  .map-route__stage-status {
+    right: 24px;
+    bottom: 24px;
     left: auto;
-    width: min(22rem, calc(100% - 3rem));
+    width: min(29rem, calc(100% - 24rem));
+    border: 1px solid rgb(23 59 49 / 15%);
+    border-radius: 8px;
+    padding-left: 12px;
+  }
+
+  .map-route__preview {
+    right: 24px;
+    bottom: 24px;
+    left: auto;
+    width: min(35rem, calc(100% - 23rem));
+    min-height: 11.75rem;
+    max-height: calc(100dvh - 7.5rem);
+  }
+
+  /* The attribution control is a map utility, not part of the film card.
+   * Lift it above an active lens/deck so the two 44px controls never occupy
+   * the same hit area on tablet or desktop. */
+  .map-route:has(.map-route__preview) .map-canvas__attribution {
+    bottom: calc(18rem + 36px);
+  }
+
+  .map-route:has(.moment-deck) .map-canvas__attribution {
+    bottom: calc(316px + 44px);
   }
 
   .map-canvas__fallback {
-    padding: var(--bliver-space-2xl) var(--bliver-space-2xl) var(--bliver-space-2xl) 23rem;
-  }
-}
-
-@media (min-width: 75rem) {
-  .map-route {
-    height: calc(100dvh - var(--app-shell-header-height));
-    min-height: calc(100dvh - var(--app-shell-header-height));
+    padding: 5rem 23rem 5rem 22rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .map-canvas__semantic li > button {
+  .map-canvas__semantic li > button,
+  .map-route__stage-status,
+  .map-route__preview {
     transition: none;
+    will-change: auto;
+  }
+
+  .map-route:has(.map-canvas__semantic:focus-within) .chrono-lens,
+  .map-route:has(.map-canvas__semantic:focus-within) .moment-deck {
+    opacity: 0;
   }
 }

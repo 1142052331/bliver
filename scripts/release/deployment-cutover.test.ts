@@ -90,7 +90,9 @@ describe('V2 deployment cutover', () => {
   it('makes V2 gates and the root lock the only CI release graph', async () => {
     const workflow = await read('.github/workflows/ci.yml');
     expect(workflow).toContain('cache-dependency-path: package-lock.json');
-    expect(workflow).toContain('needs: [v2-foundation]');
+    expect(workflow).toContain('needs: [v2-foundation, visual-baselines]');
+    expect(workflow).toContain('runs-on: windows-latest');
+    expect(workflow).toContain('visual-baselines.spec.ts --project=mobile-390x844');
     expect(workflow).toContain('npm run render-build');
     expect(workflow).not.toMatch(/working-directory: (?:frontend|backend)|(?:frontend|backend)\/package-lock\.json/);
   });

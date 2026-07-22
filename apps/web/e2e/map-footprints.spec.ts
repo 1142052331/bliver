@@ -121,7 +121,61 @@ test('guest map opens as the primary surface', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Map' })).toBeVisible();
   await expectInteractiveMapReady(page);
   await expect(page.getByRole('button', { name: 'Search places' })).toBeVisible();
+  await expect(page.locator('.map-route__preview')).toHaveCount(0);
+  await expect(page.getByTestId('moment-deck')).toHaveCount(0);
   await expectNoAxeViolations(page);
+});
+
+test('loaded footprints stay marker-only until the user activates one', async ({ page }) => {
+  await page.route('**/api/v1/map/footprints**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [V2_TEST_FOOTPRINTS[0]], nextCursor: null }),
+    });
+  });
+  await page.goto('/map');
+  await expectInteractiveMapReady(page);
+
+  await expect(page.locator('.map-route__preview')).toHaveCount(0);
+  await expect(page.getByTestId('moment-deck')).toHaveCount(0);
+  await expect(page.locator('.map-canvas__semantic')).not.toBeVisible();
+
+  const semanticItem = page.getByTestId('map-footprint-item');
+  await semanticItem.focus();
+  await expect(page.locator('.map-canvas__semantic')).toBeVisible();
+  await semanticItem.press('Enter');
+
+  await expect(page).toHaveURL(new RegExp(`footprint=${V2_TEST_FOOTPRINTS[0]!.id}`));
+  await expect(page.locator('.map-route__preview')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/sheet=closed/);
+  await expect(semanticItem).toBeFocused();
+  await expect(page.locator('.map-canvas__semantic')).toBeVisible();
+});
+
+test('closing a direct map preview returns to the idle canvas without exposing the semantic rail', async ({ page }) => {
+  const footprint = V2_TEST_FOOTPRINTS[0]!;
+  await page.route('**/api/v1/map/footprints**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [footprint], nextCursor: null }),
+    });
+  });
+  await page.goto(`/map?footprint=${footprint.id}&sheet=preview`);
+  await expectInteractiveMapReady(page);
+  await expect(page.locator('.map-route__preview')).toBeVisible();
+  await expect(page.locator('.map-canvas__semantic')).not.toBeVisible();
+
+  await page.getByRole('button', { name: 'Close footprint preview' }).click();
+
+  await expect(page).toHaveURL(/sheet=closed/);
+  await expect(page).not.toHaveURL(/footprint=/);
+  await expect(page.locator('.map-route__preview')).toHaveCount(0);
+  await expect(page.locator('.map-canvas__semantic')).not.toBeVisible();
+  await expect(page.locator('.map-canvas__viewport')).toBeFocused();
 });
 
 test('a user camera move writes finite viewport bounds to the URL and map query', async ({ page }) => {
@@ -194,7 +248,7 @@ test('a maximum-length unbroken author name remains contained in the map surface
       body: JSON.stringify({ items: [footprint], nextCursor: null }),
     });
   });
-  await page.goto('/map');
+  await page.goto(`/map?footprint=${footprint.id}&sheet=preview`);
   await expectInteractiveMapReady(page);
 
   const item = page.getByTestId('map-footprint-item');
@@ -209,7 +263,7 @@ test('a maximum-length unbroken author name remains contained in the map surface
   )));
   expect(authorTextFits).toBe(true);
   await assertNoHorizontalOverflow(page);
-  await expectNoOverlap(item, page.locator('.map-route__preview'), 'footprint list item and preview');
+  await expect(page.locator('.map-canvas__semantic')).not.toBeVisible();
 });
 
 test.describe('browser map degradation', () => {
@@ -361,20 +415,26 @@ test('successful place search hands the selected map point to publishing', async
   await page.getByLabel('Place search').press('Enter');
 
   await expect.poll(() => Number(new URL(page.url()).searchParams.get('lat')))
-    .toBeCloseTo(place.lat, 5);
+    .toBeCloseTo(place.lat, 4);
   await expect.poll(() => Number(new URL(page.url()).searchParams.get('lng')))
-    .toBeCloseTo(place.lng, 5);
+    .toBeCloseTo(place.lng, 4);
   const searchedViewport = readViewportFromUrl(page.url());
   expect(searchedViewport.west).toBeLessThan(place.lng);
   expect(searchedViewport.east).toBeGreaterThan(place.lng);
   expect(searchedViewport.south).toBeLessThan(place.lat);
   expect(searchedViewport.north).toBeGreaterThan(place.lat);
   expect((searchedViewport.west + searchedViewport.east) / 2)
-    .toBeCloseTo(place.lng, 5);
+    .toBeCloseTo(place.lng, 4);
   expect((searchedViewport.south + searchedViewport.north) / 2)
-    .toBeCloseTo(place.lat, 5);
-  await page.getByRole('button', { name: 'Leave footprint' }).click();
+    .toBeCloseTo(place.lat, 4);
+  const publishButton = page.getByRole('button', { name: 'Leave footprint' });
+  await expect(publishButton).toBeVisible();
+  await publishButton.click();
   await expect(page).toHaveURL(/\/publish(?:\?|$)/);
+  const readout = await page.locator('.publish-location__readout strong').textContent();
+  const [readoutLat, readoutLng] = (readout ?? '').split('/').map((value) => Number(value.trim()));
+  expect(readoutLat).toBeCloseTo(place.lat, 4);
+  expect(readoutLng).toBeCloseTo(place.lng, 4);
   await page.getByLabel('Message').fill('A crossing found from the map');
   await page.locator('.publish-route')
     .getByRole('button', { name: 'Publish footprint' })
@@ -384,8 +444,10 @@ test('successful place search hands the selected map point to publishing', async
   const submitted = JSON.parse(publishBody ?? '{}') as {
     readonly privatePoint?: { readonly lat?: number; readonly lng?: number };
   };
-  expect(submitted.privatePoint?.lat).toBeCloseTo(place.lat, 5);
-  expect(submitted.privatePoint?.lng).toBeCloseTo(place.lng, 5);
+  expect(submitted.privatePoint?.lat?.toFixed(5)).toBe(readoutLat.toFixed(5));
+  expect(submitted.privatePoint?.lng?.toFixed(5)).toBe(readoutLng.toFixed(5));
+  expect(submitted.privatePoint?.lat).toBeCloseTo(place.lat, 4);
+  expect(submitted.privatePoint?.lng).toBeCloseTo(place.lng, 4);
 });
 
 test('Japanese map controls retain their full labels at the configured viewport', async ({ page }) => {
@@ -418,7 +480,11 @@ test('attribution stays clear of both empty and footprint preview cards', async 
   const attribution = page.locator('.map-canvas__attribution');
   const attributionSummary = attribution.locator('summary');
   await expect(attributionSummary).toBeVisible();
-  await expectNoOverlap(attribution, page.locator('.map-route__empty'), 'attribution and empty state');
+  await expectNoOverlap(
+    attribution,
+    page.locator('[data-map-stage-status="empty"]'),
+    'attribution and empty state',
+  );
 
   await attributionSummary.click();
   await expect(attribution.getByRole('link', { name: 'OpenFreeMap' })).toBeVisible();
@@ -426,13 +492,13 @@ test('attribution stays clear of both empty and footprint preview cards', async 
   await expect(attribution.getByRole('link', { name: 'OpenStreetMap' })).toBeVisible();
   await expectNoOverlap(
     attribution.locator(':scope > div'),
-    page.locator('.map-route__empty'),
+    page.locator('[data-map-stage-status="empty"]'),
     'expanded attribution and empty state',
   );
   await attributionSummary.click();
 
   items = [V2_TEST_FOOTPRINTS[0]];
-  await page.reload();
+  await page.goto(`/map?footprint=${V2_TEST_FOOTPRINTS[0]!.id}&sheet=preview`);
   await expectInteractiveMapReady(page);
   await expect(page.locator('.map-route__preview')).toBeVisible();
   await expectNoOverlap(

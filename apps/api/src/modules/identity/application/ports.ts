@@ -29,6 +29,7 @@ export interface SessionRecord {
 export interface UserRepository {
   findByUsername(username: string): Promise<UserRecord | null>;
   findById(id: UserId): Promise<UserRecord | null>;
+  findByIds(ids: readonly UserId[]): Promise<UserRecord[]>;
   create(input: Omit<UserRecord, 'createdAt'>): Promise<UserRecord>;
 }
 export interface CredentialRepository {

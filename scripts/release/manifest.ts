@@ -80,7 +80,9 @@ export async function buildReleaseManifest(input: Readonly<{
   const migrations = migrationPaths.map((path) => normalizedRelative(migrationRoot, path));
   const migrationChunks = await Promise.all(migrationPaths.map(async (path, index) =>
     `${migrations[index]}\0${await readFile(path, 'utf8')}\n`));
-  const assets = (await listFiles(assetRoot)).map((path) => normalizedRelative(assetRoot, path));
+  const assets = (await listFiles(assetRoot))
+    .map((path) => normalizedRelative(assetRoot, path))
+    .filter((path) => !path.startsWith('.vite/'));
 
   return {
     schemaVersion: 1,

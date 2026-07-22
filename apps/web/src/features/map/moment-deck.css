@@ -1,0 +1,415 @@
+.moment-deck {
+  position: absolute;
+  z-index: 10;
+  right: 0;
+  bottom: calc(92px + var(--bliver-safe-area-bottom));
+  left: 0;
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  pointer-events: none;
+  contain: layout;
+}
+
+.moment-deck__toolbar {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-inline: max(14px, var(--bliver-safe-area-left)) max(14px, var(--bliver-safe-area-right));
+  pointer-events: none;
+}
+
+.moment-deck__heading,
+.moment-deck__actions {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.moment-deck__heading {
+  max-width: min(65vw, 15rem);
+  color: var(--bliver-color-forest);
+  font-size: 0.75rem;
+  font-weight: 750;
+  line-height: 1.2;
+  pointer-events: none;
+  text-shadow: 0 1px 10px rgb(250 248 243 / 80%);
+}
+
+.moment-deck__heading svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  stroke-width: 1.8;
+}
+
+.moment-deck__heading strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moment-deck__tool.bliver-icon-button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: 1px solid rgb(23 59 49 / 18%);
+  border-radius: 8px;
+  background: var(--bliver-color-surface);
+  box-shadow: var(--bliver-shadow-control);
+  color: var(--bliver-color-forest);
+  pointer-events: auto;
+}
+
+.moment-deck__tool svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.8;
+}
+
+.moment-deck__viewport {
+  width: calc(100% - max(12px, var(--bliver-safe-area-right)));
+  min-width: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  outline: 0;
+}
+
+.moment-deck__viewport:focus-visible {
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px rgb(23 59 49 / 28%);
+}
+
+.moment-deck__track {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0;
+  padding: 0 0 4px max(14px, var(--bliver-safe-area-left));
+  list-style: none;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline-start: max(14px, var(--bliver-safe-area-left));
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.moment-deck__track::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.moment-deck__card {
+  flex: 0 0 clamp(16rem, calc(100vw - 64px), 22.875rem);
+  min-width: 0;
+  height: 260px;
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+}
+
+.moment-deck__card-button {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-rows: 156px minmax(0, 104px);
+  overflow: hidden;
+  border: 1px solid rgb(23 59 49 / 17%);
+  border-radius: 8px;
+  padding: 0;
+  background: var(--bliver-color-surface);
+  box-shadow: var(--bliver-shadow-raised);
+  color: var(--bliver-color-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: transform 150ms var(--bliver-ease-out-expo), box-shadow 150ms var(--bliver-ease-out-expo);
+}
+
+.moment-deck__card-button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.moment-deck__card-button:focus-visible {
+  outline: 3px solid var(--bliver-color-forest);
+  outline-offset: 3px;
+}
+
+.moment-deck__card[data-mood-key] .moment-deck__card-button {
+  border-color: color-mix(in srgb, var(--footprint-mood-accent) 48%, var(--footprint-mood-surface));
+  background: var(--footprint-mood-surface);
+  color: var(--footprint-mood-ink);
+}
+
+.moment-deck__card[data-mood-key] .moment-deck__card-button:focus-visible {
+  outline-color: var(--footprint-mood-accent);
+}
+
+.moment-deck__visual {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bliver-color-forest);
+}
+
+.moment-deck__mood {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  right: 8px;
+}
+
+.moment-deck__mood .footprint-mood-mark__glyph {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--footprint-mood-accent) 34%, transparent),
+    0 3px 8px rgb(8 28 22 / 18%);
+}
+
+.moment-deck__frame.moment-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+.moment-deck__frame .moment-frame__media {
+  object-fit: cover;
+}
+
+.moment-deck__frame .moment-frame__spatial-field {
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 8%) 1px, transparent 1px) 0 0 / 25% 100%,
+    linear-gradient(rgb(255 255 255 / 8%) 1px, transparent 1px) 0 0 / 100% 25%,
+    var(--bliver-color-forest);
+}
+
+.moment-deck__frame .moment-frame__point {
+  width: 30px;
+  height: 30px;
+  border-width: 1px;
+  box-shadow: 0 5px 16px rgb(0 0 0 / 20%);
+}
+
+.moment-deck__frame .moment-frame__point svg {
+  width: 14px;
+  height: 14px;
+}
+
+.moment-deck__card-copy {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: 22px minmax(0, 1fr) 30px;
+  gap: 4px;
+  padding: 8px 10px 7px;
+  background: var(--bliver-color-surface);
+}
+
+.moment-deck__card[data-mood-key] .moment-deck__card-copy {
+  background: var(--footprint-mood-surface);
+}
+
+.moment-deck__card-header,
+.moment-deck__identity,
+.moment-deck__card-facts,
+.moment-deck__place,
+.moment-deck__visibility {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.moment-deck__card-header {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.moment-deck__identity {
+  gap: 6px;
+  overflow: hidden;
+}
+
+.moment-deck__identity strong,
+.moment-deck__identity time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moment-deck__identity strong {
+  color: var(--bliver-color-forest);
+  font-size: 0.8rem;
+  font-weight: 760;
+}
+
+.moment-deck__card[data-mood-key] .moment-deck__identity strong,
+.moment-deck__card[data-mood-key] .moment-deck__message {
+  color: var(--footprint-mood-ink);
+}
+
+.moment-deck__identity time {
+  min-width: 0;
+  color: var(--bliver-color-ink-muted);
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.moment-deck__card[data-mood-key] .moment-deck__identity time,
+.moment-deck__card[data-mood-key] .moment-deck__card-facts {
+  color: var(--footprint-mood-ink);
+}
+
+.moment-deck__sequence {
+  flex: 0 0 auto;
+  color: var(--bliver-color-forest-soft);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.moment-deck__card[data-mood-key] .moment-deck__sequence {
+  color: var(--footprint-mood-ink);
+}
+
+.moment-deck__message {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--bliver-color-ink);
+  font-size: 0.875rem;
+  font-weight: 520;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.moment-deck__card-facts {
+  min-height: 30px;
+  gap: 8px;
+  border-top: 1px solid var(--bliver-color-border);
+  color: var(--bliver-color-ink-muted);
+  font-size: 0.67rem;
+  line-height: 1.2;
+}
+
+.moment-deck__card[data-mood-key] .moment-deck__card-facts {
+  border-top-color: color-mix(in srgb, var(--footprint-mood-accent) 36%, var(--footprint-mood-surface));
+}
+
+.moment-deck__place,
+.moment-deck__visibility {
+  min-width: 0;
+  gap: 4px;
+}
+
+.moment-deck__place {
+  flex: 1 1 auto;
+}
+
+.moment-deck__visibility {
+  flex: 0 1 auto;
+  max-width: 38%;
+}
+
+.moment-deck__place span,
+.moment-deck__visibility span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moment-deck__card-facts svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  stroke-width: 1.8;
+}
+
+.moment-deck__card-facts .moment-deck__arrow {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-left: auto;
+  color: var(--bliver-color-forest);
+  stroke-width: 1.8;
+}
+
+.moment-deck__card[data-mood-key] .moment-deck__arrow {
+  color: var(--footprint-mood-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .moment-deck__card-button:hover {
+    box-shadow: 0 22px 54px rgb(23 59 49 / 19%);
+    transform: translateY(-2px);
+  }
+
+  .moment-deck__tool.bliver-icon-button:hover {
+    border-color: var(--bliver-color-sage);
+    background: var(--bliver-color-sage-soft);
+  }
+}
+
+@media (min-width: 48rem) {
+  .moment-deck {
+    right: 24px;
+    bottom: 32px;
+    left: 24px;
+  }
+
+  .moment-deck__toolbar {
+    padding-inline: 0;
+  }
+
+  .moment-deck__viewport {
+    width: min(100%, 1040px);
+  }
+
+  .moment-deck__track {
+    padding-inline-start: 0;
+  }
+
+  .moment-deck__card {
+    flex-basis: 326px;
+  }
+}
+
+@media (min-width: 75rem) {
+  .moment-deck {
+    right: 32px;
+    left: 144px;
+  }
+}
+
+@media (max-width: 22.5rem) {
+  .moment-deck__card {
+    flex-basis: calc(100vw - 64px);
+  }
+
+  .moment-deck__identity {
+    display: grid;
+    gap: 1px;
+  }
+
+  .moment-deck__card-copy {
+    padding-inline: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moment-deck__card-button,
+  .moment-deck__tool.bliver-icon-button {
+    transition: none;
+  }
+}

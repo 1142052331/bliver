@@ -1,29 +1,54 @@
 import { Info, MapPin } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FeatureCollection, Point } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import {
+  createNaturalCityMapStyle,
   resolveMapProvider,
   type MapAttribution as MapAttributionEntry,
   type MapProviderConfig,
 } from './map-provider.js';
+import {
+  MOMENT_TICKET_CLUSTER_IMAGE_ID,
+  MOMENT_TICKET_SPRITES,
+  POINT_ICON_IMAGE_EXPRESSION,
+  toMapMoodKey,
+  type MapMoodKey,
+} from './moment-ticket-sprites.js';
 
 const SOURCE_ID = 'bliver-footprints';
 const CLUSTER_LAYER_ID = 'bliver-footprint-clusters';
 const CLUSTER_COUNT_LAYER_ID = 'bliver-footprint-cluster-count';
+const CLUSTER_HIT_LAYER_ID = 'bliver-footprint-cluster-hit';
+const POINT_HALO_LAYER_ID = 'bliver-footprint-point-halo';
 const POINT_LAYER_ID = 'bliver-footprint-points';
+const POINT_HIT_LAYER_ID = 'bliver-footprint-point-hit';
+const MAX_CLUSTER_LEAVES = 12;
 const MAP_LOAD_TIMEOUT_MS = 12_000;
 const INITIALIZATION_ERROR_GRACE_MS = 500;
 const RESOURCE_ERROR_THRESHOLD = 3;
 const WEB_MERCATOR_MAX_LATITUDE = 85.051129;
+const PROGRAMMATIC_CAMERA_EVENT = { bliverProgrammaticCamera: true } as const;
 
 export interface MapCanvasItem {
   readonly id: string;
   readonly displayPoint: { readonly lat: number; readonly lng: number };
   readonly author: { readonly name: string };
+  readonly message?: string;
+  readonly publishedAt?: string;
+  readonly locationPrecision?: 'precise' | 'approximate';
+  readonly primaryMedia?: { readonly url?: string };
+  readonly mood?: string;
+}
+
+export interface MapCanvasSelection {
+  readonly kind: 'point' | 'cluster';
+  readonly items: readonly MapCanvasItem[];
+  readonly anchor?: { readonly x: number; readonly y: number };
+  readonly clusterId?: number;
 }
 
 export interface MapViewportBounds {
@@ -37,6 +62,11 @@ interface MapCanvasProps {
   readonly items: readonly MapCanvasItem[];
   readonly selectedId?: string;
   readonly onSelect?: (id: string) => void;
+  readonly onActivate?: (selection: MapCanvasSelection) => void;
+  readonly onDismiss?: () => void;
+  readonly onSelectedPointChange?: (
+    point: { readonly x: number; readonly y: number } | undefined,
+  ) => void;
   readonly onViewportChange?: (bounds: MapViewportBounds) => void;
   readonly viewport?: MapViewportBounds;
 }
@@ -47,6 +77,9 @@ interface FootprintProperties {
   readonly id: string;
   readonly authorName: string;
   readonly selected: boolean;
+  readonly focused: boolean;
+  readonly hasMedia: boolean;
+  readonly moodKey: MapMoodKey;
 }
 
 function toFeatureCollection(
@@ -66,6 +99,9 @@ function toFeatureCollection(
         id: item.id,
         authorName: item.author.name,
         selected: item.id === selectedId,
+        focused: selectedId !== undefined,
+        hasMedia: Boolean(item.primaryMedia?.url),
+        moodKey: toMapMoodKey(item.mood),
       },
     })),
   };
@@ -165,6 +201,9 @@ export function MapCanvas({
   items,
   selectedId,
   onSelect,
+  onActivate,
+  onDismiss,
+  onSelectedPointChange,
   onViewportChange,
   viewport,
 }: MapCanvasProps) {
@@ -192,9 +231,16 @@ export function MapCanvas({
   const latestSelectedId = useRef(selectedId);
   const latestViewport = useRef(viewport);
   const onSelectRef = useRef(onSelect);
+  const onActivateRef = useRef(onActivate);
+  const onDismissRef = useRef(onDismiss);
+  const onSelectedPointChangeRef = useRef(onSelectedPointChange);
   const onViewportChangeRef = useRef(onViewportChange);
   const lastAppliedViewportRef = useRef<MapViewportBounds | null>(viewport ?? null);
   const lastReportedViewportRef = useRef<MapViewportBounds | null>(null);
+  const lastSelectedPointRef = useRef<
+    { readonly x: number; readonly y: number } | undefined
+  >(undefined);
+  const lastCinematicallyFocusedIdRef = useRef<string | undefined>(undefined);
   const motionPreference = useReducedMotion();
   const reducedMotion = motionPreference.reduced;
   const runtimeKey = `${runtimeLocale}:${motionPreference.revision}`;
@@ -205,13 +251,52 @@ export function MapCanvas({
     [items, viewport],
   );
 
+  const reportSelectedPoint = useCallback((): void => {
+    const map = mapRef.current;
+    const container = containerRef.current;
+    const selected = latestSelectedId.current
+      ? latestItems.current.find((item) => item.id === latestSelectedId.current)
+      : undefined;
+
+    if (!map || !container || !selected || typeof map.project !== 'function') {
+      if (lastSelectedPointRef.current) {
+        lastSelectedPointRef.current = undefined;
+        onSelectedPointChangeRef.current?.(undefined);
+      }
+      return;
+    }
+
+    let projected: maplibregl.Point;
+    try {
+      projected = map.project([
+        selected.displayPoint.lng,
+        selected.displayPoint.lat,
+      ]);
+    } catch {
+      return;
+    }
+    const next = {
+      x: Math.max(16, Math.min(container.clientWidth - 16, projected.x)),
+      y: Math.max(16, Math.min(container.clientHeight - 16, projected.y)),
+    };
+    const previous = lastSelectedPointRef.current;
+    if (previous && Math.abs(previous.x - next.x) < 0.5 && Math.abs(previous.y - next.y) < 0.5) {
+      return;
+    }
+    lastSelectedPointRef.current = next;
+    onSelectedPointChangeRef.current?.(next);
+  }, []);
+
   useEffect(() => {
     latestItems.current = items;
     latestSelectedId.current = selectedId;
     latestViewport.current = viewport;
     onSelectRef.current = onSelect;
+    onActivateRef.current = onActivate;
+    onDismissRef.current = onDismiss;
+    onSelectedPointChangeRef.current = onSelectedPointChange;
     onViewportChangeRef.current = onViewportChange;
-  }, [items, onSelect, onViewportChange, selectedId, viewport]);
+  }, [items, onActivate, onDismiss, onSelect, onSelectedPointChange, onViewportChange, selectedId, viewport]);
 
   useEffect(() => {
     if (reducedMotion || !mapProvider) return undefined;
@@ -236,7 +321,6 @@ export function MapCanvas({
     try {
       map = new maplibregl.Map({
         container,
-        style: mapProvider.styleUrl,
         center: [runtimeCenter.lng, runtimeCenter.lat],
         zoom: runtimeViewport ? 8 : 11,
         renderWorldCopies: false,
@@ -252,6 +336,14 @@ export function MapCanvas({
             }
           : {}),
         locale: nativeMapLocale,
+        // Keep CJK labels readable without asking the style's glyph stack to
+        // render a second line for every place name.
+        localIdeographFontFamily: runtimeLocale.startsWith('ja')
+          ? 'Noto Sans JP, Hiragino Sans, sans-serif'
+          : runtimeLocale.startsWith('zh')
+            ? 'Noto Sans SC, PingFang SC, sans-serif'
+            : 'Noto Sans SC, Noto Sans JP, sans-serif',
+        fadeDuration: 120,
         attributionControl: false,
         canvasContextAttributes: {
           antialias: true,
@@ -297,26 +389,92 @@ export function MapCanvas({
       onViewportChangeRef.current?.(nextViewport);
     };
 
-    const selectPoint = (event: maplibregl.MapLayerMouseEvent): void => {
-      const id = event.features?.[0]?.properties?.['id'];
-      if (typeof id === 'string') onSelectRef.current?.(id);
+    const resolveAnchor = (
+      event: maplibregl.MapLayerMouseEvent,
+      coordinates?: readonly [number, number],
+    ): { readonly x: number; readonly y: number } | undefined => {
+      if (Number.isFinite(event.point?.x) && Number.isFinite(event.point?.y)) {
+        return { x: event.point.x, y: event.point.y };
+      }
+      if (!coordinates || typeof map.project !== 'function') return undefined;
+      try {
+        const point = map.project([coordinates[0], coordinates[1]]);
+        return Number.isFinite(point.x) && Number.isFinite(point.y)
+          ? { x: point.x, y: point.y }
+          : undefined;
+      } catch {
+        return undefined;
+      }
     };
 
-    const expandCluster = (event: maplibregl.MapLayerMouseEvent): void => {
+    const selectPoint = (event: maplibregl.MapLayerMouseEvent): void => {
+      const feature = event.features?.[0];
+      const id = feature?.properties?.['id'];
+      if (typeof id !== 'string') return;
+      const item = latestItems.current.find((candidate) => candidate.id === id);
+      if (!item) return;
+      const coordinates = feature?.geometry.type === 'Point'
+        ? feature.geometry.coordinates as [number, number]
+        : [item.displayPoint.lng, item.displayPoint.lat] as [number, number];
+      const anchor = resolveAnchor(event, coordinates);
+      onActivateRef.current?.({
+        kind: 'point',
+        items: [item],
+        ...(anchor ? { anchor } : {}),
+      });
+      onSelectRef.current?.(id);
+    };
+
+    const activateCluster = (event: maplibregl.MapLayerMouseEvent): void => {
       const feature = event.features?.[0];
       if (feature?.geometry.type !== 'Point') return;
       const clusterId = Number(feature.properties?.['cluster_id']);
       const clusterCenter = feature.geometry.coordinates as [number, number];
       const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
-      if (!Number.isFinite(clusterId) || !source?.getClusterExpansionZoom) return;
-      void source.getClusterExpansionZoom(clusterId).then((zoom) => {
+      if (!Number.isFinite(clusterId) || !source?.getClusterLeaves) return;
+      const anchor = resolveAnchor(event, clusterCenter);
+      void source.getClusterLeaves(clusterId, MAX_CLUSTER_LEAVES, 0).then((leaves) => {
         if (disposed) return;
-        map.easeTo({
-          center: clusterCenter,
-          zoom,
-          duration: 350,
+        const itemsById = new Map(latestItems.current.map((item) => [item.id, item]));
+        const clusterItems: MapCanvasItem[] = [];
+        const includedIds = new Set<string>();
+        for (const leaf of leaves) {
+          const id = leaf.properties?.['id'] ?? leaf.id;
+          if (typeof id !== 'string' || includedIds.has(id)) continue;
+          const item = itemsById.get(id);
+          if (!item) continue;
+          includedIds.add(id);
+          clusterItems.push(item);
+        }
+        if (clusterItems.length === 0) return;
+        onActivateRef.current?.({
+          kind: 'cluster',
+          items: clusterItems,
+          clusterId,
+          ...(anchor ? { anchor } : {}),
         });
       }).catch(() => undefined);
+    };
+
+    const dismissFromMap = (event: maplibregl.MapMouseEvent): void => {
+      try {
+        const interactiveFeatures = map.queryRenderedFeatures(event.point, {
+          layers: [
+            POINT_HIT_LAYER_ID,
+            POINT_LAYER_ID,
+            CLUSTER_HIT_LAYER_ID,
+            CLUSTER_LAYER_ID,
+          ],
+        });
+        if (interactiveFeatures.length > 0) return;
+      } catch {
+        // A background click still dismisses if the renderer cannot be queried.
+      }
+      onDismissRef.current?.();
+    };
+
+    const dismissFromDrag = (): void => {
+      onDismissRef.current?.();
     };
 
     const showPointer = (): void => {
@@ -335,24 +493,45 @@ export function MapCanvas({
           clusterMaxZoom: 14,
           clusterRadius: 48,
         });
+        for (const [id, sprite] of MOMENT_TICKET_SPRITES) {
+          map.addImage(id, sprite, { pixelRatio: 2 });
+        }
         map.addLayer({
-          id: CLUSTER_LAYER_ID,
+          id: CLUSTER_HIT_LAYER_ID,
           type: 'circle',
           source: SOURCE_ID,
           filter: ['has', 'point_count'],
           paint: {
             'circle-color': '#173b31',
-            'circle-radius': [
-              'step',
-              ['get', 'point_count'],
-              18,
-              12,
-              23,
-              40,
-              29,
-            ],
-            'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 2,
+            'circle-opacity': 0,
+            'circle-radius': 24,
+            'circle-translate': [0, -20],
+          },
+        });
+        map.addLayer({
+          id: POINT_HIT_LAYER_ID,
+          type: 'circle',
+          source: SOURCE_ID,
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-color': '#173b31',
+            'circle-opacity': 0,
+            'circle-radius': 22,
+            'circle-translate': [0, -18],
+          },
+        });
+        map.addLayer({
+          id: CLUSTER_LAYER_ID,
+          type: 'symbol',
+          source: SOURCE_ID,
+          filter: ['has', 'point_count'],
+          layout: {
+            'icon-allow-overlap': true,
+            'icon-anchor': 'bottom',
+            'icon-ignore-placement': true,
+            'icon-image': MOMENT_TICKET_CLUSTER_IMAGE_ID,
+            'icon-padding': 0,
+            'icon-size': 1,
           },
         });
         map.addLayer({
@@ -363,55 +542,94 @@ export function MapCanvas({
           layout: {
             'text-field': ['get', 'point_count_abbreviated'],
             'text-font': ['Noto Sans Regular'],
-            'text-size': 12,
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+            'text-offset': [0.28, -1.62],
+            'text-size': 11,
           },
           paint: { 'text-color': '#ffffff' },
         });
         map.addLayer({
-          id: POINT_LAYER_ID,
+          id: POINT_HALO_LAYER_ID,
           type: 'circle',
           source: SOURCE_ID,
           filter: ['!', ['has', 'point_count']],
           paint: {
-            'circle-color': [
-              'case',
-              ['boolean', ['get', 'selected'], false],
-              '#173b31',
-              '#a9c9bf',
-            ],
+            'circle-color': '#173b31',
             'circle-radius': [
               'case',
               ['boolean', ['get', 'selected'], false],
-              11,
-              8,
+              27,
+              0,
             ],
-            'circle-stroke-color': [
+            'circle-opacity': [
               'case',
               ['boolean', ['get', 'selected'], false],
-              '#ffffff',
-              '#173b31',
+              0.16,
+              0,
             ],
+            'circle-stroke-color': '#173b31',
             'circle-stroke-width': [
               'case',
               ['boolean', ['get', 'selected'], false],
-              4,
-              2,
+              1,
+              0,
             ],
+            'circle-stroke-opacity': 0.28,
+            'circle-translate': [0, -18],
+            // One GPU layer gives the selected marker a single focus pulse;
+            // no per-marker DOM nodes or timelines are created.
+            'circle-blur': 0.22,
+            'circle-radius-transition': { duration: 420 },
+            'circle-opacity-transition': { duration: 280 },
+          },
+        });
+        map.addLayer({
+          id: POINT_LAYER_ID,
+          type: 'symbol',
+          source: SOURCE_ID,
+          filter: ['!', ['has', 'point_count']],
+          layout: {
+            'icon-allow-overlap': true,
+            'icon-anchor': 'bottom',
+            'icon-ignore-placement': true,
+            'icon-image': POINT_ICON_IMAGE_EXPRESSION,
+            'icon-padding': 0,
+            'icon-size': [
+              'case',
+              ['boolean', ['get', 'selected'], false],
+              1.08,
+              1,
+            ],
+          },
+          paint: {
+            'icon-opacity': [
+              'case',
+              ['boolean', ['get', 'selected'], false],
+              1,
+              ['boolean', ['get', 'focused'], false],
+              0.56,
+              0.92,
+            ],
+            'icon-opacity-transition': { duration: 220 },
           },
         });
 
-        map.on('click', POINT_LAYER_ID, selectPoint);
-        map.on('click', CLUSTER_LAYER_ID, expandCluster);
-        map.on('mouseenter', POINT_LAYER_ID, showPointer);
-        map.on('mouseleave', POINT_LAYER_ID, resetPointer);
-        map.on('mouseenter', CLUSTER_LAYER_ID, showPointer);
-        map.on('mouseleave', CLUSTER_LAYER_ID, resetPointer);
+        map.on('click', POINT_HIT_LAYER_ID, selectPoint);
+        map.on('click', CLUSTER_HIT_LAYER_ID, activateCluster);
+        map.on('mouseenter', POINT_HIT_LAYER_ID, showPointer);
+        map.on('mouseleave', POINT_HIT_LAYER_ID, resetPointer);
+        map.on('mouseenter', CLUSTER_HIT_LAYER_ID, showPointer);
+        map.on('mouseleave', CLUSTER_HIT_LAYER_ID, resetPointer);
+        map.on('click', dismissFromMap);
+        map.on('dragstart', dismissFromDrag);
         loaded = true;
         resourceErrorCount = 0;
         if (initializationErrorTimer) clearTimeout(initializationErrorTimer);
         clearTimeout(loadTimer);
         setReadyRuntimeKey(runtimeKey);
         setRenderMode('interactive');
+        reportSelectedPoint();
       } catch {
         fail();
       }
@@ -438,11 +656,25 @@ export function MapCanvas({
 
     const loadTimer = setTimeout(fail, MAP_LOAD_TIMEOUT_MS);
     map.on('load', load);
-    map.on('moveend', reportViewport);
+    const reportMovedViewport = (event: maplibregl.MapLibreEvent): void => {
+      const programmatic = Boolean(
+        (event as (maplibregl.MapLibreEvent & {
+          readonly bliverProgrammaticCamera?: boolean;
+        }) | undefined)?.bliverProgrammaticCamera,
+      );
+      if (!programmatic) {
+        reportViewport();
+      }
+      reportSelectedPoint();
+    };
+    map.on('moveend', reportMovedViewport);
     map.on('idle', resetResourceErrors);
     map.on('error', handleMapError);
     if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => map.resize());
+      resizeObserver = new ResizeObserver(() => {
+        map.resize();
+        reportSelectedPoint();
+      });
       resizeObserver.observe(container);
     }
 
@@ -460,16 +692,18 @@ export function MapCanvas({
         }
       }
       map.off('load', load);
-      map.off('moveend', reportViewport);
+      map.off('moveend', reportMovedViewport);
       map.off('idle', resetResourceErrors);
       map.off('error', handleMapError);
       if (loaded) {
-        map.off('click', POINT_LAYER_ID, selectPoint);
-        map.off('click', CLUSTER_LAYER_ID, expandCluster);
-        map.off('mouseenter', POINT_LAYER_ID, showPointer);
-        map.off('mouseleave', POINT_LAYER_ID, resetPointer);
-        map.off('mouseenter', CLUSTER_LAYER_ID, showPointer);
-        map.off('mouseleave', CLUSTER_LAYER_ID, resetPointer);
+        map.off('click', POINT_HIT_LAYER_ID, selectPoint);
+        map.off('click', CLUSTER_HIT_LAYER_ID, activateCluster);
+        map.off('mouseenter', POINT_HIT_LAYER_ID, showPointer);
+        map.off('mouseleave', POINT_HIT_LAYER_ID, resetPointer);
+        map.off('mouseenter', CLUSTER_HIT_LAYER_ID, showPointer);
+        map.off('mouseleave', CLUSTER_HIT_LAYER_ID, resetPointer);
+        map.off('click', dismissFromMap);
+        map.off('dragstart', dismissFromDrag);
       }
       map.remove();
       if (mapRef.current === map) {
@@ -478,10 +712,27 @@ export function MapCanvas({
       if (disposeRuntimeRef.current === dispose) {
         disposeRuntimeRef.current = null;
       }
+      lastSelectedPointRef.current = undefined;
+      onSelectedPointChangeRef.current?.(undefined);
     };
     disposeRuntimeRef.current = dispose;
+
+    try {
+      // Fetch the provider style through MapLibre, then retheme its vector
+      // layers before the first frame is committed. This keeps the map's
+      // material treatment in the style pipeline rather than filtering the
+      // entire WebGL canvas in CSS.
+      map.setStyle(mapProvider.styleUrl, {
+        transformStyle: (_previous, next) => createNaturalCityMapStyle(next, runtimeLocale),
+      });
+    } catch {
+      dispose();
+      fail();
+      return undefined;
+    }
+
     return dispose;
-  }, [mapProvider, nativeMapLocale, reducedMotion, runtimeKey]);
+  }, [mapProvider, nativeMapLocale, reducedMotion, reportSelectedPoint, runtimeKey, runtimeLocale]);
 
   useEffect(() => {
     if (renderMode === 'failed') disposeRuntimeRef.current?.();
@@ -489,11 +740,52 @@ export function MapCanvas({
 
   useEffect(() => {
     const map = mapRef.current;
-    const source = map?.getSource(SOURCE_ID) as
-      | maplibregl.GeoJSONSource
-      | undefined;
-    source?.setData(toFeatureCollection(items, selectedId));
-  }, [items, selectedId]);
+    if (!map) return;
+    try {
+      const source = map.getSource(SOURCE_ID) as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      source?.setData(toFeatureCollection(items, selectedId));
+    } catch {
+      return;
+    }
+    reportSelectedPoint();
+  }, [items, reportSelectedPoint, selectedId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const container = containerRef.current;
+    const selected = selectedId
+      ? items.find((item) => item.id === selectedId)
+      : undefined;
+
+    if (!map || !container || renderMode !== 'interactive' || reducedMotion || !selected) {
+      if (!selectedId) lastCinematicallyFocusedIdRef.current = undefined;
+      return;
+    }
+    if (lastCinematicallyFocusedIdRef.current === selectedId) return;
+    lastCinematicallyFocusedIdRef.current = selectedId;
+
+    try {
+      if (typeof map.stop === 'function') map.stop();
+      const currentZoom = typeof map.getZoom === 'function' ? map.getZoom() : 10;
+      const targetZoom = selected.locationPrecision === 'approximate'
+        ? Math.min(11.5, Math.max(10.25, currentZoom))
+        : Math.min(14, Math.max(12.75, currentZoom));
+      const wide = container.clientWidth >= 768;
+      map.easeTo({
+        center: [selected.displayPoint.lng, selected.displayPoint.lat],
+        zoom: targetZoom,
+        offset: wide
+          ? [Math.min(180, container.clientWidth * 0.12), 0]
+          : [0, -Math.min(120, container.clientHeight * 0.13)],
+        duration: 480,
+        easing: (progress) => 1 - (1 - progress) ** 4,
+      }, PROGRAMMATIC_CAMERA_EVENT);
+    } catch {
+      return;
+    }
+  }, [items, reducedMotion, renderMode, reportSelectedPoint, selectedId]);
 
   const viewportWest = viewport?.west;
   const viewportSouth = viewport?.south;
@@ -534,6 +826,7 @@ export function MapCanvas({
         [viewportEast, viewportNorth],
       ],
       { animate: false },
+      PROGRAMMATIC_CAMERA_EVENT,
     );
   }, [viewportEast, viewportNorth, viewportSouth, viewportWest]);
 
@@ -549,6 +842,7 @@ export function MapCanvas({
   return (
     <div
       className="map-canvas"
+      data-has-items={items.length > 0 ? 'true' : 'false'}
       data-map-ready={runtimeReady ? 'true' : 'false'}
       data-mode={staticMode ? 'static' : runtimeReady ? 'interactive' : 'initializing'}
       data-testid="map-canvas"
@@ -558,6 +852,7 @@ export function MapCanvas({
         aria-label={t('map.interactiveMap')}
         className="map-canvas__viewport"
         role="region"
+        tabIndex={-1}
       />
       {staticMode ? (
         <div className="map-canvas__fallback" data-testid="map-static-fallback" role="status">
@@ -582,24 +877,29 @@ export function MapCanvas({
           <small>{itemCount}</small>
         </div>
         <ol data-testid="map-footprint-list">
-          {items.map((item, index) => {
+          {items.map((item) => {
             const selected = item.id === selectedId;
             return (
               <li key={item.id}>
                 <button
                   aria-label={t('map.footprintBy', { name: item.author.name })}
                   aria-pressed={selected}
+                  data-footprint-id={item.id}
                   data-testid="map-footprint-item"
                   type="button"
-                  onClick={() => onSelect?.(item.id)}
+                  onClick={() => {
+                    onActivate?.({ kind: 'point', items: [item] });
+                    onSelect?.(item.id);
+                  }}
                 >
                   <span aria-hidden="true" className="map-canvas__semantic-index">
-                    {String(index + 1).padStart(2, '0')}
+                    {Array.from(item.author.name.trim())[0]?.toLocaleUpperCase(runtimeLocale) ?? '?'}
                   </span>
                   <span className="map-canvas__semantic-copy">
                     <strong>{item.author.name}</strong>
                     <small>
-                      {item.displayPoint.lat.toFixed(2)}, {item.displayPoint.lng.toFixed(2)}
+                      {item.message?.trim()
+                        || `${item.displayPoint.lat.toFixed(2)}, ${item.displayPoint.lng.toFixed(2)}`}
                     </small>
                   </span>
                   {selected ? <span className="map-canvas__selected">{t('map.selected')}</span> : null}

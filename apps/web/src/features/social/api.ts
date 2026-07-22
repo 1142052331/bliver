@@ -1,6 +1,24 @@
 import { friendshipDto, friendshipListItemDto, friendshipRequestDto, relationshipSummaryDto, blockDto } from '@bliver/contracts';
 
-async function json(response: Response): Promise<unknown> { const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(typeof body === 'object' && body && 'code' in body ? String((body as { code?: unknown }).code) : 'SOCIAL_REQUEST_FAILED'); return body; }
+export class SocialApiError extends Error {
+  constructor(readonly code: string, readonly status: number) {
+    super(code);
+    this.name = 'SocialApiError';
+  }
+}
+
+async function json(response: Response): Promise<unknown> {
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new SocialApiError(
+      typeof body === 'object' && body && 'code' in body
+        ? String((body as { code?: unknown }).code)
+        : 'SOCIAL_REQUEST_FAILED',
+      response.status,
+    );
+  }
+  return body;
+}
 function csrfToken(): string | undefined { if (typeof document === 'undefined') return undefined; const value = document.cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith('bliver_csrf=')); return value ? decodeURIComponent(value.slice('bliver_csrf='.length)) : undefined; }
 function mutationHeaders(headers: Record<string, string>): Record<string, string> { const token = csrfToken(); return token ? { ...headers, 'x-csrf-token': token } : headers; }
 export async function fetchFriendships() { const body = await json(await fetch('/api/v1/friendships', { credentials: 'include' })); return (body as { items: unknown[] }).items.map((item) => friendshipListItemDto.parse(item)); }
@@ -10,6 +28,12 @@ export async function requestFriendship(targetUserId: string, idempotencyKey = c
 export async function acceptFriendship(friendshipId: string, idempotencyKey = crypto.randomUUID()) { const response = await fetch(`/api/v1/friendships/${encodeURIComponent(friendshipId)}/accept`, { method: 'POST', credentials: 'include', headers: mutationHeaders({ 'idempotency-key': idempotencyKey }), body: '{}' }); return friendshipDto.parse(await json(response)); }
 export async function rejectFriendship(friendshipId: string, idempotencyKey = crypto.randomUUID()) { const response = await fetch(`/api/v1/friendships/${encodeURIComponent(friendshipId)}/reject`, { method: 'POST', credentials: 'include', headers: mutationHeaders({ 'idempotency-key': idempotencyKey }), body: '{}' }); return friendshipDto.parse(await json(response)); }
 export async function blockUser(userId: string, idempotencyKey = crypto.randomUUID()) { const response = await fetch(`/api/v1/blocks/${encodeURIComponent(userId)}`, { method: 'PUT', credentials: 'include', headers: mutationHeaders({ 'idempotency-key': idempotencyKey }), body: '{}' }); return blockDto.parse(await json(response)); }
-export async function unblockUser(userId: string) { const response = await fetch(`/api/v1/blocks/${encodeURIComponent(userId)}`, { method: 'DELETE', credentials: 'include', headers: mutationHeaders({}) }); if (!response.ok) throw new Error('SOCIAL_REQUEST_FAILED'); }
-export async function removeFriendship(userId: string) { const response = await fetch(`/api/v1/friendships/${encodeURIComponent(userId)}`, { method: 'DELETE', credentials: 'include', headers: mutationHeaders({}) }); if (!response.ok) throw new Error('SOCIAL_REQUEST_FAILED'); }
+export async function unblockUser(userId: string) {
+  const response = await fetch(`/api/v1/blocks/${encodeURIComponent(userId)}`, { method: 'DELETE', credentials: 'include', headers: mutationHeaders({}) });
+  await json(response);
+}
+export async function removeFriendship(userId: string) {
+  const response = await fetch(`/api/v1/friendships/${encodeURIComponent(userId)}`, { method: 'DELETE', credentials: 'include', headers: mutationHeaders({}) });
+  await json(response);
+}
 export async function fetchRelationship(userId: string) { return relationshipSummaryDto.parse(await json(await fetch(`/api/v1/relationships/${encodeURIComponent(userId)}`, { credentials: 'include' }))); }

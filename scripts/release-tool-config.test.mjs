@@ -16,7 +16,7 @@ test('CI requires V2 gates and runs release-tool tests before the V2 release bui
   const releaseBlock = workflow.match(/\n  release:[\s\S]*$/)?.[0] || '';
 
   assert.match(workflow, /cache-dependency-path: package-lock\.json/);
-  assert.match(releaseBlock, /needs: \[v2-foundation\]/);
+  assert.match(releaseBlock, /needs: \[v2-foundation, visual-baselines\]/);
   const toolsIndex = releaseBlock.indexOf('run: npm run test:release-tools');
   const buildIndex = releaseBlock.indexOf('run: npm run render-build');
   assert.ok(toolsIndex >= 0);

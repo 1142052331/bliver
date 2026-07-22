@@ -6,7 +6,7 @@ Bliver is a mobile-first location social network built around a living map. Peop
 
 - Node.js 24.16.0 and npm 11.13.0
 - npm workspaces with strict TypeScript
-- React 19, Vite 8, Tailwind CSS 4, MapLibre GL, and Socket.IO Client in `apps/web`
+- React 19, Vite 8, MapLibre GL, GSAP, and Socket.IO Client in `apps/web`
 - Express 5 and Socket.IO in `apps/api`
 - PostgreSQL 16 with PostGIS, Drizzle migrations, and session/cookie authentication
 - Capacitor 8 Android shell using `apps/web/dist`

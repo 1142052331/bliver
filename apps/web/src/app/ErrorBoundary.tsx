@@ -1,8 +1,10 @@
-import { Button, StatusView } from '@bliver/ui';
+import { Button } from '@bliver/ui';
 import { Component } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { ErrorInfo, ReactNode } from 'react';
+import { AppStatusScene } from './AppStatusScene.js';
 
 interface ErrorBoundaryProps {
   readonly children: ReactNode;
@@ -38,10 +40,11 @@ export function AppErrorBoundary({ children }: { readonly children: ReactNode })
   const { t } = useTranslation();
   const fallback = (
     <main
-      className="app-shell__status-shell app-shell__status-shell--standalone"
+      className="app-shell__status-shell app-shell__status-shell--standalone app-shell__status-shell--scene"
       role="alert"
     >
-      <StatusView
+      <AppStatusScene
+        Icon={TriangleAlert}
         action={
           <Button onClick={() => window.location.reload()}>
             {t('common.retry')}

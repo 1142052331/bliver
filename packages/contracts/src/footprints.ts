@@ -2,10 +2,12 @@ import { z } from './zod.js';
 
 export const footprintVisibility = z.enum(['public', 'friends', 'private']);
 export const footprintLocationPrecision = z.enum(['precise', 'approximate']);
+export const footprintMood = z.enum(['radiant', 'calm', 'tender', 'charged', 'low', 'quiet']);
 export const geoPoint = z.object({ lat: z.number().finite().min(-90).max(90), lng: z.number().finite().min(-180).max(180) }).strict();
 export const footprintPublishedEvent = z.object({ footprintId: z.string().uuid(), authorId: z.string().uuid() }).strict();
-export const footprintDto = z.object({ id: z.string().uuid(), author: z.object({ id: z.string().uuid(), name: z.string() }).passthrough(), displayPoint: geoPoint, visibility: footprintVisibility, locationPrecision: footprintLocationPrecision, message: z.string().optional(), publishedAt: z.string().datetime(), discoveryExpiresAt: z.string().datetime().optional() }).strict();
-export const publishFootprintRequest = z.object({ message: z.string().min(1).max(2_000), mood: z.string().max(64).optional(), privatePoint: geoPoint, visibility: footprintVisibility, locationPrecision: footprintLocationPrecision, mediaAssetIds: z.array(z.string().uuid()).max(12).default([]), discoveryExpiresAt: z.string().datetime().nullable().optional() }).strict();
+export const footprintMediaPreview = z.object({ url: z.string().url(), width: z.number().int().positive(), height: z.number().int().positive() }).strict();
+export const footprintDto = z.object({ id: z.string().uuid(), author: z.object({ id: z.string().uuid(), name: z.string() }).passthrough(), displayPoint: geoPoint, visibility: footprintVisibility, locationPrecision: footprintLocationPrecision, message: z.string().optional(), mood: z.string().max(64).optional(), primaryMedia: footprintMediaPreview.optional(), publishedAt: z.string().datetime(), discoveryExpiresAt: z.string().datetime().optional() }).strict();
+export const publishFootprintRequest = z.object({ message: z.string().min(1).max(2_000), mood: footprintMood.optional(), privatePoint: geoPoint, visibility: footprintVisibility, locationPrecision: footprintLocationPrecision, mediaAssetIds: z.array(z.string().uuid()).max(12).default([]), discoveryExpiresAt: z.string().datetime().nullable().optional() }).strict();
 export const updateFootprintVisibilityRequest = z.object({ visibility: footprintVisibility }).strict();
 export const footprintRecordResponse = z.object({
   id: z.string().uuid(),
@@ -15,7 +17,7 @@ export const footprintRecordResponse = z.object({
   visibility: footprintVisibility,
   locationPrecision: footprintLocationPrecision,
   message: z.string(),
-  mood: z.string().optional(),
+  mood: footprintMood.optional(),
   mediaAssetIds: z.array(z.string().uuid()),
   metadata: z.object({ placeId: z.string().nullable(), regionId: z.string().nullable(), weather: z.unknown().nullable() }).strict(),
   publishedAt: z.string().datetime(),
@@ -56,6 +58,8 @@ export const reportsReason = z.enum(['spam', 'harassment', 'hate', 'privacy', 'i
 export const createReportInput = z.object({ footprintId: z.string().uuid(), reason: reportsReason, details: z.string().trim().max(1_000).optional() }).strict();
 export const reportCreatedResponse = z.object({ id: z.string().uuid(), status: z.literal('open') }).strict();
 export type FootprintDto = z.infer<typeof footprintDto>;
+export type FootprintMood = z.infer<typeof footprintMood>;
+export type FootprintMediaPreview = z.infer<typeof footprintMediaPreview>;
 export type PublishFootprintRequest = z.infer<typeof publishFootprintRequest>;
 export type UpdateFootprintVisibilityRequest = z.infer<typeof updateFootprintVisibilityRequest>;
 export type FootprintRecordResponse = z.infer<typeof footprintRecordResponse>;

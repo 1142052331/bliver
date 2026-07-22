@@ -9,7 +9,7 @@ provider configuration deployable without committed secrets.
 ## 1. Provider and Security Boundary
 
 - [x] Add `maplibre-gl` to `@bliver/web` and expose a small map-style config
-  that defaults to `https://tiles.openfreemap.org/styles/liberty` and accepts
+  that defaults to `https://tiles.openfreemap.org/styles/positron` and accepts
   `VITE_MAP_STYLE_URL` at deployment time.
 - [x] Keep keys and real deployment values out of source control; document the
   variable name only.

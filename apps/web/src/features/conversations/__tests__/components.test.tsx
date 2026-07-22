@@ -27,8 +27,80 @@ const message = {
   eventId: '019f0000-0000-7000-8000-000000000005',
   moderation: { status: 'pending' as const, labels: [] },
 };
+const scrollIntoView = vi.fn();
+
+Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+  configurable: true,
+  value: scrollIntoView,
+});
 
 describe('conversation views', () => {
+  it('preserves history position for typing and incoming messages', () => {
+    scrollIntoView.mockClear();
+    const initialIncoming = { ...message, senderId: bobId };
+    const nextIncoming = {
+      ...message,
+      id: '019f0000-0000-7000-8000-000000000006',
+      eventId: '019f0000-0000-7000-8000-000000000007',
+      senderId: bobId,
+      sentAt: '2026-07-15T08:01:00.000Z',
+    };
+    const { container, rerender } = render(
+      <MessageTimeline
+        currentUserId={aliceId}
+        messages={[initialIncoming]}
+        pending={[]}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    const timeline = container.querySelector<HTMLOListElement>('.message-timeline');
+    expect(timeline).not.toBeNull();
+    Object.defineProperties(timeline, {
+      clientHeight: { configurable: true, value: 300 },
+      scrollHeight: { configurable: true, value: 1_000 },
+      scrollTop: { configurable: true, value: 120, writable: true },
+    });
+    fireEvent.scroll(timeline as HTMLOListElement);
+
+    rerender(
+      <MessageTimeline
+        currentUserId={aliceId}
+        messages={[initialIncoming]}
+        pending={[]}
+        typingLabel="Bob is typing"
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MessageTimeline
+        currentUserId={aliceId}
+        messages={[initialIncoming, nextIncoming]}
+        pending={[]}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MessageTimeline
+        currentUserId={aliceId}
+        messages={[initialIncoming, nextIncoming]}
+        pending={[{
+          content: 'My reply',
+          idempotencyKey: 'own-pending-message',
+          status: 'sending',
+        }]}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('My reply')).toBeVisible();
+  });
+
   it('links every conversation by id and exposes greeting and unread states', () => {
     render(
       <MemoryRouter>

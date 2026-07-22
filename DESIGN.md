@@ -154,3 +154,25 @@ Motion lasts 150–250ms and communicates state changes. The signature “footpr
 **Don't** let travel-journal nostalgia weaken live interaction, or let a dark radar aesthetic make everyday use tiring.
 
 **Don't** hide safety controls in overflow menus when a user is interacting with strangers. Report, block, visibility, and message permissions must be easy to find.
+
+## Spatial Cinema Extension
+
+**The Moment-First Rule.** A footprint is a human moment before it is a coordinate. Authorized media is the primary material; the coordinate field is the fallback and metadata layer. `MomentScene` is the shared visual contract for map previews, Activity, detail, and Memories.
+
+**The Three Scene Contracts.** Spatial means the map owns the canvas. Story means one moment owns the stage and the rest of the stream supports it. Work means information density and task continuity win over cinematic decoration. A route must not borrow another contract's transition language without a user-facing reason.
+
+**The Shared-Anchor Rule.** Map marker, preview media, detail media, and publish confirmation share one visual anchor. Text and controls enter after the anchor arrives; an entire card must never be non-uniformly stretched as a transition shortcut.
+
+**The Marker-Triggered Reveal Rule.** An interactive map opens in an idle state with no automatic footprint card or visible content rail. A single Moment Ticket opens one ChronoLens; a stacked ticket opens a Spatial Film Deck. Tapping empty geography, deliberately moving the map, or closing the surface returns to the idle map.
+
+**The Moment Ticket Rule.** Footprint markers are compact, non-circular moment frames with a 44px interaction target. Media and spatial-only moments remain distinguishable by shape, while clusters use visibly stacked tickets and a count. Forest and sage communicate focus; coral remains reserved for creating and publishing.
+
+**The Spatial Film Deck Rule.** A group gives one moment the stage and exposes only a restrained preview of the next card. It uses native horizontal momentum and snap, never avatar circles, pagination dots, a contact-list rail, or a decorative glass container. The semantic footprint list remains available to assistive technology and degraded maps without becoming the default visual surface.
+
+**The Motion Ladder.** Micro interactions use 150ms, state changes 220ms, route changes 420ms, and cinematic moments 760ms only for publishing or a deliberate spatial focus. Work routes use the quiet state duration. Every timeline is interruptible, cleaned up on unmount, and has an immediate reduced-motion state.
+
+**The Material Rule.** Map style, canvas, matte, surface, overlay, and scrim are named materials with shared tokens. Do not simulate the brand by filtering an entire third-party map canvas or by adding a new translucent panel to every page.
+
+**The Mobile Action Rule.** At 390x844, the next meaningful action must remain above the bottom Dock or in a keyboard-aware action bar. Long tables scroll inside an explicit region; core publish, retry, reply, block, and report actions never disappear behind navigation.
+
+**The Content Test.** If all decorative axes, reticles, and coordinates are hidden, a screenshot should still be recognizably Bliver because of its map, moment material, hierarchy, and state behavior.

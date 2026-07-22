@@ -14,6 +14,12 @@ export interface FootprintAuthorInput {
   readonly avatarUrl?: string;
 }
 
+export interface FootprintMediaPreviewInput {
+  readonly url: string;
+  readonly width: number;
+  readonly height: number;
+}
+
 export interface FootprintPolicyInput {
   readonly id: FootprintId;
   readonly authorId: UserId;
@@ -25,6 +31,8 @@ export interface FootprintPolicyInput {
   readonly discoveryExpiresAt: Date | null;
   readonly moderationHiddenAt?: Date | null;
   readonly message?: string;
+  readonly mood?: string;
+  readonly primaryMedia?: FootprintMediaPreviewInput;
 }
 
 export type FootprintPublicPolicyInput = FootprintPolicyInput;
@@ -46,6 +54,8 @@ export interface FootprintDto {
   readonly publishedAt: string;
   readonly discoveryExpiresAt?: string;
   readonly message?: string;
+  readonly mood?: string;
+  readonly primaryMedia?: FootprintMediaPreviewInput;
 }
 
 export interface OwnerFootprintDto extends FootprintDto {
@@ -108,6 +118,10 @@ function toDto(record: FootprintPolicyInput): FootprintDto {
       ? { discoveryExpiresAt: record.discoveryExpiresAt.toISOString() }
       : {}),
     ...(record.message !== undefined ? { message: record.message } : {}),
+    ...(record.mood !== undefined ? { mood: record.mood } : {}),
+    ...(record.primaryMedia
+      ? { primaryMedia: { ...record.primaryMedia } }
+      : {}),
   };
 }
 

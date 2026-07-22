@@ -16,6 +16,7 @@ export type {
   BlockRelationshipPort,
   FootprintAuthorInput,
   FootprintDto,
+  FootprintMediaPreviewInput,
   FootprintOwnerPolicyInput,
   FootprintPolicyInput,
   FootprintPublicPolicyInput,

@@ -1,0 +1,144 @@
+.scene-director {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  isolation: isolate;
+}
+
+.scene-director__content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  transform-origin: center center;
+}
+
+.app-shell__main > .scene-director {
+  min-height: calc(
+    100dvh - var(--app-shell-header-height) - var(--app-shell-nav-height)
+  );
+}
+
+.app-shell--story .scene-director__content,
+.app-shell--work .scene-director__content,
+.app-shell--content .scene-director__content {
+  display: flow-root;
+}
+
+.scene-director__aperture {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid rgb(23 59 49 / 26%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scene-director__horizon,
+.scene-director__meridian {
+  position: absolute;
+  display: block;
+  background: rgb(23 59 49 / 42%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scene-director__horizon {
+  top: 50%;
+  right: 5%;
+  left: 5%;
+  height: 1px;
+}
+
+.scene-director__meridian {
+  top: 5%;
+  bottom: 5%;
+  left: 50%;
+  width: 1px;
+}
+
+.scene-director__reticle {
+  position: absolute;
+  top: calc(50% - 13px);
+  left: calc(50% - 13px);
+  display: block;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgb(23 59 49 / 54%);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scene-director__reticle::before,
+.scene-director__reticle::after {
+  position: absolute;
+  background: var(--bliver-color-forest);
+  content: '';
+}
+
+.scene-director__reticle::before {
+  top: 50%;
+  right: -5px;
+  left: -5px;
+  height: 1px;
+}
+
+.scene-director__reticle::after {
+  top: -5px;
+  bottom: -5px;
+  left: 50%;
+  width: 1px;
+}
+
+.scene-director--spatial,
+.scene-director--spatial > .scene-director__content {
+  height: 100%;
+}
+
+.scene-director--spatial > .scene-director__content {
+  transform-origin: 50% 58%;
+}
+
+.scene-director--auth > .scene-director__content {
+  transform-origin: 68% 50%;
+}
+
+.scene-director--content > .scene-director__content {
+  transform-origin: 50% 32%;
+}
+
+.scene-director--work > .scene-director__content {
+  transform-origin: 50% 24%;
+}
+
+.scene-director--content .scene-director__aperture {
+  border-color: rgb(23 59 49 / 14%);
+}
+
+.scene-director--work .scene-director__aperture {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-director__content,
+  .scene-director__aperture,
+  .scene-director__horizon,
+  .scene-director__meridian,
+  .scene-director__reticle {
+    opacity: revert;
+    transform: none;
+    clip-path: none;
+    will-change: auto;
+  }
+
+  .scene-director__aperture,
+  .scene-director__horizon,
+  .scene-director__meridian,
+  .scene-director__reticle {
+    opacity: 0;
+  }
+}

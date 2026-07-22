@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildOpenApiDocument } from '../openapi.js';
-import { authResponse, loginRequest, registerRequest, sessionDto } from '../index.js';
+import { authResponse, loginRequest, publicProfile, publicProfilesResponse, registerRequest, sessionDto } from '../index.js';
 
 describe('identity contracts', () => {
   it('validates auth input and keeps private credentials out of DTOs', () => {
@@ -10,9 +10,20 @@ describe('identity contracts', () => {
     expect(parsed).not.toHaveProperty('passwordHash');
     expect(sessionDto.shape).toBeDefined();
   });
+  it('exposes a strict public profile without account-private fields', () => {
+    const profile = {
+      id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70',
+      username: 'alice',
+      displayName: 'Alice',
+    };
+    expect(publicProfile.parse(profile)).toEqual(profile);
+    expect(publicProfilesResponse.parse({ items: [profile] })).toEqual({ items: [profile] });
+    expect(publicProfile.safeParse({ ...profile, email: 'alice@example.com' }).success).toBe(false);
+  });
   it('publishes identity paths in OpenAPI', () => {
     const document = buildOpenApiDocument() as { paths: Record<string, unknown> };
     expect(document.paths['/api/v1/auth/login']).toBeDefined();
+    expect(document.paths['/api/v1/users']).toBeDefined();
     expect(document.paths['/api/v1/users/me']).toBeDefined();
   });
 });

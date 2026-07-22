@@ -7,6 +7,7 @@ export interface V2TestFootprint {
   readonly visibility: 'public' | 'friends' | 'private';
   readonly locationPrecision: 'precise' | 'approximate';
   readonly message: string;
+  readonly mood?: string;
   readonly publishedAt: string;
   readonly discoveryExpiresAt: string;
 }
@@ -19,6 +20,7 @@ export const V2_TEST_FOOTPRINTS: readonly V2TestFootprint[] = [
     visibility: 'public',
     locationPrecision: 'approximate',
     message: 'Public river morning',
+    mood: 'radiant',
     publishedAt: V2_TEST_NOW,
     discoveryExpiresAt: '2099-07-16T08:00:00.000Z',
   },
@@ -29,6 +31,7 @@ export const V2_TEST_FOOTPRINTS: readonly V2TestFootprint[] = [
     visibility: 'friends',
     locationPrecision: 'precise',
     message: 'Friends at the harbor',
+    mood: 'calm',
     publishedAt: '2026-07-15T07:00:00.000Z',
     discoveryExpiresAt: '2099-07-16T07:00:00.000Z',
   },
@@ -39,6 +42,7 @@ export const V2_TEST_FOOTPRINTS: readonly V2TestFootprint[] = [
     visibility: 'private',
     locationPrecision: 'precise',
     message: 'Private garden note',
+    mood: 'quiet',
     publishedAt: '2026-07-15T06:00:00.000Z',
     discoveryExpiresAt: '2099-07-16T06:00:00.000Z',
   },

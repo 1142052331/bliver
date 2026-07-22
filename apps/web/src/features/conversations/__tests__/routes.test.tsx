@@ -29,6 +29,8 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith('/users/me')) return ok({ id: currentUserId, username: 'river', displayName: 'River', email: null, roles: ['user'] });
+    if (url.includes('/users?ids=')) return ok({ items: [{ id: peerUserId, username: 'harbor', displayName: 'Harbor Light' }] });
+    if (url.endsWith('/friendships')) return ok({ items: [] });
     if (url.endsWith('/conversations')) return ok({ items: [conversation] });
     if (url.includes('/messages?')) return ok({ items: [greeting] });
     if (url.endsWith('/typing')) return ok({ items: [{ conversationId, userId: peerUserId, active: true, expiresAt: '2099-07-15T08:00:00.000Z' }] });
@@ -50,7 +52,7 @@ describe('message routes', () => {
   it('opens a deep-linked incoming greeting and replies to unlock it', async () => {
     renderRoutes(`/messages/${conversationId}`);
     expect(await screen.findByText('Hello from the park')).toBeVisible();
-    expect(await screen.findByText('Person 019f0000 is typing')).toBeVisible();
+    expect(await screen.findByText('Harbor Light is typing')).toBeVisible();
     fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Welcome' } });
     fireEvent.click(screen.getByRole('button', { name: 'Reply and unlock' }));
     expect(await screen.findByText('Conversation unlocked.')).toBeVisible();

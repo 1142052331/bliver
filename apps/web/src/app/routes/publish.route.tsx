@@ -3,6 +3,7 @@ import {
   publishFootprintRequest,
   type PublishFootprintRequest,
 } from '@bliver/contracts';
+import { useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 
 import {
@@ -53,11 +54,13 @@ export function Component() {
     lat !== null && lng !== null
       ? pointFrom({ lat: Number(lat), lng: Number(lng) })
       : undefined;
-  const initialPoint = statePoint ?? queryPoint;
+  const [initialPoint] = useState(() => statePoint ?? queryPoint);
+  const [mapSearch] = useState(() => location.search);
 
   return (
     <PublishFootprintRoute
       {...(initialPoint ? { initialPoint } : {})}
+      mapHref={`/map${mapSearch}`}
       publish={publishFootprint}
       signUpload={uploadMedia}
     />

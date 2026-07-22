@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { StatusView } from '@bliver/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LoaderCircle, MapPinned } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   createBrowserRouter,
   createMemoryRouter,
   Navigate,
   RouterProvider,
-  useLocation,
   Link,
 } from 'react-router-dom';
+import type { InitialEntry } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
+import { AppStatusScene } from './AppStatusScene.js';
+import { LoginRoute } from '../features/auth/LoginRoute.js';
 
 const lazyMapRoute = () => import('./routes/map.route.js');
 const lazyActivityRoute = () => import('./routes/activity.route.js');
@@ -30,8 +32,9 @@ const lazyAuthGuardRoute = () => import('./routes/auth-guard.route.js');
 function NotFound() {
   const { t } = useTranslation();
   return (
-    <div className="app-shell__status-shell">
-      <StatusView
+    <div className="app-shell__status-shell app-shell__status-shell--scene">
+      <AppStatusScene
+        Icon={MapPinned}
         action={
           <Link className="app-shell__status-link" to="/map">
             {t('nav.map')}
@@ -44,41 +47,18 @@ function NotFound() {
   );
 }
 
-function SessionExpired() {
-  const { t } = useTranslation();
-  const location = useLocation();
-  const destination =
-    typeof location.state?.from === 'string' ? location.state.from : '/map';
-
-  return (
-    <div className="app-shell__status-shell">
-      <StatusView
-        action={
-          <Link
-            className="app-shell__status-link"
-            state={{ from: destination }}
-            to="/login"
-          >
-            {t('session.signIn')}
-          </Link>
-        }
-        body={t('session.expiredBody')}
-        title={t('session.expiredTitle')}
-      />
-    </div>
-  );
-}
-
 function RouteLoading() {
   const { t } = useTranslation();
 
   return (
     <div
       aria-live="polite"
-      className="app-shell__status-shell"
+      className="app-shell__status-shell app-shell__status-shell--scene"
       role="status"
     >
-      <StatusView
+      <AppStatusScene
+        Icon={LoaderCircle}
+        busy
         body={t('session.loadingBody')}
         title={t('common.loading')}
       />
@@ -95,9 +75,23 @@ const routes = [
     children: [
       { index: true, element: <Navigate to="/map" replace /> },
       {
-        path: 'map',
         lazy: lazyMapRoute,
         hydrateFallbackElement: routeLoadingElement,
+        children: [
+          { path: 'map', element: null },
+          {
+            path: 'publish',
+            lazy: lazyAuthGuardRoute,
+            hydrateFallbackElement: routeLoadingElement,
+            children: [
+              {
+                index: true,
+                lazy: lazyPublishRoute,
+                hydrateFallbackElement: routeLoadingElement,
+              },
+            ],
+          },
+        ],
       },
       {
         path: 'activity',
@@ -155,18 +149,6 @@ const routes = [
         hydrateFallbackElement: routeLoadingElement,
       },
       {
-        path: 'publish',
-        lazy: lazyAuthGuardRoute,
-        hydrateFallbackElement: routeLoadingElement,
-        children: [
-          {
-            index: true,
-            lazy: lazyPublishRoute,
-            hydrateFallbackElement: routeLoadingElement,
-          },
-        ],
-      },
-      {
         path: 'admin',
         lazy: lazyAuthGuardRoute,
         hydrateFallbackElement: routeLoadingElement,
@@ -178,14 +160,17 @@ const routes = [
           },
         ],
       },
-      { path: 'session-expired', element: <SessionExpired /> },
+      {
+        path: 'session-expired',
+        element: <LoginRoute />,
+      },
       { path: '*', element: <NotFound /> },
     ],
   },
 ];
 
 export interface AppRouterProps {
-  readonly initialEntries?: readonly string[];
+  readonly initialEntries?: readonly InitialEntry[];
 }
 
 export function AppRouter({ initialEntries }: AppRouterProps) {

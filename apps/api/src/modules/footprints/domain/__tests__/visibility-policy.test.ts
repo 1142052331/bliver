@@ -204,6 +204,15 @@ describe('FootprintVisibilityPolicy access table', () => {
 });
 
 describe('FootprintVisibilityPolicy DTO boundaries', () => {
+  it('preserves mood without exposing private location data', async () => {
+    const record = footprint({ mood: 'tender' });
+    const policy = createPolicy([record]);
+
+    await expect(policy.toPublicDto(null, record)).resolves.toMatchObject({
+      mood: 'tender',
+    });
+  });
+
   it('serializes a public DTO without the private point', async () => {
     const record = footprint();
     const policy = createPolicy([record]);
@@ -237,6 +246,24 @@ describe('FootprintVisibilityPolicy DTO boundaries', () => {
 
     expect(first.displayPoint).toEqual(record.displayPoint);
     expect(second.displayPoint).toEqual(first.displayPoint);
+  });
+
+  it('projects media only after the footprint read decision succeeds', async () => {
+    const primaryMedia = {
+      url: 'https://res.cloudinary.com/demo/image/upload/v42/bliver/asset.jpg',
+      width: 1600,
+      height: 1200,
+    };
+    const readable = footprint({ primaryMedia });
+    const privateRecord = footprint({ visibility: 'private', primaryMedia });
+    const policy = createPolicy([readable, privateRecord]);
+
+    const dto = await policy.toPublicDto(null, readable);
+    expect(dto.primaryMedia).toEqual(primaryMedia);
+    expect(dto.primaryMedia).not.toBe(primaryMedia);
+    await expect(policy.toPublicDto(null, privateRecord)).rejects.toBeInstanceOf(
+      FootprintAccessDeniedError,
+    );
   });
 
   it('rejects public serialization when the actor cannot read the record', async () => {

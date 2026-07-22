@@ -62,12 +62,13 @@ describe('footprint application commands', () => {
     const repositories = createMemoryFootprintRepositories();
     const provider = providers();
     const publish = new PublishFootprint({ repositories, providers: provider });
-    const input = { actorId: ownerId, idempotencyKey: 'publish-2', message: 'Replay', privatePoint: point, visibility: 'private' as const, locationPrecision: 'precise' as const, mediaAssetIds: [] };
+    const input = { actorId: ownerId, idempotencyKey: 'publish-2', message: 'Replay', mood: 'calm', privatePoint: point, visibility: 'private' as const, locationPrecision: 'precise' as const, mediaAssetIds: [] };
     const first = await publish.execute(input);
     const second = await publish.execute(input);
     expect(second).toEqual(first);
     expect(provider.geocoding.resolve).toHaveBeenCalledOnce();
     await expect(publish.execute({ ...input, message: 'Different' })).rejects.toBeInstanceOf(FootprintConflictError);
+    await expect(publish.execute({ ...input, mood: 'radiant' })).rejects.toBeInstanceOf(FootprintConflictError);
   });
 
   it('publishes safely when enrichment providers fail', async () => {

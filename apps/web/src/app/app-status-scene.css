@@ -1,0 +1,402 @@
+.app-shell__status-shell.app-shell__status-shell--scene {
+  place-items: stretch;
+  padding: 0;
+  background: var(--bliver-color-paper);
+}
+
+.app-status-scene.app-status-scene--work {
+  position: relative;
+  display: grid;
+  align-self: stretch;
+  justify-self: stretch;
+  inline-size: min(68rem, 100%);
+  min-block-size: min(
+    34rem,
+    calc(
+      100dvh - var(--app-shell-header-height, 0px) -
+        var(--app-shell-nav-height, 0px) - 24px
+    )
+  );
+  grid-template-columns: minmax(18rem, 0.74fr) minmax(0, 1.26fr);
+  overflow: clip;
+  border-block: 1px solid var(--bliver-color-border);
+  background: var(--bliver-color-surface);
+  isolation: isolate;
+}
+
+.app-status-scene--work .app-status-scene__field {
+  position: relative;
+  z-index: 0;
+  min-block-size: 22rem;
+  overflow: hidden;
+  border-inline-end: 1px solid var(--bliver-color-border);
+  background: var(--bliver-color-sage-soft);
+  color: var(--bliver-color-forest);
+  isolation: isolate;
+  transform-origin: center center;
+}
+
+.app-status-scene--work .app-status-scene__field::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0 49.8%, rgb(23 59 49 / 7%) 50%, transparent 50.2%),
+    linear-gradient(transparent 0 49.8%, rgb(23 59 49 / 6%) 50%, transparent 50.2%);
+  background-size: 72px 72px;
+  content: '';
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.app-status-scene--work .app-status-scene__atlas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.app-status-scene--work .app-status-scene__district {
+  fill: var(--bliver-color-forest);
+  opacity: 0.94;
+  transform-box: fill-box;
+}
+
+.app-status-scene--work .app-status-scene__network,
+.app-status-scene--work .app-status-scene__blocks {
+  fill: none;
+  stroke: var(--bliver-color-forest-soft);
+  stroke-width: 1.15;
+  opacity: 0.27;
+  vector-effect: non-scaling-stroke;
+}
+
+.app-status-scene--work .app-status-scene__blocks {
+  stroke: var(--bliver-color-sage);
+  stroke-width: 1;
+  opacity: 0.4;
+}
+
+.app-status-scene--work .app-status-scene__route {
+  fill: none;
+  stroke: var(--bliver-color-forest-soft);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  vector-effect: non-scaling-stroke;
+}
+
+.app-status-scene--work .app-status-scene__route--signal {
+  stroke: var(--bliver-color-sage);
+}
+
+.app-status-scene--work .app-status-scene__route-stop {
+  fill: var(--bliver-color-paper);
+  stroke: var(--bliver-color-forest);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.app-status-scene--work .app-status-scene__field-meta {
+  position: absolute;
+  z-index: 4;
+  right: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.app-status-scene--work .app-status-scene__field-meta {
+  top: 20px;
+}
+
+.app-status-scene--work .app-status-scene__code,
+.app-status-scene--work .app-status-scene__coordinates {
+  position: static;
+  margin: 0;
+  color: var(--bliver-color-forest-soft);
+  font-size: 0.625rem;
+  font-weight: 720;
+}
+
+.app-status-scene--work .app-status-scene__coordinates {
+  margin-inline-start: auto;
+  color: var(--bliver-color-ink-muted);
+  text-align: end;
+}
+
+.app-status-scene--work .app-status-scene__point-ring,
+.app-status-scene--work .app-status-scene__point {
+  position: absolute;
+  z-index: 3;
+  top: 46.4%;
+  left: 54.7%;
+  display: grid;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.app-status-scene--work .app-status-scene__point-ring {
+  inline-size: 92px;
+  block-size: 92px;
+  border: 1px solid rgb(229 238 233 / 76%);
+  border-radius: 50%;
+}
+
+.app-status-scene--work .app-status-scene__point-ring::before,
+.app-status-scene--work .app-status-scene__point-ring::after {
+  position: absolute;
+  display: block;
+  background: var(--bliver-color-sage);
+  content: '';
+  opacity: 0.68;
+}
+
+.app-status-scene--work .app-status-scene__point-ring::before {
+  inset: 50% -18px auto;
+  block-size: 1px;
+}
+
+.app-status-scene--work .app-status-scene__point-ring::after {
+  inset: -18px auto 50%;
+  inline-size: 1px;
+}
+
+.app-status-scene--work .app-status-scene__point {
+  inline-size: 58px;
+  block-size: 58px;
+  place-items: center;
+  border: 1px solid var(--bliver-color-forest);
+  border-radius: 50%;
+  background: var(--bliver-color-paper);
+  color: var(--bliver-color-forest);
+  box-shadow: 0 0 0 7px rgb(229 238 233 / 25%);
+}
+
+.app-status-scene--work .app-status-scene__point svg {
+  inline-size: 21px;
+  block-size: 21px;
+  stroke-width: 1.75;
+}
+
+.app-status-scene--work .app-status-scene__message {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-inline-size: 0;
+  align-content: center;
+  padding: clamp(28px, 5vw, 56px);
+  background: var(--bliver-color-surface);
+}
+
+.app-status-scene--work .app-status-scene__message-rail {
+  display: grid;
+  grid-template-columns: 24px auto;
+  align-items: center;
+  justify-content: start;
+  gap: 9px;
+  max-inline-size: 36rem;
+  margin-block-end: 22px;
+  color: var(--bliver-color-forest-soft);
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.app-status-scene--work .app-status-scene__message-signal {
+  display: block;
+  inline-size: 24px;
+  block-size: 2px;
+  background: var(--bliver-color-forest);
+}
+
+.app-status-scene--work .app-status-scene__message-code {
+  margin: 0;
+  color: var(--bliver-color-forest-soft);
+  font-size: 0.6875rem;
+  font-weight: 720;
+  letter-spacing: 0;
+}
+
+.app-status-scene--work .app-status-scene__message-content {
+  position: relative;
+  max-inline-size: 36rem;
+}
+
+.app-status-scene--work .app-status-scene__message-content .bliver-status {
+  display: grid;
+  min-block-size: 0;
+  align-content: start;
+  justify-content: start;
+  justify-items: start;
+  padding: 0;
+  background: transparent;
+  color: var(--bliver-color-ink);
+  text-align: start;
+}
+
+.app-status-scene--work .app-status-scene__message-content .bliver-status__title {
+  max-inline-size: 18ch;
+  margin: 0;
+  color: var(--bliver-color-forest);
+  font-size: clamp(1.75rem, 3.3vw, 2.1rem);
+  font-weight: 770;
+  line-height: 1.12;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.app-status-scene--work .app-status-scene__message-content .bliver-status__body {
+  max-inline-size: 43ch;
+  margin: 14px 0 0;
+  color: var(--bliver-color-ink-muted);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.app-status-scene--work .app-status-scene__message-content .bliver-status__action {
+  justify-content: flex-start;
+  gap: 10px;
+  margin-block-start: 24px;
+}
+
+.app-status-scene--work .app-status-scene__message-content .app-shell__status-link,
+.app-status-scene--work .app-status-scene__message-content .bliver-button {
+  min-block-size: 48px;
+  border: 1px solid var(--bliver-color-forest);
+  border-radius: var(--bliver-radius-control);
+  padding-inline: 20px;
+  background: var(--bliver-color-forest);
+  color: var(--bliver-color-surface);
+  font-size: 0.9375rem;
+  font-weight: 720;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.app-status-scene--work .app-status-scene__message-content .app-shell__status-link:hover,
+.app-status-scene--work .app-status-scene__message-content .bliver-button:hover {
+  background: var(--bliver-color-forest-soft);
+  color: var(--bliver-color-surface);
+}
+
+.app-status-scene--work .app-status-scene__measure {
+  display: block;
+  inline-size: 6rem;
+  block-size: 1px;
+  margin-block-start: 28px;
+  background: var(--bliver-color-border);
+  transform-origin: left center;
+}
+
+@media (max-width: 63.99rem) {
+  .app-status-scene.app-status-scene--work {
+    grid-template-columns: minmax(15rem, 0.68fr) minmax(0, 1.32fr);
+  }
+
+  .app-status-scene--work .app-status-scene__message {
+    padding: 32px 28px;
+  }
+}
+
+@media (max-width: 47.99rem) {
+  .app-status-scene.app-status-scene--work {
+    inline-size: 100%;
+    align-self: stretch;
+    justify-self: stretch;
+    block-size: auto;
+    min-block-size: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: 184px auto;
+    border-block: 0;
+  }
+
+  .app-status-scene--work .app-status-scene__field {
+    min-block-size: 184px;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--bliver-color-border);
+  }
+
+  .app-status-scene--work .app-status-scene__field-meta {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+  }
+
+  .app-status-scene--work .app-status-scene__point-ring,
+  .app-status-scene--work .app-status-scene__point {
+    top: 49%;
+    left: 66%;
+  }
+
+  .app-status-scene--work .app-status-scene__point-ring {
+    inline-size: 76px;
+    block-size: 76px;
+  }
+
+  .app-status-scene--work .app-status-scene__point {
+    inline-size: 50px;
+    block-size: 50px;
+  }
+
+  .app-status-scene--work .app-status-scene__message {
+    min-block-size: 0;
+    align-content: start;
+    padding: 24px 20px max(28px, calc(var(--bliver-safe-area-bottom) + 20px));
+  }
+
+  .app-status-scene--work .app-status-scene__message-rail {
+    margin-block-end: 18px;
+  }
+
+  .app-status-scene--work .app-status-scene__message-content .bliver-status__title {
+    max-inline-size: 16ch;
+    font-size: 1.65rem;
+    line-height: 1.14;
+  }
+
+  .app-status-scene--work .app-status-scene__message-content .bliver-status__body {
+    max-inline-size: 40ch;
+    margin-block-start: 11px;
+    font-size: 0.9375rem;
+  }
+
+  .app-status-scene--work .app-status-scene__message-content .bliver-status__action {
+    inline-size: 100%;
+    margin-block-start: 18px;
+  }
+
+  .app-status-scene--work .app-status-scene__message-content .app-shell__status-link,
+  .app-status-scene--work .app-status-scene__message-content .bliver-button {
+    inline-size: 100%;
+  }
+
+  .app-status-scene--work .app-status-scene__measure {
+    margin-block-start: 22px;
+  }
+
+}
+
+@media (max-width: 22rem) {
+  .app-status-scene--work .app-status-scene__coordinates {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-status-scene--work *,
+  .app-status-scene--work *::before,
+  .app-status-scene--work *::after {
+    transition: none !important;
+  }
+}

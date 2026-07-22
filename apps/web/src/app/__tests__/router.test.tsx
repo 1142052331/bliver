@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { InitialEntry } from 'react-router-dom';
 
 import { AppRouter } from '../router.js';
 import { BliverI18nProvider } from '../../i18n/I18nProvider.js';
@@ -14,7 +15,7 @@ vi.mock('../../features/map/MapCanvas.js', () => ({
   MapCanvas: () => <div data-testid="map-canvas" />,
 }));
 
-function renderRouter(path: string | undefined, locale: AppLocale = 'en') {
+function renderRouter(path: InitialEntry | undefined, locale: AppLocale = 'en') {
   return render(
     <BliverI18nProvider instance={createBliverI18n(locale)}>
       <AppRouter {...(path ? { initialEntries: [path] } : {})} />
@@ -51,18 +52,13 @@ describe('V2 web route contract', () => {
         ),
       ).toBeVisible();
     }
-    if (
-      path === '/map' ||
-      path === '/activity' ||
-      path === '/people' ||
-      path === '/messages' ||
-      path.startsWith('/footprints/')
-    ) {
-      expect(screen.queryByText(/pending migration/i)).not.toBeInTheDocument();
-    } else {
-      expect(screen.getByText(/pending migration/i)).toBeVisible();
+    expect(screen.queryByText(/pending migration/i)).not.toBeInTheDocument();
+    if (path === '/profile/test-user') {
+      expect(
+        screen.getByText('Organizing your footprints and photos'),
+      ).toBeVisible();
     }
-  });
+  }, 10_000);
 
   it.each(['/me', '/notifications', '/admin'])(
     'guards %s behind an authenticated session',
@@ -71,6 +67,15 @@ describe('V2 web route contract', () => {
       expect(await screen.findByText('Loading session')).toBeVisible();
     },
   );
+
+  it('does not expose the notification center under an account-settings alias', async () => {
+    renderRouter('/settings');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Page not found' }),
+    ).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Notifications' })).not.toBeInTheDocument();
+  });
 
   it('exposes four navigation destinations and separate shell commands', async () => {
     renderRouter('/map');
@@ -111,7 +116,27 @@ describe('V2 web route contract', () => {
     ).toBeVisible();
     expect(
       screen.getByRole('link', { name: 'サインインへ進む' }),
-    ).toHaveAttribute('href', '/login');
+    ).toHaveAttribute('href', '/login?returnTo=%2Fmap');
+    expect(
+      screen.getByText(/移動先と未投稿の足跡下書き/),
+    ).toBeVisible();
+    expect(screen.queryByText('SESSION / 401')).not.toBeInTheDocument();
+  });
+
+  it('carries the interrupted destination in both the login URL and route state', () => {
+    const destination = '/publish?lat=31.2&lng=121.5';
+    renderRouter({
+      pathname: '/session-expired',
+      state: { from: destination },
+    });
+
+    const link = screen.getByRole('link', { name: 'Continue to sign in' });
+    expect(link).toHaveAttribute(
+      'href',
+      `/login?returnTo=${encodeURIComponent(destination)}`,
+    );
+    expect(screen.getByText(/destination and any unsent footprint draft/)).toBeVisible();
+    expect(screen.queryByText(/SESSION \/ 401|SYNC \/ 001|AUTH \/ 001/)).not.toBeInTheDocument();
   });
 
   it('renders the not-found state in Japanese', () => {

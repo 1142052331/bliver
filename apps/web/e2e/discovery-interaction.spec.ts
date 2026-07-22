@@ -19,6 +19,14 @@ async function authenticatedSession(page: Page, sessionId: string) {
   await page.context().addCookies([{ name: 'bliver_session', value: sessionId, domain: '127.0.0.1', path: '/' }, { name: 'bliver_csrf', value: 'e2e-csrf-token', domain: '127.0.0.1', path: '/' }]);
 }
 
+test('local preview server exposes the assembled Activity feed', async ({ page }) => {
+  await page.goto('/activity');
+
+  await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+  await expect(page.getByText('Shibuya after the rain', { exact: true })).toBeVisible();
+  await expect(page.locator('.activity-state')).toHaveCount(0);
+});
+
 test('guest discovery keeps a pending reaction through authentication', async ({ page }) => {
   await activity(page);
   let reactionAttempts = 0;

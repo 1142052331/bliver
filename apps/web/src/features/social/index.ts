@@ -1,2 +1,2 @@
 export * from './PeopleRoute.js';
-export { blockUser, unblockUser } from './api.js';
+export { blockUser, fetchFriendships, SocialApiError, unblockUser } from './api.js';

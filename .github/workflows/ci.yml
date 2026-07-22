@@ -80,10 +80,24 @@ jobs:
             test-results/
           if-no-files-found: error
 
+  visual-baselines:
+    name: Windows visual baselines
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: npx playwright test apps/web/e2e/visual-baselines.spec.ts --project=mobile-390x844
+
   release:
     name: V2 release candidate build
     runs-on: ubuntu-latest
-    needs: [v2-foundation]
+    needs: [v2-foundation, visual-baselines]
     env:
       RELEASE_SHA: ${{ github.sha }}
     steps:

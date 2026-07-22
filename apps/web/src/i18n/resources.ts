@@ -1,11 +1,21 @@
 import type { AppLocale } from './locale.js';
+import { activityTranslations } from '../features/activity/translations.js';
+import { authTranslations } from '../features/auth/translations.js';
+import { conversationTranslations } from '../features/conversations/translations.js';
+import { footprintTranslations } from '../features/footprints/translations.js';
+import { memoriesTranslations } from '../features/memories/translations.js';
+import { adminTranslations } from '../features/moderation/translations.js';
+import { notificationTranslations } from '../features/notifications/translations.js';
+import { socialTranslations } from '../features/social/translations.js';
 
 export interface FoundationTranslation {
+  readonly [namespace: string]: unknown;
   readonly common: {
     readonly brand: string;
     readonly notifications: string;
     readonly language: string;
     readonly primaryNavigation: string;
+    readonly skipToContent: string;
     readonly retry: string;
     readonly close: string;
     readonly loading: string;
@@ -15,6 +25,8 @@ export interface FoundationTranslation {
     readonly activity: string;
     readonly messages: string;
     readonly me: string;
+    readonly people: string;
+    readonly admin: string;
   };
   readonly actions: {
     readonly publish: string;
@@ -58,6 +70,10 @@ export interface FoundationTranslation {
     readonly footprintCount_other: string;
     readonly footprintBy: string;
     readonly selected: string;
+    readonly closePreview: string;
+    readonly momentWithoutMessage: string;
+    readonly momentDetails: string;
+    readonly anonymousInitial: string;
     readonly staticReducedTitle: string;
     readonly staticUnavailableTitle: string;
     readonly staticSummary: string;
@@ -91,6 +107,7 @@ const en = {
     notifications: 'Notifications',
     language: 'Language',
     primaryNavigation: 'Primary navigation',
+    skipToContent: 'Skip to content',
     retry: 'Try again',
     close: 'Close',
     loading: 'Loading',
@@ -100,6 +117,8 @@ const en = {
     activity: 'Activity',
     messages: 'Messages',
     me: 'My space',
+    people: 'People',
+    admin: 'Admin',
   },
   actions: { publish: 'Leave footprint' },
   map: {
@@ -141,6 +160,10 @@ const en = {
     footprintCount_other: '{{count}} footprints',
     footprintBy: 'Footprint by {{name}}',
     selected: 'Selected',
+    closePreview: 'Close footprint preview',
+    momentWithoutMessage: 'A moment was left at this place.',
+    momentDetails: 'Footprint details',
+    anonymousInitial: '?',
     staticReducedTitle: 'Calm map view',
     staticUnavailableTitle: 'Interactive map unavailable',
     staticSummary: '{{count}} footprints around {{lat}}, {{lng}}. Use the list to explore.',
@@ -162,6 +185,14 @@ const en = {
     notFoundTitle: 'Page not found',
     notFoundBody: 'Return to the map to continue.',
   },
+  ...activityTranslations.en,
+  ...authTranslations.en,
+  ...conversationTranslations.en,
+  ...footprintTranslations.en,
+  ...memoriesTranslations.en,
+  ...adminTranslations.en,
+  ...notificationTranslations.en,
+  ...socialTranslations.en,
 } satisfies FoundationTranslation;
 
 const zhCN = {
@@ -170,11 +201,19 @@ const zhCN = {
     notifications: '通知',
     language: '语言',
     primaryNavigation: '主导航',
+    skipToContent: '跳转到主要内容',
     retry: '重试',
     close: '关闭',
     loading: '加载中',
   },
-  nav: { map: '地图', activity: '动态', messages: '消息', me: '我的' },
+  nav: {
+    map: '地图',
+    activity: '动态',
+    messages: '消息',
+    me: '我的',
+    people: '朋友',
+    admin: '管理',
+  },
   actions: { publish: '留下足迹' },
   map: {
     title: '地图',
@@ -215,6 +254,10 @@ const zhCN = {
     footprintCount_other: '{{count}} 条足迹',
     footprintBy: '{{name}} 的足迹',
     selected: '已选择',
+    closePreview: '关闭足迹预览',
+    momentWithoutMessage: '有人在这里留下了一个瞬间。',
+    momentDetails: '足迹信息',
+    anonymousInitial: '？',
     staticReducedTitle: '静谧地图视图',
     staticUnavailableTitle: '互动地图暂时不可用',
     staticSummary: '{{lat}}, {{lng}} 附近有 {{count}} 条足迹，可通过列表继续浏览。',
@@ -236,6 +279,14 @@ const zhCN = {
     notFoundTitle: '找不到这个页面',
     notFoundBody: '返回地图继续浏览。',
   },
+  ...activityTranslations['zh-CN'],
+  ...authTranslations['zh-CN'],
+  ...conversationTranslations['zh-CN'],
+  ...footprintTranslations['zh-CN'],
+  ...memoriesTranslations['zh-CN'],
+  ...adminTranslations['zh-CN'],
+  ...notificationTranslations['zh-CN'],
+  ...socialTranslations['zh-CN'],
 } satisfies FoundationTranslation;
 
 const ja = {
@@ -244,6 +295,7 @@ const ja = {
     notifications: '通知',
     language: '言語',
     primaryNavigation: 'メインナビゲーション',
+    skipToContent: '本文へ移動',
     retry: 'もう一度試す',
     close: '閉じる',
     loading: '読み込み中',
@@ -253,6 +305,8 @@ const ja = {
     activity: 'アクティビティ',
     messages: 'メッセージ',
     me: 'マイページ',
+    people: '友達',
+    admin: '管理',
   },
   actions: { publish: '足跡を残す' },
   map: {
@@ -294,6 +348,10 @@ const ja = {
     footprintCount_other: '{{count}}件の足跡',
     footprintBy: '{{name}}さんの足跡',
     selected: '選択中',
+    closePreview: '足跡のプレビューを閉じる',
+    momentWithoutMessage: 'この場所にひとつの瞬間が残されています。',
+    momentDetails: '足跡の詳細',
+    anonymousInitial: '？',
     staticReducedTitle: '穏やかな地図表示',
     staticUnavailableTitle: 'インタラクティブ地図を利用できません',
     staticSummary: '{{lat}}, {{lng}} 周辺に{{count}}件の足跡があります。リストから閲覧できます。',
@@ -315,6 +373,14 @@ const ja = {
     notFoundTitle: 'ページが見つかりません',
     notFoundBody: '地図に戻って続けてください。',
   },
+  ...activityTranslations.ja,
+  ...authTranslations.ja,
+  ...conversationTranslations.ja,
+  ...footprintTranslations.ja,
+  ...memoriesTranslations.ja,
+  ...adminTranslations.ja,
+  ...notificationTranslations.ja,
+  ...socialTranslations.ja,
 } satisfies FoundationTranslation;
 
 const translations = {

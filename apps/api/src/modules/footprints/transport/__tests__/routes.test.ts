@@ -23,12 +23,18 @@ describe('footprint REST transport', () => {
       .post('/api/v1/footprints')
       .set('Authorization', `Bearer ${login.body.accessToken as string}`)
       .set('Idempotency-Key', 'publish-contract')
-      .send({ message: 'Contract response', privatePoint: { lat: 31.23, lng: 121.47 }, visibility: 'public', locationPrecision: 'approximate', mediaAssetIds: [] })
+      .send({ message: 'Contract response', mood: 'calm', privatePoint: { lat: 31.23, lng: 121.47 }, visibility: 'public', locationPrecision: 'approximate', mediaAssetIds: [] })
       .expect(201);
 
     expect(publishFootprintResponse.safeParse(response.body).success).toBe(true);
     expect(response.body).toHaveProperty('footprint');
     expect(response.body).toHaveProperty('event');
+    expect(response.body.footprint).toHaveProperty('mood', 'calm');
+
+    const detail = await request(app)
+      .get(`/api/v1/footprints/${response.body.footprint.id as string}`)
+      .expect(200);
+    expect(detail.body).toHaveProperty('mood', 'calm');
   });
 
   it('rejects media IDs that do not satisfy the shared UUID contract', async () => {

@@ -2,6 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { Feature } from 'geojson';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,8 +25,10 @@ const maplibre = vi.hoisted(() => {
     readonly handlers = new globalThis.Map<string, Set<MapEventHandler>>();
     readonly source = {
       getClusterExpansionZoom: vi.fn(async () => 13),
+      getClusterLeaves: vi.fn(async (): Promise<Feature[]> => []),
       setData: sourceSetData,
     };
+    readonly addImage = vi.fn();
     readonly addLayer = vi.fn();
     readonly addSource = vi.fn();
     readonly addControl = vi.fn();
@@ -40,11 +43,12 @@ const maplibre = vi.hoisted(() => {
     readonly getCanvas = vi.fn(() => ({ style: {} }));
     readonly getLayer = vi.fn(() => undefined);
     readonly getSource = vi.fn(() => this.source);
-    readonly queryRenderedFeatures = vi.fn(() => []);
+    readonly queryRenderedFeatures = vi.fn((): Feature[] => []);
     readonly remove = vi.fn();
     readonly removeLayer = vi.fn();
     readonly removeSource = vi.fn();
     readonly resize = vi.fn();
+    readonly setStyle = vi.fn();
 
     constructor(options: unknown) {
       constructorSpy(options);
@@ -217,12 +221,17 @@ describe('MapCanvas MapLibre runtime', () => {
         'NavigationControl.ZoomOut': 'Zoom out',
       },
       renderWorldCopies: false,
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      fadeDuration: 120,
+      localIdeographFontFamily: 'Noto Sans SC, Noto Sans JP, sans-serif',
     }));
     expect(maplibre.constructorSpy.mock.calls[0]?.[0]).not.toHaveProperty('maxBounds');
 
     const runtime = maplibre.instances[0];
     expect(runtime).toBeDefined();
+    expect(runtime?.setStyle).toHaveBeenCalledWith(
+      'https://tiles.openfreemap.org/styles/positron',
+      expect.objectContaining({ transformStyle: expect.any(Function) }),
+    );
     act(() => runtime?.emit('load'));
     expect(runtime?.fitBounds).not.toHaveBeenCalled();
 
@@ -251,6 +260,7 @@ describe('MapCanvas MapLibre runtime', () => {
     expect(runtime?.fitBounds).toHaveBeenLastCalledWith(
       [[110, 20], [111, 21]],
       expect.objectContaining({ animate: false }),
+      { bliverProgrammaticCamera: true },
     );
     expect(onViewportChange).not.toHaveBeenCalled();
 
@@ -271,7 +281,7 @@ describe('MapCanvas MapLibre runtime', () => {
     expect(runtime?.off).toHaveBeenCalledWith('load', expect.any(Function));
     expect(runtime?.off).toHaveBeenCalledWith(
       'click',
-      'bliver-footprint-points',
+      'bliver-footprint-point-hit',
       expect.any(Function),
     );
     expect(runtime?.remove).toHaveBeenCalledOnce();
@@ -305,6 +315,28 @@ describe('MapCanvas MapLibre runtime', () => {
     });
   });
 
+  it('does not report a programmatic selection camera move as a user viewport change', async () => {
+    const onViewportChange = vi.fn();
+    const { rerenderMap } = renderMapCanvas({ items: [firstItem], onViewportChange });
+
+    await waitFor(() => expect(maplibre.constructorSpy).toHaveBeenCalledOnce());
+    const runtime = maplibre.instances[0];
+    act(() => runtime?.emit('load'));
+
+    rerenderMap({
+      items: [firstItem],
+      onViewportChange,
+      selectedId: firstItem.id,
+    });
+    expect(runtime?.easeTo).toHaveBeenCalledOnce();
+
+    act(() => runtime?.emit('moveend', { bliverProgrammaticCamera: true }));
+    expect(onViewportChange).not.toHaveBeenCalled();
+
+    act(() => runtime?.emit('moveend'));
+    expect(onViewportChange).toHaveBeenCalledOnce();
+  });
+
   it('keeps reported camera bounds inside the single supported world', async () => {
     const onViewportChange = vi.fn();
     renderMapCanvas({ items: [firstItem], onViewportChange });
@@ -328,33 +360,88 @@ describe('MapCanvas MapLibre runtime', () => {
     });
   });
 
-  it('reports the moveend produced by programmatic cluster expansion', async () => {
-    const onViewportChange = vi.fn();
-    renderMapCanvas({ items: [firstItem, secondItem], onViewportChange });
+  it('activates a point with its screen anchor and preserves onSelect compatibility', async () => {
+    const onActivate = vi.fn();
+    const onSelect = vi.fn();
+    renderMapCanvas({ items: [firstItem, secondItem], onActivate, onSelect });
 
     await waitFor(() => expect(maplibre.constructorSpy).toHaveBeenCalledOnce());
     const runtime = maplibre.instances[0];
     act(() => runtime?.emit('load'));
-    act(() => runtime?.emitLayer('click', 'bliver-footprint-clusters', {
+    act(() => runtime?.emitLayer('click', 'bliver-footprint-point-hit', {
+      features: [{
+        geometry: { coordinates: [121.47, 31.23], type: 'Point' },
+        properties: { id: firstItem.id },
+      }],
+      point: { x: 118, y: 246 },
+    }));
+
+    expect(onActivate).toHaveBeenCalledWith({
+      anchor: { x: 118, y: 246 },
+      items: [firstItem],
+      kind: 'point',
+    });
+    expect(onSelect).toHaveBeenCalledWith(firstItem.id);
+  });
+
+  it('activates up to twelve mapped cluster leaves without changing the camera', async () => {
+    const onActivate = vi.fn();
+    renderMapCanvas({ items: [firstItem, secondItem], onActivate });
+
+    await waitFor(() => expect(maplibre.constructorSpy).toHaveBeenCalledOnce());
+    const runtime = maplibre.instances[0];
+    runtime?.source.getClusterLeaves.mockResolvedValueOnce([
+      {
+        geometry: { coordinates: [121.47, 31.23], type: 'Point' },
+        properties: { id: secondItem.id },
+        type: 'Feature',
+      },
+      {
+        geometry: { coordinates: [121.47, 31.23], type: 'Point' },
+        properties: { id: firstItem.id },
+        type: 'Feature',
+      },
+    ]);
+    act(() => runtime?.emit('load'));
+    act(() => runtime?.emitLayer('click', 'bliver-footprint-cluster-hit', {
       features: [{
         geometry: { coordinates: [121.47, 31.23], type: 'Point' },
         properties: { cluster_id: 7 },
       }],
+      point: { x: 164, y: 212 },
     }));
 
-    await waitFor(() => expect(runtime?.easeTo).toHaveBeenCalledWith({
-      center: [121.47, 31.23],
-      duration: 350,
-      zoom: 13,
+    await waitFor(() => expect(onActivate).toHaveBeenCalledWith({
+      anchor: { x: 164, y: 212 },
+      clusterId: 7,
+      items: [secondItem, firstItem],
+      kind: 'cluster',
     }));
-    act(() => runtime?.emit('moveend'));
+    expect(runtime?.source.getClusterLeaves).toHaveBeenCalledWith(7, 12, 0);
+    expect(runtime?.source.getClusterExpansionZoom).not.toHaveBeenCalled();
+    expect(runtime?.easeTo).not.toHaveBeenCalled();
+  });
 
-    expect(onViewportChange).toHaveBeenCalledWith({
-      east: 122,
-      north: 32,
-      south: 30,
-      west: 120,
-    });
+  it('dismisses on map background and drag without treating a marker click as background', async () => {
+    const onDismiss = vi.fn();
+    renderMapCanvas({ items: [firstItem], onDismiss });
+
+    await waitFor(() => expect(maplibre.constructorSpy).toHaveBeenCalledOnce());
+    const runtime = maplibre.instances[0];
+    act(() => runtime?.emit('load'));
+    runtime?.queryRenderedFeatures.mockReturnValueOnce([{
+      geometry: { coordinates: [121.47, 31.23], type: 'Point' },
+      properties: { id: firstItem.id },
+      type: 'Feature',
+    }]);
+    act(() => runtime?.emit('click', { point: { x: 80, y: 120 } }));
+    expect(onDismiss).not.toHaveBeenCalled();
+
+    runtime?.queryRenderedFeatures.mockReturnValueOnce([]);
+    act(() => runtime?.emit('click', { point: { x: 180, y: 260 } }));
+    act(() => runtime?.emit('dragstart'));
+
+    expect(onDismiss).toHaveBeenCalledTimes(2);
   });
 
   it('rebuilds native map and zoom controls for all three product languages', async () => {
@@ -395,7 +482,7 @@ describe('MapCanvas MapLibre runtime', () => {
     expect(screen.getByLabelText('地図データの帰属表示')).toBeInTheDocument();
   });
 
-  it('uses forest, ring shape, and scale for an ordinary selected footprint', async () => {
+  it('uses GPU ticket sprites with media variants and a forest selected state', async () => {
     renderMapCanvas({ items: [firstItem], selectedId: firstItem.id });
 
     await waitFor(() => expect(maplibre.constructorSpy).toHaveBeenCalledOnce());
@@ -404,27 +491,78 @@ describe('MapCanvas MapLibre runtime', () => {
     const pointLayer = runtime?.addLayer.mock.calls.find((call) => {
       const layer = call[0] as { readonly id?: string } | undefined;
       return layer?.id === 'bliver-footprint-points';
-    })?.[0] as { readonly paint?: Record<string, unknown> } | undefined;
+    })?.[0] as {
+      readonly layout?: Record<string, unknown>;
+      readonly type?: string;
+    } | undefined;
+    const clusterLayer = runtime?.addLayer.mock.calls.find((call) => {
+      const layer = call[0] as { readonly id?: string } | undefined;
+      return layer?.id === 'bliver-footprint-clusters';
+    })?.[0] as { readonly type?: string } | undefined;
 
-    expect(pointLayer?.paint?.['circle-color']).toEqual([
-      'case',
-      ['boolean', ['get', 'selected'], false],
-      '#173b31',
-      '#a9c9bf',
-    ]);
-    expect(pointLayer?.paint?.['circle-radius']).toEqual([
-      'case',
-      ['boolean', ['get', 'selected'], false],
-      11,
-      8,
-    ]);
-    expect(pointLayer?.paint?.['circle-stroke-width']).toEqual([
-      'case',
-      ['boolean', ['get', 'selected'], false],
-      4,
-      2,
-    ]);
+    expect(runtime?.addImage).toHaveBeenCalledTimes(29);
+    expect(runtime?.addImage).toHaveBeenCalledWith(
+      'bliver-moment-ticket-spatial',
+      expect.objectContaining({ height: 72, width: 56 }),
+      { pixelRatio: 2 },
+    );
+    expect(pointLayer?.type).toBe('symbol');
+    expect(clusterLayer?.type).toBe('symbol');
+    const iconExpression = JSON.stringify(pointLayer?.layout?.['icon-image']);
+    expect(iconExpression).toContain('bliver-moment-ticket-media-selected');
+    expect(iconExpression).toContain('bliver-moment-ticket-spatial-selected');
+    expect(iconExpression).toContain('bliver-moment-ticket-media');
+    expect(iconExpression).toContain('bliver-moment-ticket-spatial');
     expect(JSON.stringify(pointLayer)).not.toContain('#c54b36');
+  });
+
+  it('normalizes moods into GPU sprite properties while keeping clusters neutral', async () => {
+    renderMapCanvas({
+      items: [
+        { ...firstItem, mood: 'happy' },
+        { ...secondItem, mood: 'unrecognized-legacy-value' },
+      ],
+    });
+
+    await waitFor(() => expect(maplibre.constructorSpy).toHaveBeenCalledOnce());
+    const runtime = maplibre.instances[0];
+    act(() => runtime?.emit('load'));
+
+    const source = runtime?.addSource.mock.calls.find((call) => {
+      const config = call[1] as { readonly type?: string } | undefined;
+      return config?.type === 'geojson';
+    })?.[1] as {
+      readonly data?: {
+        readonly features?: readonly {
+          readonly properties?: Record<string, unknown>;
+        }[];
+      };
+    } | undefined;
+    expect(source?.data?.features?.[0]?.properties?.['moodKey']).toBe('radiant');
+    expect(source?.data?.features?.[1]?.properties?.['moodKey']).toBe('neutral');
+
+    const pointLayer = runtime?.addLayer.mock.calls.find((call) => {
+      const layer = call[0] as { readonly id?: string } | undefined;
+      return layer?.id === 'bliver-footprint-points';
+    })?.[0] as { readonly layout?: Record<string, unknown> } | undefined;
+    const clusterLayer = runtime?.addLayer.mock.calls.find((call) => {
+      const layer = call[0] as { readonly id?: string } | undefined;
+      return layer?.id === 'bliver-footprint-clusters';
+    })?.[0] as { readonly layout?: Record<string, unknown> } | undefined;
+    const iconExpression = JSON.stringify(pointLayer?.layout?.['icon-image']);
+
+    expect(iconExpression).toContain('["get","moodKey"]');
+    expect(iconExpression).toContain('bliver-moment-ticket-spatial-radiant');
+    expect(iconExpression).toContain('bliver-moment-ticket-media-quiet-selected');
+    expect(clusterLayer?.layout?.['icon-image']).toBe('bliver-moment-ticket-cluster');
+
+    const spriteIds = runtime?.addImage.mock.calls.map((call) => call[0]);
+    expect(spriteIds).toEqual(expect.arrayContaining([
+      'bliver-moment-ticket-spatial-radiant',
+      'bliver-moment-ticket-media-radiant',
+      'bliver-moment-ticket-spatial-radiant-selected',
+      'bliver-moment-ticket-media-radiant-selected',
+    ]));
   });
 
   it('keeps every canvas footprint in an actionable semantic DOM list', async () => {

@@ -2,11 +2,12 @@ import { resolve } from 'node:path';
 import type { Page, WebSocketRoute } from '@playwright/test';
 import { loadEnv } from 'vite';
 
-const DEFAULT_MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+const DEFAULT_MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
 const DEFAULT_WEB_ORIGIN = 'http://127.0.0.1:5173';
 const V2_BUILD_ENV = loadEnv('v2', resolve('.'), 'VITE_');
 
-export const CONTROLLED_MAP_BACKGROUND_RGB = [231, 236, 229] as const;
+// MapCanvas applies the Natural City style transform to provider styles.
+export const CONTROLLED_MAP_BACKGROUND_RGB = [250, 248, 243] as const;
 
 const CONTROLLED_MAP_STYLE = {
   version: 8,

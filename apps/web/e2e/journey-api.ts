@@ -50,9 +50,20 @@ export async function installJourneyApi(page: Page, actor: V2TestActor): Promise
   }
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
-    const path = new URL(request.url()).pathname;
+    const url = new URL(request.url());
+    const path = url.pathname;
     if (path === '/api/v1/session') return actor === 'guest' ? json(route, { code: 'AUTH_REQUIRED' }, 401) : json(route, sessionFixture(actor));
     if (path === '/api/v1/users/me' && actor !== 'guest') return json(route, publicUserFixture(actor));
+    if (path === '/api/v1/users' && url.searchParams.has('ids')) {
+      const requested = new Set(
+        (url.searchParams.get('ids') ?? '').split(',').map((id) => id.trim()).filter(Boolean),
+      );
+      const items = (['admin', 'userA', 'userB'] as const)
+        .map((candidate) => publicUserFixture(candidate))
+        .filter((profile) => requested.has(profile.id))
+        .map(({ id, username, displayName }) => ({ id, username, displayName }));
+      return json(route, { items });
+    }
     if (path === '/api/v1/map/footprints') return json(route, { items: visibleFootprintsFor(actor), nextCursor: null });
     if (path === '/api/v1/activity') return json(route, { items: visibleFootprintsFor(actor), resolvedScope: 'global' });
     if (/^\/api\/v1\/footprints\/[^/]+$/.test(path)) return json(route, V2_TEST_FOOTPRINTS.find((item) => path.endsWith(item.id)) ?? V2_TEST_FOOTPRINTS[0]);

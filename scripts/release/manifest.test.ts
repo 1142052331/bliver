@@ -21,16 +21,18 @@ afterEach(async () => {
 const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
 
 describe('V2 release candidate manifest', () => {
-  it('hashes the root lock, ordered migration contents, and ordered built asset list', async () => {
+  it('hashes the root lock, ordered migration contents, and ordered public asset list', async () => {
     const root = await mkdtemp(join(tmpdir(), 'bliver-release-manifest-'));
     fixtures.push(root);
     await mkdir(join(root, 'apps/api/drizzle'), { recursive: true });
     await mkdir(join(root, 'apps/web/dist/assets'), { recursive: true });
+    await mkdir(join(root, 'apps/web/dist/.vite'), { recursive: true });
     await writeFile(join(root, 'package-lock.json'), 'root-lock\n');
     await writeFile(join(root, 'apps/api/drizzle/0001.sql'), 'select 1;\n');
     await writeFile(join(root, 'apps/api/drizzle/0000.sql'), 'select 0;\n');
     await writeFile(join(root, 'apps/web/dist/index.html'), '<main>V2</main>\n');
     await writeFile(join(root, 'apps/web/dist/assets/app.js'), 'export {};\n');
+    await writeFile(join(root, 'apps/web/dist/.vite/manifest.json'), '{}\n');
 
     const manifest = await buildReleaseManifest({
       root,
@@ -50,6 +52,7 @@ describe('V2 release candidate manifest', () => {
       assetListSha256: sha256('assets/app.js\nindex.html\n'),
       assets: ['assets/app.js', 'index.html'],
     });
+    expect(manifest.assets).not.toContain('.vite/manifest.json');
   });
 
   it('rejects anything other than the exact immutable release SHA', async () => {
