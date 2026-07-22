@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { V2_BUDGETS } from './budgets.js';
 import {
+  bundleGzipBytes,
   classifyViteBundle,
   evaluateBundle,
+  manifestJavaScriptAssets,
   type BundleAsset,
   type ViteManifest,
 } from './bundle.js';
@@ -62,8 +64,15 @@ describe('V2 performance gates', () => {
     `;
 
     expect(classifyViteBundle(manifest, indexHtml)).toEqual({
-      initialShellJs: ['index.js', 'shared.js'],
-      spatialIncrementJs: ['dist.js', 'map.route.js', 'spatial-effect.js'],
+      initialShellJsFiles: [
+        'assets/index-12345678.js',
+        'assets/shared-12345678.js',
+      ],
+      spatialIncrementJsFiles: [
+        'assets/dist-12345678.js',
+        'assets/map.route-12345678.js',
+        'assets/spatial-effect-12345678.js',
+      ],
       spatialIncrementFiles: [
         'assets/dist-12345678.js',
         'assets/map-12345678.css',
@@ -81,13 +90,13 @@ describe('V2 performance gates', () => {
 
   it('enforces separate shell and spatial budgets without relying on chunk prefixes', () => {
     const assets: BundleAsset[] = [
-      { name: 'index.js', file: 'assets/index-a.js', gzipBytes: 150_000 },
-      { name: 'map.route.js', file: 'assets/map.route-b.js', gzipBytes: 300_000 },
-      { name: 'dist.js', file: 'assets/dist-c.js', gzipBytes: 190_000 },
+      { logicalName: 'index.js', file: 'assets/index-a.js', gzipBytes: 150_000 },
+      { logicalName: 'map.route.js', file: 'assets/map.route-b.js', gzipBytes: 300_000 },
+      { logicalName: 'dist.js', file: 'assets/dist-c.js', gzipBytes: 190_000 },
     ];
     const classification = {
-      initialShellJs: ['index.js'],
-      spatialIncrementJs: ['map.route.js', 'dist.js'],
+      initialShellJsFiles: ['assets/index-a.js'],
+      spatialIncrementJsFiles: ['assets/map.route-b.js', 'assets/dist-c.js'],
       spatialIncrementFiles: ['assets/map.route-b.js', 'assets/dist-c.js'],
       indexHtmlEagerFiles: ['assets/index-a.js'],
       mapRouteInInitialShell: false,
@@ -95,30 +104,30 @@ describe('V2 performance gates', () => {
     const baseline = { 'index.js': 150_000, 'map.route.js': 300_000, 'dist.js': 190_000 };
     expect(evaluateBundle(assets, baseline, classification)).toEqual([]);
 
-    const oversizedShell = [{ name: 'index.js', file: 'assets/index-a.js', gzipBytes: 160_001 }];
-    expect(evaluateBundle(oversizedShell, { 'index.js': 160_001 }, { ...classification, spatialIncrementJs: [] })).toContainEqual(
+    const oversizedShell = [{ logicalName: 'index.js', file: 'assets/index-a.js', gzipBytes: 160_001 }];
+    expect(evaluateBundle(oversizedShell, { 'index.js': 160_001 }, { ...classification, spatialIncrementJsFiles: [] })).toContainEqual(
       expect.stringContaining('initial shell JS'),
     );
 
-    const oversizedSpatial = assets.map((asset) => asset.name === 'dist.js' ? { ...asset, gzipBytes: 200_001 } : asset);
+    const oversizedSpatial = assets.map((asset) => asset.logicalName === 'dist.js' ? { ...asset, gzipBytes: 200_001 } : asset);
     expect(evaluateBundle(oversizedSpatial, { ...baseline, 'dist.js': 200_001 }, classification)).toContainEqual(
       expect.stringContaining('spatial runtime JS'),
     );
 
-    const regressed = assets.map((asset) => asset.name === 'index.js' ? { ...asset, gzipBytes: 155_001 } : asset);
+    const regressed = assets.map((asset) => asset.logicalName === 'index.js' ? { ...asset, gzipBytes: 155_001 } : asset);
     expect(evaluateBundle(regressed, { ...baseline, 'index.js': 140_000 }, classification)).toContainEqual(expect.stringContaining('baseline'));
   });
 
   it('rejects eager spatial assets even when their filenames do not start with map', () => {
     const assets: BundleAsset[] = [
-      { name: 'index.js', file: 'assets/index-a.js', gzipBytes: 100_000 },
-      { name: 'map.route.js', file: 'assets/map.route-b.js', gzipBytes: 300_000 },
-      { name: 'dist.js', file: 'assets/dist-c.js', gzipBytes: 100_000 },
+      { logicalName: 'index.js', file: 'assets/index-a.js', gzipBytes: 100_000 },
+      { logicalName: 'map.route.js', file: 'assets/map.route-b.js', gzipBytes: 300_000 },
+      { logicalName: 'dist.js', file: 'assets/dist-c.js', gzipBytes: 100_000 },
     ];
     const baseline = { 'index.js': 100_000, 'map.route.js': 300_000, 'dist.js': 100_000 };
     const classification = {
-      initialShellJs: ['index.js'],
-      spatialIncrementJs: ['map.route.js', 'dist.js'],
+      initialShellJsFiles: ['assets/index-a.js'],
+      spatialIncrementJsFiles: ['assets/map.route-b.js', 'assets/dist-c.js'],
       spatialIncrementFiles: ['assets/map.route-b.js', 'assets/dist-c.js', 'assets/map-c.css'],
       indexHtmlEagerFiles: ['assets/index-a.js', 'assets/dist-c.js', 'assets/map-c.css'],
       mapRouteInInitialShell: false,
@@ -128,6 +137,79 @@ describe('V2 performance gates', () => {
       expect.stringContaining('assets/dist-c.js'),
       expect.stringContaining('assets/map-c.css'),
     ]));
+  });
+
+  it('keeps duplicate logical chunk names in their physical dependency boundaries', () => {
+    const manifest: ViteManifest = {
+      'index.html': {
+        file: 'assets/index-a.js',
+        name: 'index',
+        isEntry: true,
+        imports: ['_api-auth.js'],
+      },
+      '_api-auth.js': { file: 'assets/api-auth-a.js', name: 'api' },
+      '_api-auth-alias.js': { file: 'assets/api-auth-a.js', name: 'api' },
+      '_api-identity.js': { file: 'assets/api-identity-b.js', name: 'api' },
+      'src/app/routes/map.route.tsx': {
+        file: 'assets/map.route-c.js',
+        name: 'map.route',
+        src: 'src/app/routes/map.route.tsx',
+        isDynamicEntry: true,
+        imports: ['index.html', '_api-identity.js'],
+      },
+    };
+
+    expect(manifestJavaScriptAssets(manifest).filter(({ logicalName }) => logicalName === 'api.js')).toEqual([
+      { key: '_api-auth.js', logicalName: 'api.js', file: 'assets/api-auth-a.js' },
+      { key: '_api-identity.js', logicalName: 'api.js', file: 'assets/api-identity-b.js' },
+    ]);
+    expect(classifyViteBundle(manifest, '')).toMatchObject({
+      initialShellJsFiles: ['assets/api-auth-a.js', 'assets/index-a.js'],
+      spatialIncrementJsFiles: ['assets/api-identity-b.js', 'assets/map.route-c.js'],
+    });
+  });
+
+  it('aggregates duplicate logical names for baselines without overwriting physical bytes', () => {
+    const assets: BundleAsset[] = [
+      { logicalName: 'index.js', file: 'assets/index-a.js', gzipBytes: 10 },
+      { logicalName: 'api.js', file: 'assets/api-auth-a.js', gzipBytes: 40 },
+      { logicalName: 'api.js', file: 'assets/api-identity-b.js', gzipBytes: 60 },
+      { logicalName: 'translations.js', file: 'assets/translations-a.js', gzipBytes: 1 },
+      { logicalName: 'translations.js', file: 'assets/translations-b.js', gzipBytes: 2 },
+      { logicalName: 'translations.js', file: 'assets/translations-c.js', gzipBytes: 3 },
+      { logicalName: 'translations.js', file: 'assets/translations-d.js', gzipBytes: 4 },
+    ];
+    const classification = {
+      initialShellJsFiles: ['assets/index-a.js', 'assets/api-auth-a.js'],
+      spatialIncrementJsFiles: ['assets/api-identity-b.js'],
+      spatialIncrementFiles: ['assets/api-identity-b.js'],
+      indexHtmlEagerFiles: ['assets/index-a.js', 'assets/api-auth-a.js'],
+      mapRouteInInitialShell: false,
+    };
+
+    expect(bundleGzipBytes(assets, [...classification.initialShellJsFiles, 'assets/api-auth-a.js'])).toBe(50);
+    expect(bundleGzipBytes([...assets, assets[1]!], classification.initialShellJsFiles)).toBe(50);
+    expect(evaluateBundle(assets, {
+      'index.js': 10,
+      'api.js': 100,
+      'translations.js': 10,
+    }, classification)).toEqual([]);
+
+    const regressed = [...assets, {
+      logicalName: 'api.js',
+      file: 'assets/api-third-hash.js',
+      gzipBytes: 11,
+    }];
+    expect(evaluateBundle(regressed, {
+      'index.js': 10,
+      'api.js': 100,
+      'translations.js': 10,
+    }, classification).filter((failure) => failure.startsWith('api.js exceeds'))).toHaveLength(1);
+
+    expect(evaluateBundle(assets, {
+      'index.js': 10,
+      'api.js': 100,
+    }, classification).filter((failure) => failure === 'translations.js is missing a baseline entry')).toHaveLength(1);
   });
 
   it('rejects sequential scans above the approved fixture threshold', () => {

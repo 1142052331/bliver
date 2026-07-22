@@ -89,8 +89,8 @@ async function bundleCheck(): Promise<{
     ...[...outputJavaScript].filter((file) => !manifestJavaScript.has(file)).map((file) => `${file} is missing from the Vite manifest`),
     ...[...manifestJavaScript].filter((file) => !outputJavaScript.has(file)).map((file) => `${file} is missing from the build output`),
   ];
-  const assets = await Promise.all(descriptors.map(async ({ name, file }) => ({
-    name,
+  const assets = await Promise.all(descriptors.map(async ({ logicalName, file }) => ({
+    logicalName,
     file,
     gzipBytes: gzipSync(await readFile(resolve(distributionDirectory, file))).byteLength,
   })));
@@ -99,8 +99,8 @@ async function bundleCheck(): Promise<{
   return {
     assets,
     failures: [...inventoryFailures, ...evaluateBundle(assets, baseline, classification)],
-    initialShellBytes: bundleGzipBytes(assets, classification.initialShellJs),
-    spatialRuntimeBytes: bundleGzipBytes(assets, classification.spatialIncrementJs),
+    initialShellBytes: bundleGzipBytes(assets, classification.initialShellJsFiles),
+    spatialRuntimeBytes: bundleGzipBytes(assets, classification.spatialIncrementJsFiles),
   };
 }
 
@@ -110,7 +110,7 @@ export async function runPerformanceGates(): Promise<void> {
   console.log(`[perf] mode=${releaseMode ? 'release' : 'local-non-release'}`);
   const bundle = await bundleCheck();
   failures.push(...bundle.failures);
-  console.log(`[perf] bundle ${bundle.assets.map((asset) => `${asset.name}=${asset.gzipBytes}B gzip`).join(', ')}`);
+  console.log(`[perf] bundle ${bundle.assets.map((asset) => `${asset.logicalName} [${asset.file}]=${asset.gzipBytes}B gzip`).join(', ')}`);
   console.log(`[perf] initial shell JS=${bundle.initialShellBytes}B gzip; spatial runtime increment=${bundle.spatialRuntimeBytes}B gzip`);
   const api = await runApiSmoke();
   failures.push(...api.failures);

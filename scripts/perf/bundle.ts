@@ -1,7 +1,7 @@
 import { V2_BUDGETS } from './budgets.js';
 
 export interface BundleAsset {
-  readonly name: string;
+  readonly logicalName: string;
   readonly file: string;
   readonly gzipBytes: number;
 }
@@ -20,16 +20,16 @@ export interface ViteManifestChunk {
 export type ViteManifest = Readonly<Record<string, ViteManifestChunk>>;
 
 export interface BundleClassification {
-  readonly initialShellJs: readonly string[];
-  readonly spatialIncrementJs: readonly string[];
+  readonly initialShellJsFiles: readonly string[];
+  readonly spatialIncrementJsFiles: readonly string[];
   readonly spatialIncrementFiles: readonly string[];
   readonly indexHtmlEagerFiles: readonly string[];
   readonly mapRouteInInitialShell: boolean;
 }
 
-interface ManifestJavaScriptAsset {
+export interface ManifestJavaScriptAsset {
   readonly key: string;
-  readonly name: string;
+  readonly logicalName: string;
   readonly file: string;
 }
 
@@ -41,21 +41,27 @@ function stableJavaScriptName(key: string, chunk: ViteManifestChunk): string {
 
 export function manifestJavaScriptAssets(manifest: ViteManifest): readonly ManifestJavaScriptAsset[] {
   const byFile = new Map<string, ManifestJavaScriptAsset>();
-  const fileByName = new Map<string, string>();
 
   for (const [key, chunk] of Object.entries(manifest)) {
-    if (!chunk.file.endsWith('.js') || byFile.has(chunk.file)) continue;
-    const name = stableJavaScriptName(key, chunk);
-    const existingFile = fileByName.get(name);
-    if (existingFile && existingFile !== chunk.file) {
-      throw new Error(`Vite manifest stable chunk name ${name} maps to both ${existingFile} and ${chunk.file}`);
+    if (!chunk.file.endsWith('.js')) continue;
+    const logicalName = stableJavaScriptName(key, chunk);
+    const existing = byFile.get(chunk.file);
+    if (existing) {
+      if (existing.logicalName !== logicalName) {
+        throw new Error(`Vite manifest JavaScript file ${chunk.file} maps to both ${existing.logicalName} and ${logicalName}`);
+      }
+      continue;
     }
-    const asset = { key, name, file: chunk.file };
+    const asset = {
+      key,
+      logicalName,
+      file: chunk.file,
+    };
     byFile.set(chunk.file, asset);
-    fileByName.set(name, chunk.file);
   }
 
-  return [...byFile.values()].sort((left, right) => left.name.localeCompare(right.name));
+  return [...byFile.values()].sort((left, right) =>
+    left.logicalName.localeCompare(right.logicalName) || left.file.localeCompare(right.file));
 }
 
 function findEntryKey(manifest: ViteManifest): string {
@@ -157,37 +163,43 @@ export function classifyViteBundle(manifest: ViteManifest, indexHtml: string): B
   const spatialClosure = importClosure(manifest, mapRouteKey, true, initialClosure);
   const initialFiles = filesForClosure(manifest, initialClosure);
   const spatialFiles = filesForClosure(manifest, spatialClosure);
-  const assets = manifestJavaScriptAssets(manifest);
-  const nameByFile = new Map(assets.map((asset) => [asset.file, asset.name]));
-
-  const initialShellJs = [...initialClosure]
-    .map((key) => {
-      const chunk = manifest[key];
-      if (!chunk) throw new Error(`Vite manifest chunk ${key} is missing`);
-      return nameByFile.get(chunk.file);
-    })
-    .filter((name): name is string => Boolean(name))
+  const initialShellJsFiles = [...initialFiles]
+    .filter((file) => file.endsWith('.js'))
     .sort();
   const spatialIncrementFiles = [...spatialFiles]
     .filter((file) => !initialFiles.has(file))
     .sort();
-  const spatialIncrementJs = spatialIncrementFiles
-    .map((file) => nameByFile.get(file))
-    .filter((name): name is string => Boolean(name))
+  const spatialIncrementJsFiles = spatialIncrementFiles
+    .filter((file) => file.endsWith('.js'))
     .sort();
 
   return {
-    initialShellJs,
-    spatialIncrementJs,
+    initialShellJsFiles,
+    spatialIncrementJsFiles,
     spatialIncrementFiles,
     indexHtmlEagerFiles: indexHtmlEagerFiles(indexHtml),
     mapRouteInInitialShell: initialClosure.has(mapRouteKey),
   };
 }
 
-export function bundleGzipBytes(assets: readonly BundleAsset[], names: readonly string[]): number {
-  const gzipByName = new Map(assets.map((asset) => [asset.name, asset.gzipBytes]));
-  return names.reduce((total, name) => total + (gzipByName.get(name) ?? 0), 0);
+function assetsByPhysicalFile(assets: readonly BundleAsset[]): ReadonlyMap<string, BundleAsset> {
+  const byFile = new Map<string, BundleAsset>();
+  for (const asset of assets) {
+    const existing = byFile.get(asset.file);
+    if (existing) {
+      if (existing.logicalName !== asset.logicalName || existing.gzipBytes !== asset.gzipBytes) {
+        throw new Error(`Bundle asset file ${asset.file} has conflicting descriptors`);
+      }
+      continue;
+    }
+    byFile.set(asset.file, asset);
+  }
+  return byFile;
+}
+
+export function bundleGzipBytes(assets: readonly BundleAsset[], files: readonly string[]): number {
+  const byFile = assetsByPhysicalFile(assets);
+  return [...new Set(files)].reduce((total, file) => total + (byFile.get(file)?.gzipBytes ?? 0), 0);
 }
 
 export function evaluateBundle(
@@ -196,18 +208,22 @@ export function evaluateBundle(
   classification: BundleClassification,
 ): readonly string[] {
   const failures: string[] = [];
-  const assetNames = new Set(assets.map((asset) => asset.name));
-  const classifiedNames = [...classification.initialShellJs, ...classification.spatialIncrementJs];
-  for (const name of classifiedNames) {
-    if (!assetNames.has(name)) failures.push(`classified JavaScript asset ${name} is missing from the build`);
+  const physicalAssets = [...assetsByPhysicalFile(assets).values()];
+  const assetFiles = new Set(physicalAssets.map((asset) => asset.file));
+  const classifiedFiles = new Set([
+    ...classification.initialShellJsFiles,
+    ...classification.spatialIncrementJsFiles,
+  ]);
+  for (const file of classifiedFiles) {
+    if (!assetFiles.has(file)) failures.push(`classified JavaScript asset ${file} is missing from the build`);
   }
 
-  const initialShellBytes = bundleGzipBytes(assets, classification.initialShellJs);
+  const initialShellBytes = bundleGzipBytes(assets, classification.initialShellJsFiles);
   if (initialShellBytes > V2_BUDGETS.initialShellJsGzipBytes) {
     failures.push(`initial shell JS ${initialShellBytes} bytes exceeds ${V2_BUDGETS.initialShellJsGzipBytes}`);
   }
 
-  const spatialRuntimeBytes = bundleGzipBytes(assets, classification.spatialIncrementJs);
+  const spatialRuntimeBytes = bundleGzipBytes(assets, classification.spatialIncrementJsFiles);
   if (spatialRuntimeBytes > V2_BUDGETS.spatialRuntimeJsGzipBytes) {
     failures.push(`spatial runtime JS ${spatialRuntimeBytes} bytes exceeds ${V2_BUDGETS.spatialRuntimeJsGzipBytes}`);
   }
@@ -218,14 +234,23 @@ export function evaluateBundle(
     if (spatialFiles.has(file)) failures.push(`index.html eagerly loads spatial asset ${file}`);
   }
 
-  for (const asset of assets) {
-    const approved = baseline[asset.name];
+  const gzipByLogicalName = new Map<string, number>();
+  for (const asset of physicalAssets) {
+    gzipByLogicalName.set(
+      asset.logicalName,
+      (gzipByLogicalName.get(asset.logicalName) ?? 0) + asset.gzipBytes,
+    );
+  }
+
+  for (const [logicalName, gzipBytes] of [...gzipByLogicalName.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))) {
+    const approved = baseline[logicalName];
     if (approved === undefined) {
-      failures.push(`${asset.name} is missing a baseline entry`);
+      failures.push(`${logicalName} is missing a baseline entry`);
       continue;
     }
-    if (asset.gzipBytes > approved * (1 + V2_BUDGETS.routeChunkRegressionRatio)) {
-      failures.push(`${asset.name} exceeds baseline ${approved} by more than ${V2_BUDGETS.routeChunkRegressionRatio * 100}%`);
+    if (gzipBytes > approved * (1 + V2_BUDGETS.routeChunkRegressionRatio)) {
+      failures.push(`${logicalName} exceeds baseline ${approved} by more than ${V2_BUDGETS.routeChunkRegressionRatio * 100}%`);
     }
   }
 

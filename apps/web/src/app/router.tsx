@@ -13,7 +13,6 @@ import type { InitialEntry } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
 import { AppStatusScene } from './AppStatusScene.js';
-import { LoginRoute } from '../features/auth/LoginRoute.js';
 
 const lazyMapRoute = () => import('./routes/map.route.js');
 const lazyActivityRoute = () => import('./routes/activity.route.js');
@@ -162,7 +161,8 @@ const routes = [
       },
       {
         path: 'session-expired',
-        element: <LoginRoute />,
+        lazy: lazyLoginRoute,
+        hydrateFallbackElement: routeLoadingElement,
       },
       { path: '*', element: <NotFound /> },
     ],

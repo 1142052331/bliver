@@ -106,11 +106,11 @@ describe('V2 web route contract', () => {
     ).toBeVisible();
   });
 
-  it('renders global session and route states in Japanese', () => {
+  it('renders global session and route states in Japanese', async () => {
     renderRouter('/session-expired', 'ja');
 
     expect(
-      screen.getByRole('heading', {
+      await screen.findByRole('heading', {
         name: 'セッションの有効期限が切れました',
       }),
     ).toBeVisible();
@@ -123,14 +123,14 @@ describe('V2 web route contract', () => {
     expect(screen.queryByText('SESSION / 401')).not.toBeInTheDocument();
   });
 
-  it('carries the interrupted destination in both the login URL and route state', () => {
+  it('carries the interrupted destination in both the login URL and route state', async () => {
     const destination = '/publish?lat=31.2&lng=121.5';
     renderRouter({
       pathname: '/session-expired',
       state: { from: destination },
     });
 
-    const link = screen.getByRole('link', { name: 'Continue to sign in' });
+    const link = await screen.findByRole('link', { name: 'Continue to sign in' });
     expect(link).toHaveAttribute(
       'href',
       `/login?returnTo=${encodeURIComponent(destination)}`,
