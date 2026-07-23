@@ -1,37 +1,43 @@
-import { LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
-import { AppStatusScene } from '../AppStatusScene.js';
 import { useSession } from '../providers/SessionProvider.js';
 
 export function RequireAuth() {
   const { t } = useTranslation();
   const session = useSession();
   const location = useLocation();
+  const returnTo = `${location.pathname}${location.search}`;
 
   if (session.isLoading) {
     return (
-      <div
+      <p
         aria-live="polite"
-        className="app-shell__status-shell app-shell__status-shell--scene"
+        className="app-shell__sr-only"
+        data-auth-session-state="loading"
         role="status"
       >
-        <AppStatusScene
-          Icon={LoaderCircle}
-          busy
-          body={t('session.loadingBody')}
-          title={t('session.loading')}
-        />
-      </div>
+        {t('session.loading')}
+      </p>
     );
   }
 
   if (session.isError) {
+    const errorCode = (session.error as { readonly code?: unknown } | null)?.code;
+    if (errorCode === 'AUTH_REQUIRED') {
+      return (
+        <Navigate
+          replace
+          state={{ from: returnTo }}
+          to={`/login?returnTo=${encodeURIComponent(returnTo)}`}
+        />
+      );
+    }
+
     return (
       <Navigate
         replace
-        state={{ from: `${location.pathname}${location.search}` }}
+        state={{ from: returnTo }}
         to="/session-expired"
       />
     );

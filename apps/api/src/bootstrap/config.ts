@@ -1,3 +1,5 @@
+import { config as loadDotenv } from 'dotenv';
+import { resolve } from 'node:path';
 import { z } from 'zod';
 
 const environmentSchema = z.object({
@@ -63,4 +65,13 @@ export function createConfig(environment: NodeJS.ProcessEnv = process.env): ApiC
     push,
     ...(parsed.SENTRY_DSN ? { sentryDsn: parsed.SENTRY_DSN } : {}),
   };
+}
+
+/** Load the ignored local environment file for the documented dev command. */
+export function loadApiConfig(environment: NodeJS.ProcessEnv = process.env): ApiConfig {
+  const environmentFile = environment.ENV_FILE ?? resolve(import.meta.dirname, '../../../../.env.v2');
+  const fileEnvironment = environment.NODE_ENV === 'production'
+    ? {}
+    : (loadDotenv({ path: environmentFile, processEnv: {}, quiet: true }).parsed ?? {});
+  return createConfig({ ...fileEnvironment, ...environment });
 }

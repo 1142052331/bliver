@@ -16,6 +16,7 @@ describe('SceneDirector', () => {
     ['/publish', 'spatial'],
     ['/activity', 'content'],
     ['/login', 'auth'],
+    ['/register', 'auth'],
     ['/messages/thread-id', 'work'],
     ['/notifications', 'work'],
   ] as const)('maps %s to the %s motion register', (pathname, expected) => {

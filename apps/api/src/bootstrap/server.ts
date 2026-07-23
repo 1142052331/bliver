@@ -6,7 +6,7 @@ import pino from 'pino';
 import * as Sentry from '@sentry/node';
 import { parseUserId } from '@bliver/domain';
 
-import { createConfig } from './config.js';
+import { loadApiConfig } from './config.js';
 import { closeDb, createDb } from '../platform/db/client.js';
 import { createApp } from '../http/app.js';
 import type { HttpErrorReporter } from '../http/error-handler.js';
@@ -84,7 +84,7 @@ export async function shutdownServer(
 }
 
 export async function startServer(): Promise<void> {
-  const config = createConfig();
+  const config = loadApiConfig();
   configureServerSentry(config, Sentry);
   const logger = pino({ level: config.nodeEnv === 'production' ? 'info' : 'silent' });
   const observability = new ObservabilityRegistry(config.sessionSecret, logger);

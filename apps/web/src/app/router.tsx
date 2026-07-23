@@ -67,6 +67,18 @@ function RouteLoading() {
 
 const routeLoadingElement = <RouteLoading />;
 
+function AuthRouteLoading() {
+  const { t } = useTranslation();
+
+  return (
+    <p aria-live="polite" className="app-shell__sr-only" role="status">
+      {t('session.loading')}
+    </p>
+  );
+}
+
+const authRouteLoadingElement = <AuthRouteLoading />;
+
 const routes = [
   {
     path: '/',
@@ -81,12 +93,12 @@ const routes = [
           {
             path: 'publish',
             lazy: lazyAuthGuardRoute,
-            hydrateFallbackElement: routeLoadingElement,
+            hydrateFallbackElement: authRouteLoadingElement,
             children: [
               {
                 index: true,
                 lazy: lazyPublishRoute,
-                hydrateFallbackElement: routeLoadingElement,
+                hydrateFallbackElement: authRouteLoadingElement,
               },
             ],
           },
@@ -103,38 +115,50 @@ const routes = [
         hydrateFallbackElement: routeLoadingElement,
       },
       {
+        path: 'register',
+        lazy: lazyLoginRoute,
+        hydrateFallbackElement: routeLoadingElement,
+      },
+      {
         path: 'people',
         lazy: lazyPeopleRoute,
         hydrateFallbackElement: routeLoadingElement,
       },
       {
         path: 'messages',
-        lazy: lazyMessagesRoute,
-        hydrateFallbackElement: routeLoadingElement,
-      },
-      {
-        path: 'messages/:conversationId',
-        lazy: lazyConversationRoute,
-        hydrateFallbackElement: routeLoadingElement,
+        lazy: lazyAuthGuardRoute,
+        hydrateFallbackElement: authRouteLoadingElement,
+        children: [
+          {
+            index: true,
+            lazy: lazyMessagesRoute,
+            hydrateFallbackElement: authRouteLoadingElement,
+          },
+          {
+            path: ':conversationId',
+            lazy: lazyConversationRoute,
+            hydrateFallbackElement: authRouteLoadingElement,
+          },
+        ],
       },
       {
         path: 'notifications',
         lazy: lazyAuthGuardRoute,
-        hydrateFallbackElement: routeLoadingElement,
+        hydrateFallbackElement: authRouteLoadingElement,
         children: [
           {
             index: true,
             lazy: lazyNotificationsRoute,
-            hydrateFallbackElement: routeLoadingElement,
+            hydrateFallbackElement: authRouteLoadingElement,
           },
         ],
       },
-      { path: 'me', lazy: lazyAuthGuardRoute, hydrateFallbackElement: routeLoadingElement, children: [
-        { index: true, lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
-        { path: 'map', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
-        { path: 'timeline', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
-        { path: 'photos', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
-        { path: 'visitors', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
+      { path: 'me', lazy: lazyAuthGuardRoute, hydrateFallbackElement: authRouteLoadingElement, children: [
+        { index: true, lazy: lazyMemoriesRoute, hydrateFallbackElement: authRouteLoadingElement },
+        { path: 'map', lazy: lazyMemoriesRoute, hydrateFallbackElement: authRouteLoadingElement },
+        { path: 'timeline', lazy: lazyMemoriesRoute, hydrateFallbackElement: authRouteLoadingElement },
+        { path: 'photos', lazy: lazyMemoriesRoute, hydrateFallbackElement: authRouteLoadingElement },
+        { path: 'visitors', lazy: lazyMemoriesRoute, hydrateFallbackElement: authRouteLoadingElement },
       ] },
       { path: 'profile/:userId/memories', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
       { path: 'profile/:userId/memories/map', lazy: lazyMemoriesRoute, hydrateFallbackElement: routeLoadingElement },
@@ -150,12 +174,12 @@ const routes = [
       {
         path: 'admin',
         lazy: lazyAuthGuardRoute,
-        hydrateFallbackElement: routeLoadingElement,
+        hydrateFallbackElement: authRouteLoadingElement,
         children: [
           {
             index: true,
             lazy: lazyAdminRoute,
-            hydrateFallbackElement: routeLoadingElement,
+            hydrateFallbackElement: authRouteLoadingElement,
           },
         ],
       },

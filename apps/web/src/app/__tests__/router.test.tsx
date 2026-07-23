@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { InitialEntry } from 'react-router-dom';
 
@@ -23,8 +23,13 @@ function renderRouter(path: InitialEntry | undefined, locale: AppLocale = 'en') 
   );
 }
 
+function holdSessionRequest() {
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => undefined)));
+}
+
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   window.history.replaceState({}, '', '/');
 });
 
@@ -33,7 +38,7 @@ describe('V2 web route contract', () => {
     ['/map', 'Loading map'],
     ['/activity', 'Activity'],
     ['/people', 'People'],
-    ['/messages', 'Messages'],
+    ['/register', 'Create account'],
     ['/profile/test-user', 'Profile'],
     ['/footprints/test-footprint', 'Footprint'],
   ])('renders a route-owned empty state for %s', async (path, heading) => {
@@ -63,10 +68,29 @@ describe('V2 web route contract', () => {
   it.each(['/me', '/notifications', '/admin'])(
     'guards %s behind an authenticated session',
     async (path) => {
+      holdSessionRequest();
       renderRouter(path);
-      expect(await screen.findByText('Loading session')).toBeVisible();
+      await waitFor(() => {
+        expect(
+          document.querySelector('[data-auth-session-state="loading"]'),
+        ).toHaveTextContent('Loading session');
+      });
+      expect(document.querySelector('.app-status-scene')).not.toBeInTheDocument();
     },
   );
+
+  it('routes a guest away from messages before the legacy message surface mounts', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ code: 'AUTH_REQUIRED' }),
+    }));
+
+    renderRouter('/messages');
+
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Messages' })).not.toBeInTheDocument();
+  });
 
   it('does not expose the notification center under an account-settings alias', async () => {
     renderRouter('/settings');
@@ -148,11 +172,14 @@ describe('V2 web route contract', () => {
   });
 
   it('renders the authenticated-route loading state in Japanese', async () => {
+    holdSessionRequest();
     renderRouter('/me', 'ja');
 
-    expect(await screen.findByText(
-      'ログイン状態を確認中',
-    )).toBeVisible();
+    await waitFor(() => {
+      expect(
+        document.querySelector('[data-auth-session-state="loading"]'),
+      ).toHaveTextContent('ログイン状態を確認中');
+    });
   });
 
   it('uses the browser location when no test history is supplied', async () => {

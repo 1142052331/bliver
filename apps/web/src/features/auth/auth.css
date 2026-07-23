@@ -420,6 +420,10 @@
   text-decoration: none;
 }
 
+.auth-route__guest-link + .auth-route__guest-link {
+  border-block-start: 1px solid var(--bliver-color-border);
+}
+
 .auth-route__guest-link:hover {
   color: var(--bliver-color-forest);
   text-decoration: none;

@@ -29,7 +29,11 @@ export function sceneVariantForPathname(
   pathname: string,
 ): SceneDirectorVariant {
   if (pathname === '/map' || pathname.startsWith('/publish')) return 'spatial';
-  if (pathname === '/login' || pathname === '/session-expired') return 'auth';
+  if (
+    pathname === '/login'
+    || pathname === '/register'
+    || pathname === '/session-expired'
+  ) return 'auth';
   if (
     pathname.startsWith('/messages') ||
     pathname.startsWith('/notifications') ||

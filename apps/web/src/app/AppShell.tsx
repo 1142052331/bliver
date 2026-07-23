@@ -23,7 +23,7 @@ const destinations = [
 
 const workPrefixes = ['/messages', '/notifications', '/people', '/admin'];
 const storyPrefixes = ['/activity', '/footprints', '/me', '/profile'];
-const authPrefixes = ['/login', '/session-expired'];
+const authPrefixes = ['/login', '/register', '/session-expired'];
 
 function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some(
@@ -73,6 +73,7 @@ export function AppShell() {
     ['/people', 'nav.people'],
     ['/admin', 'nav.admin'],
     ['/login', 'session.signIn'],
+    ['/register', 'auth.createAccount'],
     ['/footprints', 'map.preview'],
     ['/me', 'nav.me'],
     ['/profile', 'nav.me'],

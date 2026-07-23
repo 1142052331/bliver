@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Surface } from '@bliver/ui';
-import type { LoginRequest } from '@bliver/contracts';
+import type { LoginRequest, RegisterRequest } from '@bliver/contracts';
 import {
   CircleAlert,
   Eye,
@@ -35,12 +35,15 @@ export function LoginRoute() {
   const copy = (key: AuthTranslationKey): string =>
     t(`auth.${key}`, { defaultValue: authTranslations.en.auth[key] });
   const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [openingLogin, setOpeningLogin] = useState(false);
   const sessionExpired = location.pathname === '/session-expired';
+  const registering = location.pathname === '/register';
   const interruptedDestination =
     typeof location.state?.from === 'string' ? location.state.from : '/map';
   const loginHref = `/login?returnTo=${encodeURIComponent(interruptedDestination)}`;
@@ -225,23 +228,49 @@ export function LoginRoute() {
     if (hasError) setHasError(false);
   };
 
+  const returnTo = loginReturnDestination(
+    location.search,
+    typeof location.state?.from === 'string' ? location.state.from : undefined,
+  );
+  const registrationHref = `/register?returnTo=${encodeURIComponent(returnTo)}`;
+  const signInHref = `/login?returnTo=${encodeURIComponent(returnTo)}`;
+
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const submittedUsername = String(formData.get('username') ?? username).trim();
     const submittedPassword = String(formData.get('password') ?? password);
+    const submittedDisplayName = String(
+      formData.get('displayName') ?? displayName,
+    ).trim();
+    const submittedConfirmation = String(
+      formData.get('passwordConfirmation') ?? passwordConfirmation,
+    );
     if (!submittedUsername || !submittedPassword || busy) return;
+    if (registering && submittedPassword !== submittedConfirmation) {
+      setHasError(true);
+      return;
+    }
 
-    const input: LoginRequest = {
-      username: submittedUsername,
-      password: submittedPassword,
-      platform: 'web',
-    };
     setBusy(true);
     setHasError(false);
 
     try {
-      await authApi.login(input);
+      if (registering) {
+        const input: RegisterRequest = {
+          username: submittedUsername,
+          password: submittedPassword,
+          ...(submittedDisplayName ? { displayName: submittedDisplayName } : {}),
+        };
+        await authApi.register(input);
+      } else {
+        const input: LoginRequest = {
+          username: submittedUsername,
+          password: submittedPassword,
+          platform: 'web',
+        };
+        await authApi.login(input);
+      }
       const pending = consumePendingAction();
       const stateFrom =
         typeof location.state?.from === 'string'
@@ -263,10 +292,16 @@ export function LoginRoute() {
   return (
     <section
       ref={routeRef}
-      aria-label={copy(sessionExpired ? 'sessionExpiredTitle' : 'signInTitle')}
+      aria-label={copy(
+        sessionExpired
+          ? 'sessionExpiredTitle'
+          : registering
+            ? 'registerTitle'
+            : 'signInTitle',
+      )}
       className={`auth-route auth-route--${sessionExpired ? 'expired' : 'login'}`}
       data-auth-state={busy ? 'submitting' : hasError ? 'error' : 'ready'}
-      data-auth-mode={sessionExpired ? 'expired' : 'login'}
+      data-auth-mode={sessionExpired ? 'expired' : registering ? 'register' : 'login'}
       data-cinema-scene="auth"
     >
       <div className="auth-route__spatial" aria-hidden="true">
@@ -319,8 +354,8 @@ export function LoginRoute() {
             <>
               <header className="auth-route__header" data-auth-form-part>
                 <div className="auth-route__header-copy">
-                  <h1>{copy('signInTitle')}</h1>
-                  <p>{copy('signInBody')}</p>
+                  <h1>{copy(registering ? 'registerTitle' : 'signInTitle')}</h1>
+                  <p>{copy(registering ? 'registerBody' : 'signInBody')}</p>
                 </div>
               </header>
 
@@ -336,7 +371,13 @@ export function LoginRoute() {
                   {hasError ? (
                     <p id="auth-sign-in-error" role="alert">
                       <CircleAlert aria-hidden="true" />
-                      <span>{copy('signInError')}</span>
+                      <span>
+                        {copy(registering
+                          ? password !== passwordConfirmation
+                            ? 'passwordMismatch'
+                            : 'registerError'
+                          : 'signInError')}
+                      </span>
                     </p>
                   ) : null}
                 </div>
@@ -365,6 +406,24 @@ export function LoginRoute() {
                     />
                   </label>
 
+                  {registering ? (
+                    <label>
+                      <span>{copy('displayName')}</span>
+                      <input
+                        aria-label={copy('displayName')}
+                        autoComplete="name"
+                        disabled={busy}
+                        maxLength={64}
+                        name="displayName"
+                        value={displayName}
+                        onChange={(event) => {
+                          setDisplayName(event.target.value);
+                          clearError();
+                        }}
+                      />
+                    </label>
+                  ) : null}
+
                   <label>
                     <span>{copy('password')}</span>
                     <span className="auth-route__password-field">
@@ -374,8 +433,9 @@ export function LoginRoute() {
                         }
                         aria-invalid={hasError}
                         aria-label={copy('password')}
-                        autoComplete="current-password"
+                        autoComplete={registering ? 'new-password' : 'current-password'}
                         disabled={busy}
+                        minLength={registering ? 8 : undefined}
                         name="password"
                         required
                         type={passwordVisible ? 'text' : 'password'}
@@ -407,6 +467,30 @@ export function LoginRoute() {
                       </button>
                     </span>
                   </label>
+
+                  {registering ? (
+                    <label>
+                      <span>{copy('confirmPassword')}</span>
+                      <input
+                        aria-describedby={
+                          hasError ? 'auth-sign-in-error' : undefined
+                        }
+                        aria-invalid={hasError}
+                        aria-label={copy('confirmPassword')}
+                        autoComplete="new-password"
+                        disabled={busy}
+                        minLength={8}
+                        name="passwordConfirmation"
+                        required
+                        type={passwordVisible ? 'text' : 'password'}
+                        value={passwordConfirmation}
+                        onChange={(event) => {
+                          setPasswordConfirmation(event.target.value);
+                          clearError();
+                        }}
+                      />
+                    </label>
+                  ) : null}
                 </div>
 
                 <div
@@ -419,7 +503,7 @@ export function LoginRoute() {
                     loading={busy}
                     type="submit"
                   >
-                    <span>{copy('signInAction')}</span>
+                    <span>{copy(registering ? 'registerAction' : 'signInAction')}</span>
                     <span
                       className="auth-route__submit-direction"
                       aria-hidden="true"
@@ -427,6 +511,14 @@ export function LoginRoute() {
                       <ArrowRight />
                     </span>
                   </Button>
+                  <Link
+                    className="auth-route__guest-link"
+                    state={{ from: returnTo }}
+                    to={registering ? signInHref : registrationHref}
+                  >
+                    <span>{copy(registering ? 'haveAccount' : 'createAccount')}</span>
+                    <ArrowUpRight aria-hidden="true" />
+                  </Link>
                   <Link className="auth-route__guest-link" to="/map">
                     <span>{copy('exploreMap')}</span>
                     <ArrowUpRight aria-hidden="true" />
@@ -436,7 +528,7 @@ export function LoginRoute() {
 
               <footer className="auth-route__trust" data-auth-form-part>
                 <ShieldCheck aria-hidden="true" />
-                <span>{copy('sessionTrust')}</span>
+                <span>{copy(registering ? 'registerTrust' : 'sessionTrust')}</span>
               </footer>
             </>
           )}
