@@ -44,6 +44,9 @@ describe('uploadMedia', () => {
       credentials: 'include',
       headers: expect.objectContaining({ 'x-csrf-token': 'csrf-token' }),
     }));
+    const cloudinaryRequest = fetchMock.mock.calls[1]?.[1] as RequestInit | undefined;
+    expect(cloudinaryRequest?.body).toBeInstanceOf(FormData);
+    expect((cloudinaryRequest?.body as FormData).has('max_file_size')).toBe(false);
     expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/v1/media/019c2f52-3e9b-7d1f-8d68-cf35d75d9b70/complete', expect.objectContaining({
       method: 'POST',
       credentials: 'include',

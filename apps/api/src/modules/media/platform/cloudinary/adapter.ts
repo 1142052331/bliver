@@ -55,7 +55,7 @@ export class CloudinaryAdapter implements MediaAdapter {
     const config = this.requireConfig();
     const timestamp = this.now();
     const allowedFormats = formatForMimeType(input.mimeType);
-    const signature = signatureFor({ public_id: input.publicId, timestamp, allowed_formats: allowedFormats ?? '', max_file_size: input.bytes }, config.apiSecret);
+    const signature = signatureFor({ public_id: input.publicId, timestamp, allowed_formats: allowedFormats ?? '' }, config.apiSecret);
     return {
       signature,
       timestamp,

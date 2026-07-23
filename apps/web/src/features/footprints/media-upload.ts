@@ -26,7 +26,6 @@ export async function uploadMedia(file: File): Promise<{ readonly assetId: strin
   form.append('signature', signed.signature);
   form.append('public_id', signed.publicId);
   form.append('allowed_formats', signed.allowedFormats);
-  form.append('max_file_size', String(signed.maxFileBytes));
   const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(signed.cloudName)}/image/upload`, { method: 'POST', body: form });
   if (!uploadResponse.ok) throw new Error('Cloudinary upload failed');
   const upload = parseCloudinaryUpload(await uploadResponse.json(), signed.publicId);

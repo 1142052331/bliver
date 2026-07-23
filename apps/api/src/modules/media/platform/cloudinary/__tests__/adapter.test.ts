@@ -29,6 +29,19 @@ describe('CloudinaryAdapter', () => {
     expect(result).not.toHaveProperty('signedUrl');
   });
 
+  it('omits provider-managed max file size from the Cloudinary signature', async () => {
+    const adapter = new CloudinaryAdapter(
+      { cloudName: 'demo', apiKey: 'public-key', apiSecret: 'private-secret' },
+      { now: () => 1_700_000_000 },
+    );
+
+    await expect(adapter.signUpload({
+      publicId: 'bliver/asset-1',
+      mimeType: 'image/jpeg',
+      bytes: 100,
+    })).resolves.toMatchObject({ signature: 'af7d80f4f707d6c99f83b00a74d6c1de1bd3330e' });
+  });
+
   it('verifies provider metadata for the signed public ID', async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ public_id: 'bliver/asset-1', version: 42, width: 1200, height: 900, format: 'jpg' }), { status: 200 }));
     const adapter = new CloudinaryAdapter({ cloudName: 'demo', apiKey: 'public-key', apiSecret: 'private-secret' }, { fetch: fetcher });
