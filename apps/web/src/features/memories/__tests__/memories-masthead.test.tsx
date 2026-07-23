@@ -53,6 +53,7 @@ describe('MemoriesRoute masthead', () => {
     );
 
     expect(await screen.findByText('Evening walk')).toBeVisible();
+    expect(view.container.querySelector('.memory-atlas')).toHaveClass('memory-atlas--single');
     expect(view.container.querySelector('.memory-atlas__feature img')).toHaveAttribute('src', mediaUrl);
     expect(screen.getByRole('button', { name: 'Delete footprint' })).toBeVisible();
   });

@@ -2,6 +2,19 @@ import { describe, expect, it, vi } from 'vitest';
 import type { DatabaseClient } from '../../../../platform/db/client.js';
 import { createPostgresDiscoveryRepository } from '../postgres-repository.js';
 describe('Postgres discovery query plan', () => {
+  it('can rebuild the projection from canonical footprints at startup', async () => {
+    const query = vi.fn(async (...args: [string, (readonly unknown[])?]) => { void args; return { rows: [], rowCount: 0 }; });
+    const repository = createPostgresDiscoveryRepository({ query } as unknown as DatabaseClient);
+
+    await repository.backfill();
+
+    const sql = String(query.mock.calls[0]?.[0]);
+    expect(sql).toContain('INSERT INTO discovery_entries');
+    expect(sql).toContain('FROM footprints f');
+    expect(sql).toContain('ON CONFLICT (footprint_id) DO UPDATE');
+    expect(sql).toContain('ma.version IS NOT NULL');
+  });
+
   it('pushes privacy through an explicit relationship filter port', async () => {
     const query = vi.fn(async (...args: [string, (readonly unknown[])?]) => { void args; return { rows: [], rowCount: 0 }; });
     const accessFilter = vi.fn(() => 'social_access_policy');

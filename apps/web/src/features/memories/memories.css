@@ -189,6 +189,10 @@
   isolation: isolate;
 }
 
+.memory-atlas--single:not(.memory-atlas--expanded) .memory-atlas__plot {
+  height: 96px;
+}
+
 .memory-atlas--expanded .memory-atlas__plot {
   height: min(42dvh, 420px);
   min-height: 260px;
@@ -1306,6 +1310,10 @@
     height: 148px;
   }
 
+  .memory-atlas--single:not(.memory-atlas--expanded) .memory-atlas__plot {
+    height: 84px;
+  }
+
   .memory-atlas--expanded .memory-atlas__plot {
     min-height: 240px;
   }
@@ -1382,6 +1390,10 @@
 
   .memory-atlas__plot {
     height: 240px;
+  }
+
+  .memory-atlas--single:not(.memory-atlas--expanded) .memory-atlas__plot {
+    height: 112px;
   }
 
   .memory-atlas--expanded .memory-atlas__plot {

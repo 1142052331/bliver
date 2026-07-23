@@ -116,6 +116,7 @@ export async function startServer(): Promise<void> {
     accessFilter: (input) => blockPolicy.relationshipVisibilitySql(input),
     ...(config.cloudinary ? { cloudName: config.cloudinary.cloudName } : {}),
   });
+  await discoveryRepository.backfill();
   const activity = new DiscoveryQueryService({ repository: discoveryRepository, policy, cursorSecret: config.sessionSecret });
   const geography = createNominatimGeography({ observe: (healthy) => observability.dependency('geocoder', healthy) });
   const interactionService = new InteractionService(createPostgresInteractionRepository(db), { async canInteract(actor, footprintId) { return policy.canRead(actor, footprintId); }, async canRead(actor, footprintId) { return policy.canRead(actor, footprintId); }, async isBlocked(actorId, targetId) { return relationships.isEitherBlocked(actorId, targetId); }, async footprintOwner(footprintId) { return (await footprints.findById(footprintId))?.authorId ?? null; } });

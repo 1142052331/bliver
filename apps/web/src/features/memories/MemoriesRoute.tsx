@@ -428,7 +428,7 @@ function MemoryField({ items, summary, expanded = false, canDelete = false }: { 
   });
 
   return (
-    <section ref={rootRef} className={`memory-atlas${expanded ? ' memory-atlas--expanded' : ''}`} aria-labelledby="memory-atlas-heading" data-memory-primary="true">
+    <section ref={rootRef} className={`memory-atlas${expanded ? ' memory-atlas--expanded' : ''}${visibleItems.length === 1 ? ' memory-atlas--single' : ''}`} aria-labelledby="memory-atlas-heading" data-memory-primary="true">
       <header className="memory-atlas__heading">
         <h2 id="memory-atlas-heading">{t('memories.mapMemories')}</h2>
         {items.length ? <p>{t(items.length === 1 ? 'memories.savedPlace' : 'memories.savedPlaces', { count: items.length })}</p> : null}
