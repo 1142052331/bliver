@@ -10,6 +10,7 @@ import {
   PublishFootprintRoute,
   type PublishFootprintRouteProps,
 } from '../../features/footprints/PublishFootprintRoute.js';
+import { mutationHeaders } from '../../features/footprints/csrf.js';
 import { uploadMedia } from '../../features/footprints/media-upload.js';
 
 function pointFrom(
@@ -32,10 +33,11 @@ async function publishFootprint(
   });
   const response = await fetch('/api/v1/footprints', {
     method: 'POST',
-    headers: {
+    credentials: 'include',
+    headers: mutationHeaders({
       'content-type': 'application/json',
       'idempotency-key': crypto.randomUUID(),
-    },
+    }),
     body: JSON.stringify(payload),
   });
 

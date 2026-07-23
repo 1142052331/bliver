@@ -1,5 +1,7 @@
 import { mediaCompleteRequest, mediaSignatureResponse } from '@bliver/contracts';
 
+import { mutationHeaders } from './csrf.js';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -14,7 +16,7 @@ function parseCloudinaryUpload(value: unknown, publicId: string) {
 }
 
 export async function uploadMedia(file: File): Promise<{ readonly assetId: string }> {
-  const response = await fetch('/api/v1/media/signature', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ mimeType: file.type, bytes: file.size }) });
+  const response = await fetch('/api/v1/media/signature', { method: 'POST', credentials: 'include', headers: mutationHeaders({ 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }), body: JSON.stringify({ mimeType: file.type, bytes: file.size }) });
   if (!response.ok) throw new Error('Upload signing failed');
   const signed = mediaSignatureResponse.parse(await response.json());
   const form = new FormData();
@@ -30,7 +32,8 @@ export async function uploadMedia(file: File): Promise<{ readonly assetId: strin
   const upload = parseCloudinaryUpload(await uploadResponse.json(), signed.publicId);
   const completion = await fetch(`/api/v1/media/${encodeURIComponent(signed.assetId)}/complete`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    credentials: 'include',
+    headers: mutationHeaders({ 'content-type': 'application/json' }),
     body: JSON.stringify({ publicId: signed.publicId, version: upload.version, width: upload.width, height: upload.height, format: upload.format }),
   });
   if (!completion.ok) throw new Error('Upload completion failed');

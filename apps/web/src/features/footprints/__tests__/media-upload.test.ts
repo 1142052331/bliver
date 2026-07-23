@@ -4,10 +4,12 @@ import { uploadMedia } from '../media-upload.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  document.cookie = 'bliver_csrf=; Max-Age=0';
 });
 
 describe('uploadMedia', () => {
   it('completes stored metadata after Cloudinary accepts the direct upload', async () => {
+    document.cookie = 'bliver_csrf=csrf-token';
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
         assetId: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70',
@@ -38,8 +40,14 @@ describe('uploadMedia', () => {
     const result = await uploadMedia(new File(['image'], 'photo.jpg', { type: 'image/jpeg' }));
 
     expect(result).toEqual({ assetId: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70' });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/media/signature', expect.objectContaining({
+      credentials: 'include',
+      headers: expect.objectContaining({ 'x-csrf-token': 'csrf-token' }),
+    }));
     expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/v1/media/019c2f52-3e9b-7d1f-8d68-cf35d75d9b70/complete', expect.objectContaining({
       method: 'POST',
+      credentials: 'include',
+      headers: expect.objectContaining({ 'x-csrf-token': 'csrf-token' }),
       body: JSON.stringify({ publicId: 'bliver/owner/asset', version: 42, width: 1200, height: 900, format: 'jpg' }),
     }));
   });
