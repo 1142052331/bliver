@@ -1,6 +1,6 @@
 import { IconButton } from "@bliver/ui";
 import type { FootprintMediaPreview } from "@bliver/contracts";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   Crosshair,
@@ -14,9 +14,10 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { ConversationSection } from "../activity/ConversationSection.js";
+import { fetchCurrentUser } from "../identity/api.js";
 import { MomentFrame } from "../../components/moment/MomentFrame.js";
 import { FootprintMoodMark } from "../../components/moment/FootprintMoodMark.js";
 import { savePendingActionRecord } from "../../platform/pending-action.js";
@@ -28,6 +29,7 @@ import {
   withMotionPreferences,
 } from "../../platform/motion/gsap.js";
 import { useFootprintQuery } from "./api.js";
+import { DeleteFootprintButton } from "./DeleteFootprintButton.js";
 import {
   footprintDefault,
   type FootprintTranslationKey,
@@ -40,7 +42,7 @@ interface FootprintDetailProps {
     readonly message: string;
     readonly visibility: "public" | "friends" | "private";
     readonly locationPrecision: "precise" | "approximate";
-    readonly author?: { readonly name: string };
+    readonly author?: { readonly id?: string; readonly name: string };
     readonly displayPoint?: { readonly lat: number; readonly lng: number };
     readonly primaryMedia?: FootprintMediaPreview;
     readonly mood?: string | null;
@@ -108,9 +110,12 @@ function FootprintDetailBody({
       }),
     );
   const remote = useFootprintQuery(footprint.id, loadFromApi);
+  const currentUser = useQuery({ queryKey: ['identity', 'current-user'], queryFn: fetchCurrentUser, enabled: loadFromApi, retry: false });
   const location = useLocation();
+  const navigate = useNavigate();
   const [mediaState, setMediaState] = useState<{ readonly url: string; readonly state: "loading" | "loaded" | "error" } | null>(null);
   const displayed = remote.data ?? footprint;
+  const canDelete = Boolean(displayed.author?.id && displayed.author.id === currentUser.data?.id);
   const authorName = displayed.author?.name;
   const initial = authorName?.trim().slice(0, 1).toLocaleUpperCase() ?? "?";
   const date = dateParts(displayed.publishedAt, locale);
@@ -218,6 +223,12 @@ function FootprintDetailBody({
         <header className="footprint-detail__topbar">
           {remote.isLoading ? (
             <span role="status">{copy("syncing")}</span>
+          ) : null}
+          {canDelete ? (
+            <DeleteFootprintButton
+              footprintId={displayed.id}
+              onDeleted={() => navigate('/me', { replace: true })}
+            />
           ) : null}
           {onClose ? (
             <IconButton

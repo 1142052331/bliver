@@ -19,11 +19,17 @@ describe('Postgres memory repository', () => {
         published_at: new Date('2026-07-15T08:00:00.000Z'),
         discovery_expires_at: null,
         moderation_hidden_at: null,
+        primary_media_public_id: 'bliver/lin/memory',
+        primary_media_version: 7,
+        primary_media_width: 1200,
+        primary_media_height: 800,
+        primary_media_format: 'webp',
       }],
       rowCount: 1,
     }));
     const repository = createPostgresMemoryRepository(
       { query } as unknown as DatabaseClient,
+      'demo',
     );
 
     const [record] = await repository.listByOwner(
@@ -31,7 +37,16 @@ describe('Postgres memory repository', () => {
     );
     const [sql] = query.mock.calls[0] as unknown as [string];
 
-    expect(record).toMatchObject({ mood: 'quiet' });
+    expect(record).toMatchObject({
+      mood: 'quiet',
+      primaryMedia: {
+        url: 'https://res.cloudinary.com/demo/image/upload/v7/bliver/lin/memory.webp',
+        width: 1200,
+        height: 800,
+      },
+    });
     expect(sql).toContain('f.mood');
+    expect(sql).toContain('LEFT JOIN LATERAL');
+    expect(sql).toContain('ORDER BY fm.position ASC');
   });
 });

@@ -15,7 +15,7 @@ export interface ObservabilitySnapshot {
   readonly recentRequests: readonly RequestMetric[];
 }
 interface SafeLogger { info(fields: Record<string, unknown>, message?: string): void; }
-interface EventDimensions { readonly requestId?: string; readonly correlationId?: string; readonly status?: string | number; readonly durationMs?: number; readonly actorId?: string; }
+interface EventDimensions { readonly requestId?: string; readonly correlationId?: string; readonly status?: string | number; readonly durationMs?: number; readonly actorId?: string; readonly eventType?: string; readonly attempts?: number; }
 
 export function hashActorId(actorId: string, salt: string): string {
   return createHash('sha256').update(`${salt}:${actorId}`).digest('hex');

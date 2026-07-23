@@ -9,7 +9,7 @@ import { parseUserId } from '@bliver/domain';
 import { ObservabilityRegistry } from '../../platform/observability/index.js';
 import { InMemoryOutbox, OutboxWorker } from '../../platform/outbox/index.js';
 
-import { configureRealtime, createConversationOutboxConsumer, createConversationSocketHandlers, emitFootprintPublished } from '../realtime.js';
+import { configureRealtime, createConversationOutboxConsumer, createConversationSocketHandlers, emitFootprintDeleted, emitFootprintPublished } from '../realtime.js';
 
 describe('realtime privacy boundary', () => {
   it('delivers a persisted Socket message only after the Outbox worker claims it', async () => {
@@ -50,6 +50,17 @@ describe('realtime privacy boundary', () => {
 
     expect(io.to).toHaveBeenCalledWith('user:owner-1');
     expect(room.emit).toHaveBeenCalledWith('footprint:published', { footprintId: 'footprint-1', authorId: 'owner-1' });
+    expect(io.emit).not.toHaveBeenCalled();
+  });
+
+  it('routes deletion metadata to the owner room instead of broadcasting globally', () => {
+    const room = { emit: vi.fn() };
+    const io = { to: vi.fn(() => room), emit: vi.fn() };
+
+    emitFootprintDeleted(io, { footprintId: 'footprint-1', authorId: 'owner-1' });
+
+    expect(io.to).toHaveBeenCalledWith('user:owner-1');
+    expect(room.emit).toHaveBeenCalledWith('footprint:deleted', { footprintId: 'footprint-1', authorId: 'owner-1' });
     expect(io.emit).not.toHaveBeenCalled();
   });
 

@@ -162,6 +162,6 @@ export class DeleteFootprint {
     if (!existing || existing.authorId !== input.actorId) throw new FootprintConflictError();
     if (this.repositories.transactions) { await this.repositories.transactions.delete(input); return; }
     await this.repositories.footprints.delete(input.footprintId);
-    await this.repositories.outbox.append({ id: createEventId(), type: 'FootprintDeleted', aggregateId: input.footprintId, payload: { footprintId: input.footprintId } });
+    await this.repositories.outbox.append({ id: createEventId(), type: 'FootprintDeleted', aggregateId: input.footprintId, payload: { footprintId: input.footprintId, authorId: input.actorId } });
   }
 }

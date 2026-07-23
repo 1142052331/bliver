@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import type { ActivityPageDto, ActivityQuery, FootprintDto } from '@bliver/contracts';
 import { Button } from '@bliver/ui';
 import { Compass, Image as ImageIcon, MapPin, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
@@ -20,6 +20,7 @@ import {
 import { addComment, addReaction, addReply, reportFootprint, useActivityInfiniteQuery } from './api.js';
 import { ActivityCard } from './ActivityCard.js';
 import { ActivityScopeSheet } from './ActivityScopeSheet.js';
+import { connectActivityRealtime } from './realtime.js';
 import './activity.css';
 
 export type ActivityState = 'loading' | 'empty' | 'error' | 'ready';
@@ -446,6 +447,7 @@ export function ActivityRoute(props: ActivityRouteProps) {
 
 function ActivityRouteBody({ state = 'ready', items = [], page, onRetry, loadFromApi = false }: ActivityRouteProps) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState(defaultQuery);
   const [scopeOpen, setScopeOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -462,6 +464,11 @@ function ActivityRouteBody({ state = 'ready', items = [], page, onRetry, loadFro
   const filterTrigger = useRef<HTMLButtonElement>(null);
   const searchTrigger = useRef<HTMLButtonElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+
+  useEffect(
+    () => loadFromApi ? connectActivityRealtime(queryClient) : undefined,
+    [loadFromApi, queryClient],
+  );
 
   useGSAP(() => {
     const root = routeRef.current;

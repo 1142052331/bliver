@@ -30,6 +30,7 @@ import {
   useGSAP,
   withMotionPreferences,
 } from '../../platform/motion/gsap.js';
+import { DeleteFootprintButton } from '../footprints/DeleteFootprintButton.js';
 import {
   fetchMemories,
   fetchPhotos,
@@ -160,6 +161,28 @@ function MemoryEmpty({ children, action = false }: { readonly children: ReactNod
       <p>{children}</p>
       {action ? <Link className="memories-empty__action" to="/map"><Map aria-hidden="true" />{t('memories.openMap')}<ArrowUpRight aria-hidden="true" /></Link> : null}
     </div>
+  );
+}
+
+function MemoryPreview({ item, variant }: { readonly item: MemoryFootprint; readonly variant: 'feature' | 'ledger' }) {
+  const { i18n, t } = useTranslation();
+  if (!item.primaryMedia) return null;
+  return (
+    <span className={`memory-preview memory-preview--${variant}`} aria-hidden="true">
+      <MomentFrame
+        authorName={t('memories.photoAlt')}
+        displayPoint={item.displayPoint}
+        loading="lazy"
+        locale={i18n.resolvedLanguage ?? i18n.language}
+        media={item.primaryMedia}
+        mediaAlt=""
+        mood={item.mood}
+        showCoordinates={false}
+        showTelemetry={false}
+        spatialLabel={t('memories.photoUnavailable')}
+        variant="stage"
+      />
+    </span>
   );
 }
 
@@ -344,7 +367,7 @@ function MemorySeed({ summary, ownProfile }: { readonly summary: MemorySummary |
   );
 }
 
-function MemoryField({ items, summary, expanded = false }: { readonly items: readonly MemoryFootprint[]; readonly summary: MemorySummary | undefined; readonly expanded?: boolean }) {
+function MemoryField({ items, summary, expanded = false, canDelete = false }: { readonly items: readonly MemoryFootprint[]; readonly summary: MemorySummary | undefined; readonly expanded?: boolean; readonly canDelete?: boolean }) {
   const { i18n, t } = useTranslation();
   const locale = i18n.resolvedLanguage ?? i18n.language;
   const rootRef = useRef<HTMLElement>(null);
@@ -433,23 +456,27 @@ function MemoryField({ items, summary, expanded = false }: { readonly items: rea
             </Link>
             ))}
           </div>
-          <Link
-            aria-label={`${t('memories.openMemory', { date: formatDate(primary.publishedAt, locale) })} · ${t(visibilityLabelKey(primary.visibility))}`}
-            className="memory-atlas__feature"
-            data-memory-feature
-            to={`/footprints/${primary.id}`}
-          >
-            <span className="memory-atlas__feature-date">
-              <time dateTime={primary.publishedAt}>{formatDate(primary.publishedAt, locale)}</time>
-              <FootprintMoodMark mood={primary.mood} variant="icon" />
-            </span>
-            <strong>{primary.message || t('memories.sharedMoment')}</strong>
-            <span className="memory-atlas__feature-meta">
-              <span>{primary.displayPoint.lat.toFixed(3)}, {primary.displayPoint.lng.toFixed(3)}</span>
-              <span>{t(visibilityLabelKey(primary.visibility))}</span>
-              <ArrowUpRight aria-hidden="true" />
-            </span>
-          </Link>
+          <div className="memory-atlas__feature-row">
+            <Link
+              aria-label={`${t('memories.openMemory', { date: formatDate(primary.publishedAt, locale) })} · ${t(visibilityLabelKey(primary.visibility))}`}
+              className={`memory-atlas__feature${primary.primaryMedia ? ' has-media' : ''}`}
+              data-memory-feature
+              to={`/footprints/${primary.id}`}
+            >
+              <MemoryPreview item={primary} variant="feature" />
+              <span className="memory-atlas__feature-date">
+                <time dateTime={primary.publishedAt}>{formatDate(primary.publishedAt, locale)}</time>
+                <FootprintMoodMark mood={primary.mood} variant="icon" />
+              </span>
+              <strong>{primary.message || t('memories.sharedMoment')}</strong>
+              <span className="memory-atlas__feature-meta">
+                <span>{primary.displayPoint.lat.toFixed(3)}, {primary.displayPoint.lng.toFixed(3)}</span>
+                <span>{t(visibilityLabelKey(primary.visibility))}</span>
+                <ArrowUpRight aria-hidden="true" />
+              </span>
+            </Link>
+            {canDelete ? <DeleteFootprintButton footprintId={primary.id} /> : null}
+          </div>
         </>
       ) : (
         <div className="memory-atlas__empty">
@@ -462,7 +489,7 @@ function MemoryField({ items, summary, expanded = false }: { readonly items: rea
   );
 }
 
-function MemoryLedger({ items, title, titleId, emptyText }: { readonly items: readonly MemoryFootprint[]; readonly title: string; readonly titleId: string; readonly emptyText: string }) {
+function MemoryLedger({ items, title, titleId, emptyText, canDelete = false }: { readonly items: readonly MemoryFootprint[]; readonly title: string; readonly titleId: string; readonly emptyText: string; readonly canDelete?: boolean }) {
   const { i18n, t } = useTranslation();
   const locale = i18n.resolvedLanguage ?? i18n.language;
   return (
@@ -472,11 +499,13 @@ function MemoryLedger({ items, title, titleId, emptyText }: { readonly items: re
         <ol>
           {items.map((item) => (
             <li key={item.id} data-memory-arrival>
-              <Link aria-label={`${t('memories.openMemory', { date: formatDate(item.publishedAt, locale) })} · ${t(visibilityLabelKey(item.visibility))}`} to={`/footprints/${item.id}`}>
+              <Link className={item.primaryMedia ? 'has-media' : undefined} aria-label={`${t('memories.openMemory', { date: formatDate(item.publishedAt, locale) })} · ${t(visibilityLabelKey(item.visibility))}`} to={`/footprints/${item.id}`}>
                 <time dateTime={item.publishedAt}><strong>{formatDate(item.publishedAt, locale, { day: '2-digit' })}</strong><span>{formatDate(item.publishedAt, locale, { month: 'short', year: 'numeric' })}</span></time>
+                <MemoryPreview item={item} variant="ledger" />
                 <span className="memory-ledger__content"><strong>{item.message || t('memories.sharedMoment')}</strong><small><FootprintMoodMark mood={item.mood} /><span className="memory-ledger__coordinate">{item.displayPoint.lat.toFixed(3)}, {item.displayPoint.lng.toFixed(3)}</span><span className="memory-ledger__visibility">{t(visibilityLabelKey(item.visibility))}</span></small></span>
                 <ArrowUpRight aria-hidden="true" />
               </Link>
+              {canDelete ? <DeleteFootprintButton footprintId={item.id} /> : null}
             </li>
           ))}
         </ol>
@@ -618,7 +647,7 @@ export function MemoriesRoute() {
       />
       {isOverview || isMap
         ? map.length
-          ? <MemoryField items={map} summary={summary} expanded={isMap} />
+          ? <MemoryField items={map} summary={summary} expanded={isMap} canDelete={!userId} />
           : <MemorySeed summary={summary} ownProfile={!userId} />
         : <MemoryStats summary={summary} standalone />}
       <div className="memories-toolbar">
@@ -639,12 +668,12 @@ export function MemoriesRoute() {
         </nav>
       </div>
 
-      {isOverview && map.length > 1 ? <div className="memories-overview" data-memory-view="overview"><MemoryLedger items={map.slice(1)} title={t('memories.recentArchive')} titleId="memory-ledger-recent" emptyText={t('memories.noMemories')} /></div> : null}
-      {isMap && map.length > 1 ? <div className="memories-map-view" data-memory-view="map"><MemoryLedger items={map.slice(1)} title={t('memories.coordinateIndex')} titleId="memory-ledger-coordinates" emptyText={t('memories.noVisibleMapMemories')} /></div> : null}
+      {isOverview && map.length > 1 ? <div className="memories-overview" data-memory-view="overview"><MemoryLedger items={map.slice(1)} title={t('memories.recentArchive')} titleId="memory-ledger-recent" emptyText={t('memories.noMemories')} canDelete={!userId} /></div> : null}
+      {isMap && map.length > 1 ? <div className="memories-map-view" data-memory-view="map"><MemoryLedger items={map.slice(1)} title={t('memories.coordinateIndex')} titleId="memory-ledger-coordinates" emptyText={t('memories.noVisibleMapMemories')} canDelete={!userId} /></div> : null}
       {isTimeline ? (
         <section className="memories-view memories-timeline" aria-labelledby="memories-timeline-heading" data-memory-view="timeline">
           <div className="memories-view__heading" data-memory-arrival><span><CalendarDays aria-hidden="true" /><h2 id="memories-timeline-heading">{t('memories.timeline')}</h2></span><strong>{timeline.data?.items.length ?? 0}</strong></div>
-          <MemoryLedger items={timeline.data?.items ?? []} title={t('memories.chronologicalRecord')} titleId="memory-ledger-timeline" emptyText={t('memories.timelineEmpty')} />
+          <MemoryLedger items={timeline.data?.items ?? []} title={t('memories.chronologicalRecord')} titleId="memory-ledger-timeline" emptyText={t('memories.timelineEmpty')} canDelete={!userId} />
         </section>
       ) : null}
       {isPhotos ? (

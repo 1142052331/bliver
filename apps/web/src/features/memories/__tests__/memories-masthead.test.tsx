@@ -20,6 +20,43 @@ afterEach(() => {
 });
 
 describe('MemoriesRoute masthead', () => {
+  it('shows the published photo and owner-only delete action in the personal archive', async () => {
+    const footprintId = '019c2f52-3e9b-7d1f-8d68-cf35d75d9b72';
+    const mediaUrl = 'https://res.cloudinary.com/demo/image/upload/v7/bliver/memory.webp';
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/users/me')) return ok({ id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70', username: 'river', displayName: 'River Song' });
+      if (url.endsWith('/me')) return ok({
+        summary: { footprintCount: 1, photoCount: 1, visitorCount: 0 },
+        map: [{
+          id: footprintId,
+          message: 'Evening walk',
+          publishedAt: '2026-07-23T08:00:00.000Z',
+          visibility: 'public',
+          displayPoint: { lat: 31, lng: 121 },
+          primaryMedia: { url: mediaUrl, width: 1200, height: 800 },
+        }],
+      });
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const i18n = createBliverI18n('en');
+
+    const view = render(
+      <QueryClientProvider client={client}>
+        <BliverI18nProvider instance={i18n}>
+          <MemoryRouter initialEntries={['/me']}>
+            <Routes><Route path="/me" element={<MemoriesRoute />} /></Routes>
+          </MemoryRouter>
+        </BliverI18nProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Evening walk')).toBeVisible();
+    expect(view.container.querySelector('.memory-atlas__feature img')).toHaveAttribute('src', mediaUrl);
+    expect(screen.getByRole('button', { name: 'Delete footprint' })).toBeVisible();
+  });
+
   it('grounds the personal archive in the signed-in identity', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);

@@ -1,4 +1,6 @@
-export interface MemoryFootprint { id: string; message?: string; mood?: string | null; publishedAt: string; visibility: string; displayPoint: { lat: number; lng: number }; }
+import type { FootprintMediaPreview } from '@bliver/contracts';
+
+export interface MemoryFootprint { id: string; authorId?: string; message?: string; mood?: string | null; publishedAt: string; visibility: string; displayPoint: { lat: number; lng: number }; primaryMedia?: FootprintMediaPreview; }
 export interface MemorySummary { footprintCount: number; photoCount: number; visitorCount: number; }
 export interface MemoryPage { items: MemoryFootprint[]; nextCursor?: string | null; }
 async function request<T>(path: string): Promise<T> { const response = await fetch(`/api/v1${path}`, { credentials: 'include' }); if (!response.ok) throw new Error(`Memory request failed (${response.status})`); return response.json() as Promise<T>; }

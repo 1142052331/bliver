@@ -118,3 +118,7 @@ interface RealtimeEmitter { to(room: string): { emit(event: string, payload: unk
 export function emitFootprintPublished(io: RealtimeEmitter, payload: { readonly authorId: string; readonly [key: string]: unknown }): void {
   io.to(`user:${payload.authorId}`).emit('footprint:published', payload);
 }
+
+export function emitFootprintDeleted(io: RealtimeEmitter, payload: { readonly authorId: string; readonly [key: string]: unknown }): void {
+  io.to(`user:${payload.authorId}`).emit('footprint:deleted', payload);
+}

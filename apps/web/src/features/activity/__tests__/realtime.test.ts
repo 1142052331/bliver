@@ -10,23 +10,23 @@ const socket = {
 
 vi.mock('socket.io-client', () => ({ io: vi.fn(() => socket) }));
 
-import { connectMapRealtime } from '../realtime.js';
+import { connectActivityRealtime } from '../realtime.js';
 
-describe('map realtime', () => {
+describe('activity realtime', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('invalidates map queries after a socket reconnect', async () => {
+  it('invalidates Activity after the published projection is available', async () => {
     const client = new QueryClient();
     const invalidate = vi.spyOn(client, 'invalidateQueries').mockResolvedValue();
-    const disconnect = connectMapRealtime(client);
-    const reconnect = socket.io.on.mock.calls.find(([event]) => event === 'reconnect')?.[1] as (() => void) | undefined;
+    const disconnect = connectActivityRealtime(client);
+    const published = socket.on.mock.calls.find(([event]) => event === 'footprint:published')?.[1] as (() => void) | undefined;
 
-    expect(reconnect).toBeDefined();
-    reconnect?.();
+    expect(published).toBeDefined();
+    published?.();
     await Promise.resolve();
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['map', 'footprints'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['activity'] });
 
     const deleted = socket.on.mock.calls.find(([event]) => event === 'footprint:deleted')?.[1] as (() => void) | undefined;
     expect(deleted).toBeDefined();
@@ -35,7 +35,7 @@ describe('map realtime', () => {
     expect(invalidate).toHaveBeenCalledTimes(2);
 
     disconnect();
-    expect(socket.io.off).toHaveBeenCalledWith('reconnect', expect.any(Function));
+    expect(socket.off).toHaveBeenCalledWith('footprint:published', published);
     expect(socket.off).toHaveBeenCalledWith('footprint:deleted', deleted);
     expect(socket.disconnect).toHaveBeenCalledOnce();
   });

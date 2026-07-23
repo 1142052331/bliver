@@ -88,6 +88,9 @@ const enFootprints = {
   onlyYou: "Only you",
   preciseLocation: "Precise location",
   approximateLocation: "Approximate location",
+  deleteLabel: "Delete footprint",
+  deleteConfirm: "Delete this footprint permanently? This cannot be undone.",
+  deleteFailed: "Could not delete this footprint. Try again.",
 } as const;
 
 type FootprintCatalog = { readonly [K in keyof typeof enFootprints]: string };
@@ -184,6 +187,9 @@ export const footprintTranslations = {
       onlyYou: "仅自己",
       preciseLocation: "精确位置",
       approximateLocation: "大致位置",
+      deleteLabel: "删除足迹",
+      deleteConfirm: "永久删除这条足迹？此操作无法撤销。",
+      deleteFailed: "无法删除这条足迹，请重试。",
     } satisfies FootprintCatalog,
   },
   en: { footprints: enFootprints },
@@ -278,6 +284,9 @@ export const footprintTranslations = {
       onlyYou: "自分のみ",
       preciseLocation: "正確な位置",
       approximateLocation: "おおよその位置",
+      deleteLabel: "足跡を削除",
+      deleteConfirm: "この足跡を完全に削除しますか？この操作は取り消せません。",
+      deleteFailed: "足跡を削除できませんでした。もう一度お試しください。",
     } satisfies FootprintCatalog,
   },
 } as const;
