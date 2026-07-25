@@ -9,6 +9,17 @@ const V2_BUILD_ENV = loadEnv('v2', resolve('.'), 'VITE_');
 // MapCanvas applies the Natural City style transform to provider styles.
 export const CONTROLLED_MAP_BACKGROUND_RGB = [250, 248, 243] as const;
 
+export function mapFootprintResponse<T extends object>(
+  items: readonly T[],
+  viewerAuthenticated = false,
+) {
+  return {
+    items: items.map((item) => ({ ...item, isNew: false })),
+    nextCursor: null,
+    viewerAuthenticated,
+  };
+}
+
 const CONTROLLED_MAP_STYLE = {
   version: 8,
   name: 'Bliver E2E controlled map',

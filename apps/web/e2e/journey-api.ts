@@ -10,7 +10,7 @@ import {
   visibleFootprintsFor,
   type V2TestActor,
 } from '@bliver/testing';
-import { installControlledMapTiles } from './map-fixture.js';
+import { installControlledMapTiles, mapFootprintResponse } from './map-fixture.js';
 
 function json(route: Route, body: unknown, status = 200): Promise<void> {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -64,7 +64,9 @@ export async function installJourneyApi(page: Page, actor: V2TestActor): Promise
         .map(({ id, username, displayName }) => ({ id, username, displayName }));
       return json(route, { items });
     }
-    if (path === '/api/v1/map/footprints') return json(route, { items: visibleFootprintsFor(actor), nextCursor: null });
+    if (path === '/api/v1/map/footprints') {
+      return json(route, mapFootprintResponse(visibleFootprintsFor(actor), actor !== 'guest'));
+    }
     if (path === '/api/v1/activity') return json(route, { items: visibleFootprintsFor(actor), resolvedScope: 'global' });
     if (/^\/api\/v1\/footprints\/[^/]+$/.test(path)) return json(route, V2_TEST_FOOTPRINTS.find((item) => path.endsWith(item.id)) ?? V2_TEST_FOOTPRINTS[0]);
     if (/\/comments$/.test(path)) return json(route, { items: [] });

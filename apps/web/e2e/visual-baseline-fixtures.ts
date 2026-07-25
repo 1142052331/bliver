@@ -8,6 +8,7 @@ import {
 } from '@bliver/testing';
 
 import { installJourneyApi } from './journey-api.js';
+import { mapFootprintResponse } from './map-fixture.js';
 
 export const VISUAL_BASELINE_PROJECT = 'mobile-390x844';
 
@@ -135,17 +136,14 @@ async function installStackedMapMoments(page: Page): Promise<void> {
   const displayPoint = V2_TEST_FOOTPRINTS[0]!.displayPoint;
   const items = V2_TEST_FOOTPRINTS.map((item) => ({ ...item, displayPoint }));
 
-  await page.route('**/api/v1/map/footprints**', (route) => json(route, {
-    items,
-    nextCursor: null,
-  }));
+  await page.route('**/api/v1/map/footprints**', (route) => json(route, mapFootprintResponse(items)));
 }
 
 async function installSingleMapMoment(page: Page): Promise<void> {
-  await page.route('**/api/v1/map/footprints**', (route) => json(route, {
-    items: [V2_TEST_FOOTPRINTS[0]],
-    nextCursor: null,
-  }));
+  await page.route('**/api/v1/map/footprints**', (route) => json(
+    route,
+    mapFootprintResponse([V2_TEST_FOOTPRINTS[0]!]),
+  ));
 }
 
 export async function prepareVisualBaseline(

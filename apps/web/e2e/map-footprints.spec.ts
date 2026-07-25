@@ -5,6 +5,7 @@ import {
   installControlledMapRealtime,
   installControlledMapTiles,
   installUnavailableMapProvider,
+  mapFootprintResponse,
 } from './map-fixture.js';
 
 test.beforeEach(async ({ page }) => {
@@ -116,7 +117,7 @@ function readViewportFromUrl(url: string): Record<'west' | 'south' | 'east' | 'n
 }
 
 test('guest map opens as the primary surface', async ({ page }) => {
-  await page.route('**/api/v1/map/footprints**', async (route) => { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], nextCursor: null }) }); });
+  await page.route('**/api/v1/map/footprints**', async (route) => { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mapFootprintResponse([])) }); });
   await page.goto('/map');
   await expect(page.getByRole('heading', { name: 'Map' })).toBeVisible();
   await expectInteractiveMapReady(page);
@@ -131,7 +132,7 @@ test('loaded footprints stay marker-only until the user activates one', async ({
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [V2_TEST_FOOTPRINTS[0]], nextCursor: null }),
+      body: JSON.stringify(mapFootprintResponse([V2_TEST_FOOTPRINTS[0]!])),
     });
   });
   await page.goto('/map');
@@ -161,7 +162,7 @@ test('closing a direct map preview returns to the idle canvas without exposing t
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [footprint], nextCursor: null }),
+      body: JSON.stringify(mapFootprintResponse([footprint])),
     });
   });
   await page.goto(`/map?footprint=${footprint.id}&sheet=preview`);
@@ -185,7 +186,7 @@ test('a user camera move writes finite viewport bounds to the URL and map query'
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [V2_TEST_FOOTPRINTS[0]], nextCursor: null }),
+      body: JSON.stringify(mapFootprintResponse([V2_TEST_FOOTPRINTS[0]!])),
     });
   });
   await page.goto('/map?west=120&south=30&east=122&north=32');
@@ -217,7 +218,7 @@ test('a controlled Socket.IO footprint event invalidates and refreshes the brows
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items, nextCursor: null }),
+      body: JSON.stringify(mapFootprintResponse(items)),
     });
   });
   await page.goto('/map');
@@ -245,7 +246,7 @@ test('a maximum-length unbroken author name remains contained in the map surface
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [footprint], nextCursor: null }),
+      body: JSON.stringify(mapFootprintResponse([footprint])),
     });
   });
   await page.goto(`/map?footprint=${footprint.id}&sheet=preview`);
@@ -273,7 +274,7 @@ test.describe('browser map degradation', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items: [V2_TEST_FOOTPRINTS[0]], nextCursor: null }),
+        body: JSON.stringify(mapFootprintResponse([V2_TEST_FOOTPRINTS[0]!])),
       });
     });
     await page.goto('/map');
@@ -299,7 +300,7 @@ test.describe('browser map degradation', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items: [V2_TEST_FOOTPRINTS[0]], nextCursor: null }),
+        body: JSON.stringify(mapFootprintResponse([V2_TEST_FOOTPRINTS[0]!])),
       });
     });
     await page.goto('/map');
@@ -327,7 +328,7 @@ test('expanded search and denied location expose stable feedback without overlap
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [V2_TEST_FOOTPRINTS[0]], nextCursor: null }),
+      body: JSON.stringify(mapFootprintResponse([V2_TEST_FOOTPRINTS[0]!])),
     });
   });
   await page.route('**/api/v1/places/search**', async (route) => {
@@ -388,7 +389,7 @@ test('successful place search hands the selected map point to publishing', async
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [], nextCursor: null }),
+      body: JSON.stringify(mapFootprintResponse([])),
     });
   });
   await page.route('**/api/v1/places/search**', async (route) => {
@@ -456,7 +457,7 @@ test('Japanese map controls retain their full labels at the configured viewport'
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [V2_TEST_FOOTPRINTS[0]], nextCursor: null }),
+      body: JSON.stringify(mapFootprintResponse([V2_TEST_FOOTPRINTS[0]!])),
     });
   });
   await page.goto('/map');
@@ -466,12 +467,12 @@ test('Japanese map controls retain their full labels at the configured viewport'
 });
 
 test('attribution stays clear of both empty and footprint preview cards', async ({ page }) => {
-  let items: readonly unknown[] = [];
+  let items: readonly (typeof V2_TEST_FOOTPRINTS)[number][] = [];
   await page.route('**/api/v1/map/footprints**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items, nextCursor: null }),
+      body: JSON.stringify(mapFootprintResponse(items)),
     });
   });
 
@@ -575,7 +576,7 @@ test.describe('reduced motion map capability', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items: [V2_TEST_FOOTPRINTS[0]], nextCursor: null }),
+        body: JSON.stringify(mapFootprintResponse([V2_TEST_FOOTPRINTS[0]!])),
       });
     });
     await page.goto('/map');
