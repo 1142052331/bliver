@@ -1,5 +1,5 @@
 import { lazy, Suspense, useRef, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 
 import { OptionalMotionBoundary } from './OptionalMotion.js';
 import './scene-director.css';

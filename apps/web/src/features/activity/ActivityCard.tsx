@@ -3,7 +3,7 @@ import { Button, Surface } from '@bliver/ui';
 import { Flag, Heart, LockKeyhole, MapPinned, MessageCircle, UsersRound } from 'lucide-react';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 
 import { runSpatialTransition, shouldAnimateSpatialClick } from '../../platform/motion/spatial-navigation.js';
 import { FootprintMoodMark } from '../../components/moment/FootprintMoodMark.js';

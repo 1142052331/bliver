@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Button, Surface } from '@bliver/ui';
 import type { LoginRequest, RegisterRequest } from '@bliver/contracts';
 import {

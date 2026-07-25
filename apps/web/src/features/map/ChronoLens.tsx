@@ -18,7 +18,7 @@ import {
   type MouseEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 
 import { MomentFrame } from '../../components/moment/MomentFrame.js';
 import { FootprintMoodMark } from '../../components/moment/FootprintMoodMark.js';

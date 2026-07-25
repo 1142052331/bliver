@@ -48,7 +48,7 @@ export async function verifyPassword(
 ): Promise<PasswordVerification> {
   try {
     if (hash.startsWith('$argon2id$')) {
-      return { valid: await argon2.verify(hash, password, { type: argon2.argon2id }), needsRehash: false };
+      return { valid: await argon2.verify(hash, password), needsRehash: false };
     }
     const bcryptHeader = /^\$2[aby]\$(\d{2})\$/.exec(hash);
     if (!bcryptHeader) return { valid: false, needsRehash: false };

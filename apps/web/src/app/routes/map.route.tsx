@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router';
 
 import { MapRoute } from '../../features/map/MapRoute.js';
 import {
