@@ -31,5 +31,5 @@ test('admin resolves a report through a case and sees immutable audit',async({pa
 });
 
 test('real app fixture protects and serves the authenticated memories route',async({page})=>{
-  await page.goto('/me');await expect(page).toHaveURL(/\/session-expired$/);const suffix=randomUUID().replaceAll('-','').slice(0,16);const username=`real${suffix}`;const response=await page.request.post('/api/v1/auth/register',{data:{username,password:'password-123',displayName:'Real fixture'}});expect(response.ok()).toBe(true);await page.goto('/me');await expect(page.getByRole('heading',{name:'Real fixture',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Begin with one coordinate',exact:true})).toBeVisible();
+  await page.goto('/me');await expect(page).toHaveURL(/\/auth-required\?returnTo=%2Fme$/);await expect(page.getByRole('heading',{name:'Sign in to continue'})).toBeVisible();const suffix=randomUUID().replaceAll('-','').slice(0,16);const username=`real${suffix}`;const response=await page.request.post('/api/v1/auth/register',{data:{username,password:'password-123',displayName:'Real fixture'}});expect(response.ok()).toBe(true);await page.goto('/me');await expect(page.getByRole('heading',{name:'Real fixture',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Begin with one coordinate',exact:true})).toBeVisible();
 });

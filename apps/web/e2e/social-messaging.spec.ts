@@ -11,6 +11,8 @@ const friendshipId = '019f0000-0000-7000-8000-000000000003';
 const conversationId = '019f0000-0000-7000-8000-000000000004';
 const greetingId = '019f0000-0000-7000-8000-000000000005';
 const replyId = '019f0000-0000-7000-8000-000000000006';
+const sessionAId = '019f0000-0000-7000-8000-000000000007';
+const sessionBId = '019f0000-0000-7000-8000-000000000008';
 const now = '2026-07-15T08:00:00.000Z';
 
 type Actor = 'a' | 'b';
@@ -49,7 +51,7 @@ async function mockApi(page: Page, actor: Actor, state: SocialMessagingState): P
     const path = url.pathname;
     if (path === '/api/v1/session') {
       if (state.revoked.has(actor)) return response(route, { code: 'SESSION_INVALID' }, 401);
-      return response(route, { id: `e2e-${actor}`, deviceName: 'Playwright', createdAt: now, lastSeenAt: now, current: true });
+      return response(route, { id: actor === 'a' ? sessionAId : sessionBId, deviceName: 'Playwright', createdAt: now, lastSeenAt: now, current: true });
     }
     if (path === '/api/v1/users/me') {
       if (state.revoked.has(actor)) return response(route, { code: 'SESSION_INVALID' }, 401);
