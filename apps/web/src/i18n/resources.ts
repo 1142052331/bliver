@@ -69,6 +69,8 @@ export interface FoundationTranslation {
     readonly footprintCount_one: string;
     readonly footprintCount_other: string;
     readonly footprintBy: string;
+    readonly newFootprintBy: string;
+    readonly newFootprint: string;
     readonly selected: string;
     readonly closePreview: string;
     readonly momentWithoutMessage: string;
@@ -161,6 +163,8 @@ const en = {
     footprintCount_one: '1 footprint',
     footprintCount_other: '{{count}} footprints',
     footprintBy: 'Footprint by {{name}}',
+    newFootprintBy: 'New footprint by {{name}}',
+    newFootprint: 'New',
     selected: 'Selected',
     closePreview: 'Close footprint preview',
     momentWithoutMessage: 'A moment was left at this place.',
@@ -257,6 +261,8 @@ const zhCN = {
     footprintCount_one: '{{count}} 条足迹',
     footprintCount_other: '{{count}} 条足迹',
     footprintBy: '{{name}} 的足迹',
+    newFootprintBy: '{{name}} 的新打卡',
+    newFootprint: '新打卡',
     selected: '已选择',
     closePreview: '关闭足迹预览',
     momentWithoutMessage: '有人在这里留下了一个瞬间。',
@@ -353,6 +359,8 @@ const ja = {
     footprintCount_one: '{{count}}件の足跡',
     footprintCount_other: '{{count}}件の足跡',
     footprintBy: '{{name}}さんの足跡',
+    newFootprintBy: '{{name}}さんの新しいチェックイン',
+    newFootprint: '新着',
     selected: '選択中',
     closePreview: '足跡のプレビューを閉じる',
     momentWithoutMessage: 'この場所にひとつの瞬間が残されています。',

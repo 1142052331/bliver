@@ -74,7 +74,7 @@ export function createPostgresDiscoveryRepository(db: DatabaseClient, options: {
       const values: unknown[] = [];
       const add = (value: unknown): string => { values.push(value); return `$${values.length}`; };
       const predicates = ['d.deleted_at IS NULL'];
-      if (!input.actorId) predicates.push(`d.visibility = 'public'`, 'd.discovery_expires_at > CURRENT_TIMESTAMP');
+      if (!input.actorId) predicates.push(`d.visibility = 'public'`);
       else {
         const viewer = add(input.actorId);
         predicates.push(options.accessFilter?.({ actorId: input.actorId, actorParameter: viewer, authorColumn: 'd.author_id', visibilityColumn: 'd.visibility', discoveryExpiresAtColumn: 'd.discovery_expires_at', relationship: input.relationship }) ?? `d.author_id=${viewer}`);

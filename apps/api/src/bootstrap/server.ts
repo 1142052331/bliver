@@ -96,7 +96,7 @@ export async function startServer(): Promise<void> {
   const relationships = createPostgresSocialRepository(db);
   const blockPolicy = new BlockPolicy(relationships);
   const mapAccessFilter = ({ viewerId, addParameter }: { viewerId: string | null; addParameter: (value: unknown) => string }): string => {
-    if (!viewerId) return `f.moderation_hidden_at IS NULL AND f.visibility = 'public' AND f.discovery_expires_at > CURRENT_TIMESTAMP`;
+    if (!viewerId) return `f.moderation_hidden_at IS NULL AND f.visibility = 'public'`;
     const viewer = addParameter(viewerId);
     return `f.moderation_hidden_at IS NULL AND ${blockPolicy.relationshipVisibilitySql({ actorParameter: viewer, authorColumn: 'f.author_id', visibilityColumn: 'f.visibility', discoveryExpiresAtColumn: 'f.discovery_expires_at', relationship: 'all' })}`;
   };
@@ -112,7 +112,7 @@ export async function startServer(): Promise<void> {
   const policy = new FootprintVisibilityPolicy({ records: footprints, friendships: relationships, blocks: relationships, moderation: governance, now: () => new Date() });
   const memoryRepository = createPostgresMemoryRepository(db, config.cloudinary?.cloudName);
   const memories = new AuthorizedMemoryQuery(memoryRepository, policy, createPostgresMemoryMediaSource(db, config.cloudinary?.cloudName), createPostgresVisitorSource(db));
-  const map = new MapFootprintQuery({ repository: footprints, policy, cursorSecret: config.sessionSecret });
+  const map = new MapFootprintQuery({ repository: footprints, policy, reads: footprints, cursorSecret: config.sessionSecret });
   const discoveryRepository = createPostgresDiscoveryRepository(db, {
     accessFilter: (input) => blockPolicy.relationshipVisibilitySql(input),
     ...(config.cloudinary ? { cloudName: config.cloudinary.cloudName } : {}),
@@ -139,6 +139,7 @@ export async function startServer(): Promise<void> {
     footprints: {
       repositories: footprints,
       policy,
+      reads: footprints,
       providers: {
         geocoding: { async resolve(point) { const result = await geography.geocode({ latitude: point.lat, longitude: point.lng }); return { placeId: result.place?.id ?? null, regionId: result.region?.id ?? null }; } },
         weather: { async resolve(point) { return geography.weather({ latitude: point.lat, longitude: point.lng }); } },

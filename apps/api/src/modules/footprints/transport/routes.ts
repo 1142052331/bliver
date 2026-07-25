@@ -3,10 +3,11 @@ import { publishFootprintRequest, updateFootprintVisibilityRequest } from '@bliv
 import {
   requireActor,
   resolveSession,
+  validMutationCsrf,
   type ActorContext,
   type IdentityRepositories,
 } from '../../identity/index.js';
-import { createMemoryFootprintRepositories, DeleteFootprint, FootprintConflictError, PublishFootprint, UpdateFootprintVisibility, type FootprintProviderPorts, type FootprintRepositories } from '../application/index.js';
+import { createMemoryFootprintRepositories, createMemoryMapFootprintReadRepository, DeleteFootprint, FootprintConflictError, PublishFootprint, UpdateFootprintVisibility, type FootprintProviderPorts, type FootprintRepositories, type MapFootprintReadRepository } from '../application/index.js';
 import type { FootprintVisibilityPolicy } from '../domain/visibility-policy.js';
 import type { FootprintPolicyInput } from '../domain/visibility-policy.js';
 
@@ -14,6 +15,7 @@ export interface FootprintRouterOptions {
   readonly repositories?: FootprintRepositories;
   readonly providers?: FootprintProviderPorts;
   readonly policy?: FootprintVisibilityPolicy;
+  readonly reads?: MapFootprintReadRepository;
 }
 
 function problem(response: Response, request: Request, status: number, code: string): void {
@@ -30,6 +32,7 @@ export function footprintRouter(identity: IdentityRepositories, options: Footpri
   const publish = new PublishFootprint({ repositories, providers });
   const update = new UpdateFootprintVisibility(repositories);
   const remove = new DeleteFootprint(repositories);
+  const reads = options.reads ?? createMemoryMapFootprintReadRepository();
   const actor = requireActor(identity);
   const router = Router();
   router.get('/footprints/:footprintId', async (request, response) => {
@@ -49,6 +52,14 @@ export function footprintRouter(identity: IdentityRepositories, options: Footpri
       const result = await publish.execute({ actorId: context(request).userId as never, idempotencyKey: key, message: parsed.data.message, privatePoint: parsed.data.privatePoint, visibility: parsed.data.visibility, locationPrecision: parsed.data.locationPrecision, mediaAssetIds: parsed.data.mediaAssetIds, ...(parsed.data.mood ? { mood: parsed.data.mood } : {}), ...(parsed.data.discoveryExpiresAt !== undefined ? { discoveryExpiresAt: parsed.data.discoveryExpiresAt ? new Date(parsed.data.discoveryExpiresAt) : null } : {}) });
       response.status(201).json({ footprint: result.footprint, event: result.outbox });
     } catch (error) { problem(response, request, error instanceof FootprintConflictError ? 409 : 500, error instanceof FootprintConflictError ? error.code : 'FOOTPRINT_UNAVAILABLE'); }
+  });
+  router.post('/footprints/:footprintId/read', actor, async (request, response) => {
+    const current = context(request);
+    if (!validMutationCsrf(request, current)) { problem(response, request, 403, 'CSRF_ORIGIN_INVALID'); return; }
+    const footprintId = String(request.params.footprintId);
+    if (options.policy && !(await options.policy.canRead(current, footprintId as never))) { problem(response, request, 404, 'FOOTPRINT_NOT_FOUND'); return; }
+    await reads.markRead(current.userId, footprintId);
+    response.status(204).end();
   });
   router.patch('/footprints/:footprintId/visibility', actor, async (request, response) => {
     const parsed = updateFootprintVisibilityRequest.safeParse(request.body);

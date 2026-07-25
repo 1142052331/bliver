@@ -6,8 +6,13 @@ export interface MapBounds { readonly west: number; readonly south: number; read
 export interface MapAccessFilterContext { readonly viewerId: string | null; readonly addParameter: (value: unknown) => string; }
 export type MapAccessFilter = (context: MapAccessFilterContext) => string;
 export interface MapFootprintRepository { listInViewport(input: { readonly bounds: MapBounds; readonly visibility?: string; readonly viewerId?: string | null; readonly limit?: number; readonly cursor?: { readonly publishedAt: string; readonly id: string } }): Promise<FootprintPolicyInput[]>; }
-export interface MapFootprintQueryOptions { readonly repository: MapFootprintRepository; readonly policy: FootprintVisibilityPolicy; readonly maxResults?: number; readonly cursorSecret?: string; }
-export interface MapFootprintResult { readonly items: FootprintDto[]; readonly nextCursor: string | null; }
+export interface MapFootprintReadRepository {
+  readIds(viewerId: string, footprintIds: readonly string[]): Promise<ReadonlySet<string>>;
+  markRead(viewerId: string, footprintId: string): Promise<void>;
+}
+export interface MapFootprintQueryOptions { readonly repository: MapFootprintRepository; readonly policy: FootprintVisibilityPolicy; readonly reads?: MapFootprintReadRepository; readonly now?: () => Date; readonly maxResults?: number; readonly cursorSecret?: string; }
+export type MapFootprintDto = FootprintDto & { readonly isNew: boolean };
+export interface MapFootprintResult { readonly items: MapFootprintDto[]; readonly nextCursor: string | null; readonly viewerAuthenticated: boolean; }
 
 function validateBounds(bounds: MapBounds): void {
   if (![bounds.west, bounds.south, bounds.east, bounds.north].every(Number.isFinite) || bounds.south < -90 || bounds.north > 90 || bounds.south >= bounds.north || bounds.west >= bounds.east) throw new TypeError('Invalid map bounds');
@@ -26,13 +31,36 @@ export class MapFootprintQuery {
     const ordered = [...readable].sort((left, right) => right.publishedAt.getTime() - left.publishedAt.getTime() || right.id.localeCompare(left.id));
     const filtered = cursor ? ordered.filter((record) => record.publishedAt.toISOString() < cursor.publishedAt || (record.publishedAt.toISOString() === cursor.publishedAt && record.id < cursor.id)) : ordered;
     const page = filtered.slice(0, effectiveLimit);
-    const items: FootprintDto[] = [];
-    for (const item of page) items.push(await this.options.policy.toPublicDto(input.actor, item));
+    const readIds = input.actor && this.options.reads
+      ? await this.options.reads.readIds(input.actor.userId, page.map((item) => item.id))
+      : new Set<string>();
+    const now = (this.options.now ?? (() => new Date()))().getTime();
+    const items: MapFootprintDto[] = [];
+    for (const item of page) {
+      const dto = await this.options.policy.toPublicDto(input.actor, item);
+      items.push({
+        ...dto,
+        isNew: item.authorId !== input.actor?.userId
+          && Boolean(item.discoveryExpiresAt && item.discoveryExpiresAt.getTime() > now)
+          && !readIds.has(item.id),
+      });
+    }
     const last = page[page.length - 1];
-    return { items, nextCursor: filtered.length > effectiveLimit && last ? encodeSignedCursor({ id: last.id, publishedAt: last.publishedAt.toISOString() }, this.options.cursorSecret) : null };
+    return { items, nextCursor: filtered.length > effectiveLimit && last ? encodeSignedCursor({ id: last.id, publishedAt: last.publishedAt.toISOString() }, this.options.cursorSecret) : null, viewerAuthenticated: Boolean(input.actor) };
   }
 }
 
 export function createMemoryMapFootprintRepository(records: readonly FootprintPolicyInput[]): MapFootprintRepository {
   return { async listInViewport({ bounds, visibility }) { return records.filter((record) => record.displayPoint.lat >= bounds.south && record.displayPoint.lat <= bounds.north && record.displayPoint.lng >= bounds.west && record.displayPoint.lng <= bounds.east && (!visibility || record.visibility === visibility)); } };
+}
+
+export function createMemoryMapFootprintReadRepository(): MapFootprintReadRepository {
+  const reads = new Set<string>();
+  const key = (viewerId: string, footprintId: string): string => `${viewerId}:${footprintId}`;
+  return {
+    async readIds(viewerId, footprintIds) {
+      return new Set(footprintIds.filter((footprintId) => reads.has(key(viewerId, footprintId))));
+    },
+    async markRead(viewerId, footprintId) { reads.add(key(viewerId, footprintId)); },
+  };
 }

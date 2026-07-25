@@ -7,6 +7,7 @@ export const geoPoint = z.object({ lat: z.number().finite().min(-90).max(90), ln
 export const footprintPublishedEvent = z.object({ footprintId: z.string().uuid(), authorId: z.string().uuid() }).strict();
 export const footprintMediaPreview = z.object({ url: z.string().url(), width: z.number().int().positive(), height: z.number().int().positive() }).strict();
 export const footprintDto = z.object({ id: z.string().uuid(), author: z.object({ id: z.string().uuid(), name: z.string() }).passthrough(), displayPoint: geoPoint, visibility: footprintVisibility, locationPrecision: footprintLocationPrecision, message: z.string().optional(), mood: z.string().max(64).optional(), primaryMedia: footprintMediaPreview.optional(), publishedAt: z.string().datetime(), discoveryExpiresAt: z.string().datetime().optional() }).strict();
+export const mapFootprintDto = footprintDto.extend({ isNew: z.boolean() }).strict();
 export const publishFootprintRequest = z.object({ message: z.string().min(1).max(2_000), mood: footprintMood.optional(), privatePoint: geoPoint, visibility: footprintVisibility, locationPrecision: footprintLocationPrecision, mediaAssetIds: z.array(z.string().uuid()).max(12).default([]), discoveryExpiresAt: z.string().datetime().nullable().optional() }).strict();
 export const updateFootprintVisibilityRequest = z.object({ visibility: footprintVisibility }).strict();
 export const footprintRecordResponse = z.object({
@@ -30,7 +31,7 @@ export const footprintPublishedOutboxEvent = z.object({
   payload: footprintPublishedEvent,
 }).strict();
 export const publishFootprintResponse = z.object({ footprint: footprintRecordResponse, event: footprintPublishedOutboxEvent }).strict();
-export const mapFootprintsResponse = z.object({ items: z.array(footprintDto), nextCursor: z.string().nullable() }).strict();
+export const mapFootprintsResponse = z.object({ items: z.array(mapFootprintDto), nextCursor: z.string().nullable(), viewerAuthenticated: z.boolean().default(false) }).strict();
 export const activityScope = z.enum(['smart', 'region', 'country', 'global']);
 export const activityResolvedScope = z.enum(['region', 'country', 'global']);
 export const activityRelationship = z.enum(['all', 'friends', 'public']);

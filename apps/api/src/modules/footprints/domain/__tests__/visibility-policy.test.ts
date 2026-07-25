@@ -120,7 +120,7 @@ describe('FootprintVisibilityPolicy access table', () => {
 
   it.each([
     ['guest sees active public discovery', null, activePublic, true],
-    ['guest cannot see expired public discovery', null, expiredPublic, false],
+    ['guest sees public footprints after the discovery window', null, expiredPublic, true],
     ['guest cannot see friends-only footprints', null, friendsOnly, false],
     ['owner sees private history', actor(ownerId), privateFootprint, true],
     [
@@ -136,10 +136,10 @@ describe('FootprintVisibilityPolicy access table', () => {
       true,
     ],
     [
-      'stranger cannot see expired public discovery',
+      'stranger sees public footprints after the discovery window',
       actor(strangerId),
       expiredPublic,
-      false,
+      true,
     ],
     [
       'accepted friend cannot see private footprints',
@@ -287,7 +287,7 @@ describe('FootprintVisibilityPolicy DTO boundaries', () => {
     ).rejects.toBeInstanceOf(FootprintAccessDeniedError);
   });
 
-  it('keeps expired public records in owner history', async () => {
+  it('keeps expired public records visible while preserving owner history', async () => {
     const record = ownerFootprint({
       discoveryExpiresAt: new Date('2026-07-15T07:00:00.000Z'),
     });
@@ -297,9 +297,9 @@ describe('FootprintVisibilityPolicy DTO boundaries', () => {
       id: record.id,
       discoveryExpiresAt: '2026-07-15T07:00:00.000Z',
     });
-    await expect(policy.canRead(null, record.id)).resolves.toBe(false);
+    await expect(policy.canRead(null, record.id)).resolves.toBe(true);
     await expect(policy.canRead(actor(strangerId), record.id)).resolves.toBe(
-      false,
+      true,
     );
   });
 

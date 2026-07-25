@@ -151,6 +151,7 @@ describe('V2 contracts', () => {
       '/api/v1/footprints/{footprintId}/comments',
       '/api/v1/footprints/{footprintId}/comments/{commentId}/replies',
       '/api/v1/footprints/{footprintId}/reactions',
+      '/api/v1/footprints/{footprintId}/read',
       '/api/v1/footprints/{footprintId}/visibility',
       '/api/v1/friendships',
       '/api/v1/friendships/requests',
@@ -181,6 +182,7 @@ describe('V2 contracts', () => {
     expect(document.paths?.['/api/v1/footprints']?.post?.responses?.[201]?.content?.['application/json']?.schema).toMatchObject({ '$ref': '#/components/schemas/PublishFootprintResponse' });
     expect(document.paths?.['/api/v1/footprints/{footprintId}']?.get?.responses?.[200]).toBeDefined();
     expect(document.paths?.['/api/v1/footprints/{footprintId}/visibility']?.patch?.responses?.[200]).toBeDefined();
+    expect(document.paths?.['/api/v1/footprints/{footprintId}/read']?.post?.responses?.[204]).toBeDefined();
     expect(document.paths?.['/api/v1/footprints/{footprintId}']?.delete?.responses?.[204]).toBeDefined();
     expect(document.paths?.['/api/v1/footprints/{footprintId}/reactions']?.delete?.responses?.[204]).toBeDefined();
     expect(document.paths?.['/api/v1/footprints/{footprintId}/comments/{commentId}/replies']?.post?.responses?.[201]).toBeDefined();

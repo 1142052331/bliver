@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { publishFootprintResponse } from '@bliver/contracts';
 import { createConfig } from '../../../../bootstrap/config.js';
@@ -48,5 +48,39 @@ describe('footprint REST transport', () => {
       .set('Idempotency-Key', 'publish-invalid-asset')
       .send({ message: 'Invalid asset', privatePoint: { lat: 31.23, lng: 121.47 }, visibility: 'public', locationPrecision: 'approximate', mediaAssetIds: ['not-a-uuid'] })
       .expect(400);
+  });
+
+  it('records footprint reads with authentication and cookie CSRF protection', async () => {
+    const identity = createMemoryIdentityRepositories();
+    const markRead = vi.fn(async () => undefined);
+    const app = createApp({
+      config,
+      identity,
+      footprints: {
+        reads: { markRead, async readIds() { return new Set(); } },
+      },
+    });
+    const registration = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ username: 'footprintreader', password: 'password-123' })
+      .expect(201);
+    const cookie = (Array.isArray(registration.headers['set-cookie'])
+      ? registration.headers['set-cookie']
+      : [String(registration.headers['set-cookie'] ?? '')]).join('; ');
+    const csrf = cookie.match(/bliver_csrf=([^;]+)/)?.[1] ?? '';
+    const footprintId = '019f0000-0000-7000-8000-000000000001';
+
+    await request(app)
+      .post(`/api/v1/footprints/${footprintId}/read`)
+      .set('Cookie', cookie)
+      .expect(403);
+    await request(app)
+      .post(`/api/v1/footprints/${footprintId}/read`)
+      .set('Cookie', cookie)
+      .set('x-csrf-token', csrf)
+      .expect(204);
+
+    expect(markRead).toHaveBeenCalledOnce();
+    expect(markRead).toHaveBeenCalledWith(expect.any(String), footprintId);
   });
 });

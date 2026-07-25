@@ -17,7 +17,8 @@ describe('Postgres map query SQL', () => {
     });
 
     const [sql, values] = query.mock.calls[0] as unknown as [string, unknown[]];
-    expect(sql).toMatch(/f\.visibility = 'public' AND f\.discovery_expires_at > CURRENT_TIMESTAMP/);
+    expect(sql).toMatch(/f\.visibility = 'public'/);
+    expect(sql).not.toMatch(/discovery_expires_at > CURRENT_TIMESTAMP/);
     expect(sql).toMatch(/f\.published_at < \$5 OR \(f\.published_at = \$5 AND f\.id < \$6\)/);
     expect(sql).toMatch(/LIMIT \$7/);
     expect(values).toEqual([120, 30, 122, 32, new Date('2026-07-15T08:00:00.000Z'), '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70', 3]);

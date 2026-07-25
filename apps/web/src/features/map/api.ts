@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery, type QueryClient } from '@tanstack/react-query';
 import { mapFootprintsResponse } from '@bliver/contracts';
 import type { MapFootprintQuery } from '@bliver/contracts';
+import { mutationHeaders } from '../footprints/csrf.js';
 
 export const mapFootprintsKey = (query: Partial<MapFootprintQuery>) => ['map', 'footprints', query] as const;
 export async function fetchMapFootprints(query: Partial<MapFootprintQuery>): Promise<ReturnType<typeof mapFootprintsResponse.parse>> {
@@ -12,3 +13,13 @@ export async function fetchMapFootprints(query: Partial<MapFootprintQuery>): Pro
 }
 export function useMapFootprintsQuery(query: Partial<MapFootprintQuery>, enabled = true) { return useQuery({ queryKey: mapFootprintsKey(query), queryFn: () => fetchMapFootprints(query), enabled, placeholderData: keepPreviousData, staleTime: 15_000, retry: 1 }); }
 export function invalidateMapQueries(client: QueryClient): Promise<void> { return client.invalidateQueries({ queryKey: ['map', 'footprints'] }).then(() => undefined); }
+export async function markMapFootprintRead(footprintId: string): Promise<boolean> {
+  const response = await fetch(`/api/v1/footprints/${encodeURIComponent(footprintId)}/read`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: mutationHeaders({}),
+  });
+  if (response.status === 401) return false;
+  if (!response.ok) throw new Error('MAP_READ_REQUEST_FAILED');
+  return true;
+}

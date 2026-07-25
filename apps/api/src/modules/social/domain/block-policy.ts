@@ -45,7 +45,7 @@ export class BlockPolicy {
   relationshipVisibilitySql(input: RelationshipVisibilitySqlInput): string {
     const friend = `EXISTS (SELECT 1 FROM friendships social_friendship WHERE social_friendship.user_low_id=LEAST(${input.actorParameter},${input.authorColumn}) AND social_friendship.user_high_id=GREATEST(${input.actorParameter},${input.authorColumn}) AND social_friendship.status='accepted')`;
     const unblocked = `NOT EXISTS (SELECT 1 FROM blocks social_block WHERE (social_block.blocker_id=${input.actorParameter} AND social_block.blocked_id=${input.authorColumn}) OR (social_block.blocker_id=${input.authorColumn} AND social_block.blocked_id=${input.actorParameter}))`;
-    const base = `(${input.authorColumn}=${input.actorParameter} OR (${input.visibilityColumn}='public' AND ${input.discoveryExpiresAtColumn}>CURRENT_TIMESTAMP) OR (${input.visibilityColumn}<>'private' AND ${friend}))`;
+    const base = `(${input.authorColumn}=${input.actorParameter} OR ${input.visibilityColumn}='public' OR (${input.visibilityColumn}='friends' AND ${friend}))`;
     const relationship = input.relationship === 'friends' ? friend : input.relationship === 'public' ? `${input.visibilityColumn}='public'` : 'TRUE';
     return `${unblocked} AND ${base} AND ${relationship}`;
   }

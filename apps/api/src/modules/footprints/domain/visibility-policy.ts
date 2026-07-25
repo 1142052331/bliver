@@ -1,5 +1,4 @@
 import {
-  canDiscover,
   parseUserId,
   type FootprintId,
   type UserId,
@@ -278,7 +277,7 @@ export class FootprintVisibilityPolicy {
       return true;
     }
     if (!actor) {
-      return this.isActivePublicDiscovery(record);
+      return record.visibility === 'public';
     }
     if (actor.userId === record.authorId) {
       return true;
@@ -297,7 +296,7 @@ export class FootprintVisibilityPolicy {
     if (relationship.friend && record.visibility !== 'private') {
       return true;
     }
-    return this.isActivePublicDiscovery(record);
+    return record.visibility === 'public';
   }
 
   private async isHistoryReadable(actor: ActorContext | null, record: FootprintPolicyInput): Promise<boolean> {
@@ -356,16 +355,4 @@ export class FootprintVisibilityPolicy {
     return access;
   }
 
-  private isActivePublicDiscovery(record: FootprintPolicyInput): boolean {
-    return Boolean(
-      record.discoveryExpiresAt &&
-        canDiscover(
-          {
-            visibility: record.visibility,
-            discoveryExpiresAt: record.discoveryExpiresAt,
-          },
-          this.ports.now(),
-        ),
-    );
-  }
 }

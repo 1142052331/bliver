@@ -49,6 +49,7 @@ const maplibre = vi.hoisted(() => {
     readonly removeSource = vi.fn();
     readonly resize = vi.fn();
     readonly setStyle = vi.fn();
+    readonly setPaintProperty = vi.fn();
 
     constructor(options: unknown) {
       constructorSpy(options);
@@ -122,6 +123,7 @@ const firstItem = {
   id: 'footprint-a',
   author: { name: 'Aster' },
   displayPoint: { lat: 31.23, lng: 121.47 },
+  isNew: true,
 };
 
 const secondItem = {
@@ -244,13 +246,18 @@ describe('MapCanvas MapLibre runtime', () => {
       data: expect.objectContaining({
         features: [expect.objectContaining({
           geometry: { coordinates: [121.47, 31.23], type: 'Point' },
-          properties: expect.objectContaining({ id: 'footprint-a' }),
+          properties: expect.objectContaining({ id: 'footprint-a', isNew: true }),
           type: 'Feature',
         })],
         type: 'FeatureCollection',
       }),
       type: 'geojson',
     }));
+    expect(runtime?.addLayer).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'bliver-footprint-point-new',
+      filter: ['all', ['!', ['has', 'point_count']], ['boolean', ['get', 'isNew'], false]],
+    }));
+    expect(screen.getByRole('button', { name: 'New footprint by Aster' })).toHaveTextContent('New');
 
     rerenderMap({
       items: [firstItem],

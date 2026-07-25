@@ -22,7 +22,7 @@ Bliver is a mobile-first location social network where people leave footprints o
 2. **Privacy Is Visible.** Audience and location precision are visible before publishing and enforced by the backend.
 3. **Discovery Without Noise.** One chronological stream combines friends and public footprints with explicit relationship and region labels.
 4. **Social Depth Is Earned.** Public reactions and comments are easy; friendship and unrestricted messaging represent deeper relationships.
-5. **Memories Outlive Discovery.** Public discovery expires, but a footprint remains part of the owner's personal history according to its visibility.
+5. **Footprints Stay Discoverable.** Visibility controls the audience for the lifetime of a footprint; the discovery window only marks recent, unread activity.
 6. **Mobile Decisions Win.** Product architecture, touch targets, sheets, navigation, loading, and error states are designed for phones first.
 
 ## Core Product Structure
@@ -37,7 +37,8 @@ Bliver is a mobile-first location social network where people leave footprints o
 - First publication defaults to `public`; later publications reuse the user's last selection.
 - Location precision remains independently selectable as precise or approximate.
 - Only footprints explicitly marked `public` enter stranger discovery.
-- Public footprints remain in discovery for 24 hours, then remain in the owner's history and continue to follow normal friend/private visibility rules.
+- Public footprints remain available to strangers until deleted, hidden by moderation, or made less visible by the owner.
+- The 24-hour discovery window marks a footprint as new. Opening it clears that state for the current user without removing the footprint from the map.
 - Discovery uses an intelligent fallback from the current first-level administrative region, to the current country, to global content.
 - The unified stream is strictly reverse chronological; friends receive no ranking boost.
 - Legacy footprints without the new visibility field are not migrated and are not automatically added to stranger discovery.

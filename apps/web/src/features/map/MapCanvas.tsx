@@ -23,6 +23,7 @@ const SOURCE_ID = 'bliver-footprints';
 const CLUSTER_LAYER_ID = 'bliver-footprint-clusters';
 const CLUSTER_COUNT_LAYER_ID = 'bliver-footprint-cluster-count';
 const CLUSTER_HIT_LAYER_ID = 'bliver-footprint-cluster-hit';
+const POINT_NEW_LAYER_ID = 'bliver-footprint-point-new';
 const POINT_HALO_LAYER_ID = 'bliver-footprint-point-halo';
 const POINT_LAYER_ID = 'bliver-footprint-points';
 const POINT_HIT_LAYER_ID = 'bliver-footprint-point-hit';
@@ -42,6 +43,7 @@ export interface MapCanvasItem {
   readonly locationPrecision?: 'precise' | 'approximate';
   readonly primaryMedia?: { readonly url?: string };
   readonly mood?: string;
+  readonly isNew?: boolean;
 }
 
 export interface MapCanvasSelection {
@@ -80,6 +82,7 @@ interface FootprintProperties {
   readonly focused: boolean;
   readonly hasMedia: boolean;
   readonly moodKey: MapMoodKey;
+  readonly isNew: boolean;
 }
 
 function toFeatureCollection(
@@ -102,6 +105,7 @@ function toFeatureCollection(
         focused: selectedId !== undefined,
         hasMedia: Boolean(item.primaryMedia?.url),
         moodKey: toMapMoodKey(item.mood),
+        isNew: Boolean(item.isNew),
       },
     })),
   };
@@ -241,6 +245,9 @@ export function MapCanvas({
     { readonly x: number; readonly y: number } | undefined
   >(undefined);
   const lastCinematicallyFocusedIdRef = useRef<string | undefined>(undefined);
+  const animatedNewIdsRef = useRef(new Set<string>());
+  const newSweepFrameRef = useRef<number | undefined>(undefined);
+  const newSweepTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const motionPreference = useReducedMotion();
   const reducedMotion = motionPreference.reduced;
   const runtimeKey = `${runtimeLocale}:${motionPreference.revision}`;
@@ -250,6 +257,30 @@ export function MapCanvas({
     () => centerOf(items, viewport),
     [items, viewport],
   );
+
+  const playNewFootprintSweep = useCallback((map: maplibregl.Map): boolean => {
+    if (!map.getLayer(POINT_NEW_LAYER_ID) || typeof map.setPaintProperty !== 'function') return false;
+    if (newSweepFrameRef.current !== undefined) window.cancelAnimationFrame(newSweepFrameRef.current);
+    if (newSweepTimerRef.current !== undefined) clearTimeout(newSweepTimerRef.current);
+    try {
+      map.setPaintProperty(POINT_NEW_LAYER_ID, 'circle-radius', 21);
+      map.setPaintProperty(POINT_NEW_LAYER_ID, 'circle-opacity', 0.5);
+      map.setPaintProperty(POINT_NEW_LAYER_ID, 'circle-stroke-width', 3);
+      newSweepFrameRef.current = window.requestAnimationFrame(() => {
+        map.setPaintProperty(POINT_NEW_LAYER_ID, 'circle-radius', 36);
+        map.setPaintProperty(POINT_NEW_LAYER_ID, 'circle-opacity', 0.08);
+        map.setPaintProperty(POINT_NEW_LAYER_ID, 'circle-stroke-width', 1);
+      });
+      newSweepTimerRef.current = setTimeout(() => {
+        map.setPaintProperty(POINT_NEW_LAYER_ID, 'circle-radius', 27);
+        map.setPaintProperty(POINT_NEW_LAYER_ID, 'circle-opacity', 0.18);
+        map.setPaintProperty(POINT_NEW_LAYER_ID, 'circle-stroke-width', 2);
+      }, 1_050);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const reportSelectedPoint = useCallback((): void => {
     const map = mapRef.current;
@@ -550,6 +581,29 @@ export function MapCanvas({
           paint: { 'text-color': '#ffffff' },
         });
         map.addLayer({
+          id: POINT_NEW_LAYER_ID,
+          type: 'circle',
+          source: SOURCE_ID,
+          filter: ['all', ['!', ['has', 'point_count']], ['boolean', ['get', 'isNew'], false]],
+          paint: {
+            'circle-color': '#e5eee9',
+            'circle-radius': 27,
+            'circle-opacity': 0.18,
+            'circle-stroke-color': '#2d594d',
+            'circle-stroke-width': 2,
+            'circle-stroke-opacity': 0.88,
+            'circle-translate': [0, -18],
+            'circle-blur': 0.12,
+            'circle-radius-transition': { duration: 920 },
+            'circle-opacity-transition': { duration: 920 },
+            'circle-stroke-width-transition': { duration: 920 },
+          },
+        });
+        const initialNewIds = latestItems.current.filter((item) => item.isNew).map((item) => item.id);
+        if (initialNewIds.length && playNewFootprintSweep(map)) {
+          for (const id of initialNewIds) animatedNewIdsRef.current.add(id);
+        }
+        map.addLayer({
           id: POINT_HALO_LAYER_ID,
           type: 'circle',
           source: SOURCE_ID,
@@ -683,6 +737,8 @@ export function MapCanvas({
       disposed = true;
       clearTimeout(loadTimer);
       if (initializationErrorTimer) clearTimeout(initializationErrorTimer);
+      if (newSweepFrameRef.current !== undefined) window.cancelAnimationFrame(newSweepFrameRef.current);
+      if (newSweepTimerRef.current !== undefined) clearTimeout(newSweepTimerRef.current);
       resizeObserver?.disconnect();
       if (loaded) {
         try {
@@ -732,7 +788,7 @@ export function MapCanvas({
     }
 
     return dispose;
-  }, [mapProvider, nativeMapLocale, reducedMotion, reportSelectedPoint, runtimeKey, runtimeLocale]);
+  }, [mapProvider, nativeMapLocale, playNewFootprintSweep, reducedMotion, reportSelectedPoint, runtimeKey, runtimeLocale]);
 
   useEffect(() => {
     if (renderMode === 'failed') disposeRuntimeRef.current?.();
@@ -746,11 +802,15 @@ export function MapCanvas({
         | maplibregl.GeoJSONSource
         | undefined;
       source?.setData(toFeatureCollection(items, selectedId));
+      const newIds = items.filter((item) => item.isNew && !animatedNewIdsRef.current.has(item.id)).map((item) => item.id);
+      if (newIds.length && playNewFootprintSweep(map)) {
+        for (const id of newIds) animatedNewIdsRef.current.add(id);
+      }
     } catch {
       return;
     }
     reportSelectedPoint();
-  }, [items, reportSelectedPoint, selectedId]);
+  }, [items, playNewFootprintSweep, reportSelectedPoint, selectedId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -882,7 +942,7 @@ export function MapCanvas({
             return (
               <li key={item.id}>
                 <button
-                  aria-label={t('map.footprintBy', { name: item.author.name })}
+                  aria-label={t(item.isNew ? 'map.newFootprintBy' : 'map.footprintBy', { name: item.author.name })}
                   aria-pressed={selected}
                   data-footprint-id={item.id}
                   data-testid="map-footprint-item"
@@ -903,6 +963,7 @@ export function MapCanvas({
                     </small>
                   </span>
                   {selected ? <span className="map-canvas__selected">{t('map.selected')}</span> : null}
+                  {item.isNew ? <span className="map-canvas__new">{t('map.newFootprint')}</span> : null}
                 </button>
               </li>
             );

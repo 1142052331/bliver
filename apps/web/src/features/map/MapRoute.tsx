@@ -35,7 +35,7 @@ import {
 } from './ChronoLens.js';
 import { MapControls, type MapControlStatus } from './MapControls.js';
 import { MomentDeck } from './MomentDeck.js';
-import { useMapFootprintsQuery } from './api.js';
+import { markMapFootprintRead, useMapFootprintsQuery } from './api.js';
 import { connectMapRealtime } from './realtime.js';
 import './map.css';
 
@@ -45,6 +45,7 @@ export interface MapItem extends MapCanvasItem {
   readonly publishedAt: string;
   readonly message?: string;
   readonly primaryMedia?: FootprintMediaPreview;
+  readonly isNew?: boolean;
 }
 
 export type MapState = 'loading' | 'error' | 'empty' | 'ready';
@@ -245,6 +246,18 @@ function viewportFromParams(params: URLSearchParams): MapViewportBounds {
   };
 }
 
+const SEEN_FOOTPRINTS_KEY = 'bliver:map-read-footprints';
+
+function storedSeenFootprints(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(SEEN_FOOTPRINTS_KEY) ?? '[]');
+    return new Set(Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
 export function MapRoute(props: MapRouteProps) {
   const client = useMemo(() => new QueryClient(), []);
   return (
@@ -271,6 +284,8 @@ function MapRouteBody({
   const [controlStatus, setControlStatus] = useState<MapControlStatus>();
   const [chronoAnchor, setChronoAnchor] = useState<ChronoLensPoint>();
   const [momentGroup, setMomentGroup] = useState<MomentGroupSelection>();
+  const [guestSeenFootprintIds, setGuestSeenFootprintIds] = useState(storedSeenFootprints);
+  const [openedFootprintIds, setOpenedFootprintIds] = useState(() => new Set<string>());
 
   useLayoutEffect(() => {
     paramsRef.current = params;
@@ -308,10 +323,13 @@ function MapRouteBody({
       visibility,
     } : {}),
   }, loadFromApi);
-  const visibleItems = useMemo(
-    () => loadFromApi ? (remote.data?.items ?? []) as MapItem[] : items,
-    [items, loadFromApi, remote.data?.items],
-  );
+  const visibleItems = useMemo(() => {
+    const source = loadFromApi ? (remote.data?.items ?? []) as MapItem[] : items;
+    const applyGuestReads = !loadFromApi || remote.data?.viewerAuthenticated === false;
+    return source.map((item) => (openedFootprintIds.has(item.id) || (applyGuestReads && guestSeenFootprintIds.has(item.id))) && item.isNew
+      ? { ...item, isNew: false }
+      : item);
+  }, [guestSeenFootprintIds, items, loadFromApi, openedFootprintIds, remote.data?.items, remote.data?.viewerAuthenticated]);
   const selectedId = params.get('footprint');
   const sheet = params.get('sheet');
   const searchOpen = params.get('search') === 'open';
@@ -362,6 +380,20 @@ function MapRouteBody({
   };
 
   const openMoment = (item: MapItem, anchor?: ChronoLensPoint): void => {
+    if (item.isNew) {
+      setOpenedFootprintIds((current) => current.has(item.id) ? current : new Set(current).add(item.id));
+      const persistGuestRead = (): void => setGuestSeenFootprintIds((current) => {
+        if (current.has(item.id)) return current;
+        const next = new Set(current).add(item.id);
+        try { window.localStorage.setItem(SEEN_FOOTPRINTS_KEY, JSON.stringify([...next].slice(-500))); } catch { /* Local privacy mode can reject storage. */ }
+        return next;
+      });
+      if (loadFromApi && remote.data?.viewerAuthenticated) {
+        void markMapFootprintRead(item.id).catch(() => undefined);
+      } else {
+        persistGuestRead();
+      }
+    }
     setMomentGroup(undefined);
     setChronoAnchor(anchor);
     updateParams((next) => {

@@ -490,6 +490,18 @@
   display: none;
 }
 
+.map-canvas__new {
+  align-self: center;
+  color: var(--bliver-color-forest);
+  font-size: 0.6875rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.map-canvas__semantic li > button[aria-pressed='true'] .map-canvas__new {
+  color: var(--bliver-color-sage-soft);
+}
+
 /* Data states read like map captions attached to the stage edge. */
 .map-route__stage-status {
   position: absolute;

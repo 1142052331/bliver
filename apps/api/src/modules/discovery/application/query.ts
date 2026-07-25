@@ -51,14 +51,13 @@ export function createMemoryDiscoveryRepository(records: readonly DiscoveryEntry
   const entries = new Map(records.map((entry) => [entry.id, entry]));
   return {
     async listCandidates(input) {
-      const now = Date.now();
       return [...entries.values()].filter((entry) => {
         if (entry.deletedAt) return false;
         if (input.scope === 'region' && input.regionId && entry.regionId !== input.regionId) return false;
         if ((input.scope === 'country' || input.scope === 'global') && input.scope !== 'global' && input.countryCode && entry.countryCode !== input.countryCode) return false;
         if (input.excludeRegionId && entry.regionId === input.excludeRegionId) return false;
         if (input.excludeCountryCode && entry.countryCode === input.excludeCountryCode) return false;
-        if (!input.actorId && (!entry.discoveryExpiresAt || entry.discoveryExpiresAt.getTime() <= now)) return false;
+        if (!input.actorId && entry.visibility !== 'public') return false;
         if (input.relationship === 'public' && entry.visibility !== 'public') return false;
         if (input.relationship === 'friends' && entry.visibility === 'public') return false;
         if (input.content === 'media' && !entry.hasMedia) return false;
