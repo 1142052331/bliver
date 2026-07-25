@@ -1,9 +1,12 @@
 import { Router, type Request, type Response } from 'express';
 import { activityQuery, mapFootprintQuery } from '@bliver/contracts';
-import { resolveSession, type ActorContext } from '../../identity/index.js';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
+import {
+  resolveSession,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import type { DiscoveryQueryService } from '../application/query.js';
-import type { MapFootprintQuery } from '../../footprints/application/map-query.js';
+import type { MapFootprintQuery } from '../../footprints/index.js';
 
 function token(request: Request): string | undefined { const bearer = request.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]; const cookie = request.get('cookie')?.split(';').map((part) => part.trim()).find((part) => part.startsWith('bliver_session=')); return bearer ?? (cookie ? decodeURIComponent(cookie.slice('bliver_session='.length)) : undefined); }
 async function actor(request: Request, identity?: IdentityRepositories): Promise<ActorContext | null> { const value = token(request); if (!value || !identity) return null; const resolved = await resolveSession(identity, value); return resolved ? { userId: resolved.user.id, sessionId: resolved.session.id, roles: resolved.user.roles, transport: request.get('authorization') ? 'bearer' : 'cookie' } : null; }

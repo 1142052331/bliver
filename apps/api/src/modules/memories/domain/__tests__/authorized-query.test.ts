@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FootprintVisibilityPolicy, type FootprintPolicyInput } from '../../../footprints/domain/visibility-policy.js';
-import { AuthorizedMemoryQuery, InMemoryVisitorSource } from '../ports.js';
+import { AuthorizedMemoryQuery, InMemoryVisitorSource } from '../../application/authorized-query.js';
 
 const owner='019f0000-0000-7000-8000-000000000201' as never;const friend='019f0000-0000-7000-8000-000000000202' as never;const blocked='019f0000-0000-7000-8000-000000000203' as never;const now=new Date('2026-07-16T00:00:00Z');
 const record=(id:string,visibility:'public'|'friends'|'private',expires:string|null):FootprintPolicyInput=>({id:id as never,authorId:owner,author:{name:'Owner'},displayPoint:{lat:1,lng:2},visibility,locationPrecision:'approximate',publishedAt:new Date('2026-07-15T00:00:00Z'),discoveryExpiresAt:expires?new Date(expires):null,message:id});

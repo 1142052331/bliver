@@ -10,7 +10,7 @@ import { loadApiConfig } from './config.js';
 import { closeDb, createDb } from '../platform/db/client.js';
 import { createApp } from '../http/app.js';
 import type { HttpErrorReporter } from '../http/error-handler.js';
-import { createPostgresIdentityRepositories } from '../modules/identity/infrastructure/postgres-repositories.js';
+import { createPostgresIdentityRepositories } from '../modules/identity/index.js';
 import { CloudinaryAdapter, MediaService, createPostgresMediaRepositories } from '../modules/media/index.js';
 import { FootprintVisibilityPolicy, MapFootprintQuery, createPostgresFootprintRepositories } from '../modules/footprints/index.js';
 import { DiscoveryQueryService, DiscoveryProjectionConsumer, createPostgresDiscoveryRepository } from '../modules/discovery/index.js';
@@ -23,6 +23,7 @@ import { OutboxWorkerPump } from '../platform/outbox/pump.js';
 import { Server as SocketServer } from 'socket.io';
 import { createNominatimGeography } from '../platform/geography/providers.js';
 import { configureRealtime, createConversationOutboxConsumer, emitFootprintDeleted, emitFootprintPublished } from './realtime.js';
+import { createOutboxEventProcessor } from './outbox-processing.js';
 import { NotificationService, createPostgresNotificationRepository, PushAdapter, PushDeliveryConsumer, WebPushProvider } from '../modules/notifications/index.js';
 import { AuthorizedMemoryQuery, createPostgresMemoryMediaSource, createPostgresMemoryRepository, createPostgresVisitorSource, MemoryProjectionConsumer } from '../modules/memories/index.js';
 import { ObservabilityRegistry, configureSentryRelease, type SentryTagSink } from '../platform/observability/index.js';
@@ -164,7 +165,27 @@ export async function startServer(): Promise<void> {
   const consumeConversationEvent = createConversationOutboxConsumer(conversationService, io);
   const projection = new DiscoveryProjectionConsumer({ repository: discoveryRepository, source: { async findById(id) { const [publicRecord, fullRecord] = await Promise.all([footprints.findById(id as never), footprints.footprints.findById(id as never)]); if (!publicRecord || !fullRecord) return null; let countryCode: string | null = null; if (fullRecord.metadata.regionId) { const region = await db.query<{ country_code: string }>('SELECT country_code FROM regions WHERE id=$1', [fullRecord.metadata.regionId]); countryCode = region.rows[0]?.country_code ?? null; } return { ...publicRecord, message: fullRecord.message, hasMedia: fullRecord.mediaAssetIds.length > 0, regionId: fullRecord.metadata.regionId, countryCode }; } } });
   const memoryProjection = new MemoryProjectionConsumer(memoryRepository);
-  const outboxWorker = new OutboxWorker({ repository: createPostgresOutboxRepository(db), observe: (kind, event) => observability.outbox(kind, { requestId: event.id, correlationId: event.aggregateId, status: kind, durationMs: 0, eventType: event.type, attempts: event.attempts }), process: async (event) => { await consumeConversationEvent(event); if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'FootprintDeleted') await projection.process(event as never); if (event.type === 'FootprintPublished' || event.type === 'FootprintVisibilityUpdated' || event.type === 'FootprintVisibilityChanged' || event.type === 'CommentAdded' || event.type === 'ReactionAdded') await memoryProjection.process(event); const notificationEvent={id:event.id,type:event.type,payload:event.payload};const notification=await notificationService.consume(notificationEvent);const recipientId=notificationService.recipientForEvent(notificationEvent);if(notification&&recipientId&&pushDelivery&&(await notificationService.getPreferences(recipientId)).push)await pushDelivery.deliver(recipientId,notification); if (event.type === 'FootprintPublished') emitFootprintPublished(io, event.payload as { authorId: string }); if (event.type === 'FootprintDeleted' && typeof event.payload.authorId === 'string') emitFootprintDeleted(io, event.payload as { authorId: string }); } });
+  const processOutboxEvent = createOutboxEventProcessor({
+    conversation: consumeConversationEvent,
+    discovery: projection,
+    memories: memoryProjection,
+    notifications: notificationService,
+    ...(pushDelivery ? { push: pushDelivery } : {}),
+    emitPublished: (payload) => emitFootprintPublished(io, payload),
+    emitDeleted: (payload) => emitFootprintDeleted(io, payload),
+  });
+  const outboxWorker = new OutboxWorker({
+    repository: createPostgresOutboxRepository(db),
+    observe: (kind, event) => observability.outbox(kind, {
+      requestId: event.id,
+      correlationId: event.aggregateId,
+      status: kind,
+      durationMs: 0,
+      eventType: event.type,
+      attempts: event.attempts,
+    }),
+    process: processOutboxEvent,
+  });
   const workerPump = new OutboxWorkerPump({
     worker: outboxWorker,
     intervalMs: 250,

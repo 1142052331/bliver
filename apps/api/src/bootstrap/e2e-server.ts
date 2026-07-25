@@ -10,7 +10,7 @@ import {
 } from '@bliver/testing';
 
 import { createApp } from '../http/app.js';
-import { createMemoryIdentityRepositories } from '../modules/identity/application/memory-repositories.js';
+import { createMemoryIdentityRepositories } from '../modules/identity/index.js';
 import { ConversationService, createMemoryConversationRepository } from '../modules/conversations/index.js';
 import { createMemoryDiscoveryRepository, DiscoveryQueryService } from '../modules/discovery/index.js';
 import { BlockPolicy, SocialService, createMemorySocialRepository } from '../modules/social/index.js';

@@ -3,9 +3,11 @@ import { locationResolveRequest, mapFootprintQuery, placeSearchRequest } from '@
 import { MapFootprintQuery, createMemoryMapFootprintRepository } from '../application/index.js';
 import { FootprintVisibilityPolicy } from '../domain/visibility-policy.js';
 import type { FootprintPolicyInput } from '../domain/visibility-policy.js';
-import type { ActorContext } from '../../identity/index.js';
-import { resolveSession } from '../../identity/application/commands.js';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
+import {
+  resolveSession,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import type { GeographyPorts } from '../../../platform/geography/providers.js';
 
 export interface MapRouterOptions { readonly query?: MapFootprintQuery; readonly records?: readonly FootprintPolicyInput[]; readonly geography?: GeographyPorts; }

@@ -2,8 +2,12 @@ import { requestFriendshipInput, socialUserId } from '@bliver/contracts';
 import { parseUserId, type UserId } from '@bliver/domain';
 import { Router, type Request, type Response } from 'express';
 
-import { requireActor, validMutationCsrf, type ActorContext } from '../../identity/index.js';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
+import {
+  requireActor,
+  validMutationCsrf,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import type { FriendshipRecord } from '../application/ports.js';
 import { SocialError, type SocialCommandOptions, type SocialService } from '../application/service.js';
 

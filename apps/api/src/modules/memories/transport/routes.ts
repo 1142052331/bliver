@@ -1,6 +1,10 @@
 import { Router, type Request } from 'express';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
-import { requireActor, resolveSession, type ActorContext } from '../../identity/index.js';
+import {
+  requireActor,
+  resolveSession,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import type { MemoryQueryPort } from '../domain/ports.js';
 
 export interface MemoryRouterOptions { readonly query: MemoryQueryPort; }

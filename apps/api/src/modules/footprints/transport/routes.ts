@@ -1,7 +1,11 @@
 import { Router, type Request, type Response } from 'express';
 import { publishFootprintRequest, updateFootprintVisibilityRequest } from '@bliver/contracts';
-import { requireActor, resolveSession, type ActorContext } from '../../identity/index.js';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
+import {
+  requireActor,
+  resolveSession,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import { createMemoryFootprintRepositories, DeleteFootprint, FootprintConflictError, PublishFootprint, UpdateFootprintVisibility, type FootprintProviderPorts, type FootprintRepositories } from '../application/index.js';
 import type { FootprintVisibilityPolicy } from '../domain/visibility-policy.js';
 import type { FootprintPolicyInput } from '../domain/visibility-policy.js';

@@ -1,7 +1,6 @@
 import type { Server as SocketServer, Socket } from 'socket.io';
 
-import { resolveSession } from '../modules/identity/application/commands.js';
-import type { IdentityRepositories } from '../modules/identity/application/ports.js';
+import { resolveSession, type IdentityRepositories } from '../modules/identity/index.js';
 import { socketMessageInput, socketReadInput, socketTypingInput } from '@bliver/contracts';
 import { parseUserId } from '@bliver/domain';
 import type { ConversationService } from '../modules/conversations/index.js';

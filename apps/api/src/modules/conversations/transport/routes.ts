@@ -2,8 +2,12 @@ import { conversationId, conversationUserId, greetingInput, messageHistoryQuery,
 import { parseUserId } from '@bliver/domain';
 import { Router, type Request, type Response } from 'express';
 
-import { requireActor, validMutationCsrf, type ActorContext } from '../../identity/index.js';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
+import {
+  requireActor,
+  validMutationCsrf,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import type { ConversationListRecord, ConversationRecord, MessageRecord } from '../application/ports.js';
 import { ConversationError, type ConversationCommandOptions, type ConversationService } from '../application/service.js';
 

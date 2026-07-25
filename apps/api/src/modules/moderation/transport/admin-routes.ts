@@ -1,6 +1,10 @@
 import { Router, type Request, type Response } from 'express';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
-import { requireActor, validMutationCsrf, type ActorContext } from '../../identity/transport/routes.js';
+import {
+  requireActor,
+  validMutationCsrf,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import { GovernanceError, type AdminCommandContext, type AdminRole, type CaseDisposition, type ModerationGovernanceService } from '../application/governance.js';
 
 const actor=(req:Request)=>(req as Request&{actor?:ActorContext}).actor;

@@ -56,4 +56,27 @@ describe('V2 architecture boundaries', () => {
     expect(result.exitCode).not.toBe(0);
     expect(result.output).toContain('module-to-module-infrastructure');
   });
+
+  it('rejects production imports that bypass another module public entry', async () => {
+    const root = await mkdtemp(join(repositoryRoot, '.tmp-v2-architecture-'));
+    fixtures.push(root);
+    const memoryDomain = join(root, 'apps/api/src/modules/memories/domain');
+    const footprintDomain = join(root, 'apps/api/src/modules/footprints/domain');
+    await mkdir(memoryDomain, { recursive: true });
+    await mkdir(footprintDomain, { recursive: true });
+    await mkdir(join(root, 'packages'), { recursive: true });
+    await writeFile(
+      join(memoryDomain, 'bad.ts'),
+      "import '../../footprints/domain/policy.ts';\n",
+    );
+    await writeFile(
+      join(footprintDomain, 'policy.ts'),
+      'export const policy = true;\n',
+    );
+
+    const result = runArchitectureCheck(root);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.output).toContain('module-to-module-internal');
+  });
 });

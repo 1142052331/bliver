@@ -1,7 +1,11 @@
 import { Router, type Request, type Response } from 'express';
 import { addCommentInput, addReactionInput } from '@bliver/contracts';
-import { resolveSession, validMutationCsrf, type ActorContext } from '../../identity/index.js';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
+import {
+  resolveSession,
+  validMutationCsrf,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import { InteractionError, type Comment, type Reaction } from '../domain/model.js';
 import type { InteractionService } from '../application/service.js';
 

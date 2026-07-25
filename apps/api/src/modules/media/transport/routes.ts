@@ -2,8 +2,12 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { mediaCompleteRequest, mediaSignatureRequest } from '@bliver/contracts';
 
 import type { ApiConfig } from '../../../bootstrap/config.js';
-import { requireActor, validMutationCsrf, type ActorContext } from '../../identity/index.js';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
+import {
+  requireActor,
+  validMutationCsrf,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import {
   createMemoryMediaRepositories,
   MediaError,

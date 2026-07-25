@@ -1,7 +1,11 @@
 import { Router, type Request, type Response } from 'express';
 import { createReportInput } from '@bliver/contracts';
-import { resolveSession, validMutationCsrf, type ActorContext } from '../../identity/index.js';
-import type { IdentityRepositories } from '../../identity/application/ports.js';
+import {
+  resolveSession,
+  validMutationCsrf,
+  type ActorContext,
+  type IdentityRepositories,
+} from '../../identity/index.js';
 import { ReportError } from '../domain/reports.js';
 import type { CreateReport } from '../domain/reports.js';
 

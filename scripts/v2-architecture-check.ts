@@ -40,9 +40,13 @@ function staticBoundaryViolations(root: string): string[] {
         .replaceAll('\\', '/')
         .replace(/\.js$/, '.ts');
       const sourceModule = from.match(/^apps\/api\/src\/modules\/([^/]+)\//)?.[1];
+      const targetModule = target.match(/^apps\/api\/src\/modules\/([^/]+)\//)?.[1];
       const targetInfrastructureModule = target.match(
         /^apps\/api\/src\/modules\/([^/]+)\/infrastructure(?:\/|$)/,
       )?.[1];
+      const targetIsPublicModuleEntry = targetModule
+        ? target === `apps/api/src/modules/${targetModule}/index.ts`
+        : false;
 
       if (from.startsWith('apps/web/src') && target.startsWith('apps/api/src')) {
         violations.push(`web-to-api-internal: ${from} -> ${target}`);
@@ -60,10 +64,15 @@ function staticBoundaryViolations(root: string): string[] {
         violations.push(`contracts-to-apps: ${from} -> ${target}`);
       } else if (
         sourceModule &&
-        targetInfrastructureModule &&
-        sourceModule !== targetInfrastructureModule
+        targetModule &&
+        sourceModule !== targetModule &&
+        !from.includes('/__tests__/') &&
+        !targetIsPublicModuleEntry
       ) {
-        violations.push(`module-to-module-infrastructure: ${from} -> ${target}`);
+        const rule = targetInfrastructureModule
+          ? 'module-to-module-infrastructure'
+          : 'module-to-module-internal';
+        violations.push(`${rule}: ${from} -> ${target}`);
       }
     }
   }

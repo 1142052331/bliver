@@ -1,4 +1,4 @@
-import type { FootprintOutboxEvent } from '../../footprints/application/commands.js';
+import type { FootprintOutboxEvent } from '../../footprints/index.js';
 import type { DiscoveryEntry, DiscoveryRepository } from './ports.js';
 
 export interface DiscoveryProjectionSource { findById(id: string): Promise<DiscoveryEntry | null>; }
