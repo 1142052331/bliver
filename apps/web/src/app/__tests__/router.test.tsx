@@ -70,16 +70,44 @@ describe('V2 web route contract', () => {
     async (path) => {
       holdSessionRequest();
       renderRouter(path);
-      await waitFor(() => {
-        expect(
-          document.querySelector('[data-auth-session-state="loading"]'),
-        ).toHaveTextContent('Loading session');
-      });
+      expect(await screen.findByText('Loading session')).toBeInTheDocument();
       expect(document.querySelector('.app-status-scene')).not.toBeInTheDocument();
     },
   );
 
-  it('routes a guest away from messages before the legacy message surface mounts', async () => {
+  it('releases an authenticated route after the session request resolves', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/v1/session')) {
+        return new Response(JSON.stringify({
+          id: '019f0000-0000-7000-8000-000000000705',
+          deviceName: 'Router test',
+          createdAt: '2026-07-15T08:00:00.000Z',
+          lastSeenAt: '2026-07-15T08:00:00.000Z',
+          current: true,
+        }), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      if (url.includes('/api/v1/map/footprints')) {
+        return new Response(JSON.stringify({ items: [], nextCursor: null }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ code: 'NOT_FOUND' }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      });
+    }));
+
+    renderRouter('/publish?lat=31.231&lng=121.471');
+
+    expect(await screen.findByRole('heading', { name: 'Publish a footprint' })).toBeVisible();
+    expect(
+      document.querySelector('[data-auth-session-state="loading"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('prompts a guest before the message surface mounts and preserves the destination', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -88,7 +116,11 @@ describe('V2 web route contract', () => {
 
     renderRouter('/messages');
 
-    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Continue to sign in' })).toHaveAttribute(
+      'href',
+      '/login?returnTo=%2Fmessages',
+    );
     expect(screen.queryByRole('heading', { name: 'Messages' })).not.toBeInTheDocument();
   });
 

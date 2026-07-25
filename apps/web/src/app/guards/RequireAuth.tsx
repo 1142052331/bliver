@@ -29,7 +29,7 @@ export function RequireAuth() {
         <Navigate
           replace
           state={{ from: returnTo }}
-          to={`/login?returnTo=${encodeURIComponent(returnTo)}`}
+          to={`/auth-required?returnTo=${encodeURIComponent(returnTo)}`}
         />
       );
     }

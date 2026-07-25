@@ -12,6 +12,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 
 import { LocaleSwitcher } from './LocaleSwitcher.js';
 import { RouteSceneDirector } from './SceneDirector.js';
+import { useSession } from './providers/SessionProvider.js';
 import './app-shell.css';
 
 const destinations = [
@@ -23,7 +24,7 @@ const destinations = [
 
 const workPrefixes = ['/messages', '/notifications', '/people', '/admin'];
 const storyPrefixes = ['/activity', '/footprints', '/me', '/profile'];
-const authPrefixes = ['/login', '/register', '/session-expired'];
+const authPrefixes = ['/login', '/register', '/auth-required', '/session-expired'];
 
 function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some(
@@ -60,6 +61,7 @@ export function AppShell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const session = useSession();
   const spatial = location.pathname === '/map' || location.pathname === '/publish';
   const work = matchesPrefix(location.pathname, workPrefixes);
   const story = matchesPrefix(location.pathname, storyPrefixes);
@@ -74,6 +76,7 @@ export function AppShell() {
     ['/admin', 'nav.admin'],
     ['/login', 'session.signIn'],
     ['/register', 'auth.createAccount'],
+    ['/auth-required', 'session.authRequiredTitle'],
     ['/footprints', 'map.preview'],
     ['/me', 'nav.me'],
     ['/profile', 'nav.me'],
@@ -83,9 +86,21 @@ export function AppShell() {
   ] as const).find(([prefix]) => location.pathname.startsWith(prefix))?.[1]
     ?? 'nav.map';
   const publishLabel = t('actions.publish');
+  const guest = session.isError
+    && (session.error as { readonly code?: unknown } | null)?.code === 'AUTH_REQUIRED';
+
+  const requestAuthentication = (returnTo: string): boolean => {
+    if (!guest) return false;
+    navigate(`/auth-required?returnTo=${encodeURIComponent(returnTo)}`, {
+      state: { from: returnTo },
+    });
+    return true;
+  };
 
   const publish = (): void => {
     const point = pointFromSearch(location.search);
+    const returnTo = `/publish${location.search}`;
+    if (requestAuthentication(returnTo)) return;
 
     navigate(
       { pathname: '/publish', search: location.search },
@@ -122,6 +137,11 @@ export function AppShell() {
             className="app-shell__icon-link"
             title={t('common.notifications')}
             to="/notifications"
+            onClick={(event) => {
+              if (requestAuthentication('/notifications')) {
+                event.preventDefault();
+              }
+            }}
           >
             <Bell aria-hidden="true" />
           </Link>
@@ -152,21 +172,29 @@ export function AppShell() {
         aria-label={t('common.primaryNavigation')}
         className="app-shell__nav"
       >
-        {destinations.map(({ href, key, Icon }) => (
-          <NavLink
-            key={href}
-            to={href}
-            title={t(key)}
-            className={({ isActive }) =>
-              isActive || (publishing && href === '/map')
-                ? 'app-shell__nav-link is-active'
-                : 'app-shell__nav-link'
-            }
-          >
-            <Icon aria-hidden="true" />
-            <span>{t(key)}</span>
-          </NavLink>
-        ))}
+        {destinations.map(({ href, key, Icon }) => {
+          const protectedDestination = href === '/messages' || href === '/me';
+          return (
+            <NavLink
+              key={href}
+              to={href}
+              title={t(key)}
+              className={({ isActive }) =>
+                isActive || (publishing && href === '/map')
+                  ? 'app-shell__nav-link is-active'
+                  : 'app-shell__nav-link'
+              }
+              onClick={(event) => {
+                if (protectedDestination && requestAuthentication(href)) {
+                  event.preventDefault();
+                }
+              }}
+            >
+              <Icon aria-hidden="true" />
+              <span>{t(key)}</span>
+            </NavLink>
+          );
+        })}
       </nav>
     </div>
   );

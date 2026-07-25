@@ -213,12 +213,36 @@ function viewportFromParams(params: URLSearchParams): MapViewportBounds {
   const isSupportedRectangle = bounds.west < bounds.east
     && bounds.south < bounds.north;
 
-  return hasCompleteRectangle
+  if (hasCompleteRectangle
     && hasFiniteCoordinates
     && isWithinCoordinateRange
-    && isSupportedRectangle
-    ? bounds
-    : SAFE_VIEWPORT;
+    && isSupportedRectangle) {
+    return bounds;
+  }
+
+  const rawLatitude = params.get('lat');
+  const rawLongitude = params.get('lng');
+  const latitude = Number(rawLatitude);
+  const longitude = Number(rawLongitude);
+  const hasPoint = rawLatitude !== null
+    && rawLatitude.trim() !== ''
+    && rawLongitude !== null
+    && rawLongitude.trim() !== ''
+    && Number.isFinite(latitude)
+    && latitude >= -90
+    && latitude <= 90
+    && Number.isFinite(longitude)
+    && longitude >= -180
+    && longitude <= 180;
+  if (!hasPoint) return SAFE_VIEWPORT;
+
+  const span = 0.02;
+  return {
+    west: Math.max(-180, longitude - span),
+    south: Math.max(-90, latitude - span),
+    east: Math.min(180, longitude + span),
+    north: Math.min(90, latitude + span),
+  };
 }
 
 export function MapRoute(props: MapRouteProps) {

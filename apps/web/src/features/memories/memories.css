@@ -1,5 +1,5 @@
 .memories-route {
-  width: min(1120px, 100%);
+  width: min(1040px, 100%);
   min-height: calc(100dvh - var(--app-shell-header-height) - var(--app-shell-nav-height));
   margin-inline: auto;
   overflow-x: clip;
@@ -7,21 +7,27 @@
   color: var(--bliver-color-ink);
 }
 
+.memories-profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 34%);
+  align-items: stretch;
+  border-bottom: 1px solid var(--bliver-color-border);
+}
+
 .memories-header {
   display: flex;
-  min-height: 98px;
+  min-height: 94px;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-radius: var(--bliver-radius-surface) var(--bliver-radius-surface) 0 0;
-  padding: 16px 18px;
-  background: var(--bliver-color-forest);
-  color: var(--bliver-color-surface);
+  padding: 14px 18px 14px 4px;
+  color: var(--bliver-color-ink);
 }
 
 .memories-identity {
   display: flex;
   min-width: 0;
+  flex: 1 1 auto;
   align-items: center;
   gap: 13px;
 }
@@ -32,10 +38,9 @@
   height: 56px;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid rgb(229 238 233 / 42%);
   border-radius: 8px;
-  background: var(--bliver-color-sage-soft);
-  color: var(--bliver-color-forest);
+  background: var(--bliver-color-forest);
+  color: var(--bliver-color-surface);
   font-family: Newsreader, "Noto Serif SC", "Noto Serif JP", Georgia, serif;
   font-size: 1.125rem;
   font-weight: 760;
@@ -44,6 +49,7 @@
 
 .memories-identity__copy {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .memories-identity__copy p,
@@ -53,7 +59,7 @@
 }
 
 .memories-identity__copy p {
-  color: var(--bliver-color-sage);
+  color: var(--bliver-color-ink-muted);
   font-size: .6875rem;
   font-weight: 680;
   line-height: 1.2;
@@ -62,7 +68,7 @@
 .memories-identity__copy h1 {
   overflow: hidden;
   margin-top: 4px;
-  color: var(--bliver-color-surface);
+  color: var(--bliver-color-ink);
   font-family: Newsreader, "Noto Serif SC", "Noto Serif JP", Georgia, serif;
   font-size: 1.625rem;
   font-weight: 680;
@@ -77,7 +83,7 @@
   display: block;
   overflow: hidden;
   margin-top: 5px;
-  color: var(--bliver-color-sage);
+  color: var(--bliver-color-ink-muted);
   font-size: .75rem;
   font-weight: 620;
   line-height: 1.2;
@@ -112,11 +118,11 @@
   flex: 0 0 auto;
   justify-content: center;
   gap: 7px;
-  border: 1px solid rgb(229 238 233 / 42%);
+  border: 1px solid var(--bliver-color-border);
   border-radius: var(--bliver-radius-control);
   padding: 8px 11px;
   background: transparent;
-  color: var(--bliver-color-surface);
+  color: var(--bliver-color-forest);
   font-size: .8125rem;
   font-weight: 720;
   text-decoration: none;
@@ -126,7 +132,7 @@
 
 .memories-header__map-link:focus-visible,
 .memories-header__notifications-link:focus-visible {
-  outline: 2px solid var(--bliver-color-surface);
+  outline: 2px solid var(--bliver-color-forest);
   outline-offset: 3px;
 }
 
@@ -142,8 +148,9 @@
 
 .memory-atlas {
   min-width: 0;
+  margin-top: 16px;
   overflow: hidden;
-  border-radius: 0 0 var(--bliver-radius-surface) var(--bliver-radius-surface);
+  border-radius: var(--bliver-radius-surface);
   background: var(--bliver-color-forest);
   color: var(--bliver-color-surface);
 }
@@ -509,8 +516,9 @@
 }
 
 .memory-seed {
+  margin-top: 16px;
   overflow: hidden;
-  border-radius: 0 0 var(--bliver-radius-surface) var(--bliver-radius-surface);
+  border-radius: var(--bliver-radius-surface);
   background: var(--bliver-color-forest);
   color: var(--bliver-color-surface);
 }
@@ -601,19 +609,20 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
-  border-top: 1px solid rgb(229 238 233 / 14%);
-  background: var(--bliver-color-forest);
+  border-inline-start: 1px solid var(--bliver-color-border);
+  background: transparent;
 }
 
 .memories-summary > div {
   display: flex;
   min-width: 0;
-  min-height: 50px;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 11px 14px;
-  border-inline-end: 1px solid rgb(229 238 233 / 14%);
+  min-height: 94px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column-reverse;
+  gap: 5px;
+  padding: 12px 10px;
+  border-inline-end: 1px solid var(--bliver-color-border);
 }
 
 .memories-summary > div:last-child {
@@ -622,7 +631,7 @@
 
 .memories-summary dt {
   overflow: hidden;
-  color: var(--bliver-color-sage);
+  color: var(--bliver-color-ink-muted);
   font-size: .6875rem;
   font-weight: 650;
   text-overflow: ellipsis;
@@ -631,8 +640,8 @@
 
 .memories-summary dd {
   margin: 0;
-  color: var(--bliver-color-surface);
-  font-size: .9375rem;
+  color: var(--bliver-color-forest);
+  font-size: 1.0625rem;
   font-variant-numeric: tabular-nums;
   font-weight: 780;
 }
@@ -643,14 +652,9 @@
   transform-origin: 50% 70%;
 }
 
-.memories-summary--standalone {
-  border-radius: 0 0 var(--bliver-radius-surface) var(--bliver-radius-surface);
-}
-
 .memories-toolbar {
   min-width: 0;
   border-bottom: 1px solid var(--bliver-color-border);
-  padding-top: 8px;
 }
 
 .memories-tabs {
@@ -1238,8 +1242,8 @@
 @media (hover: hover) {
   .memories-header__map-link:hover,
   .memories-header__notifications-link:hover {
-    border-color: var(--bliver-color-sage-soft);
-    background: var(--bliver-color-paper);
+    border-color: var(--bliver-color-sage);
+    background: var(--bliver-color-sage-soft);
     color: var(--bliver-color-forest);
   }
 
@@ -1263,9 +1267,13 @@
     padding-top: 12px;
   }
 
+  .memories-profile {
+    display: block;
+  }
+
   .memories-header {
-    min-height: 78px;
-    padding: 14px;
+    min-height: 76px;
+    padding: 10px 0 12px;
   }
 
   .memories-identity {
@@ -1341,8 +1349,13 @@
   }
 
   .memories-summary > div {
-    min-height: 48px;
+    min-height: 52px;
     padding-inline: 10px;
+  }
+
+  .memories-summary {
+    border-top: 1px solid var(--bliver-color-border);
+    border-inline-start: 0;
   }
 
   .memories-tabs {

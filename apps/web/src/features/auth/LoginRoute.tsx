@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Surface } from '@bliver/ui';
 import type { LoginRequest, RegisterRequest } from '@bliver/contracts';
@@ -13,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { authApi } from './api.js';
+import { sessionQueryKey } from './queries.js';
 import { consumePendingAction } from '../../platform/pending-action.js';
 import { loginReturnDestination } from '../../platform/deep-link.js';
 import { authTranslations } from './translations.js';
@@ -26,10 +28,19 @@ import './auth.css';
 
 type AuthTranslationKey = keyof typeof authTranslations.en.auth;
 
+function destinationLabelKey(returnTo: string): string {
+  if (returnTo.startsWith('/messages')) return 'nav.messages';
+  if (returnTo.startsWith('/me')) return 'nav.me';
+  if (returnTo.startsWith('/publish')) return 'actions.publish';
+  if (returnTo.startsWith('/notifications')) return 'common.notifications';
+  return 'common.brand';
+}
+
 export function LoginRoute() {
   const routeRef = useRef<HTMLElement>(null);
   const usernameRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const location = useLocation();
   const { t } = useTranslation();
   const copy = (key: AuthTranslationKey): string =>
@@ -43,10 +54,15 @@ export function LoginRoute() {
   const [hasError, setHasError] = useState(false);
   const [openingLogin, setOpeningLogin] = useState(false);
   const sessionExpired = location.pathname === '/session-expired';
+  const authRequired = location.pathname === '/auth-required';
+  const noticeMode = sessionExpired || authRequired;
   const registering = location.pathname === '/register';
-  const interruptedDestination =
-    typeof location.state?.from === 'string' ? location.state.from : '/map';
-  const loginHref = `/login?returnTo=${encodeURIComponent(interruptedDestination)}`;
+  const stateFrom =
+    typeof location.state?.from === 'string' ? location.state.from : undefined;
+  const returnTo = loginReturnDestination(location.search, stateFrom);
+  const loginHref = `/login?returnTo=${encodeURIComponent(returnTo)}`;
+  const registrationHref = `/register?returnTo=${encodeURIComponent(returnTo)}`;
+  const signInHref = `/login?returnTo=${encodeURIComponent(returnTo)}`;
   const focusAfterReveal = location.state?.revealLogin === true;
 
   useGSAP(() => {
@@ -67,7 +83,7 @@ export function LoginRoute() {
         gsap.set(animated, {
           clearProps: 'transform,opacity,visibility,clipPath,willChange',
         });
-        if (!sessionExpired && focusAfterReveal) {
+        if (!noticeMode && focusAfterReveal) {
           requestAnimationFrame(() => usernameRef.current?.focus({ preventScroll: true }));
         }
         return;
@@ -76,7 +92,7 @@ export function LoginRoute() {
       const timeline = gsap.timeline({
         defaults: { ease: motionTokens.ease.route, overwrite: 'auto' },
         onComplete: () => {
-          if (!sessionExpired && focusAfterReveal) {
+          if (!noticeMode && focusAfterReveal) {
             usernameRef.current?.focus({ preventScroll: true });
           }
         },
@@ -98,12 +114,12 @@ export function LoginRoute() {
         }, 'establish')
         .addLabel('panel', compact ? 0.06 : 0.14)
         .fromTo(panel, {
-          y: sessionExpired ? 18 : compact ? 52 : 28,
+          y: noticeMode ? 18 : compact ? 52 : 28,
           autoAlpha: 0.92,
         }, {
           y: 0,
           autoAlpha: 1,
-          duration: sessionExpired
+          duration: noticeMode
             ? motionTokens.duration.state
             : motionTokens.duration.contentRoute,
           clearProps: 'transform,opacity,visibility',
@@ -136,14 +152,14 @@ export function LoginRoute() {
       return () => timeline.kill();
     });
   }, {
-    dependencies: [focusAfterReveal, sessionExpired],
+    dependencies: [focusAfterReveal, noticeMode],
     revertOnUpdate: true,
     scope: routeRef,
   });
 
   useGSAP(() => {
     const root = routeRef.current;
-    if (!root || !sessionExpired || !openingLogin) return;
+    if (!root || !noticeMode || !openingLogin) return;
 
     const panel = root.querySelector<HTMLElement>('[data-auth-panel]');
     const memoryMedia = root.querySelector<HTMLElement>('[data-auth-memory-media]');
@@ -153,7 +169,7 @@ export function LoginRoute() {
       const revealLogin = (): void => {
         navigate(loginHref, {
           replace: true,
-          state: { from: interruptedDestination, revealLogin: true },
+          state: { from: returnTo, revealLogin: true },
         });
       };
 
@@ -186,11 +202,11 @@ export function LoginRoute() {
     });
   }, {
     dependencies: [
-      interruptedDestination,
       loginHref,
       navigate,
+      noticeMode,
       openingLogin,
-      sessionExpired,
+      returnTo,
     ],
     revertOnUpdate: true,
     scope: routeRef,
@@ -228,13 +244,6 @@ export function LoginRoute() {
     if (hasError) setHasError(false);
   };
 
-  const returnTo = loginReturnDestination(
-    location.search,
-    typeof location.state?.from === 'string' ? location.state.from : undefined,
-  );
-  const registrationHref = `/register?returnTo=${encodeURIComponent(returnTo)}`;
-  const signInHref = `/login?returnTo=${encodeURIComponent(returnTo)}`;
-
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -256,21 +265,23 @@ export function LoginRoute() {
     setHasError(false);
 
     try {
+      let session: Awaited<ReturnType<typeof authApi.login>>['session'];
       if (registering) {
         const input: RegisterRequest = {
           username: submittedUsername,
           password: submittedPassword,
           ...(submittedDisplayName ? { displayName: submittedDisplayName } : {}),
         };
-        await authApi.register(input);
+        session = (await authApi.register(input)).session;
       } else {
         const input: LoginRequest = {
           username: submittedUsername,
           password: submittedPassword,
           platform: 'web',
         };
-        await authApi.login(input);
+        session = (await authApi.login(input)).session;
       }
+      queryClient.setQueryData(sessionQueryKey, session);
       const pending = consumePendingAction();
       const stateFrom =
         typeof location.state?.from === 'string'
@@ -292,16 +303,18 @@ export function LoginRoute() {
   return (
     <section
       ref={routeRef}
-      aria-label={copy(
-        sessionExpired
-          ? 'sessionExpiredTitle'
-          : registering
-            ? 'registerTitle'
-            : 'signInTitle',
-      )}
-      className={`auth-route auth-route--${sessionExpired ? 'expired' : 'login'}`}
+      aria-label={authRequired
+        ? t('session.authRequiredTitle')
+        : copy(
+            sessionExpired
+              ? 'sessionExpiredTitle'
+              : registering
+                ? 'registerTitle'
+                : 'signInTitle',
+          )}
+      className={`auth-route auth-route--${sessionExpired ? 'expired' : authRequired ? 'required' : 'login'}`}
       data-auth-state={busy ? 'submitting' : hasError ? 'error' : 'ready'}
-      data-auth-mode={sessionExpired ? 'expired' : registering ? 'register' : 'login'}
+      data-auth-mode={sessionExpired ? 'expired' : authRequired ? 'required' : registering ? 'register' : 'login'}
       data-cinema-scene="auth"
     >
       <div className="auth-route__spatial" aria-hidden="true">
@@ -318,7 +331,7 @@ export function LoginRoute() {
         </div>
       </div>
 
-      {!sessionExpired ? (
+      {!noticeMode ? (
         <p className="auth-route__manifesto" data-auth-manifesto aria-hidden="true">
           {copy('spatialTitle')}
         </p>
@@ -326,11 +339,21 @@ export function LoginRoute() {
 
       <div className="auth-route__form-column" data-auth-panel>
         <Surface className="auth-route__surface">
-          {sessionExpired ? (
+          {noticeMode ? (
             <section className="auth-route__expired-panel">
               <header className="auth-route__expired-header">
-                <h1>{copy('sessionExpiredTitle')}</h1>
-                <p>{copy('sessionExpiredBody')}</p>
+                <h1>
+                  {authRequired
+                    ? t('session.authRequiredTitle')
+                    : copy('sessionExpiredTitle')}
+                </h1>
+                <p>
+                  {authRequired
+                    ? t('session.authRequiredBody', {
+                        destination: t(destinationLabelKey(returnTo)),
+                      })
+                    : copy('sessionExpiredBody')}
+                </p>
               </header>
               <div className="auth-route__recovery">
                 <strong>{copy('sessionRecoveryTitle')}</strong>
@@ -339,7 +362,7 @@ export function LoginRoute() {
               <Link
                 aria-disabled={openingLogin || undefined}
                 className="auth-route__continue"
-                state={{ from: interruptedDestination }}
+                state={{ from: returnTo }}
                 to={loginHref}
                 onClick={(event) => {
                   event.preventDefault();
@@ -349,6 +372,20 @@ export function LoginRoute() {
                 <span>{copy('continueSignIn')}</span>
                 <ArrowRight aria-hidden="true" />
               </Link>
+              {authRequired ? (
+                <div className="auth-route__notice-links">
+                  <Link
+                    className="auth-route__guest-link"
+                    state={{ from: returnTo }}
+                    to={registrationHref}
+                  >
+                    {copy('createAccount')}
+                  </Link>
+                  <Link className="auth-route__guest-link" to="/map">
+                    {copy('exploreMap')}
+                  </Link>
+                </div>
+              ) : null}
             </section>
           ) : (
             <>

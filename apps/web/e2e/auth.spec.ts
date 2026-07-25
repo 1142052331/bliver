@@ -77,7 +77,8 @@ test('guest route contract keeps public surfaces open and protects private works
   await expectNoAxeViolations(page);
   for (const path of ['/publish', '/notifications', '/me', '/admin']) {
     await page.goto(path);
-    await expect(page).toHaveURL(/\/session-expired$/);
+    await expect(page).toHaveURL(/\/auth-required\?/);
+    expect(new URL(page.url()).searchParams.get('returnTo')).toBe(path);
   }
 });
 
@@ -130,6 +131,7 @@ test('map discovery to footprint detail and memory remains one deterministic jou
   await installJourneyApi(page, 'userA');
   await page.goto('/map');
   await expectInteractiveMapReady(page);
+  await expect(page.getByTestId('map-footprint-item')).toHaveCount(3);
   const firstFootprint = page
     .getByRole('button', { name: new RegExp(V2_TEST_FOOTPRINTS[0]!.author.name, 'i') })
     .and(page.getByTestId('map-footprint-item'))

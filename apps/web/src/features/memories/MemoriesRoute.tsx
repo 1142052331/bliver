@@ -47,13 +47,12 @@ interface MemoryTab {
   readonly icon: ComponentType<{ readonly 'aria-hidden'?: boolean }>;
 }
 
-type MemoryView = 'overview' | 'map' | 'timeline' | 'photos' | 'visitors';
+type MemoryView = 'recent' | 'map' | 'timeline' | 'photos' | 'visitors';
 
-const memoryViewOrder: readonly MemoryView[] = ['overview', 'map', 'timeline', 'photos', 'visitors'];
+const memoryViewOrder: readonly MemoryView[] = ['recent', 'map', 'timeline', 'photos', 'visitors'];
 
 const tabs: readonly MemoryTab[] = [
-  { path: '/me', labelKey: 'memories.overview', icon: Archive },
-  { path: '/me/map', labelKey: 'memories.map', icon: Map },
+  { path: '/me', labelKey: 'memories.recentArchive', icon: Archive },
   { path: '/me/timeline', labelKey: 'memories.timeline', icon: Clock3 },
   { path: '/me/photos', labelKey: 'memories.photos', icon: Images },
   { path: '/me/visitors', labelKey: 'memories.visitors', icon: Eye },
@@ -239,7 +238,7 @@ function MemoryPhoto({ item, locale }: { readonly item: MemoryPhotoItem; readonl
           loading="lazy"
           loadingLabel={t('memories.loading')}
           locale={locale}
-          media={status === 'error' ? undefined : { url: item.url, width: 16, height: 10 }}
+        media={status === 'error' ? undefined : { url: item.url, width: 1600, height: 1000 }}
           mediaAlt={t('memories.photoAlt')}
           noMediaLabel={t('memories.photoUnavailable')}
           onMediaStateChange={(next) => {
@@ -332,13 +331,13 @@ function MemoryStatValue({ value }: { readonly value: number }) {
   return <span ref={valueRef} className="memories-summary__value">{value}</span>;
 }
 
-function MemoryStats({ summary, standalone = false }: { readonly summary: MemorySummary | undefined; readonly standalone?: boolean }) {
+function MemoryStats({ summary }: { readonly summary: MemorySummary | undefined }) {
   const { t } = useTranslation();
   const footprintCount = summary?.footprintCount ?? 0;
   const photoCount = summary?.photoCount ?? 0;
   const visitorCount = summary?.visitorCount ?? 0;
   return (
-    <dl className={`memories-summary${standalone ? ' memories-summary--standalone' : ''}`} aria-label={t('memories.memorySummary')} data-memory-primary={standalone ? 'true' : undefined}>
+    <dl className="memories-summary" aria-label={t('memories.memorySummary')}>
       <div><dt>{t('memories.footprints')}</dt><dd><MemoryStatValue value={footprintCount} /></dd></div>
       <div><dt>{t('memories.photos')}</dt><dd><MemoryStatValue value={photoCount} /></dd></div>
       <div><dt>{t('memories.visitors')}</dt><dd><MemoryStatValue value={visitorCount} /></dd></div>
@@ -346,7 +345,7 @@ function MemoryStats({ summary, standalone = false }: { readonly summary: Memory
   );
 }
 
-function MemorySeed({ summary, ownProfile }: { readonly summary: MemorySummary | undefined; readonly ownProfile: boolean }) {
+function MemorySeed({ ownProfile }: { readonly ownProfile: boolean }) {
   const { t } = useTranslation();
   return (
     <section className="memory-seed" aria-labelledby="memory-seed-heading" data-memory-primary="true">
@@ -362,12 +361,11 @@ function MemorySeed({ summary, ownProfile }: { readonly summary: MemorySummary |
           <ArrowUpRight aria-hidden="true" />
         </Link>
       </div>
-      <MemoryStats summary={summary} />
     </section>
   );
 }
 
-function MemoryField({ items, summary, expanded = false, canDelete = false }: { readonly items: readonly MemoryFootprint[]; readonly summary: MemorySummary | undefined; readonly expanded?: boolean; readonly canDelete?: boolean }) {
+function MemoryField({ items, expanded = false, canDelete = false }: { readonly items: readonly MemoryFootprint[]; readonly expanded?: boolean; readonly canDelete?: boolean }) {
   const { i18n, t } = useTranslation();
   const locale = i18n.resolvedLanguage ?? i18n.language;
   const rootRef = useRef<HTMLElement>(null);
@@ -484,7 +482,6 @@ function MemoryField({ items, summary, expanded = false, canDelete = false }: { 
           <Link to="/map"><Map aria-hidden="true" />{t('memories.openMap')}<ArrowUpRight aria-hidden="true" /></Link>
         </div>
       )}
-      <MemoryStats summary={summary} />
     </section>
   );
 }
@@ -526,8 +523,8 @@ export function MemoriesRoute() {
   const isTimeline = location.pathname.endsWith('/timeline');
   const isPhotos = location.pathname.endsWith('/photos');
   const isVisitors = location.pathname.endsWith('/visitors');
-  const isOverview = !isMap && !isTimeline && !isPhotos && !isVisitors;
-  const view: MemoryView = isMap ? 'map' : isTimeline ? 'timeline' : isPhotos ? 'photos' : isVisitors ? 'visitors' : 'overview';
+  const isRecent = !isMap && !isTimeline && !isPhotos && !isVisitors;
+  const view: MemoryView = isMap ? 'map' : isTimeline ? 'timeline' : isPhotos ? 'photos' : isVisitors ? 'visitors' : 'recent';
   const overview = useQuery({ queryKey: ['memories', base], queryFn: () => fetchMemories(base), retry: false });
   const identity = useQuery<PublicProfile | null>({
     queryKey: userId ? ['identity', 'public-profile', userId] : ['identity', 'current-user'],
@@ -637,22 +634,21 @@ export function MemoriesRoute() {
 
   const map = overview.data?.map ?? [];
   const summary = overview.data?.summary;
+  const visibleTabs = userId ? tabs.filter(({ labelKey }) => labelKey !== 'memories.visitors') : tabs;
 
   return (
     <section ref={routeRef} className="memories-route">
-      <IdentityMasthead
-        ownProfile={!userId}
-        profile={identity.data}
-        showMapAction={map.length > 0 || (!isOverview && !isMap)}
-      />
-      {isOverview || isMap
-        ? map.length
-          ? <MemoryField items={map} summary={summary} expanded={isMap} canDelete={!userId} />
-          : <MemorySeed summary={summary} ownProfile={!userId} />
-        : <MemoryStats summary={summary} standalone />}
+      <div className="memories-profile">
+        <IdentityMasthead
+          ownProfile={!userId}
+          profile={identity.data}
+          showMapAction={map.length > 0 || !isRecent}
+        />
+        <MemoryStats summary={summary} />
+      </div>
       <div className="memories-toolbar">
         <nav className="memories-tabs" aria-label={t('memories.memoryViews')}>
-          {tabs.map(({ path, labelKey, icon: Icon }) => {
+          {visibleTabs.map(({ path, labelKey, icon: Icon }) => {
             const destination = userId ? path.replace('/me', base) : path;
             const active = path === '/me' && userId
               ? location.pathname === `/profile/${userId}` || location.pathname === base
@@ -668,7 +664,13 @@ export function MemoriesRoute() {
         </nav>
       </div>
 
-      {isOverview && map.length > 1 ? <div className="memories-overview" data-memory-view="overview"><MemoryLedger items={map.slice(1)} title={t('memories.recentArchive')} titleId="memory-ledger-recent" emptyText={t('memories.noMemories')} canDelete={!userId} /></div> : null}
+      {isRecent
+        ? map.length
+          ? <div className="memories-overview" data-memory-primary="true" data-memory-view="recent"><MemoryLedger items={map} title={t('memories.recentArchive')} titleId="memory-ledger-recent" emptyText={t('memories.noMemories')} canDelete={!userId} /></div>
+          : <MemorySeed ownProfile={!userId} />
+        : null}
+
+      {isMap ? <MemoryField items={map} expanded canDelete={!userId} /> : null}
       {isMap && map.length > 1 ? <div className="memories-map-view" data-memory-view="map"><MemoryLedger items={map.slice(1)} title={t('memories.coordinateIndex')} titleId="memory-ledger-coordinates" emptyText={t('memories.noVisibleMapMemories')} canDelete={!userId} /></div> : null}
       {isTimeline ? (
         <section className="memories-view memories-timeline" aria-labelledby="memories-timeline-heading" data-memory-view="timeline">

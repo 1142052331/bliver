@@ -6,6 +6,7 @@ import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const remote = vi.hoisted(() => ({
+  lastQuery: undefined as Record<string, unknown> | undefined,
   current: {
     data: undefined as { readonly items: readonly Record<string, unknown>[] } | undefined,
     isLoading: true,
@@ -14,7 +15,12 @@ const remote = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('../api.js', () => ({ useMapFootprintsQuery: () => remote.current }));
+vi.mock('../api.js', () => ({
+  useMapFootprintsQuery: (query: Record<string, unknown>) => {
+    remote.lastQuery = query;
+    return remote.current;
+  },
+}));
 vi.mock('../realtime.js', () => ({ connectMapRealtime: () => () => undefined }));
 vi.mock('../MapCanvas.js', () => ({
   MapCanvas: ({ selectedId }: { readonly selectedId?: string }) => (
@@ -82,6 +88,7 @@ function renderRemoteRoute(initialEntry = '/') {
 
 describe('remote map state', () => {
   beforeEach(() => {
+    remote.lastQuery = undefined;
     remote.current = {
       data: undefined,
       isError: false,
@@ -106,10 +113,14 @@ describe('remote map state', () => {
   });
 
   it('preserves a footprint deep link while loading and selects its item when data arrives', () => {
-    const { rerenderRemote } = renderRemoteRoute('/?footprint=footprint-b');
+    const { rerenderRemote } = renderRemoteRoute('/?lat=35.68&lng=139.76&footprint=footprint-b&sheet=preview');
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading map');
     expect(screen.getByTestId('location-search')).toHaveTextContent('footprint=footprint-b');
+    expect(remote.lastQuery?.west).toBeCloseTo(139.74);
+    expect(remote.lastQuery?.south).toBeCloseTo(35.66);
+    expect(remote.lastQuery?.east).toBeCloseTo(139.78);
+    expect(remote.lastQuery?.north).toBeCloseTo(35.7);
 
     remote.current = {
       data: { items: mapItems },

@@ -2,8 +2,9 @@
 
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createMemoryRouter,
   Outlet,
@@ -15,6 +16,8 @@ import { AppShell } from '../AppShell.js';
 import { BliverI18nProvider } from '../../i18n/I18nProvider.js';
 import { createBliverI18n } from '../../i18n/i18n.js';
 import { LOCALE_STORAGE_KEY } from '../../i18n/locale.js';
+import { sessionQueryKey } from '../../features/auth/queries.js';
+import { SessionProvider } from '../providers/SessionProvider.js';
 
 function RouteBody() {
   return <Outlet />;
@@ -29,8 +32,21 @@ function PublishProbe() {
   );
 }
 
-function renderShell(initialEntry = '/map') {
+function renderShell(
+  initialEntry = '/map',
+  sessionState: 'authenticated' | 'guest' = 'authenticated',
+) {
   const instance = createBliverI18n('en');
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  if (sessionState === 'authenticated') {
+    queryClient.setQueryData(sessionQueryKey, {
+      id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70',
+      deviceName: 'Test browser',
+      createdAt: '2026-07-23T00:00:00.000Z',
+      lastSeenAt: '2026-07-23T00:00:00.000Z',
+      current: true,
+    });
+  }
   const router = createMemoryRouter(
     [
       {
@@ -45,16 +61,23 @@ function renderShell(initialEntry = '/map') {
     { initialEntries: [initialEntry] },
   );
 
-  return render(
+  const shell = (
     <BliverI18nProvider instance={instance}>
-      <RouterProvider router={router} />
-    </BliverI18nProvider>,
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider>
+          <RouterProvider router={router} />
+        </SessionProvider>
+      </QueryClientProvider>
+    </BliverI18nProvider>
   );
+  const view = render(shell);
+  return { ...view, queryClient, router };
 }
 
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  vi.unstubAllGlobals();
 });
 
 describe('responsive app shell', () => {
@@ -129,6 +152,43 @@ describe('responsive app shell', () => {
 
     expect(await screen.findByTestId('publish-location')).not.toHaveTextContent(
       'initialPoint',
+    );
+  });
+
+  it.each([
+    ['Messages', '/messages'],
+    ['My space', '/me'],
+  ])('prompts a guest before opening %s', async (label, destination) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ code: 'AUTH_REQUIRED' }),
+    }));
+    const { queryClient, router } = renderShell('/map', 'guest');
+    await waitFor(() => expect(queryClient.getQueryState(sessionQueryKey)?.status).toBe('error'));
+
+    fireEvent.click(screen.getByRole('link', { name: label }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/auth-required'));
+    expect(router.state.location.search).toBe(
+      `?returnTo=${encodeURIComponent(destination)}`,
+    );
+  });
+
+  it('keeps the selected map point when prompting a guest to publish', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ code: 'AUTH_REQUIRED' }),
+    }));
+    const { queryClient, router } = renderShell('/map?lat=31.2&lng=121.4', 'guest');
+    await waitFor(() => expect(queryClient.getQueryState(sessionQueryKey)?.status).toBe('error'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leave footprint' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/auth-required'));
+    expect(router.state.location.search).toBe(
+      `?returnTo=${encodeURIComponent('/publish?lat=31.2&lng=121.4')}`,
     );
   });
 });

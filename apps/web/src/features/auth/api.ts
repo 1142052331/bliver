@@ -12,6 +12,6 @@ export const authApi = {
   session: () => request<SessionDto>('/api/v1/session', { method: 'GET' }, sessionDto),
   me: () => request<PublicUser>('/api/v1/users/me', { method: 'GET' }, publicUser),
   login: (input: LoginRequest) => request<AuthResponse>('/api/v1/auth/login', { method: 'POST', body: JSON.stringify(input) }, authResponse),
-  register: (input: RegisterRequest) => request<{ user: PublicUser }>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify(input) }, { parse: (value) => ({ user: publicUser.parse((value as { user: unknown }).user) }) }),
+  register: (input: RegisterRequest) => request<AuthResponse>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify(input) }, authResponse),
   logout: () => request<void>('/api/v1/auth/logout', { method: 'POST' }, { parse: () => undefined }),
 };

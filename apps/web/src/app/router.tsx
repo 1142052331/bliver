@@ -13,6 +13,7 @@ import type { InitialEntry } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
 import { AppStatusScene } from './AppStatusScene.js';
+import { SessionProvider } from './providers/SessionProvider.js';
 
 const lazyMapRoute = () => import('./routes/map.route.js');
 const lazyActivityRoute = () => import('./routes/activity.route.js');
@@ -27,6 +28,14 @@ const lazyFootprintRoute = () => import('./routes/footprint.route.js');
 const lazyPublishRoute = () => import('./routes/publish.route.js');
 const lazyAdminRoute = () => import('./routes/admin.route.js');
 const lazyAuthGuardRoute = () => import('./routes/auth-guard.route.js');
+
+function RootRoute() {
+  return (
+    <SessionProvider>
+      <AppShell />
+    </SessionProvider>
+  );
+}
 
 function NotFound() {
   const { t } = useTranslation();
@@ -82,7 +91,7 @@ const authRouteLoadingElement = <AuthRouteLoading />;
 const routes = [
   {
     path: '/',
-    element: <AppShell />,
+    element: <RootRoute />,
     children: [
       { index: true, element: <Navigate to="/map" replace /> },
       {
@@ -116,6 +125,11 @@ const routes = [
       },
       {
         path: 'register',
+        lazy: lazyLoginRoute,
+        hydrateFallbackElement: routeLoadingElement,
+      },
+      {
+        path: 'auth-required',
         lazy: lazyLoginRoute,
         hydrateFallbackElement: routeLoadingElement,
       },

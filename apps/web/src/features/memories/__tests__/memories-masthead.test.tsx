@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe('MemoriesRoute masthead', () => {
-  it('shows the published photo and owner-only delete action in the personal archive', async () => {
+  it('opens the personal archive on recent entries without overview or map tabs', async () => {
     const footprintId = '019c2f52-3e9b-7d1f-8d68-cf35d75d9b72';
     const mediaUrl = 'https://res.cloudinary.com/demo/image/upload/v7/bliver/memory.webp';
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
@@ -53,9 +53,42 @@ describe('MemoriesRoute masthead', () => {
     );
 
     expect(await screen.findByText('Evening walk')).toBeVisible();
-    expect(view.container.querySelector('.memory-atlas')).toHaveClass('memory-atlas--single');
-    expect(view.container.querySelector('.memory-atlas__feature img')).toHaveAttribute('src', mediaUrl);
+    expect(screen.getByRole('link', { name: 'Recent archive' })).toHaveAttribute('href', '/me');
+    expect(screen.queryByRole('link', { name: 'Overview' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Map' })).not.toBeInTheDocument();
+    expect(view.container.querySelector('.memory-ledger img')).toHaveAttribute('src', mediaUrl);
     expect(screen.getByRole('button', { name: 'Delete footprint' })).toBeVisible();
+  });
+
+  it('requests responsive photo candidates instead of a 16 pixel source', async () => {
+    const footprintId = '019c2f52-3e9b-7d1f-8d68-cf35d75d9b72';
+    const mediaUrl = 'https://res.cloudinary.com/demo/image/upload/v7/bliver/memory.webp';
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/users/me')) return ok({ id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70', username: 'river', displayName: 'River Song' });
+      if (url.endsWith('/me')) return ok({ summary: { footprintCount: 1, photoCount: 1, visitorCount: 0 }, map: [] });
+      if (url.endsWith('/me/photos')) return ok({
+        items: [{ assetId: 'asset-1', footprintId, url: mediaUrl, createdAt: '2026-07-23T08:00:00.000Z' }],
+      });
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const i18n = createBliverI18n('en');
+
+    render(
+      <QueryClientProvider client={client}>
+        <BliverI18nProvider instance={i18n}>
+          <MemoryRouter initialEntries={['/me/photos']}>
+            <Routes><Route path="/me/photos" element={<MemoriesRoute />} /></Routes>
+          </MemoryRouter>
+        </BliverI18nProvider>
+      </QueryClientProvider>,
+    );
+
+    const image = await screen.findByRole('img', { name: 'Footprint memory' });
+    expect(image.getAttribute('srcset')).toContain('w_320');
+    expect(image.getAttribute('srcset')).toContain('w_1600');
+    expect(image.getAttribute('srcset')).not.toContain('w_16/');
   });
 
   it('grounds the personal archive in the signed-in identity', async () => {
@@ -82,6 +115,7 @@ describe('MemoriesRoute masthead', () => {
     expect(screen.getByText('@river')).toBeVisible();
     expect(screen.getByText('RS')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Notification settings' })).toHaveAttribute('href', '/notifications');
+    expect(screen.getByRole('link', { name: 'Visitors' })).toHaveAttribute('href', '/me/visitors');
     expect(screen.getByRole('heading', { name: 'Begin with one coordinate' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Leave the first footprint' })).toHaveAttribute('href', '/publish');
     expect(screen.queryByRole('heading', { name: 'Map memories' })).not.toBeInTheDocument();
@@ -111,6 +145,7 @@ describe('MemoriesRoute masthead', () => {
     expect(await screen.findByText('Mina Kato')).toBeVisible();
     expect(screen.getByText('@mina')).toBeVisible();
     expect(screen.queryByRole('link', { name: 'Notification settings' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Visitors' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'It is quiet here' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Explore map' })).toHaveAttribute('href', '/map');
   });

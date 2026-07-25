@@ -89,6 +89,10 @@
   gap: 20px;
 }
 
+.auth-route--required .auth-route__expired-panel {
+  gap: 24px;
+}
+
 .auth-route__expired-header {
   display: grid;
   gap: 7px;
@@ -172,6 +176,14 @@
 .auth-route__continue[aria-disabled='true'] {
   pointer-events: none;
   opacity: 0.72;
+}
+
+.auth-route__notice-links {
+  display: grid;
+}
+
+.auth-route__notice-links .auth-route__guest-link {
+  min-block-size: 44px;
 }
 
 .auth-route__header {
@@ -456,6 +468,12 @@
   block-size: 17px;
   flex: 0 0 17px;
   color: var(--bliver-color-success);
+}
+
+@media (max-width: 47.99rem) {
+  .auth-route--required .auth-route__form-column {
+    max-block-size: min(25rem, 44dvh);
+  }
 }
 
 @media (max-width: 22rem) {

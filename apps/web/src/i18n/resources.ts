@@ -89,6 +89,8 @@ export interface FoundationTranslation {
   readonly session: {
     readonly loading: string;
     readonly loadingBody: string;
+    readonly authRequiredTitle: string;
+    readonly authRequiredBody: string;
     readonly expiredTitle: string;
     readonly expiredBody: string;
     readonly signIn: string;
@@ -175,6 +177,8 @@ const en = {
   session: {
     loading: 'Loading session',
     loadingBody: 'Preparing your map and account.',
+    authRequiredTitle: 'Sign in to continue',
+    authRequiredBody: '{{destination}} is connected to your account. Sign in and Bliver will bring you back here.',
     expiredTitle: 'Session expired',
     expiredBody: 'Sign in again to continue.',
     signIn: 'Continue to sign in',
@@ -269,6 +273,8 @@ const zhCN = {
   session: {
     loading: '正在确认登录状态',
     loadingBody: '正在准备地图和账号信息。',
+    authRequiredTitle: '登录后继续',
+    authRequiredBody: '“{{destination}}”与账号内容相连。登录后会回到这里继续。',
     expiredTitle: '登录已过期',
     expiredBody: '请重新登录后继续。',
     signIn: '前往登录',
@@ -363,6 +369,8 @@ const ja = {
   session: {
     loading: 'ログイン状態を確認中',
     loadingBody: '地図とアカウント情報を準備しています。',
+    authRequiredTitle: 'ログインして続ける',
+    authRequiredBody: '「{{destination}}」はアカウントと連携しています。ログイン後、この画面に戻って続けられます。',
     expiredTitle: 'セッションの有効期限が切れました',
     expiredBody: '続けるには、もう一度サインインしてください。',
     signIn: 'サインインへ進む',
