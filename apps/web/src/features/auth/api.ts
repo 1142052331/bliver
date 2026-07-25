@@ -1,5 +1,6 @@
-import type { AuthResponse, LoginRequest, RegisterRequest, PublicUser, SessionDto } from '@bliver/contracts';
-import { authResponse, publicUser, sessionDto } from '@bliver/contracts';
+import type { AuthResponse, LoginRequest, RegisterRequest, PublicUser } from '@bliver/contracts';
+import { authResponse, publicUser } from '@bliver/contracts';
+import { fetchSession } from './session-api.js';
 
 async function request<T>(path: string, init: RequestInit, schema: { parse: (value: unknown) => T }): Promise<T> {
   const response = await fetch(path, { credentials: 'include', ...init, headers: { 'content-type': 'application/json', ...(init.headers ?? {}) } });
@@ -9,7 +10,7 @@ async function request<T>(path: string, init: RequestInit, schema: { parse: (val
 }
 
 export const authApi = {
-  session: () => request<SessionDto>('/api/v1/session', { method: 'GET' }, sessionDto),
+  session: fetchSession,
   me: () => request<PublicUser>('/api/v1/users/me', { method: 'GET' }, publicUser),
   login: (input: LoginRequest) => request<AuthResponse>('/api/v1/auth/login', { method: 'POST', body: JSON.stringify(input) }, authResponse),
   register: (input: RegisterRequest) => request<AuthResponse>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify(input) }, authResponse),
