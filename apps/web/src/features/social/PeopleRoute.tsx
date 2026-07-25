@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ban, Check, Hash, Mail, MessageSquare, Send, ShieldBan, Undo2, UserCheck, UserRoundPlus, UserRoundX, UsersRound, X } from 'lucide-react';
 import { type ReactNode, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Navigate } from 'react-router';
+import { Link, Navigate } from 'react-router-dom';
 
 import { gsap, useGSAP, withMotionPreferences } from '../../platform/motion/gsap.js';
 import {

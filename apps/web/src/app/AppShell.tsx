@@ -8,7 +8,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { LocaleSwitcher } from './LocaleSwitcher.js';
 import { RouteSceneDirector } from './SceneDirector.js';

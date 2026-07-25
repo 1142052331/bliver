@@ -5,7 +5,7 @@ import '@testing-library/jest-dom/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { BliverI18nProvider } from '../../../i18n/I18nProvider.js';
 import { createBliverI18n } from '../../../i18n/i18n.js';
 import { MemoriesRoute } from '../MemoriesRoute.js';

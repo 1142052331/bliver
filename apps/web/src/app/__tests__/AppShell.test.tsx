@@ -10,7 +10,7 @@ import {
   Outlet,
   RouterProvider,
   useLocation,
-} from 'react-router';
+} from 'react-router-dom';
 
 import { AppShell } from '../AppShell.js';
 import { BliverI18nProvider } from '../../i18n/I18nProvider.js';

@@ -4,7 +4,7 @@ import { Button } from '@bliver/ui';
 import { Compass, Image as ImageIcon, MapPin, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router';
+import { useLocation } from 'react-router-dom';
 
 import { consumePendingAction, savePendingAction, type PendingAction } from '../../platform/pending-action.js';
 import {

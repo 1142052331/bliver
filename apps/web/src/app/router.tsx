@@ -8,8 +8,8 @@ import {
   Navigate,
   RouterProvider,
   Link,
-} from 'react-router';
-import type { InitialEntry } from 'react-router';
+} from 'react-router-dom';
+import type { InitialEntry } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
 import { AppStatusScene } from './AppStatusScene.js';

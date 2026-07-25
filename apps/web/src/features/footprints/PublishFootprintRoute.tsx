@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 
 import { MomentFrame } from "../../components/moment/MomentFrame.js";
 import { FootprintMoodMark } from "../../components/moment/FootprintMoodMark.js";

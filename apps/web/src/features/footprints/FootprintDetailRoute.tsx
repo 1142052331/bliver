@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { ConversationSection } from "../activity/ConversationSection.js";
 import { fetchCurrentUser } from "../identity/api.js";

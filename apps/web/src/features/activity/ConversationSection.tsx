@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MessageCircle, Reply, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation } from 'react-router-dom';
 
 import { consumePendingAction, type PendingAction } from '../../platform/pending-action.js';
 import { addComment as defaultAddComment, addReply as defaultAddReply, loadComments as defaultLoadComments } from './api.js';

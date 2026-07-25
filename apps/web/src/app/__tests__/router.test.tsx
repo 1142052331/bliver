@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { InitialEntry } from 'react-router';
+import type { InitialEntry } from 'react-router-dom';
 
 import { AppRouter } from '../router.js';
 import { BliverI18nProvider } from '../../i18n/I18nProvider.js';

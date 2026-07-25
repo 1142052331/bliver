@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Navigate, Outlet, useLocation } from 'react-router';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { useSession } from '../providers/SessionProvider.js';
 

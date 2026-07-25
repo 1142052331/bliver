@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { type CSSProperties, type ComponentType, type ReactNode, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router-dom';
 
 import { MomentFrame } from '../../components/moment/MomentFrame.js';
 import { FootprintMoodMark } from '../../components/moment/FootprintMoodMark.js';
