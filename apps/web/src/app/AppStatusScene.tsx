@@ -17,7 +17,6 @@ export interface AppStatusSceneProps {
   readonly title: string;
   readonly body: string;
   readonly action?: ReactNode;
-  readonly busy?: boolean;
 }
 
 export function AppStatusScene({
@@ -26,7 +25,6 @@ export function AppStatusScene({
   title,
   body,
   action,
-  busy = false,
 }: AppStatusSceneProps) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const statusLabel = code;
@@ -35,8 +33,7 @@ export function AppStatusScene({
   return (
     <div
       ref={sceneRef}
-      aria-busy={busy || undefined}
-      className={`app-status-scene app-status-scene--work app-status-scene--${statusKind}${busy ? ' is-busy' : ''}`}
+      className={`app-status-scene app-status-scene--work app-status-scene--${statusKind}`}
       data-status-kind={statusKind}
     >
       <div
@@ -108,7 +105,7 @@ export function AppStatusScene({
           data-status-point-ring
         />
         <span className="app-status-scene__point" data-status-point>
-          <Icon data-status-point-icon />
+          <Icon />
         </span>
       </div>
 
@@ -133,7 +130,6 @@ export function AppStatusScene({
         <Suspense fallback={null}>
           <LazyAppStatusSceneMotion
             rootRef={sceneRef}
-            busy={busy}
             statusKind={statusKind}
             {...(statusLabel !== undefined ? { statusLabel } : {})}
           />

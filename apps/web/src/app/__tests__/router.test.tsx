@@ -71,6 +71,7 @@ describe('V2 web route contract', () => {
       holdSessionRequest();
       renderRouter(path);
       expect(await screen.findByText('Loading session')).toBeInTheDocument();
+      expect(document.querySelector('.app-loading-scene')).toBeInTheDocument();
       expect(document.querySelector('.app-status-scene')).not.toBeInTheDocument();
     },
   );

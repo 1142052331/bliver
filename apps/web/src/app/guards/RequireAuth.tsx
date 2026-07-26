@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
+import { AppLoadingScene } from '../AppLoadingScene.js';
 import { useSession } from '../providers/SessionProvider.js';
 
 export function RequireAuth() {
@@ -11,14 +12,12 @@ export function RequireAuth() {
 
   if (session.isLoading) {
     return (
-      <p
-        aria-live="polite"
-        className="app-shell__sr-only"
+      <div
+        className="app-shell__status-shell app-shell__status-shell--loading"
         data-auth-session-state="loading"
-        role="status"
       >
-        {t('session.loading')}
-      </p>
+        <AppLoadingScene label={t('session.loading')} />
+      </div>
     );
   }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { LoaderCircle, MapPinned } from 'lucide-react';
+import { MapPinned } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   createBrowserRouter,
@@ -12,6 +12,7 @@ import {
 import type { InitialEntry } from 'react-router-dom';
 
 import { AppShell } from './AppShell.js';
+import { AppLoadingScene } from './AppLoadingScene.js';
 import { AppStatusScene } from './AppStatusScene.js';
 import { SessionProvider } from './providers/SessionProvider.js';
 
@@ -59,17 +60,8 @@ function RouteLoading() {
   const { t } = useTranslation();
 
   return (
-    <div
-      aria-live="polite"
-      className="app-shell__status-shell app-shell__status-shell--scene"
-      role="status"
-    >
-      <AppStatusScene
-        Icon={LoaderCircle}
-        busy
-        body={t('session.loadingBody')}
-        title={t('common.loading')}
-      />
+    <div className="app-shell__status-shell app-shell__status-shell--loading">
+      <AppLoadingScene label={t('common.loading')} />
     </div>
   );
 }
@@ -80,9 +72,12 @@ function AuthRouteLoading() {
   const { t } = useTranslation();
 
   return (
-    <p aria-live="polite" className="app-shell__sr-only" role="status">
-      {t('session.loading')}
-    </p>
+    <div
+      className="app-shell__status-shell app-shell__status-shell--loading"
+      data-auth-session-state="loading"
+    >
+      <AppLoadingScene label={t('session.loading')} />
+    </div>
   );
 }
 

@@ -9,14 +9,12 @@ import {
 
 interface AppStatusSceneMotionProps {
   readonly rootRef: RefObject<HTMLDivElement | null>;
-  readonly busy: boolean;
   readonly statusKind: string;
   readonly statusLabel?: string;
 }
 
 export function AppStatusSceneMotion({
   rootRef,
-  busy,
   statusKind,
   statusLabel,
 }: AppStatusSceneMotionProps) {
@@ -30,7 +28,6 @@ export function AppStatusSceneMotion({
     const traces = scene.querySelectorAll<SVGPathElement>('[data-status-trace]');
     const point = scene.querySelector<HTMLElement>('[data-status-point]');
     const pointRing = scene.querySelector<HTMLElement>('[data-status-point-ring]');
-    const pointIcon = scene.querySelector<SVGElement>('[data-status-point-icon]');
     const details = scene.querySelectorAll<HTMLElement>('[data-status-detail]');
     const measure = scene.querySelector<HTMLElement>('[data-status-measure]');
 
@@ -129,20 +126,10 @@ export function AppStatusSceneMotion({
           clearProps: 'transform,transformOrigin',
         }, 'content+=0.08');
 
-      if (busy && pointIcon) {
-        timeline.to(pointIcon, {
-          rotation: 360,
-          transformOrigin: 'center center',
-          duration: 1,
-          ease: 'none',
-          repeat: -1,
-        }, 'point+=0.04');
-      }
-
       return () => timeline.kill();
     });
   }, {
-    dependencies: [busy, statusKind, statusLabel],
+    dependencies: [statusKind, statusLabel],
     revertOnUpdate: true,
     scope: rootRef,
   });
