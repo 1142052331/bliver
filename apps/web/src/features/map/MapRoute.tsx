@@ -192,6 +192,24 @@ function viewportFromParams(params: URLSearchParams): MapViewportBounds {
   };
 }
 
+function viewportForItems(items: readonly MapItem[]): MapViewportBounds | undefined {
+  if (!items.length) return undefined;
+  const latitudes = items.map((item) => item.displayPoint.lat);
+  const longitudes = items.map((item) => item.displayPoint.lng);
+  const south = Math.min(...latitudes);
+  const north = Math.max(...latitudes);
+  const west = Math.min(...longitudes);
+  const east = Math.max(...longitudes);
+  const latPadding = Math.max(0.5, (north - south) * 0.08);
+  const lngPadding = Math.max(0.5, (east - west) * 0.08);
+  return {
+    west: Math.max(-180, west - lngPadding),
+    south: Math.max(-90, south - latPadding),
+    east: Math.min(180, east + lngPadding),
+    north: Math.min(90, north + latPadding),
+  };
+}
+
 const SEEN_FOOTPRINTS_KEY = 'bliver:map-read-footprints';
 
 function storedSeenFootprints(): Set<string> {
@@ -369,21 +387,19 @@ function MapRouteBody({
 
   const expandMomentGroup = (): void => {
     if (!momentGroup?.items.length) return;
-    const latitudes = momentGroup.items.map((item) => item.displayPoint.lat);
-    const longitudes = momentGroup.items.map((item) => item.displayPoint.lng);
-    const south = Math.min(...latitudes);
-    const north = Math.max(...latitudes);
-    const west = Math.min(...longitudes);
-    const east = Math.max(...longitudes);
-    const latPadding = Math.max(0.006, (north - south) * 0.24);
-    const lngPadding = Math.max(0.006, (east - west) * 0.24);
+    const overview = viewportForItems(visibleItems.length ? visibleItems : momentGroup.items);
+    if (!overview) return;
+    setMomentGroup(undefined);
+    setChronoAnchor(undefined);
     updateParams((next) => {
-      next.set('west', String(Math.max(-180, west - lngPadding)));
-      next.set('south', String(Math.max(-90, south - latPadding)));
-      next.set('east', String(Math.min(180, east + lngPadding)));
-      next.set('north', String(Math.min(90, north + latPadding)));
-      next.set('lat', String((south + north) / 2));
-      next.set('lng', String((west + east) / 2));
+      next.set('west', String(overview.west));
+      next.set('south', String(overview.south));
+      next.set('east', String(overview.east));
+      next.set('north', String(overview.north));
+      next.set('lat', String((overview.south + overview.north) / 2));
+      next.set('lng', String((overview.west + overview.east) / 2));
+      next.delete('footprint');
+      next.set('sheet', 'closed');
       next.delete('cursor');
     });
   };

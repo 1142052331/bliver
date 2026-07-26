@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MapRoute } from '../MapRoute.js';
 import { ChronoLens } from '../ChronoLens.js';
@@ -65,13 +65,21 @@ vi.mock('../MapCanvas.js', () => ({
   ),
 }));
 
+function LocationSearchProbe() {
+  const location = useLocation();
+  return <div data-testid="location-search">{location.search}</div>;
+}
+
 function renderRoute(element: React.ReactNode) {
   const instance = createBliverI18n('en');
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const renderElement = (node: React.ReactNode) => (
     <QueryClientProvider client={client}>
       <BliverI18nProvider instance={instance}>
-        <MemoryRouter>{node}</MemoryRouter>
+        <MemoryRouter>
+          {node}
+          <LocationSearchProbe />
+        </MemoryRouter>
       </BliverI18nProvider>
     </QueryClientProvider>
   );
@@ -181,6 +189,40 @@ describe('V2 map and footprint features', () => {
     });
 
     await waitFor(() => expect(screen.queryByTestId('chrono-lens')).not.toBeInTheDocument());
+  });
+
+  it('returns a regional cluster card to the complete footprint overview', () => {
+    renderRoute(<MapRoute state="ready" items={[
+      {
+        id: 'japan',
+        author: { name: 'Aoi' },
+        displayPoint: { lat: 35.68, lng: 139.76 },
+        visibility: 'public',
+        locationPrecision: 'approximate',
+        publishedAt: '2026-07-15T08:00:00.000Z',
+      },
+      {
+        id: 'beijing',
+        author: { name: 'Lin' },
+        displayPoint: { lat: 39.9, lng: 116.4 },
+        visibility: 'public',
+        locationPrecision: 'approximate',
+        publishedAt: '2026-07-14T08:00:00.000Z',
+      },
+    ]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Activate cluster' }));
+    expect(screen.getByTestId('moment-deck')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
+
+    expect(screen.queryByTestId('moment-deck')).not.toBeInTheDocument();
+    const search = screen.getByTestId('location-search').textContent ?? '';
+    const params = new URLSearchParams(search);
+    expect(Number(params.get('west'))).toBeLessThan(116.4);
+    expect(Number(params.get('east'))).toBeGreaterThan(139.76);
+    expect(Number(params.get('south'))).toBeLessThan(35.68);
+    expect(Number(params.get('north'))).toBeGreaterThan(39.9);
+    expect(params.get('sheet')).toBe('closed');
   });
 
   it('projects authorized primary media into the Chrono Lens', () => {

@@ -294,7 +294,7 @@ function MomentDeckContent({
           {onExpandMap ? (
             <IconButton
               className="moment-deck__tool"
-              label={t('map.zoomIn')}
+              label={t('map.zoomOut')}
               onClick={onExpandMap}
             >
               <Maximize2 aria-hidden="true" />

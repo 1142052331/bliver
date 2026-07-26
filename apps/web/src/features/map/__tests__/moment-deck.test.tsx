@@ -112,7 +112,7 @@ describe('MomentDeck', () => {
     const onExpandMap = vi.fn();
     const { unmount } = renderDeck([first, second], { onOpen, onClose, onExpandMap });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
     expect(onExpandMap).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: /Open footprint: Footprint by Aoi/ }));
     expect(onOpen).toHaveBeenCalledWith(first);
