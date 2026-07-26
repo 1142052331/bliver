@@ -135,10 +135,16 @@ describe('V2 map and footprint features', () => {
   });
 
   it('renders loading, empty, and privacy-labelled map states', async () => {
-    const { rerenderRoute } = renderRoute(<MapRoute state="loading" items={[]} />);
-    expect(screen.getByRole('status')).toHaveTextContent('Loading map');
+    const { container, rerenderRoute } = renderRoute(<MapRoute state="loading" items={[]} />);
+    const loadingStatus = screen.getByRole('status');
+    expect(loadingStatus).toHaveTextContent('Loading map');
+    expect(loadingStatus.querySelector('.quiet-loading-indicator')).toBeInTheDocument();
+    expect(loadingStatus.querySelector('.map-route__stage-status-icon')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Search places' })).not.toBeInTheDocument();
     rerenderRoute(<MapRoute state="empty" items={[]} />);
     expect(screen.getByRole('heading', { name: 'No footprints here yet' })).toBeInTheDocument();
+    expect(container.querySelector('.quiet-loading-indicator')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search places' })).toBeInTheDocument();
     rerenderRoute(<MapRoute state="ready" items={[{ id: 'one', author: { name: 'A' }, displayPoint: { lat: 31, lng: 121 }, visibility: 'friends', locationPrecision: 'approximate', publishedAt: new Date().toISOString() }]} />);
     expect(screen.queryByTestId('chrono-lens')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Activate point' }));

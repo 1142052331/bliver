@@ -1,7 +1,7 @@
 import { placeSearchResponse, type FootprintMediaPreview } from '@bliver/contracts';
 import { Button } from '@bliver/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CloudOff, LoaderCircle, MapPin } from 'lucide-react';
+import { AlertTriangle, CloudOff, MapPin } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -13,12 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
-import {
-  gsap,
-  motionTokens,
-  useGSAP,
-  withMotionPreferences,
-} from '../../platform/motion/gsap.js';
+import { QuietLoadingIndicator } from '../../components/status/QuietLoadingIndicator.js';
 import {
   MapCanvas,
   type MapCanvasItem,
@@ -83,46 +78,6 @@ interface MomentGroupSelection {
  */
 function MapStageStatus({ kind, offline = false, onRetry }: MapStageStatusProps) {
   const { t } = useTranslation();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const iconRef = useRef<SVGSVGElement>(null);
-
-  useGSAP(() => {
-    const root = rootRef.current;
-    if (!root) return;
-
-    return withMotionPreferences(root, ({ reducedMotion }) => {
-      const animated = [root, iconRef.current].filter(
-        (node): node is HTMLDivElement | SVGSVGElement => node !== null,
-      );
-      gsap.killTweensOf(animated);
-
-      if (reducedMotion) {
-        gsap.set(animated, {
-          clearProps: 'transform,opacity,visibility,willChange',
-        });
-        return;
-      }
-
-      const timeline = gsap.timeline({ defaults: { overwrite: 'auto' } });
-      timeline.fromTo(root, { opacity: 0.62, y: 14 }, {
-        opacity: 1,
-        y: 0,
-        duration: motionTokens.duration.state,
-        ease: motionTokens.ease.quiet,
-        clearProps: 'transform,opacity',
-      });
-      if (kind === 'loading' && iconRef.current) {
-        timeline.to(iconRef.current, {
-          rotation: 360,
-          transformOrigin: 'center center',
-          duration: 0.9,
-          ease: 'none',
-          repeat: -1,
-        }, 0);
-      }
-      return () => timeline.kill();
-    });
-  }, { dependencies: [kind], scope: rootRef, revertOnUpdate: true });
 
   const title = kind === 'loading'
     ? t('map.loading')
@@ -138,26 +93,36 @@ function MapStageStatus({ kind, offline = false, onRetry }: MapStageStatusProps)
       : offline
         ? t('map.offlineBody')
         : t('map.unavailableBody');
-  const Icon = kind === 'loading'
-    ? LoaderCircle
-    : offline
-      ? CloudOff
-      : kind === 'empty'
-        ? MapPin
-        : AlertTriangle;
+  if (kind === 'loading') {
+    return (
+      <div
+        aria-live="polite"
+        className="map-route__stage-status map-route__stage-status--loading"
+        data-map-stage-status="loading"
+        role="status"
+      >
+        <QuietLoadingIndicator label={title} />
+      </div>
+    );
+  }
+
+  const Icon = offline
+    ? CloudOff
+    : kind === 'empty'
+      ? MapPin
+      : AlertTriangle;
 
   return (
     <div
-      ref={rootRef}
       className={`map-route__stage-status map-route__stage-status--${kind}`}
       data-map-stage-status={kind}
       role={kind === 'error' ? 'alert' : 'status'}
     >
       <span className="map-route__stage-status-icon" aria-hidden="true">
-        <Icon ref={iconRef} />
+        <Icon />
       </span>
       <span className="map-route__stage-status-copy">
-        {kind === 'loading' ? <strong>{title}</strong> : <h2>{title}</h2>}
+        <h2>{title}</h2>
         {body ? <span>{body}</span> : null}
       </span>
       {kind === 'error' && onRetry ? (
@@ -538,31 +503,33 @@ function MapRouteBody({
       aria-busy={mapLoading}
     >
       <h1 className="map-route__title">{t('map.title')}</h1>
-      <MapControls
-        visibility={params.get('visibility') ?? ''}
-        searchOpen={searchOpen}
-        {...(controlStatus ? { status: controlStatus } : {})}
-        onDismissStatus={() => setControlStatus(undefined)}
-        onSearch={search}
-        onSearchOpenChange={(open) => {
-          if (!open) {
-            searchAbortRef.current?.abort();
-            searchAbortRef.current = null;
-          }
-          updateParams((next) => {
-            if (open) next.set('search', 'open');
-            else next.delete('search');
-          });
-        }}
-        onLocate={locate}
-        onVisibilityChange={(value) => {
-          updateParams((next) => {
-            if (value) next.set('visibility', value);
-            else next.delete('visibility');
-            next.delete('cursor');
-          });
-        }}
-      />
+      {!mapLoading ? (
+        <MapControls
+          visibility={params.get('visibility') ?? ''}
+          searchOpen={searchOpen}
+          {...(controlStatus ? { status: controlStatus } : {})}
+          onDismissStatus={() => setControlStatus(undefined)}
+          onSearch={search}
+          onSearchOpenChange={(open) => {
+            if (!open) {
+              searchAbortRef.current?.abort();
+              searchAbortRef.current = null;
+            }
+            updateParams((next) => {
+              if (open) next.set('search', 'open');
+              else next.delete('search');
+            });
+          }}
+          onLocate={locate}
+          onVisibilityChange={(value) => {
+            updateParams((next) => {
+              if (value) next.set('visibility', value);
+              else next.delete('visibility');
+              next.delete('cursor');
+            });
+          }}
+        />
+      ) : null}
       <MapCanvas
         items={visibleItems}
         viewport={viewport}

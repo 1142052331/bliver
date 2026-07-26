@@ -15,7 +15,7 @@ describe('AppLoadingScene', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading session');
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
-    expect(container.querySelector('.app-loading-scene__track')).toHaveAttribute(
+    expect(container.querySelector('.quiet-loading-indicator__track')).toHaveAttribute(
       'aria-hidden',
       'true',
     );
