@@ -1,8 +1,8 @@
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import type { ActivityPageDto, ActivityQuery, FootprintDto } from '@bliver/contracts';
 import { Button } from '@bliver/ui';
 import { Compass, Image as ImageIcon, MapPin, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 
@@ -441,8 +441,7 @@ function savePendingActivityAction(action: Record<string, string>): void {
 }
 
 export function ActivityRoute(props: ActivityRouteProps) {
-  const client = useMemo(() => new QueryClient(), []);
-  return <QueryClientProvider client={client}><ActivityRouteBody {...props} /></QueryClientProvider>;
+  return <ActivityRouteBody {...props} />;
 }
 
 function ActivityRouteBody({ state = 'ready', items = [], page, onRetry, loadFromApi = false }: ActivityRouteProps) {

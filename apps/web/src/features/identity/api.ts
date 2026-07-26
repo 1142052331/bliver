@@ -5,6 +5,8 @@ import {
 } from '@bliver/contracts';
 
 export type { PublicProfile } from '@bliver/contracts';
+export const currentUserQueryKey = ['identity', 'current-user'] as const;
+
 
 export class IdentityApiError extends Error {
   constructor(readonly code: string, readonly status: number) {

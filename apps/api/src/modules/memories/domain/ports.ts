@@ -27,6 +27,11 @@ export interface MemorySummaryDto {
   readonly photoCount: number;
   readonly visitorCount: number;
 }
+export interface MemoryOverviewDto {
+  readonly summary: MemorySummaryDto;
+  readonly map: readonly FootprintDto[];
+}
+
 
 export interface MemoryQueryPort {
   map(ownerId: UserId, viewer: ActorContext | null): Promise<readonly FootprintDto[]>;
@@ -36,7 +41,7 @@ export interface MemoryQueryPort {
   }>;
   photos(ownerId: UserId, viewer: ActorContext | null, cursor?: string): Promise<MediaPageDto>;
   visitors(ownerId: UserId, viewer: ActorContext | null): Promise<readonly MemoryVisitorDto[]>;
-  summary(ownerId: UserId, viewer: ActorContext | null): Promise<MemorySummaryDto>;
+  overview(ownerId: UserId, viewer: ActorContext | null): Promise<MemoryOverviewDto>;
   recordVisit(ownerId: UserId, visitorId: UserId): Promise<void>;
 }
 

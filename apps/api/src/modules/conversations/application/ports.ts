@@ -103,6 +103,7 @@ export interface ConversationRepository {
 export interface RelationshipQueryPort {
   areFriends(left: UserId, right: UserId): Promise<boolean>;
   isBlocked(left: UserId, right: UserId): Promise<boolean>;
+  findBlockedPeers(actorId: UserId, peerIds: readonly UserId[]): Promise<ReadonlySet<UserId>>;
 }
 
 export interface RelationshipCommandPort {

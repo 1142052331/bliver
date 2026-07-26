@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { BliverI18nProvider } from '../../../i18n/I18nProvider.js';
@@ -20,6 +20,71 @@ afterEach(() => {
 });
 
 describe('MemoriesRoute masthead', () => {
+  it('keeps the recent archive focused on the latest eight footprints', async () => {
+    const memories = Array.from({ length: 10 }, (_, index) => ({
+      id: `019c2f52-3e9b-7d1f-8d68-cf35d75d9b${String(70 + index)}`,
+      message: `Archive ${index + 1}`,
+      publishedAt: new Date(Date.UTC(2026, 6, 25 - index)).toISOString(),
+      visibility: 'public',
+      displayPoint: { lat: 31, lng: 121 },
+    }));
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/users/me')) return ok({ id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70', username: 'river', displayName: 'River Song' });
+      if (url.endsWith('/me')) return ok({ summary: { footprintCount: 10, photoCount: 0, visitorCount: 0 }, map: memories });
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={client}>
+        <BliverI18nProvider instance={createBliverI18n('en')}>
+          <MemoryRouter initialEntries={['/me']}>
+            <Routes><Route path="/me" element={<MemoriesRoute />} /></Routes>
+          </MemoryRouter>
+        </BliverI18nProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Archive 8')).toBeVisible();
+    expect(screen.queryByText('Archive 9')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recent archive' }).parentElement).toHaveTextContent('8');
+  });
+
+  it('groups the full timeline by month and loads earlier pages', async () => {
+    const pageOne = [{
+      id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b72', message: 'July walk', publishedAt: '2026-07-23T08:00:00.000Z', visibility: 'public', displayPoint: { lat: 31, lng: 121 },
+    }];
+    const pageTwo = [{
+      id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b73', message: 'June walk', publishedAt: '2026-06-12T08:00:00.000Z', visibility: 'public', displayPoint: { lat: 39, lng: 116 },
+    }];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/users/me')) return ok({ id: '019c2f52-3e9b-7d1f-8d68-cf35d75d9b70', username: 'river', displayName: 'River Song' });
+      if (url.endsWith('/me')) return ok({ summary: { footprintCount: 2, photoCount: 0, visitorCount: 0 }, map: [...pageOne, ...pageTwo] });
+      if (url.endsWith('/me/timeline')) return ok({ items: pageOne, nextCursor: 'older' });
+      if (url.endsWith('/me/timeline?cursor=older')) return ok({ items: pageTwo, nextCursor: null });
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    const view = render(
+      <QueryClientProvider client={client}>
+        <BliverI18nProvider instance={createBliverI18n('en')}>
+          <MemoryRouter initialEntries={['/me/timeline']}>
+            <Routes><Route path="/me/timeline" element={<MemoriesRoute />} /></Routes>
+          </MemoryRouter>
+        </BliverI18nProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'July 2026' })).toBeVisible();
+    expect(view.container.querySelector('.memories-view__heading > strong')).toHaveTextContent('2');
+    fireEvent.click(screen.getByRole('button', { name: 'Load earlier archive' }));
+    expect(await screen.findByRole('heading', { name: 'June 2026' })).toBeVisible();
+    expect(screen.getByText('June walk')).toBeVisible();
+  });
+
   it('opens the personal archive on recent entries without overview or map tabs', async () => {
     const footprintId = '019c2f52-3e9b-7d1f-8d68-cf35d75d9b72';
     const mediaUrl = 'https://res.cloudinary.com/demo/image/upload/v7/bliver/memory.webp';

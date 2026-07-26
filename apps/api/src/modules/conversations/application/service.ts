@@ -166,13 +166,14 @@ export class ConversationService {
 
   async listConversations(actorId: UserId): Promise<ConversationListRecord[]> {
     const conversations = await this.repository.listForUser(actorId);
-    const visible: ConversationListRecord[] = [];
-    for (const conversation of conversations) {
-      const targetId = conversation.participantLowId === actorId ? conversation.participantHighId : conversation.participantLowId;
-      if (await this.relationships.isBlocked(actorId, targetId)) continue;
-      visible.push(conversation);
-    }
-    return visible;
+    if (!conversations.length) return [];
+    const peer = (conversation: ConversationListRecord): UserId =>
+      conversation.participantLowId === actorId
+        ? conversation.participantHighId
+        : conversation.participantLowId;
+    const peerIds = [...new Set(conversations.map(peer))];
+    const blockedPeers = await this.relationships.findBlockedPeers(actorId, peerIds);
+    return conversations.filter((conversation) => !blockedPeers.has(peer(conversation)));
   }
 
   async getConversation(actorId: UserId, conversationId: string): Promise<ConversationRecord> {

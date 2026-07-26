@@ -2,6 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { FootprintDto } from '@bliver/contracts';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -31,10 +32,13 @@ const second: FootprintDto = {
 
 function renderActivity(node: ReactNode) {
   const i18n = createBliverI18n('en');
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <BliverI18nProvider instance={i18n}>
-      <MemoryRouter>{node}</MemoryRouter>
-    </BliverI18nProvider>,
+    <QueryClientProvider client={client}>
+      <BliverI18nProvider instance={i18n}>
+        <MemoryRouter>{node}</MemoryRouter>
+      </BliverI18nProvider>
+    </QueryClientProvider>,
   );
 }
 

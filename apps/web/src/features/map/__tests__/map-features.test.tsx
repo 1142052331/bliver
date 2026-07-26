@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -66,10 +67,13 @@ vi.mock('../MapCanvas.js', () => ({
 
 function renderRoute(element: React.ReactNode) {
   const instance = createBliverI18n('en');
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const renderElement = (node: React.ReactNode) => (
-    <BliverI18nProvider instance={instance}>
-      <MemoryRouter>{node}</MemoryRouter>
-    </BliverI18nProvider>
+    <QueryClientProvider client={client}>
+      <BliverI18nProvider instance={instance}>
+        <MemoryRouter>{node}</MemoryRouter>
+      </BliverI18nProvider>
+    </QueryClientProvider>
   );
   const result = render(renderElement(element));
   return {

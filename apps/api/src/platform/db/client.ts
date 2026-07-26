@@ -51,7 +51,13 @@ export function createDb(databaseUrl: string, options: { readonly observability?
     throw new Error('Database client has already been created');
   }
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    min: 1,
+    idleTimeoutMillis: 60_000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
+  });
   activePool = pool;
   pool.on('error', () => options.observability?.dependency('dbPool', false));
   const observed = <T>(operation: () => Promise<T>): Promise<T> => observeDatabaseQuery(operation, options.observability, options.now, options.slowQueryMs);

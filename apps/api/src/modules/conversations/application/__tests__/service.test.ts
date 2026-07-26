@@ -1,4 +1,4 @@
-import { createUserId } from '@bliver/domain';
+import { createUserId, type UserId } from '@bliver/domain';
 import { describe, expect, it } from 'vitest';
 
 import { ConversationService } from '../service.js';
@@ -8,6 +8,11 @@ function relationships(friends: readonly string[] = [], blocked: readonly string
   return {
     async areFriends(left: string, right: string) { return friends.includes([left, right].sort().join(':')); },
     async isBlocked(left: string, right: string) { return blocked.includes(`${left}:${right}`) || blocked.includes(`${right}:${left}`); },
+    async findBlockedPeers(left: UserId, peerIds: readonly UserId[]) {
+      return new Set(peerIds.filter((right) =>
+        blocked.includes(`${left}:${right}`) || blocked.includes(`${right}:${left}`),
+      ));
+    },
     async getRelationshipSummary() { return { state: 'none' as const }; },
     async getPendingRequest() { return null; },
   };
@@ -89,15 +94,22 @@ describe('conversation state machine', () => {
     const recipient = createUserId();
     const pair = [sender, recipient].sort().join(':');
     let blocked = false;
+    let batchReads = 0;
     const repository = createMemoryConversationRepository();
-    const relationship = { ...relationships([pair]), async isBlocked() { return blocked; } };
+    const relationship = { ...relationships([pair]), async isBlocked() { return blocked; }, async findBlockedPeers(_actorId: UserId, peerIds: readonly UserId[]) {
+      batchReads += 1;
+      return blocked ? new Set(peerIds) : new Set<UserId>();
+    } };
     const service = new ConversationService(repository, relationship);
     const conversation = await service.getOrCreateDirectConversation(sender, recipient);
     const message = await service.sendMessage(sender, conversation.id, 'unread');
     await expect(service.listConversations(recipient)).resolves.toEqual([expect.objectContaining({ id: conversation.id, unreadCount: 1, lastMessage: expect.objectContaining({ id: message.id }) })]);
+    expect(batchReads).toBe(1);
     await service.markRead(recipient, conversation.id, message.id);
     await expect(service.listConversations(recipient)).resolves.toEqual([expect.objectContaining({ id: conversation.id, unreadCount: 0 })]);
+    expect(batchReads).toBe(2);
     blocked = true;
     await expect(service.listConversations(recipient)).resolves.toEqual([]);
+    expect(batchReads).toBe(3);
   });
 });

@@ -1,10 +1,6 @@
 import { placeSearchResponse, type FootprintMediaPreview } from '@bliver/contracts';
 import { Button } from '@bliver/ui';
-import {
-  QueryClient,
-  QueryClientProvider,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CloudOff, LoaderCircle, MapPin } from 'lucide-react';
 import {
   useCallback,
@@ -171,21 +167,6 @@ function MapStageStatus({ kind, offline = false, onRetry }: MapStageStatusProps)
   );
 }
 
-function numericParam(
-  params: URLSearchParams,
-  key: string,
-  fallback: number,
-  minimum: number,
-  maximum: number,
-): number {
-  const raw = params.get(key);
-  if (raw === null || raw.trim() === '') return fallback;
-  const value = Number(raw);
-  return Number.isFinite(value) && value >= minimum && value <= maximum
-    ? value
-    : fallback;
-}
-
 function viewportFromParams(params: URLSearchParams): MapViewportBounds {
   const rawBounds = {
     west: params.get('west'),
@@ -259,12 +240,7 @@ function storedSeenFootprints(): Set<string> {
 }
 
 export function MapRoute(props: MapRouteProps) {
-  const client = useMemo(() => new QueryClient(), []);
-  return (
-    <QueryClientProvider client={client}>
-      <MapRouteBody {...props} />
-    </QueryClientProvider>
-  );
+  return <MapRouteBody {...props} />;
 }
 
 function MapRouteBody({
@@ -313,12 +289,8 @@ function MapRouteBody({
   }, []);
 
   const viewport = viewportFromParams(params);
-  const requestedLimit = numericParam(params, 'limit', 100, 1, 100);
   const visibility = params.get('visibility');
   const remote = useMapFootprintsQuery({
-    ...viewport,
-    limit: Math.floor(requestedLimit),
-    ...(params.get('cursor') ? { cursor: params.get('cursor') as string } : {}),
     ...(visibility === 'public' || visibility === 'friends' || visibility === 'private' ? {
       visibility,
     } : {}),

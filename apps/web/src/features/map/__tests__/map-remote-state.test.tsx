@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -68,14 +69,17 @@ function HistoryControls() {
 
 function renderRemoteRoute(initialEntry = '/') {
   const instance = createBliverI18n('en');
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const route = () => (
-    <BliverI18nProvider instance={instance}>
-      <MemoryRouter initialEntries={[initialEntry]}>
-        <MapRoute loadFromApi />
-        <LocationProbe />
-        <HistoryControls />
-      </MemoryRouter>
-    </BliverI18nProvider>
+    <QueryClientProvider client={client}>
+      <BliverI18nProvider instance={instance}>
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <MapRoute loadFromApi />
+          <LocationProbe />
+          <HistoryControls />
+        </MemoryRouter>
+      </BliverI18nProvider>
+    </QueryClientProvider>
   );
   const result = render(route());
   return {
@@ -117,10 +121,7 @@ describe('remote map state', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading map');
     expect(screen.getByTestId('location-search')).toHaveTextContent('footprint=footprint-b');
-    expect(remote.lastQuery?.west).toBeCloseTo(139.74);
-    expect(remote.lastQuery?.south).toBeCloseTo(35.66);
-    expect(remote.lastQuery?.east).toBeCloseTo(139.78);
-    expect(remote.lastQuery?.north).toBeCloseTo(35.7);
+    expect(remote.lastQuery).toEqual({});
 
     remote.current = {
       data: { items: mapItems },

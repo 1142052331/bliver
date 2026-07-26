@@ -5,7 +5,7 @@ import { io as socketClient, type Socket } from 'socket.io-client';
 import { authenticateUser, registerUser, revokeSession } from '../../modules/identity/application/commands.js';
 import { createMemoryIdentityRepositories } from '../../modules/identity/application/memory-repositories.js';
 import { ConversationService, createMemoryConversationRepository } from '../../modules/conversations/index.js';
-import { parseUserId } from '@bliver/domain';
+import { parseUserId, type UserId } from '@bliver/domain';
 import { ObservabilityRegistry } from '../../platform/observability/index.js';
 import { InMemoryOutbox, OutboxWorker } from '../../platform/outbox/index.js';
 
@@ -16,7 +16,7 @@ describe('realtime privacy boundary', () => {
     const aliceId = parseUserId('019f0000-0000-7000-8000-000000000021');
     const bobId = parseUserId('019f0000-0000-7000-8000-000000000022');
     const pair = [aliceId, bobId].sort().join(':');
-    const relationships = { async areFriends(left: string, right: string) { return [left, right].sort().join(':') === pair; }, async isBlocked() { return false; } };
+    const relationships = { async areFriends(left: string, right: string) { return [left, right].sort().join(':') === pair; }, async isBlocked() { return false; }, async findBlockedPeers() { return new Set<UserId>(); } };
     const outbox = new InMemoryOutbox();
     const repository = createMemoryConversationRepository();
     const appendEvent = repository.appendEvent.bind(repository);
@@ -71,7 +71,7 @@ describe('realtime privacy boundary', () => {
     const aliceGrant = await authenticateUser(identity, { username: 'socketalice', password: 'password-123', platform: 'capacitor' });
     const bobGrant = await authenticateUser(identity, { username: 'socketbob', password: 'password-123', platform: 'capacitor' });
     const pair = [alice.id, bob.id].sort().join(':');
-    const relationships = { async areFriends(left: string, right: string) { return [left, right].sort().join(':') === pair; }, async isBlocked() { return false; } };
+    const relationships = { async areFriends(left: string, right: string) { return [left, right].sort().join(':') === pair; }, async isBlocked() { return false; }, async findBlockedPeers() { return new Set<UserId>(); } };
     const outbox = new InMemoryOutbox();
     const repository = createMemoryConversationRepository();
     const appendEvent = repository.appendEvent.bind(repository);

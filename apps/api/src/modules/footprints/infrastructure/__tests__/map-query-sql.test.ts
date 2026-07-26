@@ -6,6 +6,22 @@ import { MapFootprintQuery } from '../../application/map-query.js';
 import { FootprintVisibilityPolicy } from '../../domain/visibility-policy.js';
 
 describe('Postgres map query SQL', () => {
+  it('omits the degenerate geography envelope for a global query', async () => {
+    const query = vi.fn(async () => ({ rows: [] }));
+    const repositories = createPostgresFootprintRepositories({ query } as unknown as DatabaseClient);
+
+    await repositories.listInViewport({
+      bounds: { west: -179.999999, south: -89.999999, east: 179.999999, north: 89.999999 },
+      limit: 100,
+    });
+
+    const [sql, values] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(sql).not.toContain('ST_MakeEnvelope');
+    expect(sql).toMatch(/f\.visibility = 'public'/);
+    expect(sql).toMatch(/LIMIT \$1/);
+    expect(values).toEqual([100]);
+  });
+
   it('pushes cursor and bounded limit into the public viewport query', async () => {
     const query = vi.fn(async () => ({ rows: [] }));
     const repositories = createPostgresFootprintRepositories({ query } as unknown as DatabaseClient);

@@ -185,6 +185,15 @@ export function createPostgresSocialRepository(db: DatabaseClient): PostgresSoci
       return Boolean(result.rowCount);
     },
     async isBlocked(left, right) { const result = await db.query<Row>('SELECT true AS exists FROM blocks WHERE (blocker_id=$1 AND blocked_id=$2) OR (blocker_id=$2 AND blocked_id=$1) LIMIT 1', [left, right]); return Boolean(result.rowCount); },
+    async findBlockedPeers(actorId, peerIds) {
+      const uniquePeerIds = [...new Set(peerIds.filter((peerId) => peerId !== actorId))];
+      if (!uniquePeerIds.length) return new Set<UserId>();
+      const result = await db.query<Row>(
+        'SELECT DISTINCT CASE WHEN blocker_id=$1 THEN blocked_id ELSE blocker_id END AS peer_id FROM blocks WHERE (blocker_id=$1 AND blocked_id=ANY($2::uuid[])) OR (blocked_id=$1 AND blocker_id=ANY($2::uuid[]))',
+        [actorId, uniquePeerIds],
+      );
+      return new Set(result.rows.map((row) => parseUserId(String(row.peer_id))));
+    },
     async getPendingRequest(left, right) { if (await repository.isBlocked(left, right)) return null; const item = await repository.findFriendship(left, right); return item?.status === 'pending' ? item : null; },
     async getRelationshipSummary(actor, target): Promise<RelationshipSummaryDto> {
       if (await repository.isBlocked(actor, target)) return { state: 'blocked' };

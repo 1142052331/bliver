@@ -103,6 +103,25 @@ describe('Postgres social repository', () => {
     expect(statements[1]).toContain('blocked_id');
   });
 
+  it('loads all blocked peers with one bidirectional query', async () => {
+    const query = vi.fn(async () => ({ rows: [{ peer_id: addresseeId }], rowCount: 1 }));
+    const repository = createPostgresSocialRepository(database(query));
+
+    await expect(repository.findBlockedPeers(requesterId, [addresseeId, addresseeId]))
+      .resolves.toEqual(new Set([addresseeId]));
+
+    expect(query).toHaveBeenCalledOnce();
+    const [sql, values] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(sql).toContain('blocker_id=$1');
+    expect(sql).toContain('blocked_id=$1');
+    expect(sql).toContain('ANY($2::uuid[])');
+    expect(values).toEqual([requesterId, [addresseeId]]);
+
+    await expect(repository.findBlockedPeers(requesterId, []))
+      .resolves.toEqual(new Set());
+    expect(query).toHaveBeenCalledOnce();
+  });
+
   it('does not emit a second UserBlocked event after losing the block uniqueness race', async () => {
     const winnerAt = new Date('2026-07-15T07:00:00.000Z');
     const query = vi.fn()

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
@@ -25,6 +26,11 @@ vi.mock('../MapCanvas.js', () => ({
 }));
 
 import { MapRoute } from '../MapRoute.js';
+
+function withQueryClient(children: React.ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
 
 interface GeolocationCall {
   readonly success: PositionCallback;
@@ -74,12 +80,12 @@ afterEach(() => {
 describe('map geolocation lifecycle', () => {
   it('invalidates an older geolocation callback when a newer request starts', async () => {
     const calls = stubGeolocation();
-    render(
+    render(withQueryClient(
       <MemoryRouter>
         <MapRoute />
         <LocationProbe />
       </MemoryRouter>,
-    );
+    ));
 
     const first = Promise.resolve(controls.current?.onLocate());
     const second = Promise.resolve(controls.current?.onLocate());
@@ -97,7 +103,7 @@ describe('map geolocation lifecycle', () => {
 
   it('invalidates geolocation callbacks when the map route unmounts', async () => {
     const calls = stubGeolocation();
-    render(<MemoryRouter><UnmountHarness /></MemoryRouter>);
+    render(withQueryClient(<MemoryRouter><UnmountHarness /></MemoryRouter>));
 
     const pending = Promise.resolve(controls.current?.onLocate());
     expect(calls).toHaveLength(1);

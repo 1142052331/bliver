@@ -909,8 +909,28 @@
   color: var(--bliver-color-forest-soft);
 }
 
-.memories-timeline > .memory-ledger {
+.memories-timeline__groups {
   margin-top: 8px;
+}
+
+.memories-timeline__groups .memory-ledger + .memory-ledger {
+  margin-top: 18px;
+}
+
+.memories-timeline__groups .memory-ledger__heading h2 {
+  font-size: .9375rem;
+  font-weight: 680;
+}
+
+.memories-timeline__more {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 4px;
+}
+
+.memories-timeline__more button {
+  min-width: min(100%, 220px);
+  min-height: 44px;
 }
 
 .memories-empty {

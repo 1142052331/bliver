@@ -95,6 +95,11 @@ export function createMemorySocialRepository(): SocialRepository {
     async listEvents() { return [...events]; },
     async areFriends(left, right) { return (await repository.findFriendship(left, right))?.status === 'accepted' && !(await repository.isBlocked(left, right)); },
     async isBlocked(left, right) { return blocks.has(blockKey(left, right)) || blocks.has(blockKey(right, left)); },
+    async findBlockedPeers(actorId, peerIds) {
+      return new Set(peerIds.filter((peerId) =>
+        blocks.has(blockKey(actorId, peerId)) || blocks.has(blockKey(peerId, actorId)),
+      ));
+    },
     async getPendingRequest(left, right) {
       if (await repository.isBlocked(left, right)) return null;
       const record = await repository.findFriendship(left, right);

@@ -51,6 +51,7 @@ export interface RelationshipSummaryDto {
 export interface RelationshipQueryPort {
   areFriends(left: UserId, right: UserId): Promise<boolean>;
   isBlocked(left: UserId, right: UserId): Promise<boolean>;
+  findBlockedPeers(actorId: UserId, peerIds: readonly UserId[]): Promise<ReadonlySet<UserId>>;
   getPendingRequest(left: UserId, right: UserId): Promise<FriendshipRecord | null>;
   getRelationshipSummary(actor: UserId, target: UserId): Promise<RelationshipSummaryDto>;
 }

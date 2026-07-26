@@ -39,6 +39,7 @@ import {
 } from "../social/index.js";
 import {
   fetchCurrentUser,
+  currentUserQueryKey,
   fetchPublicProfiles,
   IdentityApiError,
   type PublicProfile,
@@ -78,7 +79,7 @@ import {
 } from "./translations.js";
 import "./conversations.css";
 
-const currentUserKey = ["identity", "me"] as const;
+const currentUserKey = currentUserQueryKey;
 const conversationListKey = ["conversations"] as const;
 const messageKey = (id: string) => ["conversations", id, "messages"] as const;
 const typingKey = (id: string) => ["conversations", id, "typing"] as const;
@@ -251,16 +252,19 @@ export function MessagesRoute() {
     queryKey: currentUserKey,
     queryFn: fetchCurrentUser,
     retry: false,
+    staleTime: 5 * 60 * 1000,
   });
   const conversations = useQuery({
     queryKey: conversationListKey,
     queryFn: fetchConversations,
     retry: 1,
+    staleTime: 30_000,
   });
   const friendships = useQuery({
     queryKey: ["social", "friendships"],
     queryFn: fetchFriendships,
     retry: false,
+    staleTime: 60_000,
   });
   const conversationPeerIds = useMemo(() => {
     if (!user.data) return [];
@@ -278,6 +282,7 @@ export function MessagesRoute() {
     queryFn: () => fetchPublicProfiles(contactIds),
     enabled: contactIds.length > 0,
     retry: false,
+    staleTime: 5 * 60 * 1000,
   });
   const { refetch: refetchUser } = user;
   const { refetch: refetchConversations } = conversations;
@@ -605,11 +610,13 @@ export function ConversationRoute() {
     queryKey: currentUserKey,
     queryFn: fetchCurrentUser,
     retry: false,
+    staleTime: 5 * 60 * 1000,
   });
   const conversations = useQuery({
     queryKey: conversationListKey,
     queryFn: fetchConversations,
     retry: 1,
+    staleTime: 30_000,
   });
   const participantIds = useMemo(() => {
     if (!user.data) return [];
@@ -620,6 +627,7 @@ export function ConversationRoute() {
     queryFn: () => fetchPublicProfiles(participantIds),
     enabled: participantIds.length > 0,
     retry: false,
+    staleTime: 5 * 60 * 1000,
   });
   const messages = useQuery({
     queryKey: messageKey(conversationId),

@@ -1,5 +1,5 @@
 import { Button } from '@bliver/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
   Archive,
   ArrowUpRight,
@@ -20,6 +20,7 @@ import { MomentFrame } from '../../components/moment/MomentFrame.js';
 import { FootprintMoodMark } from '../../components/moment/FootprintMoodMark.js';
 import {
   fetchCurrentUser,
+  currentUserQueryKey,
   fetchPublicProfiles,
   type PublicProfile,
 } from '../identity/api.js';
@@ -511,6 +512,46 @@ function MemoryLedger({ items, title, titleId, emptyText, canDelete = false }: {
   );
 }
 
+function TimelineArchive({
+  items,
+  locale,
+  canDelete,
+}: {
+  readonly items: readonly MemoryFootprint[];
+  readonly locale: string;
+  readonly canDelete: boolean;
+}) {
+  const { t } = useTranslation();
+  if (!items.length) return <MemoryEmpty>{t('memories.timelineEmpty')}</MemoryEmpty>;
+
+  const groups = new globalThis.Map<string, { readonly label: string; readonly items: MemoryFootprint[] }>();
+  for (const item of items) {
+    const date = new Date(item.publishedAt);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const current = groups.get(key) ?? {
+      label: formatDate(item.publishedAt, locale, { month: 'long', year: 'numeric' }),
+      items: [],
+    };
+    current.items.push(item);
+    groups.set(key, current);
+  }
+
+  return (
+    <div className="memories-timeline__groups">
+      {[...groups].map(([key, group]) => (
+        <MemoryLedger
+          key={key}
+          items={group.items}
+          title={group.label}
+          titleId={`memory-ledger-${key}`}
+          emptyText={t('memories.timelineEmpty')}
+          canDelete={canDelete}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function MemoriesRoute() {
   const { i18n, t } = useTranslation();
   const locale = i18n.resolvedLanguage ?? i18n.language;
@@ -525,16 +566,28 @@ export function MemoriesRoute() {
   const isVisitors = location.pathname.endsWith('/visitors');
   const isRecent = !isMap && !isTimeline && !isPhotos && !isVisitors;
   const view: MemoryView = isMap ? 'map' : isTimeline ? 'timeline' : isPhotos ? 'photos' : isVisitors ? 'visitors' : 'recent';
-  const overview = useQuery({ queryKey: ['memories', base], queryFn: () => fetchMemories(base), retry: false });
+  const overview = useQuery({
+    queryKey: ['memories', base],
+    queryFn: () => fetchMemories(base),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
   const identity = useQuery<PublicProfile | null>({
-    queryKey: userId ? ['identity', 'public-profile', userId] : ['identity', 'current-user'],
+    queryKey: userId ? ['identity', 'public-profile', userId] : currentUserQueryKey,
     queryFn: userId
       ? async () => (await fetchPublicProfiles([userId])).find((profile) => profile.id === userId) ?? null
       : fetchCurrentUser,
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
-  const timeline = useQuery<Awaited<ReturnType<typeof fetchTimeline>>>({ queryKey: ['memories', 'timeline', base], queryFn: () => fetchTimeline(base), enabled: location.pathname.endsWith('/timeline') });
+  const timeline = useInfiniteQuery({
+    queryKey: ['memories', 'timeline', base],
+    queryFn: ({ pageParam }) => fetchTimeline(base, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    enabled: isTimeline,
+  });
   const photos = useQuery<Awaited<ReturnType<typeof fetchPhotos>>>({ queryKey: ['memories', 'photos', base], queryFn: () => fetchPhotos(base), enabled: location.pathname.endsWith('/photos') });
   const visitors = useQuery({ queryKey: ['memories', 'visitors', base], queryFn: () => fetchVisitors(base), enabled: location.pathname.endsWith('/visitors') });
 
@@ -634,6 +687,14 @@ export function MemoriesRoute() {
 
   const map = overview.data?.map ?? [];
   const summary = overview.data?.summary;
+  const timelineItems = timeline.data?.pages.reduce<MemoryFootprint[]>((result, page) => {
+    const ids = new Set(result.map(({ id }) => id));
+    for (const item of page.items) if (!ids.has(item.id)) {
+      ids.add(item.id);
+      result.push(item);
+    }
+    return result;
+  }, []) ?? [];
   const visibleTabs = userId ? tabs.filter(({ labelKey }) => labelKey !== 'memories.visitors') : tabs;
 
   return (
@@ -666,7 +727,7 @@ export function MemoriesRoute() {
 
       {isRecent
         ? map.length
-          ? <div className="memories-overview" data-memory-primary="true" data-memory-view="recent"><MemoryLedger items={map} title={t('memories.recentArchive')} titleId="memory-ledger-recent" emptyText={t('memories.noMemories')} canDelete={!userId} /></div>
+          ? <div className="memories-overview" data-memory-primary="true" data-memory-view="recent"><MemoryLedger items={map.slice(0, 8)} title={t('memories.recentArchive')} titleId="memory-ledger-recent" emptyText={t('memories.noMemories')} canDelete={!userId} /></div>
           : <MemorySeed ownProfile={!userId} />
         : null}
 
@@ -674,8 +735,20 @@ export function MemoriesRoute() {
       {isMap && map.length > 1 ? <div className="memories-map-view" data-memory-view="map"><MemoryLedger items={map.slice(1)} title={t('memories.coordinateIndex')} titleId="memory-ledger-coordinates" emptyText={t('memories.noVisibleMapMemories')} canDelete={!userId} /></div> : null}
       {isTimeline ? (
         <section className="memories-view memories-timeline" aria-labelledby="memories-timeline-heading" data-memory-view="timeline">
-          <div className="memories-view__heading" data-memory-arrival><span><CalendarDays aria-hidden="true" /><h2 id="memories-timeline-heading">{t('memories.timeline')}</h2></span><strong>{timeline.data?.items.length ?? 0}</strong></div>
-          <MemoryLedger items={timeline.data?.items ?? []} title={t('memories.chronologicalRecord')} titleId="memory-ledger-timeline" emptyText={t('memories.timelineEmpty')} canDelete={!userId} />
+          <div className="memories-view__heading" data-memory-arrival><span><CalendarDays aria-hidden="true" /><h2 id="memories-timeline-heading">{t('memories.timeline')}</h2></span><strong>{summary?.footprintCount ?? 0}</strong></div>
+          <TimelineArchive items={timelineItems} locale={locale} canDelete={!userId} />
+          {timeline.hasNextPage ? (
+            <div className="memories-timeline__more">
+              <Button
+                variant="secondary"
+                disabled={timeline.isFetchingNextPage}
+                aria-busy={timeline.isFetchingNextPage}
+                onClick={() => void timeline.fetchNextPage()}
+              >
+                {t(timeline.isFetchingNextPage ? 'memories.loadingMoreTimeline' : 'memories.loadMoreTimeline')}
+              </Button>
+            </div>
+          ) : null}
         </section>
       ) : null}
       {isPhotos ? (

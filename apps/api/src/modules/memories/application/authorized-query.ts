@@ -18,6 +18,25 @@ const emptyMediaSource: MemoryMediaSource = {
   },
 };
 
+interface TimelineCursor {
+  readonly publishedAt: string;
+  readonly id: string;
+}
+
+function encodeTimelineCursor(cursor: TimelineCursor): string {
+  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
+}
+
+function decodeTimelineCursor(value: string): TimelineCursor {
+  try {
+    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Partial<TimelineCursor>;
+    if (typeof parsed.publishedAt !== 'string' || typeof parsed.id !== 'string') throw new TypeError();
+    return { publishedAt: parsed.publishedAt, id: parsed.id };
+  } catch {
+    throw new TypeError('Invalid timeline cursor');
+  }
+}
+
 export class AuthorizedMemoryQuery implements MemoryQueryPort {
   constructor(
     private readonly source: MemoryRecordSource,
@@ -48,11 +67,18 @@ export class AuthorizedMemoryQuery implements MemoryQueryPort {
 
   async timeline(ownerId: UserId, viewer: ActorContext | null, cursor?: string) {
     const all = await this.readable(ownerId, viewer);
-    const filtered = cursor ? all.filter((item) => item.publishedAt < cursor) : all;
+    const decoded = cursor ? decodeTimelineCursor(cursor) : null;
+    const filtered = decoded
+      ? all.filter((item) => item.publishedAt < decoded.publishedAt
+        || (item.publishedAt === decoded.publishedAt && item.id < decoded.id))
+      : all;
     const items = filtered.slice(0, 50);
+    const last = items.at(-1);
     return {
       items,
-      nextCursor: filtered.length > items.length ? (items.at(-1)?.publishedAt ?? null) : null,
+      nextCursor: filtered.length > items.length && last
+        ? encodeTimelineCursor({ publishedAt: last.publishedAt, id: last.id })
+        : null,
     };
   }
 
@@ -86,14 +112,19 @@ export class AuthorizedMemoryQuery implements MemoryQueryPort {
     return this.visitorsSource.list(ownerId);
   }
 
-  async summary(ownerId: UserId, viewer: ActorContext | null) {
-    const items = await this.readable(ownerId, viewer);
-    const media = await this.media.listForFootprints(items.map((item) => item.id));
-    const visitors = await this.visitors(ownerId, viewer);
+  async overview(ownerId: UserId, viewer: ActorContext | null) {
+    const map = await this.readable(ownerId, viewer);
+    const [media, visitors] = await Promise.all([
+      this.media.listForFootprints(map.map((item) => item.id)),
+      this.visitors(ownerId, viewer),
+    ]);
     return {
-      footprintCount: items.length,
-      photoCount: media.length,
-      visitorCount: visitors.length,
+      map,
+      summary: {
+        footprintCount: map.length,
+        photoCount: media.length,
+        visitorCount: visitors.length,
+      },
     };
   }
 
@@ -108,8 +139,8 @@ export function createMemoryMemoryRepository(): MemoryQueryPort {
     async timeline() { return { items: [], nextCursor: null }; },
     async photos() { return { items: [], nextCursor: null }; },
     async visitors() { return []; },
-    async summary() {
-      return { footprintCount: 0, photoCount: 0, visitorCount: 0 };
+    async overview() {
+      return { summary: { footprintCount: 0, photoCount: 0, visitorCount: 0 }, map: [] };
     },
     async recordVisit() {},
   };

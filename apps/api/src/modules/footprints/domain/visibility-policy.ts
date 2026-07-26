@@ -190,24 +190,39 @@ export class FootprintVisibilityPolicy {
     actor: ActorContext | null,
     records: readonly FootprintPolicyInput[],
   ): Promise<FootprintPolicyInput[]> {
+    const decisions = await this.readDecisions(actor, records);
+    return records.filter((_record, index) => decisions[index]);
+  }
+
+  async readDtos(
+    actor: ActorContext | null,
+    records: readonly FootprintPolicyInput[],
+  ): Promise<FootprintDto[]> {
+    const decisions = await this.readDecisions(actor, records);
+    return records.flatMap((record, index) => decisions[index] ? [toDto(record)] : []);
+  }
+
+  private async readDecisions(
+    actor: ActorContext | null,
+    records: readonly FootprintPolicyInput[],
+  ): Promise<boolean[]> {
     let actorId: UserId | null = null;
     if (actor) {
       try {
         actorId = parseUserId(actor.userId);
       } catch {
-        return [];
+        return records.map(() => false);
       }
     }
     const caches: ReadFilterCaches = {
       relationships: new Map(),
       moderationCases: new Map(),
     };
-    const decisions = await mapWithConcurrency(
+    return mapWithConcurrency(
       records,
       this.maxReadFilterConcurrency,
       (record) => this.canReadRecord(actor, record, actorId, caches),
     );
-    return records.filter((_record, index) => decisions[index]);
   }
 
   async historyFilter(actor: ActorContext | null, records: readonly FootprintPolicyInput[]): Promise<FootprintPolicyInput[]> {

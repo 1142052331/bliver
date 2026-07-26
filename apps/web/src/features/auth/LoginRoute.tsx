@@ -282,6 +282,7 @@ export function LoginRoute() {
         session = (await authApi.login(input)).session;
       }
       queryClient.setQueryData(sessionQueryKey, session);
+      queryClient.removeQueries({ queryKey: ['map', 'footprints'] });
       const pending = consumePendingAction();
       const stateFrom =
         typeof location.state?.from === 'string'

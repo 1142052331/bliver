@@ -27,26 +27,25 @@ export class MapFootprintQuery {
     const cursor = input.cursor ? decodeSignedCursor(input.cursor, this.options.cursorSecret) : null;
     if (input.cursor && !cursor) throw new TypeError('Invalid cursor');
     const records = await this.options.repository.listInViewport({ bounds: input.bounds, viewerId: input.actor?.userId ?? null, limit: effectiveLimit + 1, ...(cursor ? { cursor } : {}), ...(input.visibility ? { visibility: input.visibility } : {}) });
-    const readable = await this.options.policy.readFilter(input.actor, records);
-    const ordered = [...readable].sort((left, right) => right.publishedAt.getTime() - left.publishedAt.getTime() || right.id.localeCompare(left.id));
+    const ordered = [...records].sort((left, right) => right.publishedAt.getTime() - left.publishedAt.getTime() || right.id.localeCompare(left.id));
     const filtered = cursor ? ordered.filter((record) => record.publishedAt.toISOString() < cursor.publishedAt || (record.publishedAt.toISOString() === cursor.publishedAt && record.id < cursor.id)) : ordered;
-    const page = filtered.slice(0, effectiveLimit);
+    const scanned = filtered.slice(0, effectiveLimit);
+    const page = await this.options.policy.readDtos(input.actor, scanned);
     const readIds = input.actor && this.options.reads
       ? await this.options.reads.readIds(input.actor.userId, page.map((item) => item.id))
       : new Set<string>();
     const now = (this.options.now ?? (() => new Date()))().getTime();
     const items: MapFootprintDto[] = [];
-    for (const item of page) {
-      const dto = await this.options.policy.toPublicDto(input.actor, item);
+    for (const dto of page) {
       items.push({
         ...dto,
-        isNew: item.authorId !== input.actor?.userId
-          && Boolean(item.discoveryExpiresAt && item.discoveryExpiresAt.getTime() > now)
-          && !readIds.has(item.id),
+        isNew: dto.author.id !== input.actor?.userId
+          && Boolean(dto.discoveryExpiresAt && new Date(dto.discoveryExpiresAt).getTime() > now)
+          && !readIds.has(dto.id),
       });
     }
-    const last = page[page.length - 1];
-    return { items, nextCursor: filtered.length > effectiveLimit && last ? encodeSignedCursor({ id: last.id, publishedAt: last.publishedAt.toISOString() }, this.options.cursorSecret) : null, viewerAuthenticated: Boolean(input.actor) };
+    const lastScanned = scanned[scanned.length - 1];
+    return { items, nextCursor: filtered.length > effectiveLimit && lastScanned ? encodeSignedCursor({ id: lastScanned.id, publishedAt: lastScanned.publishedAt.toISOString() }, this.options.cursorSecret) : null, viewerAuthenticated: Boolean(input.actor) };
   }
 }
 
